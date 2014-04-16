@@ -4,6 +4,7 @@
   (:require
     [cemerick.cljs.test :as t]
     [tonsky.datomicscript :as d]))
+
 (enable-console-print!)
 
 (deftest test-transact
@@ -58,15 +59,9 @@
 
 (deftest test-joins
   (let [db (-> (d/create-database)
-               (d/transact [ { :db/id 1
-                               :name  "Ivan"
-                               :age   15 }
-                             { :db/id 2
-                               :name  "Petr"
-                               :age   37 }
-                             { :db/id 3
-                               :name  "Ivan"
-                               :age   37 }]))]
+               (d/transact [ { :db/id 1, :name  "Ivan", :age   15 }
+                             { :db/id 2, :name  "Petr", :age   37 }
+                             { :db/id 3, :name  "Ivan", :age   37 }]))]
     (is (= (d/q '{:find [?e ?v]
                   :where [[?e :name "Ivan"]
                           [?e :age ?v]]} db)
@@ -95,18 +90,22 @@
                           [?e2 :aka ?x]
                           [?e1 :name ?n1]
                           [?e2 :name ?n2]]} db)
-           #{["Ivan" "Ivan"] ["Petr" "Petr"] ["Ivan" "Petr"] ["Petr" "Ivan"]}))))
+           #{["Ivan" "Ivan"]
+             ["Petr" "Petr"]
+             ["Ivan" "Petr"]
+             ["Petr" "Ivan"]}))))
 
 (deftest test-q-coll
   (let [db [ [1 :name "Ivan"]
              [1 :age  19]
-             [1 :aka  "Shtirlitz"]
-             [1 :aka  "JackRyan"] ] ]
+             [1 :aka  "dragon_killer_94"]
+             [1 :aka  "-=autobot=-"] ] ]
     (is (= (d/q '{ :find [?n ?a]
-                   :where [[?e :aka "Shtirlitz"]
+                   :where [[?e :aka "dragon_killer_94"]
                            [?e :name ?n]
                            [?e :age  ?a]]} db)
            #{["Ivan" 19]})))
+  
   (testing "Query over long tuples"
     (let [db [ [1 :name "Ivan" 945 :add]
                [1 :age  39     999 :retract]] ]
@@ -116,6 +115,45 @@
       (is (= (d/q '{ :find [?e ?a ?v ?t]
                      :where [[?e ?a ?v ?t :retract]]} db)
              #{[1 :age 39 999]})))))
+
+(deftest test-q-in
+  (let [db (-> (d/create-database)
+               (d/transact [ { :db/id 1, :name  "Ivan", :age   15 }
+                             { :db/id 2, :name  "Petr", :age   37 }
+                             { :db/id 3, :name  "Ivan", :age   37 }]))
+        query '{:find  [?e]
+                :in    [$ ?attr ?value]
+                :where [[?e ?attr ?value]]}]
+    (is (= (d/q query db :name "Ivan")
+           #{[1] [3]}))
+    (is (= (d/q query db :age 37)
+           #{[2] [3]}))
+    
+    (testing "Named DB"
+      (is (= (d/q '{:find  [?a ?v]
+                    :in    [$db ?e]
+                    :where [[$db ?e ?a ?v]]} db 1)
+             #{[:name "Ivan"]
+               [:age 15]})))
+    
+    (testing "DB join with collection"
+      (is (= (d/q '{:find  [?e ?email]
+                    :in    [$ $b]
+                    :where [[?e :name ?n]
+                            [$b ?n ?email]]}
+                  db
+                  [["Ivan" "ivan@mail.ru"]
+                   ["Petr" "petr@gmail.com"]])
+             #{[1 "ivan@mail.ru"]
+               [2 "petr@gmail.com"]
+               [3 "ivan@mail.ru"]}))))
+  
+  (testing "Query without DB"
+    (is (= (d/q '{:find [?a ?b]
+                  :in [?a ?b]}
+                10 20)
+           #{[10 20]}))))
+
 
 (t/test-ns 'tonsky.test.datomicscript)
 

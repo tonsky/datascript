@@ -81,24 +81,26 @@
 (defn next-eid [db & [offset]]
   (let [max-eid (or (-> (:ea db) keys last) 0)]
     (+ max-eid (or offset 1))))
-  
 
-(defn- bind-where [sym scope]
+
+;; QUERIES
+
+(defn- bind-symbol [sym scope]
   (cond
     (= '_ sym)    nil
     (symbol? sym) (get scope sym nil)
     :else         sym))
 
-(defn- search-datoms [db where scope]
-  (let [bound-where (mapv #(bind-where % scope) where)]
-    (search db bound-where)))
+(defn- search-datoms [where scope]
+  (let [[source & bound-pattern] (map #(bind-symbol % scope) where)]
+    (search source bound-pattern)))
 
 (defn- datom->tuple [d]
   (cond
     (= (type d) Datom)  [(.-e d) (.-a d) (.-v d)]
     (satisfies? ISeqable d) d))
 
-(defn- extend-scope [scope where datom]
+(defn- populate-scope [scope where datom]
   (->>
     (map #(when (and (symbol? %1)
                 (not (contains? scope %1)))
@@ -108,15 +110,25 @@
     (remove nil?)
     (into scope)))
 
-(defn- q-impl [db scope [where & wheres]]
+(defn- normalize-where [where]
+  (let [source (first where)]
+    (if (and (symbol? source)
+             (= \$ (-> source name first)))
+      where
+      (concat ['$] where))))
+
+(defn- q-impl [scope [where & wheres]]
   (if where
-    (let [datoms (search-datoms db where scope)]
-      (mapcat #(q-impl db (extend-scope scope where %) wheres) datoms))
+    (let [where (normalize-where where)
+          datoms (search-datoms where scope)
+          [_ & pattern] where]
+      (mapcat #(q-impl (populate-scope scope pattern %) wheres) datoms))
     [scope]))
 
-(defn q [query db]
-  (let [scopes (q-impl db {} (:where query))]
+(defn q [query & args]
+  (let [scope        (zipmap (:in query '[$]) args)
+        found-scopes (q-impl scope (:where query))]
     (reduce
       #(conj %1 (mapv %2 (:find query)))
       #{}
-      scopes)))
+      found-scopes)))

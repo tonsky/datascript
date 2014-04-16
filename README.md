@@ -1,6 +1,6 @@
 # DatomicScript
 
-This is port of Datomic to ClojureScript.
+This is a port of Datomic to ClojureScript (data model and Datalog query language).
 
 Why? Because nowadays Rich Web Apps are big enough that ad-hoc state management solutions does not work for them.
 
@@ -18,16 +18,18 @@ Right now following features are supported:
 * Queries in Datomic Datalog format, `:find` and `:where` clauses
 * Implicit joins
 * Query over regular collections
+* Parameterized queries (`:in` directive)
+* Query over multiple DB/collections
 
 Expected:
 
-* Parametrized queries (`:in` directive)
 * Conditions, user functions, rules in queries
 * External relations in queries
 * Simplified query syntax (vector-based)
 * Aggregates
 * txReportQueue
 * Better error reporting
+* `:where` clauses order optimization (maybe)
 
 ## Example
 
@@ -36,16 +38,16 @@ Expected:
 
 (let [schema {:aka {:cardinality :many}}
       db (-> (d/create-database schema)
-             (d/transact [ [:add 1 :name "Ivan"]
-                           [:add 1 :age  19]
-                           [:add 1 :aka  "Shtirlitz"]
-                           [:add 1 :aka  "JackRyan"] ]))]
+             (d/transact [ [:add 1 :name "Maksim"]
+                           [:add 1 :age  45]
+                           [:add 1 :aka  "Maks Otto von Stirlitz"]
+                           [:add 1 :aka  "Jack Ryan"] ]))]
   (d/q '{:find [?n ?a]
-         :where [[?e :aka "Shtirlitz"]
+         :where [[?e :aka "Maks Otto von Stirlitz"]
                  [?e :name ?n]
                  [?e :age  ?a]]} db))
 
-;; => #{ ["Ivan" 19] }
+;; => #{ ["Maksim" 45] }
 ```
 
 ## Differences from Big Datomic
