@@ -96,7 +96,26 @@
                           [?e1 :name ?n1]
                           [?e2 :name ?n2]]} db)
            #{["Ivan" "Ivan"] ["Petr" "Petr"] ["Ivan" "Petr"] ["Petr" "Ivan"]}))))
-                              
+
+(deftest test-q-coll
+  (let [db [ [1 :name "Ivan"]
+             [1 :age  19]
+             [1 :aka  "Shtirlitz"]
+             [1 :aka  "JackRyan"] ] ]
+    (is (= (d/q '{ :find [?n ?a]
+                   :where [[?e :aka "Shtirlitz"]
+                           [?e :name ?n]
+                           [?e :age  ?a]]} db)
+           #{["Ivan" 19]})))
+  (testing "Query over long tuples"
+    (let [db [ [1 :name "Ivan" 945 :add]
+               [1 :age  39     999 :retract]] ]
+      (is (= (d/q '{ :find [?e ?v]
+                     :where [[?e :name ?v]]} db)
+             #{[1 "Ivan"]}))
+      (is (= (d/q '{ :find [?e ?a ?v ?t]
+                     :where [[?e ?a ?v ?t :retract]]} db)
+             #{[1 :age 39 999]})))))
 
 (t/test-ns 'tonsky.test.datomicscript)
 

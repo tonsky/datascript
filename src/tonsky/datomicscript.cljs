@@ -1,7 +1,36 @@
 (ns tonsky.datomicscript)
 
 (defrecord Datom [e a v])
-(defrecord DB [schema ea av])
+
+(defprotocol ISearch
+  (-search [data pattern]))
+
+(defrecord DB [schema ea av]
+  ISearch
+  (-search [db [e a v :as pattern]]
+    (case [(when e :+) (when a :+) (when v :+)]
+      [:+  nil nil]
+        (->> (get-in db [:ea e]) vals (apply concat))
+      [nil :+  nil]
+        (->> (get-in db [:av a]) vals (apply concat))
+      [:+  :+  nil]
+        (get-in db [:ea e a])
+      [nil :+  :+]
+        (get-in db [:av a v])
+      [:+  :+  :+]
+        (->> (get-in db [:ea e a])
+             (filter #(= v (.-v %)))))))
+
+(defn- match-tuple [tuple pattern]
+  (every? true?
+    (map #(or (nil? %2) (= %1 %2)) tuple pattern)))
+
+(defn- search [data pattern]
+  (cond
+    (satisfies? ISearch data)
+      (-search data pattern)
+    (satisfies? ISeqable data)
+      (filter #(match-tuple % pattern) data)))
 
 (defn create-database [& [schema]]
   (DB. schema (sorted-map) (sorted-map)))
@@ -52,62 +81,37 @@
 (defn next-eid [db & [offset]]
   (let [max-eid (or (-> (:ea db) keys last) 0)]
     (+ max-eid (or offset 1))))
-
-
-(defn- search-by
   
-  ([db prop prop-value]
-    (let [path (case prop
-                  :e [:ea prop-value]
-                  :a [:av prop-value])]
-      (for [[k datoms] (get-in db path)
-            datom datoms]
-        datom)))
-  
-  ([db prop1 prop1-value
-       prop2 prop2-value]
-    (let [path (case [prop1 prop2]
-                 [:e :a] [:ea prop1-value prop2-value]
-                 [:a :e] [:ea prop2-value prop1-value]
-                 [:a :v] [:av prop1-value prop2-value]
-                 [:v :a] [:av prop1-value prop2-value])]
-      (get-in db path)))
-
-  ([db e a v]
-    (->> (search-by db :e e :a a)
-         (filter #(= v (.-v %))))))
 
 (defn- bind-where [sym scope]
   (cond
-    (= '_ sym) nil
+    (= '_ sym)    nil
     (symbol? sym) (get scope sym nil)
-    :else sym))
+    :else         sym))
 
 (defn- search-datoms [db where scope]
-  (let [bound-where (mapv #(bind-where % scope) where)
-        [e a v]     bound-where
-        pattern     (mapv #(if % '? '_) bound-where)]
-    (case pattern
-      ['? '_ '_] (search-by db :e e)
-      ['_ '? '_] (search-by db :a a)
-      ['? '? '_] (search-by db :e e :a a)
-      ['_ '? '?] (search-by db :a a :v v)
-      ['? '? '?] (search-by db e a v))))
+  (let [bound-where (mapv #(bind-where % scope) where)]
+    (search db bound-where)))
 
-(defn- bind-datom [scope where datom]
+(defn- datom->tuple [d]
+  (cond
+    (= (type d) Datom)  [(.-e d) (.-a d) (.-v d)]
+    (satisfies? ISeqable d) d))
+
+(defn- extend-scope [scope where datom]
   (->>
     (map #(when (and (symbol? %1)
                 (not (contains? scope %1)))
       [%1 %2])
       where
-      [(.-e datom) (.-a datom) (.-v datom)])
+      (datom->tuple datom))
     (remove nil?)
     (into scope)))
 
 (defn- q-impl [db scope [where & wheres]]
   (if where
     (let [datoms (search-datoms db where scope)]
-      (mapcat #(q-impl db (bind-datom scope where %) wheres) datoms))
+      (mapcat #(q-impl db (extend-scope scope where %) wheres) datoms))
     [scope]))
 
 (defn q [query db]

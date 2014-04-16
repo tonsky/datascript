@@ -17,14 +17,17 @@ Right now following features are supported:
 * Multi-valued attributes via schema and `:cardinality` `:many`
 * Queries in Datomic Datalog format, `:find` and `:where` clauses
 * Implicit joins
+* Query over regular collections
 
 Expected:
 
 * Parametrized queries (`:in` directive)
 * Conditions, user functions, rules in queries
-* Query over regular collections, external relations in queries
+* External relations in queries
 * Simplified query syntax (vector-based)
 * Aggregates
+* txReportQueue
+* Better error reporting
 
 ## Example
 
@@ -55,8 +58,10 @@ This library is meant to run inside browser, so it must be fast to start, quick 
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options
 * No full-text search
+* No partitions
 * Simplified schema, no ident attributes, AV index for all datoms
+* Schema required only for attributes with `:cardinality` `:many`
+* Value of any type can be used for entity id, attribute or value. It’s better if they are immutable and fast to compare
 * Schema not queriable
 * No schema migrations
-* Any values are supported for entity id, attribute or value. It’s better if they are immutable and fast to compare
 * Free
