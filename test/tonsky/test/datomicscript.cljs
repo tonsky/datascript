@@ -181,6 +181,37 @@
                 10 20)
            #{[10 20]}))))
 
+(deftest test-user-funs
+  (let [db (-> (d/create-database)
+               (d/transact [ { :db/id 1, :name  "Ivan",  :age   15 }
+                             { :db/id 2, :name  "Petr",  :age   22 }
+                             { :db/id 3, :name  "Slava", :age   37 }]))]
+    (testing "Built-in predicate"
+      (is (= (d/q '{:find  [?e1 ?e2]
+                    :where [[?e1 :age ?a1]
+                            [?e2 :age ?a2]
+                            [(< ?a1 18 ?a2)]]} db)
+             #{[1 2] [1 3]})))
+    
+    (testing "Passing predicate as source"
+      (is (= (d/q '{:find  [?e]
+                    :in [$ ?adult]
+                    :where [[?e :age ?a]
+                            [(?adult ?a)]]}
+                  db
+                  #(> % 18))
+             #{[2] [3]})))
+    
+    (testing "Calling a function"
+      (is (= (d/q '{:find  [?e1 ?e2 ?e3]
+                    :where [[?e1 :age ?a1]
+                            [?e2 :age ?a2]
+                            [?e3 :age ?a3]
+                            [(+ ?a1 ?a2) ?a12]
+                            [(= ?a12 ?a3)]]}
+                  db)
+             #{[1 2 3] [2 1 3]})))
+    ))
 
 (t/test-ns 'tonsky.test.datomicscript)
 

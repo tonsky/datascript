@@ -91,8 +91,11 @@
     (symbol? sym) (get scope sym nil)
     :else         sym))
 
+(defn- bind-symbols [form scope]
+  (map #(bind-symbol % scope) form))
+
 (defn- search-datoms [where scope]
-  (let [[source & bound-pattern] (map #(bind-symbol % scope) where)]
+  (let [[source & bound-pattern] (bind-symbols where scope)]
     (search source bound-pattern)))
 
 (defn- datom->tuple [d]
@@ -117,12 +120,38 @@
       where
       (concat ['$] where))))
 
+
+(def ^:private built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
+                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil? })
+
+(defn- call [[f & args] scope]
+  (let [bound-args (bind-symbols args scope)
+        f          (or (built-ins f) (scope f))]
+    (apply f bound-args)))
+
 (defn- q-impl [scope [where & wheres]]
   (if where
-    (let [where (normalize-where where)
-          datoms (search-datoms where scope)
-          [_ & pattern] where]
-      (mapcat #(q-impl (populate-scope scope pattern %) wheres) datoms))
+    (cond
+      ;; predicate [(pred ?a ?b ?c)]
+      (and (= 1 (count where))
+           (list? (first where)))
+        (when (call (first where) scope)
+          (q-impl scope wheres))
+
+      ;; assignment [(f ?a) ?b]
+      (and (= 2 (count where))
+           (list? (first where))
+           (symbol? (second where)))
+        (let [res (call (first where) scope)
+              scope (assoc scope (second where) res)]
+          (q-impl scope wheres))
+      
+      ;; regular data pattern
+      :else
+        (let [where  (normalize-where where)
+              datoms (search-datoms where scope)
+              [_ & pattern] where]
+          (mapcat #(q-impl (populate-scope scope pattern %) wheres) datoms)))
     [scope]))
 
 

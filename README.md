@@ -21,15 +21,16 @@ Right now following features are supported:
 * Parameterized queries via `:in` clause
 * Tuple, collection, relation binding forms in `:in` clause
 * Query over multiple DB/collections
+* Predicates and user functions in query
 
 Expected:
 
-* Conditions, user functions, rules in queries
+* Other binding forms in transformation fns result
+* Rules
 * Simplified query syntax (vector-based)
 * Aggregates
 * txReportQueue
 * Better error reporting
-* `:where` clauses order optimization (maybe)
 
 ## Example
 
@@ -54,9 +55,11 @@ Expected:
 
 This library is meant to run inside browser, so it must be fast to start, quick to query, single-threaded and ephemeral. You create a database on page load, put some data in it and wait for user to close the page.
 
+Global differences:
+
 * No history support, though history can be implemented on top of immutable DB values
 * No `transaction` attribute
-* No cache segments management, no laziness. All DB must reside in-memory
+* No cache segments management, no laziness. All DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options
 * No full-text search
@@ -67,3 +70,8 @@ This library is meant to run inside browser, so it must be fast to start, quick 
 * Schema not queriable
 * No schema migrations
 * Free
+
+Interface differences:
+
+* Query functions have to be passed as source instead of being referenced by symbol
+* No nested forms in :in like `?in [[?a ?b] ...]` yet
