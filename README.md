@@ -17,14 +17,14 @@ Right now following features are supported:
 * Multi-valued attributes via schema and `:cardinality` `:many`
 * Queries in Datomic Datalog format, `:find` and `:where` clauses
 * Implicit joins
-* Query over regular collections
-* Parameterized queries (`:in` directive)
+* Query over DB or regular collections
+* Parameterized queries via `:in` clause
+* Tuple, collection, relation binding forms in `:in` clause
 * Query over multiple DB/collections
 
 Expected:
 
 * Conditions, user functions, rules in queries
-* External relations in queries
 * Simplified query syntax (vector-based)
 * Aggregates
 * txReportQueue

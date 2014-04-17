@@ -125,10 +125,53 @@
       (mapcat #(q-impl (populate-scope scope pattern %) wheres) datoms))
     [scope]))
 
-(defn q [query & args]
-  (let [scope        (zipmap (:in query '[$]) args)
-        found-scopes (q-impl scope (:where query))]
-    (reduce
-      #(conj %1 (mapv %2 (:find query)))
-      #{}
-      found-scopes)))
+
+(defn- simplify-in-binding [in-form source idx]
+  (cond 
+    ;; collection binding [?x ...]
+    (and (vector? in-form)
+         (= 2    (count in-form))
+         (= '... (second in-form)))
+      (let [sym (symbol (str "$__auto__coll__source" idx))] 
+        {:in     sym
+         :source (map #(vector %) source)
+         :where  [sym (first in-form)]})
+
+    ;; relation binding [[?a ?b]]
+    (and (vector? in-form)
+         (= 1 (count in-form))
+         (vector? (first in-form)))
+      (let [sym (symbol (str "$__auto__rel__source" idx))]
+        {:in     sym
+         :source source
+         :where  (vec (concat [sym] (first in-form)))})
+   
+    ;; tuple binding [?a ?b]
+    (vector? in-form)
+      (let [sym (symbol (str "$__auto__tuple__source" idx))]
+          {:in     sym
+           :source [source]
+           :where  (vec (concat [sym] in-form))})
+   
+    ;; regular binding ?x
+    (symbol? in-form)
+      {:in in-form
+       :source source} ))
+
+(defn- simplify-query [query sources]
+  (let [simplified (mapv simplify-in-binding
+                         (:in query '[$])
+                         sources
+                         (range))]
+    [(assoc query
+       :in    (map :in simplified)
+       :where (concat (->> simplified (map :where) (remove nil?))
+                      (:where query)))
+     (map :source simplified)]))
+
+(defn q [query & sources]
+  (let [[query sources] (simplify-query query sources)
+        scope (zipmap (:in query) sources)]
+    (->> (q-impl scope (:where query))
+      (map #(mapv % (:find query)))
+      (into #{}))))

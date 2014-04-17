@@ -146,7 +146,34 @@
                    ["Petr" "petr@gmail.com"]])
              #{[1 "ivan@mail.ru"]
                [2 "petr@gmail.com"]
-               [3 "ivan@mail.ru"]}))))
+               [3 "ivan@mail.ru"]})))
+    
+    (testing "Relation binding"
+      (is (= (d/q '{:find  [?e ?email]
+                    :in    [$ [[?n ?email]]]
+                    :where [[?e :name ?n]]}
+                  db
+                  [["Ivan" "ivan@mail.ru"]
+                   ["Petr" "petr@gmail.com"]])
+             #{[1 "ivan@mail.ru"]
+               [2 "petr@gmail.com"]
+               [3 "ivan@mail.ru"]})))
+    
+    (testing "Tuple binding"
+      (is (= (d/q '{:find  [?e]
+                    :in    [$ [?name ?age]]
+                    :where [[?e :name ?name]
+                            [?e :age ?age]]}
+                  db ["Ivan" 37])
+             #{[3]})))
+    
+    (testing "Collection binding"
+      (is (= (d/q '{:find  [?attr ?value]
+                    :in    [$ ?e [?attr ...]]
+                    :where [[?e ?attr ?value]]}
+                  db 1 [:name :age])
+             #{[:name "Ivan"] [:age 15]})))
+  )
   
   (testing "Query without DB"
     (is (= (d/q '{:find [?a ?b]
