@@ -181,6 +181,33 @@
                 10 20)
            #{[10 20]}))))
 
+(deftest test-nested-bindings
+  (is (= (d/q '{:find [?k ?v]
+                :in [[[?k ?v] ...]]
+                :where [[(> ?v 1)]]}
+              {:a 1, :b 2, :c 3})
+         #{[:b 2] [:c 3]}))
+  
+  (is (= (d/q '{:find [?k ?min ?max]
+                :in [[[?k ?v] ...] ?minmax]
+                :where [[(?minmax ?v) [?min ?max]]
+                        [(> ?max ?min)]]}
+              {:a [1 2 3 4],
+               :b [5 6 7],
+               :c [3]}
+              #(vector (reduce min %) (reduce max %)))
+         #{[:a 1 4] [:b 5 7]}))
+  
+  (is (= (d/q '{:find [?k ?x]
+                :in [[[?k [?min ?max]] ...] ?range]
+                :where [[(?range ?min ?max) [?x ...]]
+                        [(even? ?x)]]}
+              {:a [1 7], :b [2 4]}
+              range)
+         #{[:a 2] [:a 4] [:a 6] [:b 2]}))
+  )
+
+
 (deftest test-user-funs
   (let [db (-> (d/create-database)
                (d/transact [ { :db/id 1, :name  "Ivan",  :age   15 }
@@ -216,25 +243,29 @@
 (t/test-ns 'tonsky.test.datomicscript)
 
 
-;; (defn random-man []
-;;   (let [id (rand-int 1000000)]
-;;     {:db/id id
-;;      :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-;;      :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-;;      :sex       (rand-nth [:male :female])
-;;      :age       (rand-int 90)}))
 
-;; (defn eid->entity [db eid]
-;;   (let [datoms (search-by-one db :e eid)]
-;;     (reduce #(assoc %1 (.-a %2) (.-v %2)) {:db/id eid} datoms)))
 
-;; (def big-db (reduce transact (create-database nil) (repeatedly 2000 #(vector random-man))))
+;; Performance
 
-;; (count (search-by-two big-db :a :name :v "Ivan"))
-;; (eid->entity big-db (:e (first (search-by-two big-db :a :name :v "Ivan"))))
+(defn now [] (.getTime (js/Date.)))
+(defn measure [f]
+  (let [t0 (now)
+        res (f)]
+    (- (now) t0)))
 
-;; (q '{:find [?e ?a ?s]
-;;      :where [[?e :name "Ivan"]
-;;              [?e :age ?a]
-;;              [?e :sex ?s]]}
-;;    big-db)
+(defn random-man []
+  (let [id (rand-int 1000000)]
+    {:db/id id
+     :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+     :sex       (rand-nth [:male :female])
+     :age       (rand-int 90)}))
+
+;; (def big-db (reduce d/transact
+;;               (d/create-database)
+;;               (repeatedly 2000 #(vector (random-man)))))
+;; (measure #(d/q '{:find [?e ?a ?s]
+;;                  :where [[?e :name "Ivan"]
+;;                          [?e :age ?a]
+;;                          [?e :sex ?s]]}
+;;            big-db))

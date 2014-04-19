@@ -85,6 +85,13 @@
 
 ;; QUERIES
 
+(defn- parse-where [where]
+  (let [source (first where)]
+    (if (and (symbol? source)
+             (= \$ (-> source name first)))
+      [(first where) (next where)]
+      ['$ where])))
+
 (defn- bind-symbol [sym scope]
   (cond
     (= '_ sym)    nil
@@ -94,9 +101,9 @@
 (defn- bind-symbols [form scope]
   (map #(bind-symbol % scope) form))
 
-(defn- search-datoms [where scope]
-  (let [[source & bound-pattern] (bind-symbols where scope)]
-    (search source bound-pattern)))
+(defn- search-datoms [source where scope]
+  (search (bind-symbol source scope)
+          (bind-symbols where scope)))
 
 (defn- datom->tuple [d]
   (cond
@@ -113,12 +120,6 @@
     (remove nil?)
     (into scope)))
 
-(defn- normalize-where [where]
-  (let [source (first where)]
-    (if (and (symbol? source)
-             (= \$ (-> source name first)))
-      where
-      (concat ['$] where))))
 
 
 (def ^:private built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
@@ -129,78 +130,73 @@
         f          (or (built-ins f) (scope f))]
     (apply f bound-args)))
 
-(defn- q-impl [scope [where & wheres]]
-  (if where
-    (cond
-      ;; predicate [(pred ?a ?b ?c)]
-      (and (= 1 (count where))
-           (list? (first where)))
-        (when (call (first where) scope)
-          (q-impl scope wheres))
+(defn looks-like? [pattern form]
+  (cond
+    (= '_ pattern)
+      true
+    (= '[*] pattern)
+      (sequential? form)
+    (sequential? pattern)
+      (and (sequential? form)
+           (= (count form) (count pattern))
+           (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
+                   (map vector pattern form)))
+    (symbol? pattern)
+      (= form pattern)
+    :else ;; (function? pattern)
+      (pattern form)))
 
-      ;; assignment [(f ?a) ?b]
-      (and (= 2 (count where))
-           (list? (first where))
-           (symbol? (second where)))
-        (let [res (call (first where) scope)
-              scope (assoc scope (second where) res)]
-          (q-impl scope wheres))
-      
-      ;; regular data pattern
-      :else
-        (let [where  (normalize-where where)
-              datoms (search-datoms where scope)
-              [_ & pattern] where]
-          (mapcat #(q-impl (populate-scope scope pattern %) wheres) datoms)))
-    [scope]))
+(def collect mapcat)
 
+(defn -q [in+sources wheres scope]
+  (cond
+    (not-empty in+sources) ;; parsing ins
+      (let [[in source] (first in+sources)]
+        (condp looks-like? in
+          '[_ ...] ;; collection binding [?x ...]
+            (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
 
-(defn- simplify-in-binding [in-form source idx]
-  (cond 
-    ;; collection binding [?x ...]
-    (and (vector? in-form)
-         (= 2    (count in-form))
-         (= '... (second in-form)))
-      (let [sym (symbol (str "$__auto__coll__source" idx))] 
-        {:in     sym
-         :source (map #(vector %) source)
-         :where  [sym (first in-form)]})
+          '[[*]]    ;; relation binding [[?a ?b]]
+            (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
 
-    ;; relation binding [[?a ?b]]
-    (and (vector? in-form)
-         (= 1 (count in-form))
-         (vector? (first in-form)))
-      (let [sym (symbol (str "$__auto__rel__source" idx))]
-        {:in     sym
-         :source source
-         :where  (vec (concat [sym] (first in-form)))})
+          '[*]      ;; tuple binding [?a ?b]
+            (recur (concat
+                     (zipmap in source)
+                     (next in+sources))
+                   wheres
+                   scope)
+
+          '_        ;; regular binding ?x
+            (recur (next in+sources)
+                   wheres
+                   (assoc scope in source))))
+
+    (not-empty wheres) ;; parsing wheres
+      (let [where (first wheres)]
+        (condp looks-like? where
+          '[[*]] ;; predicate [(pred ?a ?b ?c)]
+            (when (call (first where) scope)
+              (recur nil (next wheres) scope))
+          
+          '[[*] _] ;; function [(fn ?a ?b) ?res]
+            (let [res (call (first where) scope)]
+              (recur [[(second where) res]] (next wheres) scope))
+          
+          '[*] ;; pattern
+            (let [[source where] (parse-where where)
+                  found          (search-datoms source where scope)]
+              (collect #(-q nil (next wheres) (populate-scope scope where %)) found))
+          ))
    
-    ;; tuple binding [?a ?b]
-    (vector? in-form)
-      (let [sym (symbol (str "$__auto__tuple__source" idx))]
-          {:in     sym
-           :source [source]
-           :where  (vec (concat [sym] in-form))})
-   
-    ;; regular binding ?x
-    (symbol? in-form)
-      {:in in-form
-       :source source} ))
-
-(defn- simplify-query [query sources]
-  (let [simplified (mapv simplify-in-binding
-                         (:in query '[$])
-                         sources
-                         (range))]
-    [(assoc query
-       :in    (map :in simplified)
-       :where (concat (->> simplified (map :where) (remove nil?))
-                      (:where query)))
-     (map :source simplified)]))
+   :else ;; reached bottom
+      [scope]
+    ))
 
 (defn q [query & sources]
-  (let [[query sources] (simplify-query query sources)
-        scope (zipmap (:in query) sources)]
-    (->> (q-impl scope (:where query))
-      (map #(mapv % (:find query)))
+  (let [found (-q (map vector (:in query '[$]) sources)
+                  (:where query)
+                  {})]
+    (->> found
+      (map (fn [scope] (map scope (:find query))))
       (into #{}))))
+

@@ -25,7 +25,6 @@ Right now following features are supported:
 
 Expected:
 
-* Other binding forms in transformation fns result
 * Rules
 * Simplified query syntax (vector-based)
 * Aggregates
@@ -49,6 +48,15 @@ Expected:
                  [?e :age  ?a]]} db))
 
 ;; => #{ ["Maksim" 45] }
+
+(d/q '{ :find  [ ?k ?x ]
+        :in    [ [[?k [?min ?max]] ...] ?range ]
+        :where [ [(?range ?min ?max) [?x ...]]
+                 [(even? ?x)] ]}
+      { :a [1 7], :b [2 4] }
+      range)
+
+;; => #{ [:a 2] [:a 4] [:a 6] [:b 2] }
 ```
 
 ## Differences from Big Datomic
@@ -74,4 +82,3 @@ Global differences:
 Interface differences:
 
 * Query functions have to be passed as source instead of being referenced by symbol
-* No nested forms in :in like `?in [[?a ?b] ...]` yet
