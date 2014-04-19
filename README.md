@@ -22,10 +22,10 @@ Right now following features are supported:
 * Tuple, collection, relation binding forms in `:in` clause
 * Query over multiple DB/collections
 * Predicates and user functions in query
+* Rules, recursive rules
 
 Expected:
 
-* Rules
 * Simplified query syntax (vector-based)
 * Aggregates
 * txReportQueue
@@ -35,6 +35,8 @@ Expected:
 
 ```clj
 (require '[tonsky.datomicscript :as d])
+
+;; Implicit join, multi-valued attribute
 
 (let [schema {:aka {:cardinality :many}}
       db (-> (d/create-database schema)
@@ -49,6 +51,9 @@ Expected:
 
 ;; => #{ ["Maksim" 45] }
 
+
+;; Desctucturing, function call, predicate call
+
 (d/q '{ :find  [ ?k ?x ]
         :in    [ [[?k [?min ?max]] ...] ?range ]
         :where [ [(?range ?min ?max) [?x ...]]
@@ -57,6 +62,23 @@ Expected:
       range)
 
 ;; => #{ [:a 2] [:a 4] [:a 6] [:b 2] }
+
+
+;; Recursive rule
+
+(d/q '{ :find  [ ?u1 ?u2 ]
+        :in    [ $ % ]
+        :where [ (follows ?u1 ?u2) ] }
+      [ [1 :follows 2]
+        [2 :follows 3]
+        [3 :follows 4] ]
+     '[ [(follows ?e1 ?e2)
+         [?e1 :follows ?e2]]
+        [(follows ?e1 ?e2)
+         [?e1 :follows ?t]
+         (follows ?t ?e2)] ])
+
+;; => #{ [1 2] [1 3] [1 4] [2 3] [2 4] [3 4] }
 ```
 
 ## Differences from Big Datomic
@@ -82,3 +104,4 @@ Global differences:
 Interface differences:
 
 * Query functions have to be passed as source instead of being referenced by symbol
+* DB cannot be passed to rule yet

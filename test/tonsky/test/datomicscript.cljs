@@ -61,7 +61,11 @@
   (let [db (-> (d/create-database)
                (d/transact [ { :db/id 1, :name  "Ivan", :age   15 }
                              { :db/id 2, :name  "Petr", :age   37 }
-                             { :db/id 3, :name  "Ivan", :age   37 }]))]
+                             { :db/id 3, :name  "Ivan", :age   37 }
+                             { :db/id 4, :age 15 }]))]
+    (is (= (d/q '{:find [?e]
+                  :where [[?e :name]]} db)
+           #{[1] [2] [3]}))
     (is (= (d/q '{:find [?e ?v]
                   :where [[?e :name "Ivan"]
                           [?e :age ?v]]} db)
@@ -240,10 +244,72 @@
              #{[1 2 3] [2 1 3]})))
     ))
 
+(deftest test-rules
+  (let [db [[1 :follow 2]
+            [2 :follow 3]
+            [3 :follow 4]
+            [2 :follow 4]
+            [5 :follow 3]
+            [4 :follow 6]]]
+    (is (= (d/q '{:find  [?e1 ?e2]
+                  :in    [$ %]
+                  :where [(follow ?e1 ?e2)]}
+                db
+               '[[(follow ?x ?y)
+                  [?x :follow ?y]]])
+           #{[1 2] [2 3] [3 4] [2 4] [5 3] [4 6]}))
+    
+    (is (= (d/q '{:find  [?e2]
+                  :in    [$ ?e1 %]
+                  :where [(follow ?e1 ?e2)]}
+                db
+                1
+               '[[(follow ?e2 ?e1)
+                  [?e2 :follow ?e1]]
+                 [(follow ?e2 ?e1)
+                  [?e2 :follow ?t]
+                  [?t  :follow ?e1]]])
+           #{[2] [3] [4]}))
+    
+    (is (= (d/q '{:find  [?e2]
+                  :in    [$ ?e1 %]
+                  :where [(follow ?e1 ?e2)]}
+                db
+                1
+               '[[(follow ?e1 ?e2)
+                  [?e1 :follow ?e2]]
+                 [(follow ?e1 ?e2)
+                  [?e1 :follow ?t]
+                  (follow ?t ?e2)]])
+           #{[2] [3] [4] [6]}))
+    
+    (is (= (d/q '{:find  [?e1 ?e2]
+                  :in    [$ %]
+                  :where [(f1 ?e1 ?e2)]}
+                [[0 :f1 1]
+                 [1 :f2 2]
+                 [2 :f1 3]
+                 [3 :f2 4]
+                 [4 :f1 5]
+                 [5 :f2 6]]
+               '[[(f1 ?e1 ?e2)
+                  [?e1 :f1 ?e2]]
+                 [(f1 ?e1 ?e2)
+                  [?t :f1 ?e2]
+                  (f2 ?e1 ?t)]
+                 [(f2 ?e1 ?e2)
+                  [?e1 :f2 ?e2]]
+                 [(f2 ?e1 ?e2)
+                  [?t :f2 ?e2]
+                  (f1 ?e1 ?t)]])
+          #{[0 1] [0 3] [0 5]
+            [1 3] [1 5]
+            [2 3] [2 5]
+            [3 5]
+            [4 5]}))
+    ))
+
 (t/test-ns 'tonsky.test.datomicscript)
-
-
-
 
 ;; Performance
 

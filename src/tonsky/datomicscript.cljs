@@ -1,4 +1,6 @@
-(ns tonsky.datomicscript)
+(ns tonsky.datomicscript
+  (:require
+    [clojure.walk :as walk]))
 
 (defrecord Datom [e a v])
 
@@ -120,17 +122,20 @@
     (remove nil?)
     (into scope)))
 
-
+(defn- -differ? [& xs]
+  (let [l (count xs)]
+    (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
 
 (def ^:private built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
-                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil? })
+                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil?,
+                           '-differ? -differ?})
 
 (defn- call [[f & args] scope]
   (let [bound-args (bind-symbols args scope)
         f          (or (built-ins f) (scope f))]
     (apply f bound-args)))
 
-(defn looks-like? [pattern form]
+(defn- looks-like? [pattern form]
   (cond
     (= '_ pattern)
       true
@@ -143,10 +148,28 @@
                    (map vector pattern form)))
     (symbol? pattern)
       (= form pattern)
-    :else ;; (function? pattern)
+    :else ;; (predicate? pattern)
       (pattern form)))
 
 (def collect mapcat)
+
+(defn bind-rule-branch [branch call-args context]
+  (let [[[rule & local-args] & body] branch
+        replacements (zipmap local-args call-args)
+        ;; replacing free vars to unique symbols
+        seqid        (:__depth context 0)
+        bound-body   (walk/postwalk #(if (and (symbol? %)
+                                              (= \? (-> % name first)))
+                                       (or (replacements %)
+                                           (symbol (str (name %) "__auto__" seqid)))
+                                       %)
+                                     body)]
+    ;; recursion breaker
+    ;; adding condition that call args cannot take same values as they took in any previous call to this rule
+    (concat
+      (for [prev-call-args (get context rule)]
+        [(concat ['-differ?] call-args prev-call-args)])
+      bound-body)))
 
 (defn -q [in+sources wheres scope]
   (cond
@@ -156,46 +179,63 @@
           '[_ ...] ;; collection binding [?x ...]
             (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
 
-          '[[*]]    ;; relation binding [[?a ?b]]
+          '[[*]]   ;; relation binding [[?a ?b]]
             (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
 
-          '[*]      ;; tuple binding [?a ?b]
+          '[*]     ;; tuple binding [?a ?b]
             (recur (concat
                      (zipmap in source)
                      (next in+sources))
                    wheres
                    scope)
+          '%       ;; rules
+            (recur (next in+sources)
+                   wheres
+                   (assoc scope :__rules (group-by ffirst source)))
 
-          '_        ;; regular binding ?x
+          '_       ;; regular binding ?x
             (recur (next in+sources)
                    wheres
                    (assoc scope in source))))
 
     (not-empty wheres) ;; parsing wheres
       (let [where (first wheres)]
-        (condp looks-like? where
-          '[[*]] ;; predicate [(pred ?a ?b ?c)]
-            (when (call (first where) scope)
-              (recur nil (next wheres) scope))
+        
+        ;; rule (rule ?a ?b ?c)
+        (if-let [rule-branches (get (:__rules scope) (first where))]
+          (let [[rule & call-args] where
+                next-scope (-> scope
+                             (update-in [:__rules_ctx rule] conj call-args)
+                             (update-in [:__rules_ctx :__depth] inc))
+                next-wheres (next wheres)]
+            (collect
+              #(-q nil
+                   (concat (bind-rule-branch % call-args (:__rules_ctx scope)) next-wheres)
+                   next-scope)
+              rule-branches))
           
-          '[[*] _] ;; function [(fn ?a ?b) ?res]
-            (let [res (call (first where) scope)]
-              (recur [[(second where) res]] (next wheres) scope))
-          
-          '[*] ;; pattern
-            (let [[source where] (parse-where where)
-                  found          (search-datoms source where scope)]
-              (collect #(-q nil (next wheres) (populate-scope scope where %)) found))
-          ))
+          (condp looks-like? where
+            '[[*]] ;; predicate [(pred ?a ?b ?c)]
+              (when (call (first where) scope)
+                (recur nil (next wheres) scope))
+
+            '[[*] _] ;; function [(fn ?a ?b) ?res]
+              (let [res (call (first where) scope)]
+                (recur [[(second where) res]] (next wheres) scope))
+
+            '[*] ;; pattern
+              (let [[source where] (parse-where where)
+                    found          (search-datoms source where scope)]
+                (collect #(-q nil (next wheres) (populate-scope scope where %)) found))
+            )))
    
    :else ;; reached bottom
       [scope]
     ))
 
 (defn q [query & sources]
-  (let [found (-q (map vector (:in query '[$]) sources)
-                  (:where query)
-                  {})]
+  (let [ins->sources (zipmap (:in query '[$]) sources)
+        found (-q ins->sources (:where query) {})]
     (->> found
       (map (fn [scope] (map scope (:find query))))
       (into #{}))))
