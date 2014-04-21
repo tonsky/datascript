@@ -9,10 +9,10 @@
 
 (deftest test-transact
   (let [db  (-> (d/create-database {:aka { :cardinality :many }})
-              (d/transact [[:add 1 :name "Ivan"]])
-              (d/transact [[:add 1 :name "Petr"]])
-              (d/transact [[:add 1 :aka  "Devil"]])
-              (d/transact [[:add 1 :aka  "Tupen"]]))]
+              (d/-transact [[:db/add 1 :name "Ivan"]])
+              (d/-transact [[:db/add 1 :name "Petr"]])
+              (d/-transact [[:db/add 1 :aka  "Devil"]])
+              (d/-transact [[:db/add 1 :aka  "Tupen"]]))]
     
     (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
            #{["Petr"]}))
@@ -21,8 +21,8 @@
     
     (testing "Retract"
       (let [db  (-> db
-                  (d/transact [[:retract 1 :name "Petr"]])
-                  (d/transact [[:retract 1 :aka  "Devil"]]))]
+                  (d/-transact [[:db/retract 1 :name "Petr"]])
+                  (d/-transact [[:db/retract 1 :aka  "Devil"]]))]
 
         (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
                #{}))
@@ -31,35 +31,30 @@
     
     (testing "Cannot retract what's not there"
       (let [db  (-> db
-                    (d/transact [[:retract 1 :name "Ivan"]]))]
+                    (d/-transact [[:db/retract 1 :name "Ivan"]]))]
         (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
                #{["Petr"]}))))
     ))
 
 (deftest test-explode
-  (let [db (-> (d/create-database)
-               (d/transact [{:db/id 1
-                             :name  "Ivan"
-                             :age   16}]))]
+  (let [db (-> (d/create-database {:aka { :cardinality :many }
+                                   :also { :cardinality :many}})
+               (d/-transact [{:db/id 1
+                              :name  "Ivan"
+                              :age   16
+                              :aka   ["Devil" "Tupen"]
+                              :also  "ok"}]))]
     (is (= (d/q '{:find [?n ?a] :where [[1 :name ?n]
                                         [1 :age ?a]]} db)
-           #{["Ivan" 16]}))))
-
-;; TODO vectors in explode
-
-;; (deftest test-explode-many
-;;   (let [db (-> (d/create-database {:aka { :cardinality :many }})
-;;                (d/transact [{:db/id 1
-;;                              :name  "Ivan"
-;;                              :aka   ["Devil" "Tupen"]}]))]
-;;     (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
-;;            #{["Ivan"]}))
-;;     (is (= (d/q '{:find [?v] :where [[1 :aka ?v]]} db)
-;;            #{["Devil"] ["Tupen"]}))))
+           #{["Ivan" 16]}))
+    (is (= (d/q '{:find [?v] :where [[1 :also ?v]]} db)
+           #{["ok"]}))
+    (is (= (d/q '{:find [?v] :where [[1 :aka ?v]]} db)
+           #{["Devil"] ["Tupen"]}))))
 
 (deftest test-joins
   (let [db (-> (d/create-database)
-               (d/transact [ { :db/id 1, :name  "Ivan", :age   15 }
+               (d/-transact [ { :db/id 1, :name  "Ivan", :age   15 }
                              { :db/id 2, :name  "Petr", :age   37 }
                              { :db/id 3, :name  "Ivan", :age   37 }
                              { :db/id 4, :age 15 }]))]
@@ -83,12 +78,12 @@
 
 (deftest test-q-many
   (let [db (-> (d/create-database {:aka {:cardinality :many}})
-               (d/transact [ [:add 1 :name "Ivan"]
-                             [:add 1 :aka  "ivolga"]
-                             [:add 1 :aka  "pi"]
-                             [:add 2 :name "Petr"]
-                             [:add 2 :aka  "porosenok"]
-                             [:add 2 :aka  "pi"] ]))]
+               (d/-transact [ [:db/add 1 :name "Ivan"]
+                             [:db/add 1 :aka  "ivolga"]
+                             [:db/add 1 :aka  "pi"]
+                             [:db/add 2 :name "Petr"]
+                             [:db/add 2 :aka  "porosenok"]
+                             [:db/add 2 :aka  "pi"] ]))]
     (is (= (d/q '{:find [?n1 ?n2]
                   :where [[?e1 :aka ?x]
                           [?e2 :aka ?x]
@@ -111,18 +106,18 @@
            #{["Ivan" 19]})))
   
   (testing "Query over long tuples"
-    (let [db [ [1 :name "Ivan" 945 :add]
-               [1 :age  39     999 :retract]] ]
+    (let [db [ [1 :name "Ivan" 945 :db/add]
+               [1 :age  39     999 :db/retract]] ]
       (is (= (d/q '{ :find [?e ?v]
                      :where [[?e :name ?v]]} db)
              #{[1 "Ivan"]}))
       (is (= (d/q '{ :find [?e ?a ?v ?t]
-                     :where [[?e ?a ?v ?t :retract]]} db)
+                     :where [[?e ?a ?v ?t :db/retract]]} db)
              #{[1 :age 39 999]})))))
 
 (deftest test-q-in
   (let [db (-> (d/create-database)
-               (d/transact [ { :db/id 1, :name  "Ivan", :age   15 }
+               (d/-transact [ { :db/id 1, :name  "Ivan", :age   15 }
                              { :db/id 2, :name  "Petr", :age   37 }
                              { :db/id 3, :name  "Ivan", :age   37 }]))
         query '{:find  [?e]
@@ -214,7 +209,7 @@
 
 (deftest test-user-funs
   (let [db (-> (d/create-database)
-               (d/transact [ { :db/id 1, :name  "Ivan",  :age   15 }
+               (d/-transact [ { :db/id 1, :name  "Ivan",  :age   15 }
                              { :db/id 2, :name  "Petr",  :age   22 }
                              { :db/id 3, :name  "Slava", :age   37 }]))]
     (testing "Built-in predicate"
@@ -372,9 +367,10 @@
      :sex       (rand-nth [:male :female])
      :age       (rand-int 90)}))
 
-;; (def big-db (reduce d/transact
-;;               (d/create-database)
-;;               (repeatedly 2000 #(vector (random-man)))))
+;; (measure
+;;   #(def big-db (reduce d/-transact
+;;                  (d/create-database)
+;;                  (repeatedly 2000 (fn [] [(random-man)])))))
 ;; (measure #(d/q '{:find [?e ?a ?s]
 ;;                  :where [[?e :name "Ivan"]
 ;;                          [?e :age ?a]

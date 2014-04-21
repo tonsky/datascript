@@ -111,7 +111,6 @@ Global differences:
 * AV index for all datoms
 * No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
-* No `transaction` attribute
 * No cache segments management, no laziness. All DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options
@@ -121,5 +120,5 @@ Global differences:
 
 Interface differences:
 
-* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (no `resolve` in CLJS)
+* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
 * DB cannot be passed to rule yet

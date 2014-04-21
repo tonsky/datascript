@@ -3,26 +3,60 @@
     [clojure.set :as set]
     [clojure.walk :as walk]))
 
-(defrecord Datom [e a v])
+(deftype Datom [e a v tx added _hash]
+  Object
+  (toString [_]
+    (str "#datom[" (pr-str e a v tx added) "]"))
+
+  ICloneable
+  (-clone [_] (Datom. e a v tx added _hash))
+
+  IHash
+  (-hash [_] _hash)
+
+  IEquiv
+  (-equiv [_ o] (and (= e (.-e o)) (= a (.-a o)) (= v (.-v o))))
+
+  ILookup
+  (-lookup [_ k] (-lookup _ k nil))
+  (-lookup [_ k not-found] (case k :e e :a a :v v :tx tx :added added not-found))
+
+  ISequential
+  ISeqable
+  (-seq [_] [e a v tx added])
+
+  ICounted
+  (-count [coll] 5)
+
+  IPrintWithWriter
+  (-pr-writer [_ writer _] (-write writer (str "#datom[" (pr-str e a v tx added) "]"))))
+
+(defn datom [e a v tx added]
+  (Datom. e a v tx added (-> (hash e)
+                             (hash-combine (hash a))
+                             (hash-combine (hash v)))))
 
 (defprotocol ISearch
   (-search [data pattern]))
 
 (defrecord DB [schema ea av]
   ISearch
-  (-search [db [e a v :as pattern]]
-    (case [(when e :+) (when a :+) (when v :+)]
-      [:+  nil nil]
-        (->> (get-in db [:ea e]) vals (apply concat))
-      [nil :+  nil]
-        (->> (get-in db [:av a]) vals (apply concat))
-      [:+  :+  nil]
-        (get-in db [:ea e a])
-      [nil :+  :+]
-        (get-in db [:av a v])
-      [:+  :+  :+]
-        (->> (get-in db [:ea e a])
-             (filter #(= v (.-v %)))))))
+  (-search [db [e a v tx added :as pattern]]
+    (cond->>
+      (case [(when e :+) (when a :+) (when v :+)]
+        [:+  nil nil]
+          (->> (get-in db [:ea e]) vals (apply concat))
+        [nil :+  nil]
+          (->> (get-in db [:av a]) vals (apply concat))
+        [:+  :+  nil]
+          (get-in db [:ea e a])
+        [nil :+  :+]
+          (get-in db [:av a v])
+        [:+  :+  :+]
+          (->> (get-in db [:ea e a])
+               (filter #(= v (.-v %)))))
+     tx    (filter #(= tx (.-tx %)))
+     added (filter #(= added (.-added %))))))
 
 (defn- match-tuple [tuple pattern]
   (every? true?
@@ -45,40 +79,46 @@
       (assoc map k (apply update-in-sorted (get map k) ks f args))
       (apply update-in map [k] f args))))
 
-(defn- retract-datom [db datom]
-  (-> db
-    (update-in-sorted [:ea (.-e datom) (.-a datom)] disj datom)
-    (update-in-sorted [:av (.-a datom) (.-v datom)] disj datom)))
+(defn- transact-datom [db datom]
+  (if (.-added datom)
+    (-> db
+      (update-in-sorted [:ea (.-e datom) (.-a datom)] (fnil conj #{}) datom)
+      (update-in-sorted [:av (.-a datom) (.-v datom)] (fnil conj #{}) datom))
+    (-> db
+      (update-in-sorted [:ea (.-e datom) (.-a datom)] disj datom)
+      (update-in-sorted [:av (.-a datom) (.-v datom)] disj datom))))
 
-(defn- add-datom [db datom]
-  (-> db
-    (update-in-sorted [:ea (.-e datom) (.-a datom)] (fnil conj #{}) datom)
-    (update-in-sorted [:av (.-a datom) (.-v datom)] (fnil conj #{}) datom)))
+(defn- explode-entity [db entity]
+  (if (map? entity)
+    (let [eid (:db/id entity)]
+      (for [[a vs] (dissoc entity :db/id)
+            v      (if (and (sequential? vs)
+                            (= :many (get-in db [:schema a :cardinality])))
+                     vs
+                     [vs])]
+        [:db/add eid a v]))
+    [entity]))
 
-(defn- wipe-attr [db e a]
-  (let [datoms (get-in db [:ea e a])]
-    (reduce #(retract-datom %1 %2) db datoms)))
+(defn- op->datoms [db [op e a v] tx]
+  (case op
+    :db/add
+      (if (= :many (get-in db [:schema a :cardinality]))
+        (when (empty? (-search db [e a v]))
+          [(datom e a v tx true)])
+        (if-let [old-datom (first (-search db [e a]))]
+          (when (not= (.-v old-datom) v)
+            [(datom e a (.-v old-datom) tx false)
+             (datom e a v tx true)])
+          [(datom e a v tx true)]))
+    :db/retract
+      (when-let [old-datom (first (-search db [e a v]))]
+        [(datom e a v tx false)])))
 
-(defn- transact-datom [db [op e a v]]
-  (let [datom (Datom. e a v)]
-    (case op
-      :add
-        (if (= :many (get-in db [:schema a :cardinality]))
-          (add-datom db datom)
-          (-> db
-            (wipe-attr e a)
-            (add-datom datom)))
-      :retract
-        (retract-datom db datom))))
-
-(defn- explode-entity [e]
-  (if (map? e)
-    (let [eid (:db/id e)]
-      (mapv (fn [[k v]] [:add eid k v]) (dissoc e :db/id)))
-    [e]))
-
-(defn transact [db entities]
-  (let [datoms (mapcat explode-entity entities)]
+(defn -transact [db entities]
+  (let [tx     0
+        datoms (->> entities
+                    (mapcat #(explode-entity db %))
+                    (mapcat #(op->datoms db % tx)))]
     (reduce transact-datom db datoms)))
 
 (defn next-eid [db & [offset]]
@@ -108,18 +148,13 @@
   (search (bind-symbol source scope)
           (bind-symbols where scope)))
 
-(defn- datom->tuple [d]
-  (cond
-    (= (type d) Datom)  [(.-e d) (.-a d) (.-v d)]
-    (satisfies? ISeqable d) d))
-
 (defn- populate-scope [scope where datom]
   (->>
     (map #(when (and (symbol? %1)
-                (not (contains? scope %1)))
-      [%1 %2])
+                     (not (contains? scope %1)))
+            [%1 %2])
       where
-      (datom->tuple datom))
+      datom)
     (remove nil?)
     (into scope)))
 
