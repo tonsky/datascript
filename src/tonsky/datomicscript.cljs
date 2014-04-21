@@ -1,5 +1,6 @@
 (ns tonsky.datomicscript
   (:require
+    [clojure.set :as set]
     [clojure.walk :as walk]))
 
 (defrecord Datom [e a v])
@@ -151,7 +152,8 @@
     :else ;; (predicate? pattern)
       (pattern form)))
 
-(def collect mapcat)
+(defn collect [f coll]
+  (reduce #(set/union %1 (f %2)) #{} coll))
 
 (defn bind-rule-branch [branch call-args context]
   (let [[[rule & local-args] & body] branch
@@ -230,13 +232,80 @@
             )))
    
    :else ;; reached bottom
-      [scope]
+      #{(mapv scope (:__find scope))}
     ))
+
+
+;; AGGREGATES
+
+(def ^:private built-in-aggregates {
+  'distinct (comp vec distinct)
+  'min    (fn
+            ([coll] (reduce min coll))
+            ([n coll]
+              (vec
+                (reduce (fn [acc x]
+                          (cond
+                            (< (count acc) n) (sort (conj acc x))
+                            (< x (last acc))  (sort (conj (butlast acc) x))
+                            :else             acc))
+                        [] coll))))
+  'max    (fn
+            ([coll] (reduce max coll))
+            ([n coll]
+              (vec
+                (reduce (fn [acc x]
+                          (cond
+                            (< (count acc) n) (sort (conj acc x))
+                            (> x (first acc)) (sort (conj (next acc) x))
+                            :else             acc))
+                        [] coll))))
+  'sum    #(reduce + 0 %)
+  'rand   (fn
+            ([coll] (rand-nth coll))
+            ([n coll] (vec (repeatedly n #(rand-nth coll)))))
+  'sample (fn [n coll]
+            (vec (take n (shuffle coll))))
+  'count  count})
+
+(defn- aggr-group-key [find result]
+  (mapv (fn [val sym]
+          (if (sequential? sym) nil val))
+        result
+        find))
+
+(defn- -aggregate [find scope results]
+  (mapv (fn [sym val i]
+          (if (sequential? sym)
+            (let [[f & args] sym
+                  vals (map #(get % i) results)
+                  args (concat
+                        (bind-symbols (butlast args) scope)
+                        [vals])
+                  f    (or (built-in-aggregates f) (scope f))]
+              (apply f args))
+            val))
+        find
+        (first results)
+        (range)))
+
+(defn- aggregate [query scope results]
+  (let [find (concat (:find query) (:with query))]
+    (->> results
+         (group-by #(aggr-group-key find %))
+         (mapv (fn [[_ results]] (-aggregate (:find query) scope results))))))
+
+
+;; SUMMING UP
 
 (defn q [query & sources]
   (let [ins->sources (zipmap (:in query '[$]) sources)
-        found (-q ins->sources (:where query) {})]
-    (->> found
-      (map (fn [scope] (map scope (:find query))))
-      (into #{}))))
-
+        find         (concat
+                       (map #(if (sequential? %) (last %) %) (:find query))
+                       (:with query))
+        results      (-q ins->sources (:where query) {:__find find})]
+    (cond->> results
+      (:with query)
+        (mapv #(subvec % 0 (count (:find query))))
+      (not-empty (filter sequential? (:find query)))
+        (aggregate query ins->sources))))

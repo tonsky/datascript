@@ -1,5 +1,7 @@
 # DatomicScript
 
+> What if creating Datomic database would be as cheap as creating an atom?
+
 This is a port of Datomic to ClojureScript (data model and Datalog query language).
 
 Why? Because nowadays Rich Web Apps are big enough that ad-hoc state management solutions does not work for them.
@@ -23,13 +25,14 @@ Right now following features are supported:
 * Query over multiple DB/collections
 * Predicates and user functions in query
 * Rules, recursive rules
+* Aggregates
 
 Expected:
 
 * Simplified query syntax (vector-based)
-* Aggregates
 * txReportQueue
 * Better error reporting
+* Direct access to indexes
 
 ## Example
 
@@ -78,7 +81,21 @@ Expected:
          [?e1 :follows ?t]
          (follows ?t ?e2)] ])
 
-;; => #{ [1 2] [1 3] [1 4] [2 3] [2 4] [3 4] }
+;; => #{ [1 2] [1 3] [1 4]
+;;       [2 3] [2 4]
+;;       [3 4] }
+
+
+;; Aggregates
+
+(d/q '{ :find [ ?color (max ?amount ?x) (min ?amount ?x) ]
+        :in [ [[?color ?x]] ?amount ] }
+     [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+      [:blue 7] [:blue 8]]
+     3))
+
+;; => [[:red [3 4 5] [1 2 3]]
+;;     [:blue [7 8] [7 8]]]
 ```
 
 ## Differences from Big Datomic
@@ -87,6 +104,12 @@ This library is meant to run inside browser, so it must be fast to start, quick 
 
 Global differences:
 
+* Simplified schema, not queriable
+* No need to declare attributes except for `:cardinality` `:many`
+* Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
+* No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
+* AV index for all datoms
+* No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
 * No `transaction` attribute
 * No cache segments management, no laziness. All DB must reside in memory
@@ -94,14 +117,9 @@ Global differences:
 * No pluggable storage options
 * No full-text search
 * No partitions
-* Simplified schema, no ident attributes, AV index for all datoms
-* Schema required only for attributes with `:cardinality` `:many`
-* Value of any type can be used for entity id, attribute or value. It’s better if they are immutable and fast to compare
-* Schema not queriable
-* No schema migrations
 * Free
 
 Interface differences:
 
-* Query functions have to be passed as source instead of being referenced by symbol
+* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (no `resolve` in CLJS)
 * DB cannot be passed to rule yet

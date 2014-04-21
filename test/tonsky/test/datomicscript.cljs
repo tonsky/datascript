@@ -309,6 +309,51 @@
             [4 5]}))
     ))
 
+(deftest test-aggregates
+  (let [monsters [ ["Cerberus" 3]
+                   ["Medusa" 1]
+                   ["Cyclops" 1]
+                   ["Chimera" 1] ]]
+    (testing "with"
+      (is (= (d/q '{ :find [ ?heads ]
+                     :with [ ?monster ]
+                     :in   [ [[?monster ?heads]] ]}
+                  [ ["Medusa" 1]
+                    ["Cyclops" 1]
+                    ["Chimera" 1] ])
+             [[1] [1] [1]])))
+    
+    (testing "Wrong grouping without :with"
+      (is (= (d/q '{ :find [ (sum ?heads) ]
+                     :in   [ [[?monster ?heads]] ]}
+                  monsters)
+             [[4]])))
+    
+    (testing "Multiple aggregates, correct grouping with :with"
+      (is (= (d/q '{ :find [ (sum ?heads) (min ?heads) (max ?heads) ]
+                     :with [ ?monster ]
+                     :in   [ [[?monster ?heads]] ]}
+                  monsters)
+             [[6 1 3]])))
+
+    (testing "Grouping and parameter passing"
+      (is (= (set (d/q '{ :find [ ?color (max ?amount ?x) (min ?amount ?x) ]
+                          :in [ [[?color ?x]] ?amount ] }
+                       [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+                        [:blue 7] [:blue 8]]
+                       3))
+             #{[:red [3 4 5] [1 2 3]] [:blue [7 8] [7 8]]})))
+    
+    (testing "Custom aggregates"
+      (is (= (set (d/q '{ :find [ ?color (?agg ?x) ]
+                          :in [ [[?color ?x]] ?agg ] }
+                       [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+                        [:blue 7] [:blue 8]]
+                       #(reverse (sort %))))
+             #{[:red [5 4 3 2 1]] [:blue [8 7]]})))
+    
+    ))
+
 (t/test-ns 'tonsky.test.datomicscript)
 
 ;; Performance
