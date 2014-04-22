@@ -7,12 +7,12 @@
 
 (enable-console-print!)
 
-(deftest test-transact
-  (let [db  (-> (d/create-database {:aka { :cardinality :many }})
-              (d/-transact [[:db/add 1 :name "Ivan"]])
-              (d/-transact [[:db/add 1 :name "Petr"]])
-              (d/-transact [[:db/add 1 :aka  "Devil"]])
-              (d/-transact [[:db/add 1 :aka  "Tupen"]]))]
+(deftest test-with
+  (let [db  (-> (d/empty-db {:aka { :cardinality :many }})
+                (d/with [[:db/add 1 :name "Ivan"]])
+                (d/with [[:db/add 1 :name "Petr"]])
+                (d/with [[:db/add 1 :aka  "Devil"]])
+                (d/with [[:db/add 1 :aka  "Tupen"]]))]
     
     (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
            #{["Petr"]}))
@@ -21,8 +21,8 @@
     
     (testing "Retract"
       (let [db  (-> db
-                  (d/-transact [[:db/retract 1 :name "Petr"]])
-                  (d/-transact [[:db/retract 1 :aka  "Devil"]]))]
+                  (d/with [[:db/retract 1 :name "Petr"]])
+                  (d/with [[:db/retract 1 :aka  "Devil"]]))]
 
         (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
                #{}))
@@ -31,33 +31,85 @@
     
     (testing "Cannot retract what's not there"
       (let [db  (-> db
-                    (d/-transact [[:db/retract 1 :name "Ivan"]]))]
+                    (d/with [[:db/retract 1 :name "Ivan"]]))]
         (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} db)
-               #{["Petr"]}))))
-    ))
+               #{["Petr"]}))))))
+
+(deftest test-transact!
+  (let [conn (d/create-conn {:aka { :cardinality :many }})]
+    (d/transact! conn [[:db/add 1 :name "Ivan"]])
+    (d/transact! conn [[:db/add 1 :name "Petr"]])
+    (d/transact! conn [[:db/add 1 :aka  "Devil"]])
+    (d/transact! conn [[:db/add 1 :aka  "Tupen"]])
+    
+    (is (= (d/q '{:find [?v] :where [[1 :name ?v]]} @conn)
+           #{["Petr"]}))
+    (is (= (d/q '{:find [?v] :where [[1 :aka ?v]]} @conn)
+           #{["Devil"] ["Tupen"]}))))
+
+(deftest test-resolve-eid
+  (let [conn (d/create-conn)
+        t1   (d/transact! conn [[:db/add -1 :name "Ivan"]
+                                [:db/add -1 :age 19]
+                                [:db/add -2 :name "Petr"]
+                                [:db/add -2 :age 22]])
+        t2   (d/transact! conn [[:db/add -1 :name "Sergey"]
+                                [:db/add -1 :age 30]])]
+    (is (= (:tempids t1) { -1 1, -2 2 }))
+    (is (= (:tempids t2) { -1 3 }))
+    (is (= (d/q '{:find [?e ?n ?a ?t] 
+                  :where [[?e :name ?n ?t]
+                          [?e :age ?a]]} @conn)
+           #{[1 "Ivan" 19   (+ d/tx0 1)]
+             [2 "Petr" 22   (+ d/tx0 1)]
+             [3 "Sergey" 30 (+ d/tx0 2)]}))))
+
+(deftest test-listen!
+  (let [conn    (d/create-conn)
+        reports (atom [])]
+    (d/transact! conn [[:db/add -1 :name "Alex"]
+                       [:db/add -2 :name "Boris"]])
+    (d/listen! conn :test #(swap! reports conj %))
+    (d/transact! conn [[:db/add -1 :name "Dima"]
+                       [:db/add -1 :age 19]
+                       [:db/add -2 :name "Evgeny"]])
+    (d/transact! conn [[:db/add -1 :name "Fedor"]
+                       [:db/add 1 :name "Alex2"]         ;; should update
+                       [:db/retract 2 :name "Not Boris"] ;; should be skipped
+                       [:db/retract 4 :name "Evgeny"]])
+    (d/unlisten! conn :test)
+    (d/transact! conn [[:db/add -1 :name "Geogry"]])
+    (is (= (map (fn [report] (map #(into [] %) (:tx-data report))) @reports)
+           [[[3 :name "Dima"   (+ d/tx0 2) true]
+             [3 :age 19        (+ d/tx0 2) true]
+             [4 :name "Evgeny" (+ d/tx0 2) true]]
+            [[5 :name "Fedor"  (+ d/tx0 3) true]
+             [1 :name "Alex"   (+ d/tx0 3) false] ;; update -> retract
+             [1 :name "Alex2"  (+ d/tx0 3) true]  ;;         + add
+             [4 :name "Evgeny" (+ d/tx0 3) false]]]))))
 
 (deftest test-explode
-  (let [db (-> (d/create-database {:aka { :cardinality :many }
-                                   :also { :cardinality :many}})
-               (d/-transact [{:db/id 1
-                              :name  "Ivan"
-                              :age   16
-                              :aka   ["Devil" "Tupen"]
-                              :also  "ok"}]))]
+  (let [conn (d/create-conn { :aka { :cardinality :many }
+                              :also { :cardinality :many} })]
+    (d/transact! conn [{:db/id -1
+                        :name  "Ivan"
+                        :age   16
+                        :aka   ["Devil" "Tupen"]
+                        :also  "ok"}])
     (is (= (d/q '{:find [?n ?a] :where [[1 :name ?n]
-                                        [1 :age ?a]]} db)
+                                        [1 :age ?a]]} @conn)
            #{["Ivan" 16]}))
-    (is (= (d/q '{:find [?v] :where [[1 :also ?v]]} db)
+    (is (= (d/q '{:find [?v] :where [[1 :also ?v]]} @conn)
            #{["ok"]}))
-    (is (= (d/q '{:find [?v] :where [[1 :aka ?v]]} db)
+    (is (= (d/q '{:find [?v] :where [[1 :aka ?v]]} @conn)
            #{["Devil"] ["Tupen"]}))))
 
 (deftest test-joins
-  (let [db (-> (d/create-database)
-               (d/-transact [ { :db/id 1, :name  "Ivan", :age   15 }
-                             { :db/id 2, :name  "Petr", :age   37 }
-                             { :db/id 3, :name  "Ivan", :age   37 }
-                             { :db/id 4, :age 15 }]))]
+  (let [db (-> (d/empty-db)
+               (d/with [ { :db/id 1, :name  "Ivan", :age   15 }
+                         { :db/id 2, :name  "Petr", :age   37 }
+                         { :db/id 3, :name  "Ivan", :age   37 }
+                         { :db/id 4, :age 15 }]))]
     (is (= (d/q '{:find [?e]
                   :where [[?e :name]]} db)
            #{[1] [2] [3]}))
@@ -77,8 +129,8 @@
            #{[1 1 "Ivan"] [3 3 "Ivan"] [3 2 "Petr"]}))))
 
 (deftest test-q-many
-  (let [db (-> (d/create-database {:aka {:cardinality :many}})
-               (d/-transact [ [:db/add 1 :name "Ivan"]
+  (let [db (-> (d/empty-db {:aka {:cardinality :many}})
+               (d/with [ [:db/add 1 :name "Ivan"]
                              [:db/add 1 :aka  "ivolga"]
                              [:db/add 1 :aka  "pi"]
                              [:db/add 2 :name "Petr"]
@@ -116,8 +168,8 @@
              #{[1 :age 39 999]})))))
 
 (deftest test-q-in
-  (let [db (-> (d/create-database)
-               (d/-transact [ { :db/id 1, :name  "Ivan", :age   15 }
+  (let [db (-> (d/empty-db)
+               (d/with [ { :db/id 1, :name  "Ivan", :age   15 }
                              { :db/id 2, :name  "Petr", :age   37 }
                              { :db/id 3, :name  "Ivan", :age   37 }]))
         query '{:find  [?e]
@@ -208,8 +260,8 @@
 
 
 (deftest test-user-funs
-  (let [db (-> (d/create-database)
-               (d/-transact [ { :db/id 1, :name  "Ivan",  :age   15 }
+  (let [db (-> (d/empty-db)
+               (d/with [ { :db/id 1, :name  "Ivan",  :age   15 }
                              { :db/id 2, :name  "Petr",  :age   22 }
                              { :db/id 3, :name  "Slava", :age   37 }]))]
     (testing "Built-in predicate"
@@ -325,11 +377,11 @@
              [[4]])))
     
     (testing "Multiple aggregates, correct grouping with :with"
-      (is (= (d/q '{ :find [ (sum ?heads) (min ?heads) (max ?heads) ]
+      (is (= (d/q '{ :find [ (sum ?heads) (min ?heads) (max ?heads) (count ?heads) ]
                      :with [ ?monster ]
                      :in   [ [[?monster ?heads]] ]}
                   monsters)
-             [[6 1 3]])))
+             [[6 1 3 4]])))
 
     (testing "Grouping and parameter passing"
       (is (= (set (d/q '{ :find [ ?color (max ?amount ?x) (min ?amount ?x) ]
@@ -368,8 +420,8 @@
      :age       (rand-int 90)}))
 
 ;; (measure
-;;   #(def big-db (reduce d/-transact
-;;                  (d/create-database)
+;;   #(def big-db (reduce d/with
+;;                  (d/empty-db)
 ;;                  (repeatedly 2000 (fn [] [(random-man)])))))
 ;; (measure #(d/q '{:find [?e ?a ?s]
 ;;                  :where [[?e :name "Ivan"]

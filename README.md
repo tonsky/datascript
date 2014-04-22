@@ -10,14 +10,17 @@ Instead of storing your app state in 1001 global vars or creating hierarchy of m
 
 ## Work in progress [![Build Status](https://travis-ci.org/tonsky/datomicscript.svg?branch=master)](https://travis-ci.org/tonsky/datomicscript)
 
-Right now following features are supported:
+Following features are supported:
 
 * Database as a value: each DB is an immutable value. New DBs are cretead on top of old ones, but old ones stays perfectly valid too
 * Datomic triple store model
 * EA and AV indexes
-* Database “mutations” via `transact`, `:add` and `:retract`
 * Multi-valued attributes via schema and `:cardinality` `:many`
-* Queries in Datomic Datalog format, `:find` and `:where` clauses
+* Database “mutations” via `transact!`
+* Callback-based analogue to txReportQueue (`listen!`)
+
+Query engine supports _all_ features of Datomic Datalog:
+
 * Implicit joins
 * Query over DB or regular collections
 * Parameterized queries via `:in` clause
@@ -27,14 +30,15 @@ Right now following features are supported:
 * Rules, recursive rules
 * Aggregates
 
-Expected:
+Expected soon:
 
 * Simplified query syntax (vector-based)
-* txReportQueue
+* `:db.fn/retractEntity`
 * Better error reporting
 * Direct access to indexes
+* Passing DB to rule
 
-## Example
+## Usage examples
 
 ```clj
 (require '[tonsky.datomicscript :as d])
@@ -42,20 +46,20 @@ Expected:
 ;; Implicit join, multi-valued attribute
 
 (let [schema {:aka {:cardinality :many}}
-      db (-> (d/create-database schema)
-             (d/transact [ [:add 1 :name "Maksim"]
-                           [:add 1 :age  45]
-                           [:add 1 :aka  "Maks Otto von Stirlitz"]
-                           [:add 1 :aka  "Jack Ryan"] ]))]
-  (d/q '{:find [?n ?a]
-         :where [[?e :aka "Maks Otto von Stirlitz"]
-                 [?e :name ?n]
-                 [?e :age  ?a]]} db))
+      conn   (d/create-conn schema)]
+  (d/transact! conn [ { :db/id -1
+                        :name  "Maksim"
+                        :age   45
+                        :aka   ["Maks Otto von Stirlitz", "Jack Ryan"] } ])
+  (d/q '{ :find  [ ?n ?a ]
+          :where [ [?e :aka "Maks Otto von Stirlitz"]
+                   [?e :name ?n]
+                   [?e :age  ?a] ] } @conn))
 
 ;; => #{ ["Maksim" 45] }
 
 
-;; Desctucturing, function call, predicate call
+;; Desctucturing, function call, predicate call, query over collection
 
 (d/q '{ :find  [ ?k ?x ]
         :in    [ [[?k [?min ?max]] ...] ?range ]
@@ -94,11 +98,11 @@ Expected:
       [:blue 7] [:blue 8]]
      3))
 
-;; => [[:red [3 4 5] [1 2 3]]
-;;     [:blue [7 8] [7 8]]]
+;; => [[:red  [3 4 5] [1 2 3]]
+;;     [:blue [7 8]   [7 8]]]
 ```
 
-## Differences from Big Datomic
+## Differences from Datomic
 
 This library is meant to run inside browser, so it must be fast to start, quick to query, single-threaded and ephemeral. You create a database on page load, put some data in it and wait for user to close the page.
 
@@ -118,7 +122,10 @@ Global differences:
 * No partitions
 * Free
 
+Some of these is omitted intentioally. Different apps will have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs.
+
 Interface differences:
 
 * Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
-* DB cannot be passed to rule yet
+* Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
+* Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
