@@ -311,11 +311,20 @@
          (group-by #(aggr-group-key find %))
          (mapv (fn [[_ results]] (-aggregate (:find query) scope results))))))
 
+(defn- parse-query [query]
+  (loop [parsed {}, key nil, qs query]
+    (if-let [q (first qs)]
+      (if (keyword? q)
+        (recur parsed q (next qs))
+        (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
+      parsed)))
 
 ;; SUMMING UP
 
 (defn q [query & sources]
-  (let [ins->sources (zipmap (:in query '[$]) sources)
+  (let [query        (cond-> query
+                       (sequential? query) parse-query)
+        ins->sources (zipmap (:in query '[$]) sources)
         find         (concat
                        (map #(if (sequential? %) (last %) %) (:find query))
                        (:with query))

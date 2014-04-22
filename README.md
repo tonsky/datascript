@@ -32,7 +32,6 @@ Query engine supports _all_ features of Datomic Datalog:
 
 Expected soon:
 
-* Simplified query syntax (vector-based)
 * `:db.fn/retractEntity`
 * Better error reporting
 * Direct access to indexes
@@ -51,20 +50,21 @@ Expected soon:
                         :name  "Maksim"
                         :age   45
                         :aka   ["Maks Otto von Stirlitz", "Jack Ryan"] } ])
-  (d/q '{ :find  [ ?n ?a ]
-          :where [ [?e :aka "Maks Otto von Stirlitz"]
-                   [?e :name ?n]
-                   [?e :age  ?a] ] } @conn))
+  (d/q '[ :find  ?n ?a
+          :where [?e :aka "Maks Otto von Stirlitz"]
+                 [?e :name ?n]
+                 [?e :age  ?a] ]
+       @conn))
 
 ;; => #{ ["Maksim" 45] }
 
 
 ;; Desctucturing, function call, predicate call, query over collection
 
-(d/q '{ :find  [ ?k ?x ]
-        :in    [ [[?k [?min ?max]] ...] ?range ]
-        :where [ [(?range ?min ?max) [?x ...]]
-                 [(even? ?x)] ]}
+(d/q '[ :find  ?k ?x
+        :in    [[?k [?min ?max]] ...] ?range
+        :where [(?range ?min ?max) [?x ...]]
+               [(even? ?x)] ]
       { :a [1 7], :b [2 4] }
       range)
 
@@ -73,9 +73,9 @@ Expected soon:
 
 ;; Recursive rule
 
-(d/q '{ :find  [ ?u1 ?u2 ]
-        :in    [ $ % ]
-        :where [ (follows ?u1 ?u2) ] }
+(d/q '[ :find  ?u1 ?u2
+        :in    $ %
+        :where (follows ?u1 ?u2) ]
       [ [1 :follows 2]
         [2 :follows 3]
         [3 :follows 4] ]
@@ -92,14 +92,14 @@ Expected soon:
 
 ;; Aggregates
 
-(d/q '{ :find [ ?color (max ?amount ?x) (min ?amount ?x) ]
-        :in [ [[?color ?x]] ?amount ] }
-     [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+(d/q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
+        :in   [[?color ?x]] ?amount ]
+     [[:red 10]  [:red 20] [:red 30] [:red 40] [:red 50]
       [:blue 7] [:blue 8]]
-     3))
+     3)
 
-;; => [[:red  [3 4 5] [1 2 3]]
-;;     [:blue [7 8]   [7 8]]]
+;; => [[:red  [30 40 50] [10 20 30]]
+;;     [:blue [7 8] [7 8]]]
 ```
 
 ## Differences from Datomic
@@ -122,7 +122,7 @@ Global differences:
 * No partitions
 * Free
 
-Some of these is omitted intentioally. Different apps will have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs.
+Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs, without selling you too much “vision”.
 
 Interface differences:
 
