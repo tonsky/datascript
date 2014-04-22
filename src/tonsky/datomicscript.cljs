@@ -15,7 +15,7 @@
   IEquiv
   (-equiv [d o] (and (= (.-e d) (.-e o)) (= (.-a d) (.-a o)) (= (.-v d) (.-v o))))
   ISeqable
-  (-seq [d] [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)]))
+  (-seq [d] (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d))))
 
 (defprotocol ISearch
   (-search [data pattern]))
@@ -94,7 +94,14 @@
             [(->Datom e a v tx true)]))
       :db/retract
         (when-let [old-datom (first (-search db [e a v]))]
-          [(->Datom e a v tx false)]))))
+          [(->Datom e a v tx false)])
+      :db.fn/retractAttribute
+        (let [datoms (-search db [e a])]
+          (map #(assoc % :tx tx :added false) datoms))
+      :db.fn/retractEntity
+        (let [datoms (-search db [e])]
+          (map #(assoc % :tx tx :added false) datoms))
+      )))
 
 (defn- entity->tx-data [db entity]
   (->> (entity->ops db entity)

@@ -41,6 +41,34 @@
                       :where [1 :name ?v]] db)
                #{["Petr"]}))))))
 
+(deftest test-retract-fns
+  (let [db (-> (d/empty-db {:aka { :cardinality :many }})
+               (d/with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"] }
+                         { :db/id 2, :name  "Petr", :age 37 } ]))]
+    (let [db (d/with db [ [:db.fn/retractEntity 1] ])]
+      (is (= (d/q '[:find ?a ?v
+                    :where [1 ?a ?v]] db)
+             #{}))
+      (is (= (d/q '[:find ?a ?v
+                    :where [2 ?a ?v]] db)
+             #{[:name "Petr"] [:age 37]})))
+    
+    (let [db (d/with db [ [:db.fn/retractAttribute 1 :name] ])]
+      (is (= (d/q '[:find ?a ?v
+                    :where [1 ?a ?v]] db)
+             #{[:age 15] [:aka "X"] [:aka "Y"] [:aka "Z"]}))
+      (is (= (d/q '[:find ?a ?v
+                    :where [2 ?a ?v]] db)
+             #{[:name "Petr"] [:age 37]})))
+    
+    (let [db (d/with db [ [:db.fn/retractAttribute 1 :aka] ])]
+      (is (= (d/q '[:find ?a ?v
+                    :where [1 ?a ?v]] db)
+             #{[:name "Ivan"] [:age 15]}))
+      (is (= (d/q '[:find ?a ?v
+                    :where [2 ?a ?v]] db)
+             #{[:name "Petr"] [:age 37]})))))
+
 
 (deftest test-transact!
   (let [conn (d/create-conn {:aka { :cardinality :many }})]

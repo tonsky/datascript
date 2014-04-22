@@ -15,9 +15,9 @@ Following features are supported:
 * Database as a value: each DB is an immutable value. New DBs are cretead on top of old ones, but old ones stays perfectly valid too
 * Datomic triple store model
 * EA and AV indexes
-* Multi-valued attributes via schema and `:cardinality` `:many`
+* Multi-valued attributes via `:cardinality :many`
 * Database “mutations” via `transact!`
-* Callback-based analogue to txReportQueue (`listen!`)
+* Callback-based analogue to txReportQueue via `listen!`
 
 Query engine supports _all_ features of Datomic Datalog:
 
@@ -30,9 +30,14 @@ Query engine supports _all_ features of Datomic Datalog:
 * Rules, recursive rules
 * Aggregates
 
+Interface differences:
+
+* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
+* Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
+* Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
+
 Expected soon:
 
-* `:db.fn/retractEntity`
 * Better error reporting
 * Direct access to indexes
 * Passing DB to rule
@@ -113,6 +118,7 @@ Global differences:
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AV index for all datoms
+* No transactor functions besides `:db.fn/retractEntity` and `:db.fn/retractAttribute`
 * No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. All DB must reside in memory
@@ -122,10 +128,4 @@ Global differences:
 * No partitions
 * Free
 
-Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs, without selling you too much “vision”.
-
-Interface differences:
-
-* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
-* Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
-* Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
+Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
