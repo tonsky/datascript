@@ -349,7 +349,7 @@
     
     ))
 
-(t/test-ns 'tonsky.test.datomicscript)
+;; (t/test-ns 'tonsky.test.datomicscript)
 
 ;; Performance
 

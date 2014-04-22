@@ -8,7 +8,7 @@ Why? Because nowadays Rich Web Apps are big enough that ad-hoc state management 
 
 Instead of storing your app state in 1001 global vars or creating hierarchy of models inside models inside models, put it all into a database and get serverside-grade query engine on top of that.
 
-## Work in progress
+## Work in progress [![Build Status](https://travis-ci.org/tonsky/datomicscript.svg?branch=master)](https://travis-ci.org/tonsky/datomicscript)
 
 Right now following features are supported:
 
