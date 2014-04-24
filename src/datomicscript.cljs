@@ -1,4 +1,4 @@
-(ns tonsky.datomicscript
+(ns datomicscript
   (:require
     [clojure.set :as set]
     [clojure.walk :as walk]))

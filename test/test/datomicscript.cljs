@@ -1,9 +1,9 @@
-(ns tonsky.test.datomicscript
+(ns test.datomicscript
   (:require-macros
     [cemerick.cljs.test :refer (is deftest with-test run-tests testing test-var)])
   (:require
     [cemerick.cljs.test :as t]
-    [tonsky.datomicscript :as d]))
+    [datomicscript :as d]))
 
 (enable-console-print!)
 
@@ -450,7 +450,7 @@
                        #(reverse (sort %))))
              #{[:red [5 4 3 2 1]] [:blue [8 7]]})))))
 
-;; (t/test-ns 'tonsky.test.datomicscript)
+;; (t/test-ns 'test.datomicscript)
 
 ;; Performance
 

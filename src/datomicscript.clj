@@ -1,0 +1,435 @@
+(ns datomicscript
+  (:require
+    [clojure.set :as set]
+    [clojure.walk :as walk])
+  (:import
+    [clojure.lang Seqable ILookup Associative MapEntry IHashEq IPersistentCollection]))
+
+(deftype Datom [e a v tx added]
+  Object
+  (hashCode [_] (hash [e a v]))
+  (equals   [_ o] (and (= e (.-e o)) (= a (.-a o)) (= v (.-v o))))
+  (toString [_] (str "#datom[" (pr-str e a v tx added) "]"))
+  IHashEq
+  (hasheq [_] (.hasheq [e a v]))
+  Seqable
+  (seq [_] (list e a v tx added))
+  IPersistentCollection
+  (count [_] 5)
+  (cons [this o] this)
+  (empty [this] this)
+  (equiv [_ o] (and (= e (.-e o)) (= a (.-a o)) (= v (.-v o))))
+  ILookup
+  (valAt [this k] (.valAt this k nil))
+  (valAt [_ k not-found] (case k :e e :a a :v v :tx tx :added added not-found))
+  Associative
+  (containsKey [_ k] (case k :e true :a true :v true :tx true :added true false))
+  (entryAt [_ k]
+    (case k
+       :e (MapEntry. :e e)
+       :a (MapEntry. :a a)
+       :v (MapEntry. :v v)
+       :tx (MapEntry. :tx tx)
+       :added (MapEntry. :added added)
+       nil))
+  (assoc [_ k x]
+    (case k
+      :e (->Datom x a v tx added)
+      :a (->Datom e x v tx added)
+      :v (->Datom e a x tx added)
+      :tx (->Datom e a v x added)
+      :added (->Datom e a v tx x))))
+
+
+(defprotocol ISearch
+  (-search [data pattern]))
+
+(defrecord DB [schema ea av max-eid max-tx]
+  ISearch
+  (-search [db [e a v tx added :as pattern]]
+    (cond->>
+      (case [(when e :+) (when a :+) (when v :+)]
+        [:+  nil nil]
+          (->> (get-in db [:ea e]) vals (apply concat))
+        [nil :+  nil]
+          (->> (get-in db [:av a]) vals (apply concat))
+        [:+  :+  nil]
+          (get-in db [:ea e a])
+        [nil :+  :+]
+          (get-in db [:av a v])
+        [:+  :+  :+]
+          (->> (get-in db [:ea e a])
+               (filter #(= v (.-v %)))))
+     tx    (filter #(= tx (.-tx %)))
+     added (filter #(= added (.-added %))))))
+
+(defrecord TxReport [db-before db-after tx-data])
+
+(defn- match-tuple [tuple pattern]
+  (every? true?
+    (map #(or (nil? %2) (= %1 %2)) tuple pattern)))
+
+(defn- search [data pattern]
+  (cond
+    (satisfies? ISearch data)
+      (-search data pattern)
+    (satisfies? Seqable data)
+      (filter #(match-tuple % pattern) data)))
+
+(defn- transact-datom [db datom]
+  (if (.-added datom)
+    (-> db
+      (update-in [:ea (.-e datom) (.-a datom)] (fnil conj #{}) datom)
+      (update-in [:av (.-a datom) (.-v datom)] (fnil conj #{}) datom))
+    (-> db
+      (update-in [:ea (.-e datom) (.-a datom)] disj datom)
+      (update-in [:av (.-a datom) (.-v datom)] disj datom))))
+
+(defn- -resolve-eid [eid db]
+  (- (.-max-eid db) eid))
+
+(defn- resolve-eid [db d]
+  (if (neg? (.-e d))
+    (update-in d [:e] -resolve-eid db)
+    d))
+
+(defn- entity->ops [db entity]
+  (if (map? entity)
+    (let [eid (:db/id entity)]
+      (for [[a vs] (dissoc entity :db/id)
+            v      (if (and (sequential? vs)
+                            (= :many (get-in db [:schema a :cardinality])))
+                     vs
+                     [vs])]
+        [:db/add eid a v]))
+    [entity]))
+
+(defn- op->tx-data [db [op e a v]]
+  (let [tx (inc (.-max-tx db))]
+    (case op
+      :db/add
+        (if (= :many (get-in db [:schema a :cardinality]))
+          (when (empty? (-search db [e a v]))
+            [(->Datom e a v tx true)])
+          (if-let [old-datom (first (-search db [e a]))]
+            (when (not= (.-v old-datom) v)
+              [(->Datom e a (.-v old-datom) tx false)
+               (->Datom e a v tx true)])
+            [(->Datom e a v tx true)]))
+      :db/retract
+        (when-let [old-datom (first (-search db [e a v]))]
+          [(->Datom e a v tx false)])
+      :db.fn/retractAttribute
+        (let [datoms (-search db [e a])]
+          (map #(assoc % :tx tx :added false) datoms))
+      :db.fn/retractEntity
+        (let [datoms (-search db [e])]
+          (map #(assoc % :tx tx :added false) datoms))
+      )))
+
+(defn- entity->tx-data [db entity]
+  (->> (entity->ops db entity)
+       (mapcat #(op->tx-data db %))))
+
+(defn- -with [db tx-data]
+  (->
+    (reduce transact-datom db tx-data)
+    (update-in [:max-tx] inc)
+    (assoc      :max-eid (reduce max (.-max-eid db) (map :e tx-data)))))
+
+
+;; QUERIES
+
+(defn- parse-where [where]
+  (let [source (first where)]
+    (if (and (symbol? source)
+             (= \$ (-> source name first)))
+      [(first where) (next where)]
+      ['$ where])))
+
+(defn- bind-symbol [sym scope]
+  (cond
+    (= '_ sym)    nil
+    (symbol? sym) (get scope sym nil)
+    :else         sym))
+
+(defn- bind-symbols [form scope]
+  (map #(bind-symbol % scope) form))
+
+(defn- search-datoms [source where scope]
+  (search (bind-symbol source scope)
+          (bind-symbols where scope)))
+
+(defn- populate-scope [scope where datom]
+  (->>
+    (map #(when (and (symbol? %1)
+                     (not (contains? scope %1)))
+            [%1 %2])
+      where
+      datom)
+    (remove nil?)
+    (into scope)))
+
+(defn- -differ? [& xs]
+  (let [l (count xs)]
+    (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
+
+(def ^:private built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
+                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil?,
+                           '-differ? -differ?})
+
+(defn- call [[f & args] scope]
+  (let [bound-args (bind-symbols args scope)
+        f          (or (built-ins f) (scope f))]
+    (apply f bound-args)))
+
+(defn- looks-like? [pattern form]
+  (cond
+    (= '_ pattern)
+      true
+    (= '[*] pattern)
+      (sequential? form)
+    (sequential? pattern)
+      (and (sequential? form)
+           (= (count form) (count pattern))
+           (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
+                   (map vector pattern form)))
+    (symbol? pattern)
+      (= form pattern)
+    :else ;; (predicate? pattern)
+      (pattern form)))
+
+(defn- collect [f coll]
+  (reduce #(set/union %1 (f %2)) #{} coll))
+
+(defn- bind-rule-branch [branch call-args context]
+  (let [[[rule & local-args] & body] branch
+        replacements (zipmap local-args call-args)
+        ;; replacing free vars to unique symbols
+        seqid        (:__depth context 0)
+        bound-body   (walk/postwalk #(if (and (symbol? %)
+                                              (= \? (-> % name first)))
+                                       (or (replacements %)
+                                           (symbol (str (name %) "__auto__" seqid)))
+                                       %)
+                                     body)]
+    ;; recursion breaker
+    ;; adding condition that call args cannot take same values as they took in any previous call to this rule
+    (concat
+      (for [prev-call-args (get context rule)]
+        [(concat ['-differ?] call-args prev-call-args)])
+      bound-body)))
+
+(defn- -q [in+sources wheres scope]
+  (cond
+    (not-empty in+sources) ;; parsing ins
+      (let [[in source] (first in+sources)]
+        (condp looks-like? in
+          '[_ ...] ;; collection binding [?x ...]
+            (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
+
+          '[[*]]   ;; relation binding [[?a ?b]]
+            (collect #(-q (concat [[(first in) %]] (next in+sources)) wheres scope) source)
+
+          '[*]     ;; tuple binding [?a ?b]
+            (recur (concat
+                     (zipmap in source)
+                     (next in+sources))
+                   wheres
+                   scope)
+          '%       ;; rules
+            (recur (next in+sources)
+                   wheres
+                   (assoc scope :__rules (group-by ffirst source)))
+
+          '_       ;; regular binding ?x
+            (recur (next in+sources)
+                   wheres
+                   (assoc scope in source))))
+
+    (not-empty wheres) ;; parsing wheres
+      (let [where (first wheres)]
+        
+        ;; rule (rule ?a ?b ?c)
+        (if-let [rule-branches (get (:__rules scope) (first where))]
+          (let [[rule & call-args] where
+                next-scope (-> scope
+                             (update-in [:__rules_ctx rule] conj call-args)
+                             (update-in [:__rules_ctx :__depth] inc))
+                next-wheres (next wheres)]
+            (collect
+              #(-q nil
+                   (concat (bind-rule-branch % call-args (:__rules_ctx scope)) next-wheres)
+                   next-scope)
+              rule-branches))
+          
+          (condp looks-like? where
+            '[[*]] ;; predicate [(pred ?a ?b ?c)]
+              (when (call (first where) scope)
+                (recur nil (next wheres) scope))
+
+            '[[*] _] ;; function [(fn ?a ?b) ?res]
+              (let [res (call (first where) scope)]
+                (recur [[(second where) res]] (next wheres) scope))
+
+            '[*] ;; pattern
+              (let [[source where] (parse-where where)
+                    found          (search-datoms source where scope)]
+                (collect #(-q nil (next wheres) (populate-scope scope where %)) found))
+            )))
+   
+   :else ;; reached bottom
+      #{(mapv scope (:__find scope))}
+    ))
+
+
+;; AGGREGATES
+
+(def ^:private built-in-aggregates {
+  'distinct (comp vec distinct)
+  'min    (fn
+            ([coll] (reduce min coll))
+            ([n coll]
+              (vec
+                (reduce (fn [acc x]
+                          (cond
+                            (< (count acc) n) (sort (conj acc x))
+                            (< x (last acc))  (sort (conj (butlast acc) x))
+                            :else             acc))
+                        [] coll))))
+  'max    (fn
+            ([coll] (reduce max coll))
+            ([n coll]
+              (vec
+                (reduce (fn [acc x]
+                          (cond
+                            (< (count acc) n) (sort (conj acc x))
+                            (> x (first acc)) (sort (conj (next acc) x))
+                            :else             acc))
+                        [] coll))))
+  'sum    #(reduce + 0 %)
+  'rand   (fn
+            ([coll] (rand-nth coll))
+            ([n coll] (vec (repeatedly n #(rand-nth coll)))))
+  'sample (fn [n coll]
+            (vec (take n (shuffle coll))))
+  'count  count})
+
+(defn- aggr-group-key [find result]
+  (mapv (fn [val sym]
+          (if (sequential? sym) nil val))
+        result
+        find))
+
+(defn- -aggregate [find scope results]
+  (mapv (fn [sym val i]
+          (if (sequential? sym)
+            (let [[f & args] sym
+                  vals (map #(get % i) results)
+                  args (concat
+                        (bind-symbols (butlast args) scope)
+                        [vals])
+                  f    (or (built-in-aggregates f) (scope f))]
+              (apply f args))
+            val))
+        find
+        (first results)
+        (range)))
+
+(defn- aggregate [query scope results]
+  (let [find (concat (:find query) (:with query))]
+    (->> results
+         (group-by #(aggr-group-key find %))
+         (mapv (fn [[_ results]] (-aggregate (:find query) scope results))))))
+
+(defn- parse-query [query]
+  (loop [parsed {}, key nil, qs query]
+    (if-let [q (first qs)]
+      (if (keyword? q)
+        (recur parsed q (next qs))
+        (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
+      parsed)))
+
+;; SUMMING UP
+
+(defn q [query & sources]
+  (let [query        (cond-> query
+                       (sequential? query) parse-query)
+        ins->sources (zipmap (:in query '[$]) sources)
+        find         (concat
+                       (map #(if (sequential? %) (last %) %) (:find query))
+                       (:with query))
+        results      (-q ins->sources (:where query) {:__find find})]
+    (cond->> results
+      (:with query)
+        (mapv #(subvec % 0 (count (:find query))))
+      (not-empty (filter sequential? (:find query)))
+        (aggregate query ins->sources))))
+
+(defn with [db entities]
+  (-with db (->> entities
+                 (mapcat #(entity->tx-data db %))
+                 (map #(resolve-eid db %)))))
+
+(def ^:const tx0 0x20000000)
+
+(defn empty-db [& [schema]]
+  (DB. schema {} {} 0 tx0))
+
+(defn create-conn [& [schema]]
+  (atom (empty-db schema)
+        :meta { :listeners  (atom {}) }))
+
+(defn transact! [conn entities]
+  (let [meta      (meta conn)
+        db-before (atom nil)
+        tx-data   (atom nil)
+        tempids   (atom nil)
+        db-after  (swap! conn (fn [db]
+                                (let [raw-datoms (mapcat #(entity->tx-data db %) entities)
+                                      datoms     (map #(resolve-eid db %) raw-datoms)]
+                                  (reset! db-before db)
+                                  (reset! tx-data datoms)
+                                  (reset! tempids (->> raw-datoms
+                                                       (filter #(neg? (.-e %)))
+                                                       (map #(vector (.-e %) (-resolve-eid (.-e %) db)))
+                                                       (into {})))
+                                  (-with db datoms))))
+        report    (TxReport. @db-before db-after @tx-data)]
+    (doseq [[_ l] @(:listeners meta)]
+      (l report))
+    (assoc report :tempids @tempids)))
+           
+(defn listen!
+  ([conn callback] (listen! conn (rand) callback))
+  ([conn key callback]
+     (swap! (:listeners (meta conn)) assoc key callback)
+     key))
+
+(defn unlisten! [conn key]
+  (swap! (:listeners (meta conn)) dissoc key))
+
+(defn now [] (.getTime (java.util.Date.)))
+(defn measure [f]
+  (let [t0 (now)
+        res (f)]
+    (- (now) t0)))
+
+(defn random-man []
+  (let [id (rand-int 1000000)]
+    {:db/id id
+     :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+     :sex       (rand-nth [:male :female])
+     :age       (rand-int 90)}))
+
+(measure
+  #(def big-db (reduce with
+                 (empty-db)
+                 (repeatedly 20000 (fn [] [(random-man)])))))
+
+(measure #(q '{:find [?e ?a ?s]
+                 :where [[?e :name "Ivan"]
+                         [?e :age ?a]
+                         [?e :sex ?s]]}
+           big-db))

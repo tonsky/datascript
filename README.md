@@ -1,51 +1,34 @@
 # DatomicScript
 
-> What if creating Datomic database would be as cheap as creating an atom?
+> What if creating Datomic database would be as cheap as creating a Hashmap?
 
-This is a port of Datomic to ClojureScript (data model and Datalog query language).
+An implementation of Datomic in-memory database and Datalog query engine in ClojureScript.
 
-Why? Because nowadays Rich Web Apps are big enough that ad-hoc state management solutions does not work for them.
+DatomicScript is meant to run inside browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when user closes the page.
 
-Instead of storing your app state in 1001 global vars or creating hierarchy of models inside models inside models, put it all into a database and get serverside-grade query engine on top of that.
+DatomicScript databases are immutable and based on persistent data structures. In fact, they’re more like a data structures (think Hashmap). Unlike querying real SQL DB, when you query DatomicScript, it all comes down to a Hashmap lookup. Or series of lookups. Or array iteration. There’s no particular overhead to it. You put little data in it, it’s fast. You put a lot of data, well, at least it has indexes. That should do better than you filtering an array by hand anyway. The thing is really lightweight.
 
-## Work in progress [![Build Status](https://travis-ci.org/tonsky/datomicscript.svg?branch=master)](https://travis-ci.org/tonsky/datomicscript)
+DatomicScript intention is to be a basic building block in client-side applications that needs to track a lot of state during their lifetime. There’s a lot of benefits:
 
-Following features are supported:
+- Central, uniform approach to manage all application state. Clients to work with state become decoupled and independent: rendering, server sync, undo/redo do not interfere with each other.
+- Immutability simplifies things even in single-threaded browser environment. Keep track of app state evolution, rewind to any point in time, always render consistent state, sync in background without locking anybody.
+- Datalog query engine to answer non-trivial questions about current app state.
+- Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
-* Database as a value: each DB is an immutable value. New DBs are cretead on top of old ones, but old ones stays perfectly valid too
-* Datomic triple store model
-* EA and AV indexes
-* Multi-valued attributes via `:cardinality :many`
-* Database “mutations” via `transact!`
-* Callback-based analogue to txReportQueue via `listen!`
+Also check out blog post about [how DatomicScript fits into current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
-Query engine supports _all_ features of Datomic Datalog:
-
-* Implicit joins
-* Query over DB or regular collections
-* Parameterized queries via `:in` clause
-* Tuple, collection, relation binding forms in `:in` clause
-* Query over multiple DB/collections
-* Predicates and user functions in query
-* Rules, recursive rules
-* Aggregates
-
-Interface differences:
-
-* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
-* Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
-* Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
-
-Expected soon:
-
-* Better error reporting
-* Direct access to indexes
-* Passing DB to rule
-
-## Usage examples
+## Usage examples [![Build Status](https://travis-ci.org/tonsky/datomicscript.svg?branch=master)](https://travis-ci.org/tonsky/datomicscript)
 
 ```clj
-(require '[tonsky.datomicscript :as d])
+:dependencies [
+  [org.clojure/clojurescript "0.0-2173"]
+  ...
+  [datomicscript "0.1.2"]
+]
+```
+
+```clj
+(require '[datomicscript :as d])
 
 ;; Implicit join, multi-valued attribute
 
@@ -107,9 +90,44 @@ Expected soon:
 ;;     [:blue [7 8] [7 8]]]
 ```
 
-## Differences from Datomic
+## Project status
 
-This library is meant to run inside browser, so it must be fast to start, quick to query, single-threaded and ephemeral. You create a database on page load, put some data in it and wait for user to close the page.
+Pre-alpha quality. I spent just one week on implementation—it’s straightforward, non-optimized and has no meaningful error reporting.
+
+Following features are supported:
+
+* Database as a value: each DB is an immutable value. New DBs are created on top of old ones, but old ones stay perfectly valid too
+* Datomic triple store model
+* EA and AV indexes
+* Multi-valued attributes via `:cardinality :many`
+* Database “mutations” via `transact!`
+* Callback-based analogue to txReportQueue via `listen!`
+
+Query engine supports _all_ features of Datomic Datalog:
+
+* Implicit joins
+* Query over DB or regular collections
+* Parameterized queries via `:in` clause
+* Tuple, collection, relation binding forms in `:in` clause
+* Query over multiple DB/collections
+* Predicates and user functions in query
+* Rules, recursive rules
+* Aggregates
+
+Interface differences:
+
+* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
+* Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
+* Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
+
+Expected soon:
+
+* Better error reporting
+* Direct access to indexes
+* Passing DB to rule
+* Moar speed
+
+## Differences from Datomic
 
 Global differences:
 
@@ -126,6 +144,13 @@ Global differences:
 * No pluggable storage options
 * No full-text search
 * No partitions
+* No external dependencies
 * Free
 
 Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
+
+## License
+
+Copyright © 2014 Nikita Prokopov
+
+Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
