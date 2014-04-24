@@ -23,7 +23,7 @@ Also check out blog post about [how DatomicScript fits into current webdev ecosy
 :dependencies [
   [org.clojure/clojurescript "0.0-2173"]
   ...
-  [datomicscript "0.1.2"]
+  [datomicscript "0.1.3"]
 ]
 ```
 
@@ -141,9 +141,7 @@ Global differences:
 * No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. All DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
-* No pluggable storage options
-* No full-text search
-* No partitions
+* No pluggable storage options, no full-text search, no partitions
 * No external dependencies
 * Free
 

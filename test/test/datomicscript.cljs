@@ -102,6 +102,13 @@
              [2 "Petr" 22   (+ d/tx0 1)]
              [3 "Sergey" 30 (+ d/tx0 2)]}))))
 
+(deftest test-entity
+  (let [conn (d/create-conn {:aka {:cardinality :many}})
+        p1   {:db/id 1, :name "Ivan", :age 19, :aka ["X" "Y"]}
+        p2   {:db/id 2, :name "Ivan", :sex "male", :aka ["Z"]}
+        t1   (d/transact! conn [p1 p2])]
+    (is (= (d/entity @conn 1) p1))
+    (is (= (d/entity @conn 2) p2))))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)
@@ -477,3 +484,4 @@
 ;;                          [?e :age ?a]
 ;;                          [?e :sex ?s]]}
 ;;            big-db))
+

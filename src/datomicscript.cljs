@@ -41,6 +41,9 @@
 
 (defrecord TxReport [db-before db-after tx-data])
 
+(defn multival? [db attr]
+  (= (get-in db [:schema attr :cardinality]) :many))
+
 (defn- match-tuple [tuple pattern]
   (every? true?
     (map #(or (nil? %2) (= %1 %2)) tuple pattern)))
@@ -74,7 +77,7 @@
     (let [eid (:db/id entity)]
       (for [[a vs] (dissoc entity :db/id)
             v      (if (and (sequential? vs)
-                            (= :many (get-in db [:schema a :cardinality])))
+                            (multival? db a))
                      vs
                      [vs])]
         [:db/add eid a v]))
@@ -341,6 +344,14 @@
         (mapv #(subvec % 0 (count (:find query))))
       (not-empty (filter sequential? (:find query)))
         (aggregate query ins->sources))))
+
+(defn entity [db eid]
+  (when-let [attrs (not-empty (get-in db [:ea eid]))]
+    (merge { :db/id eid }
+           (for [[attr datoms] attrs]
+             (if (multival? db attr)
+               [attr (map :v datoms)]
+               [attr (.-v (first datoms))])))))
 
 (defn with [db entities]
   (-with db (->> entities
