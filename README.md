@@ -129,9 +129,8 @@ Expected soon:
 
 ## Differences from Datomic
 
-Global differences:
-
-* Runs in browser
+* DataScript is built totally from scratch and is not related by any means to popular Clojure database, Datomic
+* Runs in a browser
 * Simplified schema, not queriable
 * No need to declare attributes except for `:cardinality` `:many`
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
