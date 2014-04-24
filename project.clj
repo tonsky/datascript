@@ -1,8 +1,8 @@
-(defproject datomicscript "0.1.3"
+(defproject datascript "0.1.3"
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :url "https://github.com/tonsky/datomicscript"
+  :url "https://github.com/tonsky/datascript"
   
   :dependencies [
     [org.clojure/clojure "1.6.0"]
@@ -19,7 +19,7 @@
           { :id "dev"
             :source-paths ["src" "test"]
             :compiler {
-              :output-to     "web/datomicscript.js"
+              :output-to     "web/datascript.js"
               :output-dir    "web/out"
               :optimizations :none
               :source-map    true
@@ -27,26 +27,15 @@
           { :id "testable"
             :source-paths ["src" "test"]
             :compiler {
-              :output-to     "web/datomicscript.testable.js"
+              :output-to     "web/datascript.testable.js"
               :optimizations :whitespace
             }}
         ]
         :test-commands {
           "unit-tests" [
             "phantomjs" :runner
-            "web/datomicscript.testable.js"
+            "web/datascript.testable.js"
           ]}
       }
     }
-  }
-  :cljsbuild { 
-    :builds [
-      { :id "prod"
-        :source-paths ["src"]
-        :compiler {
-          :pretty-print  false
-          :output-to     "web/datomicscript.min.js"
-          :optimizations :advanced
-        }}]
-  }
-)
+  })

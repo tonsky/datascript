@@ -1,34 +1,34 @@
-# DatomicScript
+# DataScript
 
-> What if creating Datomic database would be as cheap as creating a Hashmap?
+> What if creating a database would be as cheap as creating a Hashmap?
 
-An implementation of Datomic in-memory database and Datalog query engine in ClojureScript.
+An immutable in-memory database and Datalog query engine in ClojureScript.
 
-DatomicScript is meant to run inside browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when user closes the page.
+DataScript is meant to run inside browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when user closes the page.
 
-DatomicScript databases are immutable and based on persistent data structures. In fact, they’re more like a data structures (think Hashmap). Unlike querying real SQL DB, when you query DatomicScript, it all comes down to a Hashmap lookup. Or series of lookups. Or array iteration. There’s no particular overhead to it. You put little data in it, it’s fast. You put a lot of data, well, at least it has indexes. That should do better than you filtering an array by hand anyway. The thing is really lightweight.
+DataScript databases are immutable and based on persistent data structures. In fact, they’re more like a data structures (think Hashmap). Unlike querying real SQL DB, when you query DataScript, it all comes down to a Hashmap lookup. Or series of lookups. Or array iteration. There’s no particular overhead to it. You put little data in it, it’s fast. You put a lot of data, well, at least it has indexes. That should do better than you filtering an array by hand anyway. The thing is really lightweight.
 
-DatomicScript intention is to be a basic building block in client-side applications that needs to track a lot of state during their lifetime. There’s a lot of benefits:
+DataScript intention is to be a basic building block in client-side applications that needs to track a lot of state during their lifetime. There’s a lot of benefits:
 
 - Central, uniform approach to manage all application state. Clients to work with state become decoupled and independent: rendering, server sync, undo/redo do not interfere with each other.
 - Immutability simplifies things even in single-threaded browser environment. Keep track of app state evolution, rewind to any point in time, always render consistent state, sync in background without locking anybody.
 - Datalog query engine to answer non-trivial questions about current app state.
 - Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
-Also check out blog post about [how DatomicScript fits into current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
+Also check out blog post about [how DataScript fits into current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
-## Usage examples [![Build Status](https://travis-ci.org/tonsky/datomicscript.svg?branch=master)](https://travis-ci.org/tonsky/datomicscript)
+## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 ```clj
 :dependencies [
   [org.clojure/clojurescript "0.0-2173"]
   ...
-  [datomicscript "0.1.3"]
+  [datascript "0.1.3"]
 ]
 ```
 
 ```clj
-(require '[datomicscript :as d])
+(require '[datascript :as d])
 
 ;; Implicit join, multi-valued attribute
 
@@ -97,13 +97,13 @@ Pre-alpha quality. I spent just one week on implementation—it’s straightforw
 Following features are supported:
 
 * Database as a value: each DB is an immutable value. New DBs are created on top of old ones, but old ones stay perfectly valid too
-* Datomic triple store model
+* Triple store model
 * EA and AV indexes
 * Multi-valued attributes via `:cardinality :many`
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
 
-Query engine supports _all_ features of Datomic Datalog:
+Query engine supports following features:
 
 * Implicit joins
 * Query over DB or regular collections
@@ -131,6 +131,7 @@ Expected soon:
 
 Global differences:
 
+* Runs in browser
 * Simplified schema, not queriable
 * No need to declare attributes except for `:cardinality` `:many`
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare

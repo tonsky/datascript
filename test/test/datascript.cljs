@@ -1,9 +1,9 @@
-(ns test.datomicscript
+(ns test.datascript
   (:require-macros
     [cemerick.cljs.test :refer (is deftest with-test run-tests testing test-var)])
   (:require
     [cemerick.cljs.test :as t]
-    [datomicscript :as d]))
+    [datascript :as d]))
 
 (enable-console-print!)
 

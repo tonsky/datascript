@@ -1,45 +1,21 @@
-(ns datomicscript
+(ns datascript
   (:require
     [clojure.set :as set]
-    [clojure.walk :as walk])
-  (:import
-    [clojure.lang Seqable ILookup Associative MapEntry IHashEq IPersistentCollection]))
+    [clojure.walk :as walk]))
 
-(deftype Datom [e a v tx added]
+(defrecord Datom [e a v tx added]
   Object
-  (hashCode [_] (hash [e a v]))
-  (equals   [_ o] (and (= e (.-e o)) (= a (.-a o)) (= v (.-v o))))
-  (toString [_] (str "#datom[" (pr-str e a v tx added) "]"))
-  IHashEq
-  (hasheq [_] (.hasheq [e a v]))
-  Seqable
-  (seq [_] (list e a v tx added))
-  IPersistentCollection
-  (count [_] 5)
-  (cons [this o] this)
-  (empty [this] this)
-  (equiv [_ o] (and (= e (.-e o)) (= a (.-a o)) (= v (.-v o))))
-  ILookup
-  (valAt [this k] (.valAt this k nil))
-  (valAt [_ k not-found] (case k :e e :a a :v v :tx tx :added added not-found))
-  Associative
-  (containsKey [_ k] (case k :e true :a true :v true :tx true :added true false))
-  (entryAt [_ k]
-    (case k
-       :e (MapEntry. :e e)
-       :a (MapEntry. :a a)
-       :v (MapEntry. :v v)
-       :tx (MapEntry. :tx tx)
-       :added (MapEntry. :added added)
-       nil))
-  (assoc [_ k x]
-    (case k
-      :e (->Datom x a v tx added)
-      :a (->Datom e x v tx added)
-      :v (->Datom e a x tx added)
-      :tx (->Datom e a v x added)
-      :added (->Datom e a v tx x))))
+  (toString [this]
+    (pr-str this)))
 
+(extend-type Datom
+  IHash
+  (-hash [d] (or (.-__hash d)
+                 (set! (.-__hash d) (hash-coll [(.-e d) (.-a d) (.-v d)]))))
+  IEquiv
+  (-equiv [d o] (and (= (.-e d) (.-e o)) (= (.-a d) (.-a o)) (= (.-v d) (.-v o))))
+  ISeqable
+  (-seq [d] (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d))))
 
 (defprotocol ISearch
   (-search [data pattern]))
@@ -65,6 +41,9 @@
 
 (defrecord TxReport [db-before db-after tx-data])
 
+(defn multival? [db attr]
+  (= (get-in db [:schema attr :cardinality]) :many))
+
 (defn- match-tuple [tuple pattern]
   (every? true?
     (map #(or (nil? %2) (= %1 %2)) tuple pattern)))
@@ -73,7 +52,7 @@
   (cond
     (satisfies? ISearch data)
       (-search data pattern)
-    (satisfies? Seqable data)
+    (satisfies? ISeqable data)
       (filter #(match-tuple % pattern) data)))
 
 (defn- transact-datom [db datom]
@@ -98,7 +77,7 @@
     (let [eid (:db/id entity)]
       (for [[a vs] (dissoc entity :db/id)
             v      (if (and (sequential? vs)
-                            (= :many (get-in db [:schema a :cardinality])))
+                            (multival? db a))
                      vs
                      [vs])]
         [:db/add eid a v]))
@@ -366,6 +345,14 @@
       (not-empty (filter sequential? (:find query)))
         (aggregate query ins->sources))))
 
+(defn entity [db eid]
+  (when-let [attrs (not-empty (get-in db [:ea eid]))]
+    (merge { :db/id eid }
+           (for [[attr datoms] attrs]
+             (if (multival? db attr)
+               [attr (map :v datoms)]
+               [attr (.-v (first datoms))])))))
+
 (defn with [db entities]
   (-with db (->> entities
                  (mapcat #(entity->tx-data db %))
@@ -408,28 +395,3 @@
 
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
-
-(defn now [] (.getTime (java.util.Date.)))
-(defn measure [f]
-  (let [t0 (now)
-        res (f)]
-    (- (now) t0)))
-
-(defn random-man []
-  (let [id (rand-int 1000000)]
-    {:db/id id
-     :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-     :sex       (rand-nth [:male :female])
-     :age       (rand-int 90)}))
-
-(measure
-  #(def big-db (reduce with
-                 (empty-db)
-                 (repeatedly 20000 (fn [] [(random-man)])))))
-
-(measure #(q '{:find [?e ?a ?s]
-                 :where [[?e :name "Ivan"]
-                         [?e :age ?a]
-                         [?e :sex ?s]]}
-           big-db))
