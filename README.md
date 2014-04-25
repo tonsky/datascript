@@ -4,18 +4,18 @@
 
 An immutable in-memory database and Datalog query engine in ClojureScript.
 
-DataScript is meant to run inside browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when user closes the page.
+DataScript is meant to run inside the browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when the user closes the page.
 
-DataScript databases are immutable and based on persistent data structures. In fact, they’re more like a data structures (think Hashmap). Unlike querying real SQL DB, when you query DataScript, it all comes down to a Hashmap lookup. Or series of lookups. Or array iteration. There’s no particular overhead to it. You put little data in it, it’s fast. You put a lot of data, well, at least it has indexes. That should do better than you filtering an array by hand anyway. The thing is really lightweight.
+DataScript databases are immutable and based on persistent data structures. In fact, they’re more like data structures than databases (think Hashmap). Unlike querying a real SQL DB, when you query DataScript, it all comes down to a Hashmap lookup. Or series of lookups. Or array iteration. There’s no particular overhead to it. You put a little data in it, it’s fast. You put in a lot of data, well, at least it has indexes. That should do better than you filtering an array by hand anyway. The thing is really lightweight.
 
-DataScript intention is to be a basic building block in client-side applications that needs to track a lot of state during their lifetime. There’s a lot of benefits:
+The intention with DataScript is to be a basic building block in client-side applications that needs to track a lot of state during their lifetime. There’s a lot of benefits:
 
-- Central, uniform approach to manage all application state. Clients to work with state become decoupled and independent: rendering, server sync, undo/redo do not interfere with each other.
-- Immutability simplifies things even in single-threaded browser environment. Keep track of app state evolution, rewind to any point in time, always render consistent state, sync in background without locking anybody.
+- Central, uniform approach to manage all application state. Clients working with state become decoupled and independent: rendering, server sync, undo/redo do not interfere with each other.
+- Immutability simplifies things even in a single-threaded browser environment. Keep track of app state evolution, rewind to any point in time, always render consistent state, sync in background without locking anybody.
 - Datalog query engine to answer non-trivial questions about current app state.
 - Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
-Also check out blog post about [how DataScript fits into current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
+Also check out these blog post about [how DataScript fits into current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
@@ -92,9 +92,9 @@ Also check out blog post about [how DataScript fits into current webdev ecosyste
 
 ## Project status
 
-Pre-alpha quality. I spent just one week on implementation—it’s straightforward, non-optimized and has no meaningful error reporting.
+Pre-alpha quality. I spent just one week on implementation — it’s straightforward, non-optimized and has no meaningful error reporting.
 
-Following features are supported:
+The following features are supported:
 
 * Database as a value: each DB is an immutable value. New DBs are created on top of old ones, but old ones stay perfectly valid too
 * Triple store model
@@ -103,7 +103,7 @@ Following features are supported:
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
 
-Query engine supports following features:
+Query engine features:
 
 * Implicit joins
 * Query over DB or regular collections
@@ -129,9 +129,9 @@ Expected soon:
 
 ## Differences from Datomic
 
-* DataScript is built totally from scratch and is not related by any means to popular Clojure database, Datomic
+* DataScript is built totally from scratch and is not related by any means to the popular Clojure database Datomic
 * Runs in a browser
-* Simplified schema, not queriable
+* Simplified schema, not queryable
 * No need to declare attributes except for `:cardinality` `:many`
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
@@ -139,7 +139,7 @@ Expected soon:
 * No transactor functions besides `:db.fn/retractEntity` and `:db.fn/retractAttribute`
 * No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
-* No cache segments management, no laziness. All DB must reside in memory
+* No cache segments management, no laziness. Entire DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options, no full-text search, no partitions
 * No external dependencies
