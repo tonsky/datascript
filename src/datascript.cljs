@@ -3,6 +3,8 @@
     [clojure.set :as set]
     [clojure.walk :as walk]))
 
+(defprotocol IEntityMap)
+
 (defrecord Datom [e a v tx added]
   Object
   (toString [this]
@@ -347,11 +349,13 @@
 
 (defn entity [db eid]
   (when-let [attrs (not-empty (get-in db [:ea eid]))]
-    (merge { :db/id eid }
-           (for [[attr datoms] attrs]
-             (if (multival? db attr)
-               [attr (map :v datoms)]
-               [attr (.-v (first datoms))])))))
+    (specify!
+      (merge {:db/id eid}
+        (for [[attr datoms] attrs]
+          (if (multival? db attr)
+            [attr (map :v datoms)]
+            [attr (.-v (first datoms))])))
+      IEntityMap)))
 
 (defn with [db entities]
   (-with db (->> entities
