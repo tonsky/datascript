@@ -44,7 +44,10 @@
 (defrecord TxReport [db-before db-after tx-data])
 
 (defn multival? [db attr]
-  (= (get-in db [:schema attr :cardinality]) :many))
+  (= (get-in db [:schema attr :db/cardinality]) :db.cardinality/many))
+
+(defn ref? [db attr]
+  (= (get-in db [:schema attr :db/valueType]) :db.type/ref))
 
 (defn- match-tuple [tuple pattern]
   (every? true?
@@ -89,7 +92,7 @@
   (let [tx (inc (.-max-tx db))]
     (case op
       :db/add
-        (if (= :many (get-in db [:schema a :cardinality]))
+        (if (= :db.cardinality/many (get-in db [:schema a :db/cardinality]))
           (when (empty? (-search db [e a v]))
             [(->Datom e a v tx true)])
           (if-let [old-datom (first (-search db [e a]))]
@@ -347,14 +350,21 @@
       (not-empty (filter sequential? (:find query)))
         (aggregate query ins->sources))))
 
+(declare entity)
+
+(defn- follow-refs [db attr v]
+  (if (ref? db attr)
+    (entity db v)
+    v))
+
 (defn entity [db eid]
   (when-let [attrs (not-empty (get-in db [:ea eid]))]
     (specify!
       (merge {:db/id eid}
         (for [[attr datoms] attrs]
           (if (multival? db attr)
-            [attr (map :v datoms)]
-            [attr (.-v (first datoms))])))
+            [attr (map #(follow-refs db attr (:v %)) datoms)]
+            [attr (follow-refs db attr (.-v (first datoms)))])))
       IEntityMap)))
 
 (defn with [db entities]
