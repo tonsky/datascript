@@ -81,7 +81,10 @@
                      vs
                      [vs])]
         [:db/add eid a v]))
-    [entity]))
+    (if (= (first entity) :db.fn/call)
+      (let [[_ f & args] entity]
+        (vec (apply f db args)))
+      [entity])))
 
 (defn- op->tx-data [db [op e a v]]
   (let [tx (inc (.-max-tx db))]
@@ -372,20 +375,29 @@
         db-before (atom nil)
         tx-data   (atom nil)
         tempids   (atom nil)
+        error     (atom nil)
         db-after  (swap! conn (fn [db]
-                                (let [raw-datoms (mapcat #(entity->tx-data db %) entities)
-                                      datoms     (map #(resolve-eid db %) raw-datoms)]
-                                  (reset! db-before db)
-                                  (reset! tx-data datoms)
-                                  (reset! tempids (->> raw-datoms
-                                                       (filter #(neg? (.-e %)))
-                                                       (map #(vector (.-e %) (-resolve-eid (.-e %) db)))
-                                                       (into {})))
-                                  (-with db datoms))))
-        report    (TxReport. @db-before db-after @tx-data)]
-    (doseq [[_ l] @(:listeners meta)]
-      (l report))
-    (assoc report :tempids @tempids)))
+                                (let [raw-datoms (try (mapcat #(entity->tx-data db %) entities)
+                                                      (catch js/Object e
+                                                        (reset! error e)))
+]
+                                  (if @error
+                                    db
+                                    (let [datoms (map #(resolve-eid db %) raw-datoms)]
+                                      (reset! db-before db)
+                                      (reset! tx-data datoms)
+                                      (reset! tempids (->> raw-datoms
+                                                           (filter #(neg? (.-e %)))
+                                                           (map #(vector (.-e %) (-resolve-eid (.-e %) db)))
+                                                           (into {})))
+                                      (-with db datoms)))
+)))]
+    (if-let [e @error]
+      (throw e)
+      (let [report (TxReport. @db-before db-after @tx-data)]
+        (doseq [[_ l] @(:listeners meta)]
+          (l report))
+        (assoc report :tempids @tempids)))))
            
 (defn listen!
   ([conn callback] (listen! conn (rand) callback))
