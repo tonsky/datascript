@@ -83,7 +83,7 @@
         [:db/add eid a v]))
     (if (= (first entity) :db.fn/call)
       (let [[_ f & args] entity]
-        (vec (apply f db args)))
+        (mapcat #(entity->ops db %) (apply f db args)))
       [entity])))
 
 (defn- op->tx-data [db [op e a v]]

@@ -92,7 +92,7 @@
                                                    :where [[?e :name ?name]
                                                            [?e :age ?age]]}
                                                   db name))]
-                    [[:db/add eid :age (inc age)]]
+                    [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]]
                     (throw (js/Error. (str "No entity with name: " name)))
 ))]
     (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
@@ -108,8 +108,10 @@
            #{["Devil"] ["Tupen"]}))
     (is (thrown-with-msg? js/Error #"No entity with name: Bob"
                           (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
-    (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])]
-      (is (= (:age (d/entity db-after 1)) 32)))))
+    (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
+          e (d/entity db-after 1)]
+      (is (= (:age e) 32))
+      (is (:had-birthday e)))))
 
 
 (deftest test-resolve-eid
