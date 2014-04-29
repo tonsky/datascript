@@ -139,6 +139,17 @@
     (is (= (d/entity @conn 1) p1))
     (is (= (d/entity @conn 2) p2))))
 
+(deftest test-keyword-ident
+  (let [conn (d/create-conn {})
+        p1   {:db/id :ivan, :name "Ivan", :age 19}
+        p2   {:db/id -1, :name "Bob", :sex "male"}
+        t1 (d/transact! conn [p1])
+        t2 (d/transact! conn [p2])]
+    (is (= (d/entity (:db-after t1) :ivan) p1))
+    (is (= (-> (d/entity (:db-after t2) (get-in t2 [:tempids -1]))
+               (dissoc :db/id))
+           (dissoc p2 :db/id)))))
+
 (deftest test-listen!
   (let [conn    (d/create-conn)
         reports (atom [])]
