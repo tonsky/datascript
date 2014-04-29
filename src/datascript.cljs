@@ -117,7 +117,9 @@
   (->
     (reduce transact-datom db tx-data)
     (update-in [:max-tx] inc)
-    (assoc      :max-eid (reduce max (.-max-eid db) (map :e tx-data)))))
+    (assoc      :max-eid (reduce max (.-max-eid db) (for [{e :e} tx-data
+                                                          :when (number? e)]
+                                                      e)))))
 
 
 ;; QUERIES
