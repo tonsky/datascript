@@ -119,10 +119,13 @@ Interface differences:
 * Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
 * Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
+* Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument
+* Additional `:db.fn/retractAttribute` shortcut
 
 Expected soon:
 
 * Better error reporting
+* Support for components in schema
 * Direct access to indexes
 * Passing DB to rule
 * Moar speed
@@ -136,7 +139,6 @@ Expected soon:
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AV index for all datoms
-* No transactor functions besides `:db.fn/retractEntity` and `:db.fn/retractAttribute`
 * No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. Entire DB must reside in memory

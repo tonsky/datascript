@@ -84,6 +84,35 @@
                   :where [1 :aka ?v]] @conn)
            #{["Devil"] ["Tupen"]}))))
 
+(deftest test-db-fn
+  (let [conn (d/create-conn {:aka { :cardinality :many }})
+        inc-age (fn [db name]
+                  (if-let [[eid age] (first (d/q '{:find [?e ?age]
+                                                   :in [$ ?name]
+                                                   :where [[?e :name ?name]
+                                                           [?e :age ?age]]}
+                                                  db name))]
+                    [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]]
+                    (throw (js/Error. (str "No entity with name: " name)))
+))]
+    (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
+    (d/transact! conn [[:db/add 1 :name "Petr"]])
+    (d/transact! conn [[:db/add 1 :aka  "Devil"]])
+    (d/transact! conn [[:db/add 1 :aka  "Tupen"]])
+    (is (= (d/q '[:find ?v ?a
+                  :where [?e :name ?v]
+                         [?e :age ?a]] @conn)
+           #{["Petr" 31]}))
+    (is (= (d/q '[:find ?v
+                  :where [?e :aka ?v]] @conn)
+           #{["Devil"] ["Tupen"]}))
+    (is (thrown-with-msg? js/Error #"No entity with name: Bob"
+                          (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
+    (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
+          e (d/entity db-after 1)]
+      (is (= (:age e) 32))
+      (is (:had-birthday e)))))
+
 
 (deftest test-resolve-eid
   (let [conn (d/create-conn)
@@ -456,6 +485,8 @@
                         [:blue 7] [:blue 8]]
                        #(reverse (sort %))))
              #{[:red [5 4 3 2 1]] [:blue [8 7]]})))))
+
+
 
 ;; (t/test-ns 'test.datomicscript)
 
