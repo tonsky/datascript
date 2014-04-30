@@ -39,7 +39,7 @@
      tx    (filter #(= tx (.-tx %)))
      added (filter #(= added (.-added %))))))
 
-(defrecord TxReport [db-before db-after tx-data])
+(defrecord TxReport [db-before db-after tx-data tempids])
 
 (defn multival? [db attr]
   (= (get-in db [:schema attr :cardinality]) :many))
@@ -356,10 +356,6 @@
                [attr (map :v datoms)]
                [attr (.-v (first datoms))])))))
 
-(defn with [db entities]
-  (-with db (->> entities
-                 (mapcat #(entity->tx-data db %))
-                 (map #(resolve-eid db %)))))
 
 (def ^:const tx0 0x20000000)
 
@@ -370,34 +366,31 @@
   (atom (empty-db schema)
         :meta { :listeners  (atom {}) }))
 
+(defn transact [db entities]
+  (let [raw-datoms (mapcat #(entity->tx-data db %) entities)
+        datoms     (map #(resolve-eid db %) raw-datoms)
+        tempids    (->> raw-datoms
+                     (filter #(neg? (.-e %)))
+                     (map #(vector (.-e %) (-resolve-eid (.-e %) db)))
+                     (into {}))]
+    (TxReport. db (-with db datoms) datoms tempids)))
+
+(defn with [db entities]
+  (:db-after (transact db entities)))
+
+(defn -transact! [conn entities]
+  (let [report (atom nil)]
+    (swap! conn (fn [db]
+                  (let [r (transact db entities)]
+                    (reset! report r)
+                    (:db-after r))))
+    @report))
+
 (defn transact! [conn entities]
-  (let [meta      (meta conn)
-        db-before (atom nil)
-        tx-data   (atom nil)
-        tempids   (atom nil)
-        error     (atom nil)
-        db-after  (swap! conn (fn [db]
-                                (let [raw-datoms (try (mapcat #(entity->tx-data db %) entities)
-                                                      (catch js/Object e
-                                                        (reset! error e)))
-]
-                                  (if @error
-                                    db
-                                    (let [datoms (map #(resolve-eid db %) raw-datoms)]
-                                      (reset! db-before db)
-                                      (reset! tx-data datoms)
-                                      (reset! tempids (->> raw-datoms
-                                                           (filter #(neg? (.-e %)))
-                                                           (map #(vector (.-e %) (-resolve-eid (.-e %) db)))
-                                                           (into {})))
-                                      (-with db datoms)))
-)))]
-    (if-let [e @error]
-      (throw e)
-      (let [report (TxReport. @db-before db-after @tx-data)]
-        (doseq [[_ l] @(:listeners meta)]
-          (l report))
-        (assoc report :tempids @tempids)))))
+  (let [report (-transact! conn entities)]
+    (doseq [[_ callback] @(:listeners (meta conn))]
+      (callback report))
+    report))
            
 (defn listen!
   ([conn callback] (listen! conn (rand) callback))
@@ -407,3 +400,4 @@
 
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
+

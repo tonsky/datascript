@@ -488,7 +488,7 @@
 
 
 
-;; (t/test-ns 'test.datomicscript)
+;; (t/test-ns 'test.datascript)
 
 ;; Performance
 

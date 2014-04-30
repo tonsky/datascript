@@ -121,6 +121,7 @@ Interface differences:
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument
 * Additional `:db.fn/retractAttribute` shortcut
+* `transact!` and `transact` return `TxReport`, `with` returns new DB value
 
 Expected soon:
 
