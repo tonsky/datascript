@@ -98,6 +98,8 @@ DataScript can be used from any JS engine without additional dependencies:
 <script src="datascript-0.1.4.min.js"></script>
 ```
 
+[Download datascript-0.1.4.min.js](https://github.com/tonsky/datascript/releases/download/0.1.4/datascript-0.1.4.min.js), 32k gzipped.
+
 Queries:
 
 * Query and rules should be EDN passed as strings
@@ -144,7 +146,7 @@ Interface differences:
 * Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
 * Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
-* Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument
+* Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
 * Additional `:db.fn/retractAttribute` shortcut
 * `transact!` and `transact` return `TxReport`, `with` returns new DB value
 
