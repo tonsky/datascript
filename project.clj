@@ -1,4 +1,4 @@
-(def version "0.1.3")
+(def version "0.1.4")
 
 (defproject datascript version
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -45,10 +45,9 @@
             }}
         ]
         :test-commands {
-          "unit-tests" [
-            "phantomjs" :runner
-            "web/datascript.testable.js"
-          ]}
+          "test.datascript"    [ "phantomjs" :runner "web/datascript.testable.js" ]
+          "test.datascript.js" [ "phantomjs" "test/js/js.js" ]
+        }
       }
     }
   })

@@ -93,8 +93,7 @@
                                                            [?e :age ?age]]}
                                                   db name))]
                     [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]]
-                    (throw (js/Error. (str "No entity with name: " name)))
-))]
+                    (throw (js/Error. (str "No entity with name: " name)))))]
     (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
     (d/transact! conn [[:db/add 1 :name "Petr"]])
     (d/transact! conn [[:db/add 1 :aka  "Devil"]])

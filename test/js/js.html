@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8"/>
+  <body>
+    <script src="underscore-1.6.0.min.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      var passed = 0, failures = 0, asserts = 0, errors = 0;
+      
+      function eq_set(s1, s2) {
+        return _.every(s1, function(e1) { return _.find(s2, function(e2) { return _.isEqual(e1, e2); }) != undefined })
+            && _.every(s2, function(e2) { return _.find(s1, function(e1) { return _.isEqual(e1, e2); }) != undefined });
+      }
+      
+      function assert_eq(expected, got, message) {
+        asserts++;
+        if (!_.isEqual(expected, got)) {
+          errors--;
+          failures++;
+          throw (message || "Assertion failed") + ": expected: " + expected + ", got: " + got;
+        }
+      }
+      
+      function assert_eq_set(expected, got, message) {
+        asserts++;
+        if (!eq_set(expected, got)) {
+          errors--;
+          failures++;
+          throw (message || "Assertion failed") + ": expected: " + expected + ", got: " + got;
+        }
+      }
+      
+      function test_fns(fns) {
+        for(var i in fns) {
+          try {
+            fns[i]();
+            passed++;
+            console.log("[ OK ] " + fns[i].name);
+          } catch(e) {
+            console.error(fns[i].name + ": " + e);
+            errors++;
+            console.error("[ FAIL ] " + fns[i].name);
+          }
+        }
+        
+        console.log("Ran " + fns.length + " tests containing " + asserts + " assertions.");
+        console.log("Testing complete: " + failures + " failures, " + errors + " errors."); 
+        
+        if (failures + errors > 0) {
+          return 1;
+        }
+        return 0;
+      }
+    </script>
+    
+
+    <script src="../../web/out/goog/base.js" type="text/javascript"></script>
+    <script src="../../web/datascript.js" type="text/javascript"></script>
+    <script type="text/javascript">goog.require("datascript.js");</script>
+
+    <script type="text/javascript">
+      var d = datascript.js;
+      
+      function test_with_datoms() {
+        var db = d.empty_db();
+        var db1 = d.with_datoms(db, [[":db/add", 1, "name", "Ivan"],
+                                     [":db/add", 1, "age", 17]]);
+        var db2 = d.with_datoms(db1, [{":db/id": 2,
+                                       "name": "Igor",
+                                       "age": 35}]);
+        var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
+        assert_eq_set([["Ivan", 17]], d.q(q, db1));
+        assert_eq_set([["Ivan", 17], ["Igor", 35]], d.q(q, db2));
+      }
+      
+      function test_dbfn_call() {
+        var dbfn = function(db, e, n, a) { 
+          return [[":db/add", e, "name", n],
+                  [":db/add", e, "age", a]]; 
+        }
+        var db = d.with_datoms(d.empty_db(), [[":db.fn/call", dbfn, 1, "Ilya", 44]]);
+        var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
+        assert_eq_set([["Ilya", 44]], d.q(q, db));
+      }
+      
+      function test_schema() {
+        var schema = {"aka": {":cardinality": ":many"}};
+        var db = d.with_datoms(d.empty_db(schema), 
+                               [[":db/add", -1, "name", "Ivan"],
+                                [":db/add", -1, "aka", "X"],
+                                [":db/add", -1, "aka", "Y"],
+                                {":db/id": -2,
+                                 "name": "Igor",
+                                 "aka": ["F", "G"]}]);
+        var q = '[:find ?aka :in $ ?e :where [?e "aka" ?aka]]'; 
+        assert_eq_set([["X"], ["Y"]], d.q(q, db, 1));
+        assert_eq_set([["F"], ["G"]], d.q(q, db, 2));
+      }
+
+      function test_tx_report() {
+        var conn = d.create_conn();
+        var log = [];
+        d.listen(conn, function(report) { log.push(report.tx_data); });
+        var tx_report = d.transact(conn, [[":db/add", -1, "name", "Ivan"],
+                                          [":db/add", -1, "age", 17]]);
+        assert_eq([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
+                   {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
+                  tx_report.tx_data);
+        assert_eq({"-1": 1}, tx_report.tempids);
+        assert_eq([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
+                   {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
+                  log[0]);
+      }
+      
+      function test_entity() {
+        var schema = {"aka": {":cardinality": ":many"}};
+        var db = d.with_datoms(d.empty_db(schema), 
+                               [{":db/id": -1,
+                                 "name": "Ivan",
+                                 "aka": ["X", "Y"]}]);
+        assert_eq({name: "Ivan", aka: ["X", "Y"], ":db/id": 1}, d.entity(db, 1));
+      }
+      
+      var people_db = d.with_datoms(d.empty_db(),
+                       [{ ":db/id": 1, "name": "Ivan", "age": 15 },
+                        { ":db/id": 2, "name": "Petr", "age": 37 },
+                        { ":db/id": 3, "name": "Ivan", "age": 37 }]);
+      
+      function test_q_relation() {
+        var res = d.q('[:find ?e ?email \
+                        :in    $ $b \
+                        :where [?e "name" ?n] \
+                               [$b ?n ?email]]',
+                      people_db,
+                    [["Ivan", "ivan@mail.ru"],
+                     ["Petr", "petr@gmail.com"]]);
+        assert_eq_set([[1, "ivan@mail.ru"], [2, "petr@gmail.com"], [3, "ivan@mail.ru"]], res);
+
+        res     = d.q('[:find ?e ?email \
+                        :in    $ [[?n ?email]] \
+                        :where [?e "name" ?n]]',
+                      people_db,
+                    [["Ivan", "ivan@mail.ru"],
+                     ["Petr", "petr@gmail.com"]]);
+        assert_eq_set([[1, "ivan@mail.ru"], [2, "petr@gmail.com"], [3, "ivan@mail.ru"]], res);
+      }
+      
+      function test_q_rules() {
+        var res = d.q('[:find ?e1 ?e2 \
+                        :in    $ % \
+                        :where (mate ?e1 ?e2) \
+                               [(< ?e1 ?e2)]]',
+                      people_db,
+                      '[[(mate ?e1 ?e2)   \
+                         [?e1 "name" ?n]  \
+                         [?e2 "name" ?n]] \
+                        [(mate ?e1 ?e2)   \
+                         [?e1 "age" ?a]   \
+                         [?e2 "age" ?a]]]');
+        assert_eq_set([[1, 3], [2, 3]], res);
+      }
+      
+      function test_q_fns() {
+        var res = d.q('[:find ?e \
+                        :in    $ ?adult \
+                        :where [?e "age" ?a] \
+                               [(?adult ?a)]]',
+                      people_db,
+                      function(a) { return a > 18; });
+        assert_eq_set([[2], [3]], res);
+      }
+      
+      function run_tests() {
+        return test_fns([test_with_datoms,
+                          test_dbfn_call,
+                          test_schema,
+                          test_tx_report,
+                          test_entity,
+                          test_q_relation,
+                          test_q_rules,
+                          test_q_fns
+                         ]);
+      }
+    </script>
+  </body>
+</html>

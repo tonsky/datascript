@@ -23,7 +23,7 @@ Also check out this blog post about [how DataScript fits into the current webdev
 :dependencies [
   [org.clojure/clojurescript "0.0-2173"]
   ...
-  [datascript "0.1.3"]
+  [datascript "0.1.4"]
 ]
 ```
 
@@ -90,6 +90,31 @@ Also check out this blog post about [how DataScript fits into the current webdev
 ;;     [:blue [7 8] [7 8]]]
 ```
 
+## Using from vanilla JS
+
+DataScript can be used from any JS engine without additional dependencies:
+
+```html
+<script src="datascript-0.1.4.min.js"></script>
+```
+
+Queries:
+
+* Query and rules should be EDN passed as strings
+* Results of `q` are returned as regular JS arrays
+
+Transactions:
+
+* Use strings such as `":db/id"`, `":db/add"`, etc. instead of db-namespaced keywords
+* Use regular JS arrays and objects to pass data to `transact` and `with_datoms`
+
+Transaction reports:
+
+* `report.tempids` has string keys (`"-1"` for entity tempid `-1`)
+* `report.tx_data` is list of objects with `e`, `a`, `v`, `tx` and `added` keys (instead of Datoms)
+
+Check out [test/js/js.html](test/js/js.html) for usage examples.
+
 ## Project status
 
 Pre-alpha quality. I spent just one week on implementation — it’s straightforward, non-optimized and has no meaningful error reporting.
@@ -129,6 +154,7 @@ Expected soon:
 * Support for components in schema
 * Direct access to indexes
 * Passing DB to rule
+* Proper API docs
 * Moar speed
 
 ## Differences from Datomic

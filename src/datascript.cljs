@@ -1,7 +1,8 @@
 (ns datascript
   (:require
     [clojure.set :as set]
-    [clojure.walk :as walk]))
+    [clojure.walk :as walk]
+    [cljs.reader :refer [read-string]]))
 
 (defrecord Datom [e a v tx added]
   Object
@@ -52,7 +53,8 @@
   (cond
     (satisfies? ISearch data)
       (-search data pattern)
-    (satisfies? ISeqable data)
+    (or (satisfies? ISeqable data)
+        (array? data))
       (filter #(match-tuple % pattern) data)))
 
 (defn- transact-datom [db datom]
@@ -73,18 +75,20 @@
     d))
 
 (defn- entity->ops [db entity]
-  (if (map? entity)
-    (let [eid (:db/id entity)]
-      (for [[a vs] (dissoc entity :db/id)
-            v      (if (and (sequential? vs)
-                            (multival? db a))
-                     vs
-                     [vs])]
-        [:db/add eid a v]))
-    (if (= (first entity) :db.fn/call)
+  (cond
+    (map? entity)
+      (let [eid (:db/id entity)]
+        (for [[a vs] (dissoc entity :db/id)
+              v      (if (and (sequential? vs)
+                              (multival? db a))
+                       vs
+                       [vs])]
+          [:db/add eid a v]))
+    (= (first entity) :db.fn/call)
       (let [[_ f & args] entity]
         (mapcat #(entity->ops db %) (apply f db args)))
-      [entity])))
+    :else
+      [entity]))
 
 (defn- op->tx-data [db [op e a v]]
   (let [tx (inc (.-max-tx db))]
@@ -220,9 +224,10 @@
                    wheres
                    scope)
           '%       ;; rules
-            (recur (next in+sources)
-                   wheres
-                   (assoc scope :__rules (group-by ffirst source)))
+            (let [rules (if (string? source) (read-string source) source)]
+              (recur (next in+sources)
+                     wheres
+                     (assoc scope :__rules (group-by ffirst rules))))
 
           '_       ;; regular binding ?x
             (recur (next in+sources)
@@ -335,8 +340,7 @@
 ;; SUMMING UP
 
 (defn q [query & sources]
-  (let [query        (cond-> query
-                       (sequential? query) parse-query)
+  (let [query        (if (sequential? query) (parse-query query) query)
         ins->sources (zipmap (:in query '[$]) sources)
         find         (concat
                        (map #(if (sequential? %) (last %) %) (:find query))
