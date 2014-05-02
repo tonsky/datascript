@@ -54,10 +54,12 @@
     </script>
     
 
-    <script src="../../web/out/goog/base.js" type="text/javascript"></script>
+<!--     <script src="../../web/out/goog/base.js" type="text/javascript"></script>
     <script src="../../web/datascript.js" type="text/javascript"></script>
     <script type="text/javascript">goog.require("datascript.js");</script>
-
+ -->
+    <script src="../../web/datascript-0.1.4.min.js" type="text/javascript"></script>
+    
     <script type="text/javascript">
       var d = datascript.js;
       
@@ -84,7 +86,7 @@
       }
       
       function test_schema() {
-        var schema = {"aka": {":cardinality": ":many"}};
+        var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
         var db = d.with_datoms(d.empty_db(schema), 
                                [[":db/add", -1, "name", "Ivan"],
                                 [":db/add", -1, "aka", "X"],
@@ -113,7 +115,7 @@
       }
       
       function test_entity() {
-        var schema = {"aka": {":cardinality": ":many"}};
+        var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
         var db = d.with_datoms(d.empty_db(schema), 
                                [{":db/id": -1,
                                  "name": "Ivan",

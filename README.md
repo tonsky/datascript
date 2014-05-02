@@ -32,7 +32,7 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ;; Implicit join, multi-valued attribute
 
-(let [schema {:aka {:cardinality :many}}
+(let [schema {:aka {:db/cardinality :db.cardinality/many}}
       conn   (d/create-conn schema)]
   (d/transact! conn [ { :db/id -1
                         :name  "Maksim"
@@ -124,7 +124,7 @@ The following features are supported:
 * Database as a value: each DB is an immutable value. New DBs are created on top of old ones, but old ones stay perfectly valid too
 * Triple store model
 * EA and AV indexes
-* Multi-valued attributes via `:cardinality :many`
+* Multi-valued attributes via `:db/cardinality :db.cardinality/many`
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
 
@@ -162,7 +162,7 @@ Expected soon:
 * DataScript is built totally from scratch and is not related by any means to the popular Clojure database Datomic
 * Runs in a browser
 * Simplified schema, not queryable
-* No need to declare attributes except for `:cardinality` `:many`
+* No need to declare attributes except for `:db/cardinality` `:db.cardinality/many`
 * Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AV index for all datoms

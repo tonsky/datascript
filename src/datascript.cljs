@@ -43,7 +43,7 @@
 (defrecord TxReport [db-before db-after tx-data tempids])
 
 (defn multival? [db attr]
-  (= (get-in db [:schema attr :cardinality]) :many))
+  (= (get-in db [:schema attr :db/cardinality]) :db.cardinality/many))
 
 (defn- match-tuple [tuple pattern]
   (every? true?
@@ -94,7 +94,7 @@
   (let [tx (inc (.-max-tx db))]
     (case op
       :db/add
-        (if (= :many (get-in db [:schema a :cardinality]))
+        (if (= :db.cardinality/many (get-in db [:schema a :db/cardinality]))
           (when (empty? (-search db [e a v]))
             [(->Datom e a v tx true)])
           (if-let [old-datom (first (-search db [e a]))]

@@ -9,7 +9,7 @@
 
 
 (deftest test-with
-  (let [db  (-> (d/empty-db {:aka { :cardinality :many }})
+  (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
                 (d/with [[:db/add 1 :name "Ivan"]])
                 (d/with [[:db/add 1 :name "Petr"]])
                 (d/with [[:db/add 1 :aka  "Devil"]])
@@ -42,7 +42,7 @@
                #{["Petr"]}))))))
 
 (deftest test-retract-fns
-  (let [db (-> (d/empty-db {:aka { :cardinality :many }})
+  (let [db (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
                (d/with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"] }
                          { :db/id 2, :name  "Petr", :age 37 } ]))]
     (let [db (d/with db [ [:db.fn/retractEntity 1] ])]
@@ -71,7 +71,7 @@
 
 
 (deftest test-transact!
-  (let [conn (d/create-conn {:aka { :cardinality :many }})]
+  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :name "Ivan"]])
     (d/transact! conn [[:db/add 1 :name "Petr"]])
     (d/transact! conn [[:db/add 1 :aka  "Devil"]])
@@ -85,7 +85,7 @@
            #{["Devil"] ["Tupen"]}))))
 
 (deftest test-db-fn
-  (let [conn (d/create-conn {:aka { :cardinality :many }})
+  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
         inc-age (fn [db name]
                   (if-let [[eid age] (first (d/q '{:find [?e ?age]
                                                    :in [$ ?name]
@@ -131,7 +131,7 @@
              [3 "Sergey" 30 (+ d/tx0 2)]}))))
 
 (deftest test-entity
-  (let [conn (d/create-conn {:aka {:cardinality :many}})
+  (let [conn (d/create-conn {:aka {:db/cardinality :db.cardinality/many}})
         p1   {:db/id 1, :name "Ivan", :age 19, :aka ["X" "Y"]}
         p2   {:db/id 2, :name "Ivan", :sex "male", :aka ["Z"]}
         t1   (d/transact! conn [p1 p2])]
@@ -164,8 +164,8 @@
 
 
 (deftest test-explode
-  (let [conn (d/create-conn { :aka { :cardinality :many }
-                              :also { :cardinality :many} })]
+  (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
+                              :also { :db/cardinality :db.cardinality/many} })]
     (d/transact! conn [{:db/id -1
                         :name  "Ivan"
                         :age   16
@@ -211,7 +211,7 @@
 
 
 (deftest test-q-many
-  (let [db (-> (d/empty-db {:aka {:cardinality :many}})
+  (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
                (d/with [ [:db/add 1 :name "Ivan"]
                          [:db/add 1 :aka  "ivolga"]
                          [:db/add 1 :aka  "pi"]
