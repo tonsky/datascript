@@ -32,7 +32,9 @@
                #{}))
         (is (= (d/q '[:find ?v
                       :where [1 :aka ?v]] db)
-               #{["Tupen"]}))))
+               #{["Tupen"]}))
+        
+        (is (= (d/entity db 1) { :db/id 1, :aka ["Tupen"] }))))
     
     (testing "Cannot retract what's not there"
       (let [db  (-> db

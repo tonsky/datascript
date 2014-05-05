@@ -355,9 +355,10 @@
 (defn entity [db eid]
   (when-let [attrs (not-empty (get-in db [:ea eid]))]
     (merge { :db/id eid }
-           (for [[attr datoms] attrs]
+           (for [[attr datoms] attrs
+                 :when (not-empty datoms)]
              (if (multival? db attr)
-               [attr (map :v datoms)]
+               [attr (mapv :v datoms)]
                [attr (.-v (first datoms))])))))
 
 
