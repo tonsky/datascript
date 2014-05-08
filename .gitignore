@@ -9,3 +9,4 @@ pom.xml.asc
 /.nrepl-port
 web/out
 web/*.js
+perf

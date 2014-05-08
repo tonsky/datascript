@@ -6,7 +6,7 @@
 (def ^:const min-len nil) ;; FIXME
 (def ^:const max-len 128)
 (def ^:const path-bit-offset 8)
-(def ^:const path-mask max-len)
+(def ^:const path-mask (dec (bit-shift-left 1 path-bit-offset)))
 (def ^:dynamic *cmp* compare)
 
 (defn eq [a b]  (== 0 (*cmp* a b)))
@@ -37,7 +37,7 @@
         (bit-or (bit-shift-left idx path-offset) path)
         (let [idx (if (== idx (alength keys)) (dec idx) idx)]
           (recur (aget (.-pointers node) idx)
-                 (bit-or (bit-shift-left idx path-bit-offset) path)
+                 (bit-or (bit-shift-left idx path-offset) path)
                  (+ path-offset path-bit-offset)
                  (inc depth)))))))
 
@@ -100,9 +100,28 @@
 
 (deftype Node [keys pointers]
   Object
-  (append [_ ^number idx nodes]
-    (let [new-keys     (replace-keys keys     idx (.map nodes lim-key))
-          new-pointers (splice   pointers idx (inc idx) nodes)]
+  (get_key [_ path]
+    (let [path-idx (bit-and path path-mask)
+          path-next (unsigned-bit-shift-right path path-bit-offset)]
+      (.get_key (aget pointers path-idx) path-next)))
+  
+  (next_path [_ path]
+    (let [path-idx      (bit-and path path-mask)
+          path-next     (unsigned-bit-shift-right path path-bit-offset)
+          path-next-new (.next_path (aget pointers path-idx) path-next)]
+      (if (== -1 path-next-new)
+        (if (< (inc path-idx) (alength pointers))
+          (inc path-idx)  ;; keeping subpathes filled with 0
+          -1)
+        (bit-or path-idx 
+                (bit-shift-left path-next-new path-bit-offset)))))
+  
+  (append [_ path key]
+    (let [path-idx  (bit-and path path-mask)
+          path-next (unsigned-bit-shift-right path path-bit-offset)
+          nodes     (.append (aget pointers path-idx) path-next key)
+          new-keys     (replace-keys keys     path-idx                (.map nodes lim-key))
+          new-pointers (splice       pointers path-idx (inc path-idx) nodes)]
       (if (<= (alength new-pointers) max-len)
         ;; ok as is
         #js [(Node. new-keys new-pointers)]
@@ -115,6 +134,15 @@
           
 (deftype LeafNode [keys]
   Object
+  (get_key [_ path]
+    (when (< path (alength keys))
+      (aget keys path)))
+  
+  (next_path [_ path]
+    (if (>= (inc path) (alength keys))
+      -1
+      (inc path)))
+      
   (append [_ ^number idx key]
     (let [keys-l (alength keys)]
       (if (== keys-l max-len)
@@ -130,21 +158,34 @@
         ;; ok as is
         #js [(LeafNode. (splice keys idx idx #js [key]))]))))
 
-(defn -btset-conj [node path key]
-  (if (instance? LeafNode node)
-    (.append node path key)
-    (let [path-idx  (bit-and path path-mask)
-          path-next (unsigned-bit-shift-right path path-bit-offset)]
-      (.append node path-idx (-btset-conj (aget (.-pointers node) path-idx) path-next key)))))
+(defn next-path [set path]
+  (.next_path (.-root set) path))
+
+(defn get-key [set path]
+  (.get_key (.-root set) path))
 
 (defn btset-conj [set key]
   (binding [*cmp* (.-comparator set)]
-    (let [roots (-btset-conj (.-root set) (-seek set key) key)]
+    (let [roots (.append (.-root set) (-seek set key) key)]
       (if (== (alength roots) 1)
         ;; keeping single root
         (BTSet. (aget roots 0) (.-depth set) *cmp*)
         ;; introducing new root
         (BTSet. (Node. (.map roots lim-key) roots) (inc (.-depth set)) *cmp*)))))
+
+(deftype BTSetIter [set path]
+  ISeqable
+  (-seq [this]
+    (when-not (== -1 path)
+      this))
+  
+  ISeq
+  (-first [_]
+    (when-not (== -1 path)
+      (get-key set path)))
+  
+  (-rest [_]
+    (BTSetIter. set (next-path set path))))
 
 (deftype BTSet [root depth comparator]
   Object
@@ -158,12 +199,13 @@
   (-lookup [set k]
     (-lookup set k nil))
   (-lookup [set k not-found]
-    (seek set k)) ;; FIXME
+    (let [found (get-key set (seek set k))]
+      (if (eq found k) found not-found)))
 
-;;   IPrintWithWriter
-;;   (-pr-writer [o writer _]
-;;     (dump (.-root o) writer ""))
-  )
+  ISeqable
+  (-seq [this]
+    (when (pos? (alength (.-keys root)))
+      (BTSetIter. this 0))))
 
 (defn btset
   ([] (btset compare))
@@ -194,25 +236,42 @@
       (-write writer "\n")
       (dump (aget (.-pointers node) i) writer (str "  " offset)))))
 
+(extend-type BTSet
+  IPrintWithWriter
+  (-pr-writer [o writer _]
+    (dump (.-root o) writer "")))
+
+
+(defn test-rand []
+  (dotimes [i 100]
+    (let [xs (range (rand-int 10000))
+          xss (shuffle xs)
+          s  (into (btset) xss)]
+      (when-not (= (vec s) xs)
+        (println xss))))
+  (println "Checked"))
+
+;; (test-rand)
+
 ;; perf
 
 (def test-matrix [:target  { "sorted-set" (sorted-set)
                              "btset"      (btset)}
                   :size    [100 500 1000 2000 5000 10000 20000 50000]
-                  ;; :size    [100 500]
-                  :method  { "conj"   (fn [opts] (into (:target opts) (:range opts)))
-                             "lookup" (fn [opts] (contains? (:set opts) (rand-int (:size opts)))) }])
+;;                   :size    [100 500]
+                  :method  { ;; "conj"    (fn [opts] (into (:target opts) (:range opts)))
+                             ;; "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
+                             "iterate" (fn [opts] (doseq [x (:set opts)] (+ 1 x))) }])
 
 (defn test-setup [opts]
-  (let [opts (assoc opts
-               :range (shuffle (range (:size opts))))]
-    (case (:method opts)
-      "seek" (assoc opts :set (into (:target opts) (:range opts)))
-      opts)))
+  (let [range (shuffle (range (:size opts)))]
+    (-> opts
+        (assoc :range range)
+        (assoc :set (into (:target opts) range)))))
 
 (defn ^:export perftest []
   (perf/suite (fn [opts] ((:method opts) opts))
-    :duration 5000
+    :duration 1000
     :matrix   test-matrix
     :setup-fn test-setup))
 
