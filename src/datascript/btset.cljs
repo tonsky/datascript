@@ -119,39 +119,43 @@
 (deftype Node [keys pointers]
   Object
   
-  (append [_ path level key]
-    (let [idx          (path-get path level)
-          nodes        (.append (aget pointers idx) path (- level level-shift) key)
-          new-keys     (replace-keys keys     idx           (.map nodes lim-key))
-          new-pointers (splice       pointers idx (inc idx) nodes)]
-      (if (<= (alength new-pointers) max-len)
-        ;; ok as is
-        #js [(Node. new-keys new-pointers)]
-        ;; gotta split it up
-        (let [middle  (half (alength new-pointers))]
-          #js [(Node. (cut new-keys     0 middle)
-                      (cut new-pointers 0 middle))
-               (Node. (cut new-keys     middle)
-                      (cut new-pointers middle))])))))
+  (append [this path level key]
+    (let [idx   (path-get path level)
+          nodes (.append (aget pointers idx) path (- level level-shift) key)]
+      (if (identical? (aget nodes 0) (aget pointers idx))
+        #js [this]
+        (let [new-keys     (replace-keys keys     idx           (.map nodes lim-key))
+              new-pointers (splice       pointers idx (inc idx) nodes)]
+          (if (<= (alength new-pointers) max-len)
+          ;; ok as is
+          #js [(Node. new-keys new-pointers)]
+          ;; gotta split it up
+          (let [middle  (half (alength new-pointers))]
+            #js [(Node. (cut new-keys     0 middle)
+                        (cut new-pointers 0 middle))
+                 (Node. (cut new-keys     middle)
+                        (cut new-pointers middle))])))))))
 
 (deftype LeafNode [keys]
   Object
 
-  (append [_ ^number path _ key]
+  (append [this ^number path _ key]
     (let [idx    (path-get path 0)
           keys-l (alength keys)]
-      (if (== keys-l max-len)
-        ;; splitting
-        (let [middle (half (inc keys-l))]
-          (if (> idx middle)
-            ;; new key goes to the second half
-            #js [(LeafNode. (cut keys 0 middle))
-                 (LeafNode. (cut-n-splice keys middle keys-l idx idx #js [key]))]
-            ;; new key goes to the first half
-            #js [(LeafNode. (cut-n-splice keys 0 middle idx idx #js [key]))
-                 (LeafNode. (cut keys middle keys-l))]))
-        ;; ok as is
-        #js [(LeafNode. (splice keys idx idx #js [key]))]))))
+      (cond
+        (eq key (aget keys idx)) ;; element already there
+          #js [this]
+        (== keys-l max-len) ;; splitting
+          (let [middle (half (inc keys-l))]
+            (if (> idx middle)
+              ;; new key goes to the second half
+              #js [(LeafNode. (cut keys 0 middle))
+                   (LeafNode. (cut-n-splice keys middle keys-l idx idx #js [key]))]
+              ;; new key goes to the first half
+              #js [(LeafNode. (cut-n-splice keys 0 middle idx idx #js [key]))
+                   (LeafNode. (cut keys middle keys-l))]))
+        :else ;; ok as is
+          #js [(LeafNode. (splice keys idx idx #js [key]))]))))
 
 (defn ^array keys-for [set ^number path]
   (loop [level (.-shift set)
@@ -309,11 +313,11 @@
 
 (defn test-rand []
   (dotimes [i 100]
-    (let [xs (range (rand-int 10000))
-          xss (shuffle xs)
-          s  (into (btset) xss)]
+    (let [xss (repeatedly (rand-int 10000) #(rand-int 10000))
+          xs  (distinct (sort xss))
+          s   (into (btset) xss)]
       (when-not (= (vec s) xs)
-        (println xss))))
+        (throw (js/Error. xss)))))
   (println "Checked")
   :ok)
 
@@ -321,20 +325,23 @@
 
 ;; perf
 
-(def test-matrix [:target  { ;; "sorted-set" (sorted-set)
-                             "btset"      (btset)}
+(def test-matrix [:target    { ;; "sorted-set" (sorted-set)
+                               "btset"      (btset)}
+                  :distinct? [true false]
 ;;                   :size    [100 500 1000 2000 5000 10000 20000 50000]
-                  :size    [100 500 20000]
-                  :method  { "conj"    (fn [opts] (into (:target opts) (:range opts)))
-                             "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
-                             "iterate" (fn [opts] (doseq [x (:set opts)] (+ 1 x)))
-                            }])
+                  :size      [100 500 20000]
+                  :method    { "conj"    (fn [opts] (into (:target opts) (:range opts)))
+;;                                "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
+;;                                "iterate" (fn [opts] (doseq [x (:set opts)] (+ 1 x)))
+                             }])
 
 (defn test-setup [opts]
-  (let [range (shuffle (range (:size opts)))]
+  (let [xs (if (:disticnt? opts)
+             (shuffle (range (:size opts)))
+             (repeatedly (:size opts) #(rand-int (:size opts))))]
     (-> opts
-        (assoc :range range)
-        (assoc :set (into (:target opts) range)))))
+        (assoc :range xs)
+        (assoc :set (into (:target opts) xs)))))
 
 (defn ^:export perftest []
   (perf/suite (fn [opts] ((:method opts) opts))
