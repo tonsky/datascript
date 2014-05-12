@@ -3,46 +3,42 @@
 
 (declare BTSet Node LeafNode)
 
-(def ^:const ^number min-len 64)
-(def ^:const ^number max-len 128)
-(def ^:const ^number level-shift (->> (range 31 -1 -1)
+(def ^:const min-len 64)
+(def ^:const max-len 128)
+(def ^:const level-shift (->> (range 31 -1 -1)
                               (filter #(bit-test max-len %))
                               first
                               inc))
-(def ^:const ^number path-mask (dec (bit-shift-left 1 level-shift)))
-(def ^:const ^number empty-path 0)
+(def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
+(def ^:const empty-path 0)
 (def ^:dynamic *cmp*)
 
-(defn ^number path-get [^number path
-                        ^number level]
+(defn path-get [path level]
   (bit-and path-mask
            (unsigned-bit-shift-right path level)))
 
-(defn ^number path-set [^number path
-                        ^number level
-                        ^number idx]
+(defn path-set [path level idx]
   (bit-or path 
           (bit-shift-left idx level)))
 
-(defn eq ^boolean [^number a
-                   ^number b]
+(defn eq [a b]
   (== 0 (*cmp* a b)))
 
-(defn ^number half [^number x]
+(defn half [x]
   (fix (/ x 2)))
 
-(defn ^number binary-search [^array arr ^number l ^number r k]
+(defn binary-search [arr l r k]
   (if (<= l r)
     (let [m   (half (+ l r))
           mk  (aget arr m)
-          cmp ^number (*cmp* mk k)]
+          cmp (*cmp* mk k)]
       (cond
         (neg? cmp) (recur arr (inc m) r k)
         (pos? cmp) (recur arr l (dec m) k)
         :else m))
     l))
     
-(defn ^number lookup-exact [^array arr key]
+(defn lookup-exact [arr key]
   (let [arr-l (alength arr)
         idx   (binary-search arr 0 (dec arr-l) key)]
     (if (and (< idx arr-l)
@@ -50,20 +46,20 @@
       idx
       -1)))
 
-(defn ^number lookup-range [^array arr key]
+(defn lookup-range [arr key]
   (let [arr-l (alength arr)
         idx   (binary-search arr 0 (dec arr-l) key)]
     (if (== idx arr-l)
       -1
       idx)))
 
-(defn ^number lookup-insert-leaf [^array arr key]
+(defn lookup-insert-leaf [arr key]
   (binary-search arr 0 (- (alength arr) 1) key))
 
-(defn ^number lookup-insert-node [^array arr key]
+(defn lookup-insert-node [arr key]
   (binary-search arr 0 (- (alength arr) 2) key))
 
-(defn ^number -seek [set key]
+(defn -seek [set key]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
@@ -74,18 +70,13 @@
                (path-set path level idx)
                (- level level-shift))))))
 
-(defn ^number seek [set key]
+(defn seek [set key]
   (binding [*cmp* (.-comparator set)]
     (-seek set key)))
 
 ;; Array operations
 
-(defn ^array cut-n-splice [^array  arr
-                           ^number cut-from
-                           ^number cut-to
-                           ^number splice-from
-                           ^number splice-to
-                           ^array  xs]
+(defn cut-n-splice [arr cut-from cut-to splice-from splice-to xs]
   (let [arr-l   (alength arr)
         xs-l    (alength xs)
         l1      (- splice-from cut-from)
@@ -101,24 +92,18 @@
     new-arr))
 
 (defn cut
-  (^array [^array arr ^number cut-from]
+  ([arr cut-from]
     (.slice arr cut-from))
-  (^array [^array arr ^number cut-from ^number cut-to]
+  ([arr cut-from cut-to]
     (.slice arr cut-from cut-to)))
 
-(defn ^array splice [^array  arr
-                     ^number splice-from
-                     ^number splice-to
-                     ^array  xs]
+(defn splice [arr splice-from splice-to xs]
   (cut-n-splice arr 0 (alength arr) splice-from splice-to xs))
 
-(defn ^array insert [^array arr
-                     ^number idx
-                     ^array xs]
+(defn insert [arr idx xs]
   (cut-n-splice arr 0 (alength arr) idx idx xs))
 
-(defn ^array merge-n-split [^array a1
-                            ^array a2]
+(defn merge-n-split [a1 a2]
   (let [a1-l    (alength a1)
         a2-l    (alength a2)
         total-l (+ a1-l a2-l)
@@ -133,13 +118,7 @@
                   (if (< i a1-l) i (- i a1-l)))))
     #js [r1 r2]))
 
-(defn ^boolean eq-arr [^array  a1
-                       ^number a1-from
-                       ^number a1-to
-                       ^array  a2
-                       ^number a2-from
-                       ^number a2-to
-                       cmp]
+(defn ^boolean eq-arr [a1 a1-from a1-to a2 a2-from a2-to cmp]
   (let [len (- a1-to a1-from)]
     (and
       (== len (- a2-to a2-from))
@@ -153,10 +132,7 @@
           :else
             (recur (inc i)))))))
 
-(defn ^array check-n-splice [^array  arr
-                             ^number from
-                             ^number to
-                             ^array  new-arr]
+(defn check-n-splice [arr from to new-arr]
   (if (eq-arr arr from to new-arr 0 (alength new-arr) eq)
     arr
     (splice arr from to new-arr)))
@@ -301,7 +277,7 @@
         (let [new-keys (splice keys idx (inc idx) #js [])]
           (rotate (LeafNode. new-keys) root? left right))))))
 
-(defn ^array keys-for [set ^number path]
+(defn keys-for [set path]
   (loop [level (.-shift set)
          node  (.-root set)]
     (if (pos? level)
@@ -355,9 +331,7 @@
 
 ;; iteration
 
-(defn ^number -next-path [node
-                          ^number path
-                          ^number level]
+(defn -next-path [node path level]
   (let [idx (path-get path level)]
     (if (pos? level)
       ;; inner node
@@ -382,10 +356,7 @@
   (-next-path (.-root set) path (.-shift set)))
 
 
-(deftype BTSetIter [^BTSet  set
-                    ^number path
-                    ^array  keys
-                    ^number idx]
+(deftype BTSetIter [set path keys idx]
   ISeqable
   (-seq [this]
     (when keys this))
