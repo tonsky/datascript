@@ -11,7 +11,7 @@
                               inc))
 (def ^:const ^number path-mask (dec (bit-shift-left 1 level-shift)))
 (def ^:const ^number empty-path 0)
-(def ^:dynamic *cmp* compare)
+(def ^:dynamic *cmp*)
 
 (defn ^number path-get [^number path
                         ^number level]
@@ -308,6 +308,8 @@
       (recur (- level level-shift) (aget (.-pointers node) (path-get path level)))
       (.-keys node))))
 
+(declare alter-btset)
+
 (defn btset-conj [set key]
   (binding [*cmp* (.-comparator set)]
     (let [roots (.conj (.-root set) key)]
@@ -318,11 +320,17 @@
        
         ;; keeping single root
         (== (alength roots) 1)
-          (BTSet. (aget roots 0) (.-shift set) *cmp*)
+          (alter-btset set
+            (aget roots 0)
+            (.-shift set)
+            (inc (.-cnt set)))
        
         ;; introducing new root
         :else
-          (BTSet. (Node. (.map roots lim-key) roots) (+ (.-shift set) level-shift) *cmp*)))))
+          (alter-btset set
+            (Node. (.map roots lim-key) roots)
+            (+ (.-shift set) level-shift)
+            (inc (.-cnt set)))))))
 
 (defn btset-disj [set key]
   (binding [*cmp* (.-comparator set)]
@@ -332,10 +340,18 @@
         (let [new-root (aget new-roots 0)]
           (if (and (instance? Node new-root)
                    (== (alength (.-pointers new-root)) 1))
+            
             ;; root has one child, make him new root
-            (BTSet. (aget (.-pointers new-root) 0) (- (.-shift set) level-shift) *cmp*)
+            (alter-btset set
+              (aget (.-pointers new-root) 0)
+              (- (.-shift set) level-shift)
+              (dec (.-cnt set)))
+            
             ;; keeping root level
-            (BTSet. new-root (.-shift set) *cmp*)))))))
+            (alter-btset set
+              new-root
+              (.-shift set)
+              (dec (.-cnt set)))))))))
 
 ;; iteration
 
@@ -402,11 +418,33 @@
 
 ;; public interface
 
-(deftype BTSet [root shift comparator]
+(deftype BTSet [root shift cnt comparator meta ^:mutable __hash]
   Object
-;;   (toString [this]
-;;     (pr-str* this))
+  (toString [this]
+    (pr-str* this))
   
+  ICloneable
+  (-clone [_] (BTSet. root shift cnt comparator meta __hash))
+
+  IWithMeta
+  (-with-meta [_ new-meta] (BTSet. root shift cnt comparator new-meta __hash))
+
+  IMeta
+  (-meta [_] meta)
+ 
+  IEmptyableCollection
+  (-empty [_] (BTSet. (LeafNode. (array)) 0 0 comparator meta 0))
+  
+  IEquiv
+  (-equiv [this other]
+    (and
+     (set? other)
+     (== cnt (count other))
+     (every? #(contains? this %) other)))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-iset __hash))
+   
   ICollection
   (-conj [set key] (btset-conj set key))
 
@@ -417,20 +455,32 @@
   ILookup 
   (-lookup [set k]
     (-lookup set k nil))
-  (-lookup [set k not-found]
-    (binding [*cmp* (.-comparator set)]
-      (or (.lookup (.-root set) k) not-found)))
+  (-lookup [_ k not-found]
+    (binding [*cmp* comparator]
+      (or (.lookup root k) not-found)))
 
   ISeqable
   (-seq [this]
     (btset-iter this))
   
+  ICounted
+  (-count [_] cnt)
+ 
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+  
   IPrintWithWriter
   (-pr-writer [this writer opts]
     (pr-sequential-writer writer pr-writer "#{" " " "}" opts (seq this))))
 
+(defn alter-btset [set root shift cnt]
+  (BTSet. root shift cnt (.-comparator set) (.-meta set) nil))
+
 (defn btset-by
-  ([cmp] (BTSet. (LeafNode. (array)) 0 cmp))
+  ([cmp] (BTSet. (LeafNode. (array)) 0 0 cmp nil 0))
   ([cmp & keys]
     (reduce -conj (btset-by cmp) keys)))
 
@@ -440,7 +490,6 @@
     (reduce -conj (btset) keys)))
 
 ;; helpers
-
 
 (defn parse-path [path shift]
   (loop [level shift
@@ -468,10 +517,10 @@
       (-write writer "\n")
       (dump (aget (.-pointers node) i) writer (str "  " offset)))))
 
-(extend-type BTSet
-  IPrintWithWriter
-  (-pr-writer [o writer _]
-    (dump (.-root o) writer "")))
+;; (extend-type BTSet
+;;   IPrintWithWriter
+;;   (-pr-writer [o writer _]
+;;     (dump (.-root o) writer "")))
 
 ;; (def s0 (into (btset) (shuffle (range 10000))))
 ;; (reduce disj s0 (shuffle (range 9995)))
@@ -482,11 +531,20 @@
           xs-sorted (distinct (sort xs))
           set0      (into (btset) xs)
           rm        (repeatedly (rand-int 10000) #(rand-nth xs))
+          xs-rm     (reduce disj (into (sorted-set) xs) rm)
           set1      (reduce disj set0 rm)]          
       (when-not (= (vec set0) xs-sorted)
         (throw (js/Error. (str "conj failed on: " xs))))
-      (when-not (= (vec set1) (->> (reduce disj (into #{} xs) rm) sort))
+      (when-not (= set0 (set xs-sorted))
+        (throw (js/Error. (str "equiv 1 failed on: " xs))))
+      (when-not (= (count set0) (count xs-sorted))
+        (throw (js/Error. (str "count 1 failed on: " xs))))
+      (when-not (= (vec set1) (vec xs-rm))
         (throw (js/Error. (str "disj failed on: " xs " and " rm))))
+      (when-not (= (count set1) (count xs-rm))
+        (throw (js/Error. (str "count 2 failed on: " xs " and " rm))))
+      (when-not (= set1 xs-rm)
+        (throw (js/Error. (str "equiv 2 failed on: " xs))))
       (println "Checking...")))
   (println "Checked")
   :ok)
@@ -495,11 +553,11 @@
 
 ;; perf
 
-(def test-matrix [:target    { "sorted-set" (sorted-set)
+(def test-matrix [:target    { ;; "sorted-set" (sorted-set)
                                "btset"      (btset)}
 ;;                   :distinct? [true false]
-                  :size    [100 500 1000 2000 5000 10000 20000 50000]
-;;                   :size      [100 500 20000]
+;;                   :size    [100 500 1000 2000 5000 10000 20000 50000]
+                  :size      [100 500 20000]
                   :method    { "conj"    (fn [opts] (into (:target opts) (:range opts)))
                                "disj"    (fn [opts] (reduce disj (:set opts) (shuffle (:range opts))))
                                "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
