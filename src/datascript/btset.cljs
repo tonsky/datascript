@@ -42,10 +42,25 @@
         :else m))
     l))
     
-(defn ^number lookup-leaf [^array arr key]
+(defn ^number lookup-exact [^array arr key]
+  (let [arr-l (alength arr)
+        idx   (binary-search arr 0 (dec arr-l) key)]
+    (if (and (< idx arr-l)
+             (eq (aget arr idx) key))
+      idx
+      -1)))
+
+(defn ^number lookup-range [^array arr key]
+  (let [arr-l (alength arr)
+        idx   (binary-search arr 0 (dec arr-l) key)]
+    (if (== idx arr-l)
+      -1
+      idx)))
+
+(defn ^number lookup-insert-leaf [^array arr key]
   (binary-search arr 0 (- (alength arr) 1) key))
 
-(defn ^number lookup-node [^array arr key]
+(defn ^number lookup-insert-node [^array arr key]
   (binary-search arr 0 (- (alength arr) 2) key))
 
 (defn ^number -seek [set key]
@@ -53,8 +68,8 @@
          path  empty-path
          level (.-shift set)]
     (if (== 0 level)
-      (path-set path level (lookup-leaf (.-keys node) key))
-      (let [idx (lookup-node (.-keys node) key)]
+      (path-set path level (lookup-insert-leaf (.-keys node) key))
+      (let [idx (lookup-insert-node (.-keys node) key)]
         (recur (aget (.-pointers node) idx)
                (path-set path level idx)
                (- level level-shift))))))
@@ -70,7 +85,7 @@
                            ^number cut-to
                            ^number splice-from
                            ^number splice-to
-                           ^array  xs] ;; TODO slice + concat?
+                           ^array  xs]
   (let [arr-l   (alength arr)
         xs-l    (alength xs)
         l1      (- splice-from cut-from)
@@ -85,7 +100,7 @@
       (aset new-arr (+ i l1xs) (aget arr (+ splice-to i))))
     new-arr))
 
-(defn cut ;; TODO use Array.prototype.slice etc
+(defn cut
   (^array [^array arr ^number cut-from]
     (.slice arr cut-from))
   (^array [^array arr ^number cut-from ^number cut-to]
@@ -200,32 +215,30 @@
           ps (merge-n-split pointers (.-pointers next))]
       (return-array (Node. (aget ks 0) (aget ps 0))
                     (Node. (aget ks 1) (aget ps 1)))))
-  
+
   (lookup [_ key]
-    (let [idx (binary-search keys 0 (dec (alength keys)) key)]
-      (if (== idx (alength keys))
-        -1
-        idx)))
+    (let [idx (lookup-range keys key)]
+      (when-not (== -1 idx)
+        (.lookup (aget pointers idx) key))))
   
-  (append [this path level key] ;; TODO figure out idx here
-    (let [idx   (path-get path level)
-          nodes (.append (aget pointers idx) path (- level level-shift) key)]
-      (if (identical? (aget nodes 0) (aget pointers idx))
-        #js [this]
+  (conj [this key]
+    (let [idx   (lookup-insert-node keys key)
+          nodes (.conj (aget pointers idx) key)]
+      (when nodes
         (let [new-keys     (check-n-splice keys     idx (inc idx) (.map nodes lim-key))
               new-pointers (splice         pointers idx (inc idx) nodes)]
           (if (<= (alength new-pointers) max-len)
-          ;; ok as is
-          #js [(Node. new-keys new-pointers)]
-          ;; gotta split it up
-          (let [middle  (half (alength new-pointers))]
-            #js [(Node. (cut new-keys     0 middle)
-                        (cut new-pointers 0 middle))
-                 (Node. (cut new-keys     middle)
-                        (cut new-pointers middle))]))))))
+            ;; ok as is
+            #js [(Node. new-keys new-pointers)]
+            ;; gotta split it up
+            (let [middle  (half (alength new-pointers))]
+              #js [(Node. (cut new-keys     0 middle)
+                          (cut new-pointers 0 middle))
+                   (Node. (cut new-keys     middle)
+                          (cut new-pointers middle))]))))))
 
-  (disj [this ^number key root? left right]
-    (let [idx (.lookup this key)]
+  (disj [this key root? left right]
+    (let [idx (lookup-range keys key)]
       (when-not (== -1 idx) ;; short-circuit, key not here
         (let [child       (aget pointers idx)
               left-child  (when (>= (dec idx) 0)                 (aget pointers (dec idx)))
@@ -254,19 +267,21 @@
                     (LeafNode. (aget ks 1)))))
   
   (lookup [_ key]
-    (let [idx (binary-search keys 0 (dec (alength keys)) key)]
-      (if (and (< idx (alength keys))
-                 (eq (aget keys idx) key))
-        idx
-        -1)))
+    (let [idx (lookup-exact keys key)]
+      (when-not (== -1 idx)
+        (aget keys idx))))
 
-  (append [this ^number path _ key] ;; TODO figure out idx here
-    (let [idx    (path-get path 0)
+  (conj [this key]
+    (let [idx    (lookup-insert-leaf keys key)
           keys-l (alength keys)]
       (cond
-        (eq key (aget keys idx)) ;; element already there
-          #js [this]
-        (== keys-l max-len) ;; splitting
+        ;; element already here
+        (and (< idx keys-l)
+             (eq key (aget keys idx)))
+          nil
+      
+        ;; splitting
+        (== keys-l max-len)
           (let [middle (half (inc keys-l))]
             (if (> idx middle)
               ;; new key goes to the second half
@@ -275,12 +290,14 @@
               ;; new key goes to the first half
               #js [(LeafNode. (cut-n-splice keys 0 middle idx idx #js [key]))
                    (LeafNode. (cut keys middle keys-l))]))
-        :else ;; ok as is
+       
+        ;; ok as is
+        :else
           #js [(LeafNode. (splice keys idx idx #js [key]))])))
   
-  (disj [this ^number key root? left right]
-    (let [idx (.lookup this key)]
-      (when-not (== -1 idx) ;; key not there
+  (disj [this key root? left right]
+    (let [idx (lookup-exact keys key)]
+      (when-not (== -1 idx) ;; key is here
         (let [new-keys (splice keys idx (inc idx) #js [])]
           (rotate (LeafNode. new-keys) root? left right))))))
 
@@ -291,20 +308,21 @@
       (recur (- level level-shift) (aget (.-pointers node) (path-get path level)))
       (.-keys node))))
 
-(defn key-for [set ^number path]
-  (let [keys (keys-for set path)
-        idx  (path-get path 0)]
-    (when (< idx (alength keys)) 
-      (aget keys idx))))
-
 (defn btset-conj [set key]
   (binding [*cmp* (.-comparator set)]
-    (let [roots (.append (.-root set) (-seek set key) (.-shift set) key)]
-      (if (== (alength roots) 1)
+    (let [roots (.conj (.-root set) key)]
+      (cond
+        ;; tree not changed
+        (nil? roots)
+          set
+       
         ;; keeping single root
-        (BTSet. (aget roots 0) (.-shift set) *cmp*)
+        (== (alength roots) 1)
+          (BTSet. (aget roots 0) (.-shift set) *cmp*)
+       
         ;; introducing new root
-        (BTSet. (Node. (.map roots lim-key) roots) (+ (.-shift set) level-shift) *cmp*)))))
+        :else
+          (BTSet. (Node. (.map roots lim-key) roots) (+ (.-shift set) level-shift) *cmp*)))))
 
 (defn btset-disj [set key]
   (binding [*cmp* (.-comparator set)]
@@ -400,8 +418,8 @@
   (-lookup [set k]
     (-lookup set k nil))
   (-lookup [set k not-found]
-    (let [found (key-for set (seek set k))]
-      (if (eq found k) found not-found)))
+    (binding [*cmp* (.-comparator set)]
+      (or (.lookup (.-root set) k) not-found)))
 
   ISeqable
   (-seq [this]
@@ -458,7 +476,7 @@
 ;; (def s0 (into (btset) (shuffle (range 10000))))
 ;; (reduce disj s0 (shuffle (range 9995)))
 
-(defn test-rand []
+(defn ^:export test-rand []
   (dotimes [i 20]
     (let [xs        (vec (repeatedly (rand-int 10000) #(rand-int 10000)))
           xs-sorted (distinct (sort xs))
@@ -477,14 +495,15 @@
 
 ;; perf
 
-(def test-matrix [:target    { ;; "sorted-set" (sorted-set)
+(def test-matrix [:target    { "sorted-set" (sorted-set)
                                "btset"      (btset)}
-                  ;; :distinct? [true false]
-;;                   :size    [100 500 1000 2000 5000 10000 20000 50000]
-                  :size      [100 500 20000]
+;;                   :distinct? [true false]
+                  :size    [100 500 1000 2000 5000 10000 20000 50000]
+;;                   :size      [100 500 20000]
                   :method    { "conj"    (fn [opts] (into (:target opts) (:range opts)))
-;;                                "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
-;;                                "iterate" (fn [opts] (doseq [x (:set opts)] (+ 1 x)))
+                               "disj"    (fn [opts] (reduce disj (:set opts) (shuffle (:range opts))))
+                               "lookup"  (fn [opts] (contains? (:set opts) (rand-int (:size opts))))
+                               "iterate" (fn [opts] (doseq [x (:set opts)] (+ 1 x)))
                              }])
 
 (defn test-setup [opts]
