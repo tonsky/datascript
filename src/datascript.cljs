@@ -21,22 +21,30 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
+(defn- some? [x] (not (nil? x)))
+
 (defrecord DB [schema ea av max-eid max-tx]
   ISearch
   (-search [db [e a v tx added :as pattern]]
     (cond->>
-      (case [(when e :+) (when a :+) (when v :+)]
-        [:+  nil nil]
-          (->> (get-in db [:ea e]) vals (apply concat))
-        [nil :+  nil]
-          (->> (get-in db [:av a]) vals (apply concat))
-        [:+  :+  nil]
-          (get-in db [:ea e a])
-        [nil :+  :+]
-          (get-in db [:av a v])
-        [:+  :+  :+]
+      (cond
+        (and (some? e) (some? a) (some? v))
           (->> (get-in db [:ea e a])
-               (filter #(= v (.-v %)))))
+               (filter #(= v (.-v %))))
+        (and (some? e) (some? a))
+          (get-in db [:ea e a])
+        (and (some? a) (some? v))
+          (get-in db [:av a v])
+        (and (some? e) (some? v))
+          (throw (js/Error. "Cannot lookup by e and v"))
+        (some? e)
+          (->> (get-in db [:ea e]) vals (apply concat))
+        (some? a)
+          (->> (get-in db [:av a]) vals (apply concat))
+        (some? v)
+          (throw (js/Error. "Cannot lookup only by v"))
+        :else
+          (throw (js/Error. "Cannot lookup without nothing")))
      tx    (filter #(= tx (.-tx %)))
      added (filter #(= added (.-added %))))))
 
@@ -186,7 +194,7 @@
       (pattern form)))
 
 (defn- collect [f coll]
-  (reduce #(set/union %1 (f %2)) #{} coll))
+  (persistent! (reduce #(reduce conj! %1 (f %2)) (transient #{}) coll)))
 
 (defn- bind-rule-branch [branch call-args context]
   (let [[[rule & local-args] & body] branch
