@@ -18,8 +18,8 @@
 (defn -measure [f {:keys [duration repeats setup-fn] :as opts}]
   (into []
     (for [i (range repeats)
-          :let [t0   (now)
-                opts (setup-fn opts)]]
+          :let [opts (setup-fn opts)
+                t0   (now)]]
         (loop [runs 0]
           (let [dt (- (now) t0)]
           (if (> dt duration)
@@ -32,9 +32,9 @@
   {:unit   "μs"
    :max    (reduce max results)
    :min    (reduce min results)
-   :median (percentile results 50)
-;;    :p90    (percentile results 90)
-;;    :p99    (percentile results 99)
+   :median (percentile results 0.5)
+;;    :p90    (percentile results 0.9)
+;;    :p99    (percentile results 0.99)
    :raw    results })
 
 (defn measure [msg f opts]
