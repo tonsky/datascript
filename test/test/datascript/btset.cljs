@@ -2,7 +2,7 @@
   (:require-macros
     [cemerick.cljs.test :refer [is deftest testing]])
   (:require
-    [datascript.btset :refer [btset LeafNode]]
+    [datascript.btset :refer [btset slice LeafNode]]
     [cemerick.cljs.test :as t]
     [test.datascript.perf :as perf]))
 
@@ -31,7 +31,6 @@
 (deftest stresstest-btset
   (let [iters 20]
     (dotimes [i iters]
-      
       (let [xs        (vec (repeatedly (rand-int 10000) #(rand-int 10000)))
             xs-sorted (distinct (sort xs))
             rm        (repeatedly (rand-int 50000) #(rand-nth xs))
@@ -56,6 +55,22 @@
               (is (= set1 xs-rm)))))
         )))
   (println "[ OK ] btset checked"))
+
+(deftest stresstest-slice
+  (let [iters 20]
+    (dotimes [i iters]
+      (let [xs        (repeatedly (rand-int 20000) #(rand-int 20000))
+            xs-sorted (distinct (sort xs))
+            [from to] (sort [(- 10000 (rand-int 20000)) (+ 10000 (rand-int 20000))])
+            expected  (filter #(<= from % to) xs-sorted)
+            _         (println "Checking btset/slice" (str (inc i)  "/" iters)
+                               "from" (count xs-sorted) "elements down to" (count expected))
+            set       (into (btset) xs)
+            set-range (slice set from to)]
+        (testing xs
+          (testing (str "from " from " to " to)
+            (is (= (vec set-range) expected)))))))
+  (println "[ OK ] btset slice checked"))
 
 ;; (t/test-ns 'test.datascript.btset)
 

@@ -24,22 +24,31 @@
   (== 0 (*cmp* a b)))
 
 (defn half [x]
-  (fix (/ x 2)))
+  (unsigned-bit-shift-right x 1))
 
-(defn binary-search [arr l r k]
+(defn binary-search-l [arr l r k]
   (if (<= l r)
     (let [m   (half (+ l r))
           mk  (aget arr m)
           cmp (*cmp* mk k)]
-      (cond
-        (neg? cmp) (recur arr (inc m) r k)
-        (pos? cmp) (recur arr l (dec m) k)
-        :else m))
+      (if (neg? cmp)
+        (recur arr (inc m) r k)
+        (recur arr l (dec m) k)))
     l))
-    
+
+(defn binary-search-r [arr l r k]
+  (if (<= l r)
+    (let [m   (half (+ l r))
+          mk  (aget arr m)
+          cmp (*cmp* mk k)]
+      (if (pos? cmp)
+        (recur arr l (dec m) k)
+        (recur arr (inc m) r k)))
+    l))
+
 (defn lookup-exact [arr key]
   (let [arr-l (alength arr)
-        idx   (binary-search arr 0 (dec arr-l) key)]
+        idx   (binary-search-l arr 0 (dec arr-l) key)]
     (if (and (< idx arr-l)
              (eq (aget arr idx) key))
       idx
@@ -47,31 +56,10 @@
 
 (defn lookup-range [arr key]
   (let [arr-l (alength arr)
-        idx   (binary-search arr 0 (dec arr-l) key)]
+        idx   (binary-search-l arr 0 (dec arr-l) key)]
     (if (== idx arr-l)
       -1
       idx)))
-
-(defn lookup-insert-leaf [arr key]
-  (binary-search arr 0 (- (alength arr) 1) key))
-
-(defn lookup-insert-node [arr key]
-  (binary-search arr 0 (- (alength arr) 2) key))
-
-(defn -seek [set key]
-  (loop [node  (.-root set)
-         path  empty-path
-         level (.-shift set)]
-    (if (== 0 level)
-      (path-set path level (lookup-insert-leaf (.-keys node) key))
-      (let [idx (lookup-insert-node (.-keys node) key)]
-        (recur (aget (.-pointers node) idx)
-               (path-set path level idx)
-               (- level level-shift))))))
-
-(defn seek [set key]
-  (binding [*cmp* (.-comparator set)]
-    (-seek set key)))
 
 ;; Array operations
 
@@ -197,7 +185,7 @@
         (.lookup (aget pointers idx) key))))
   
   (conj [this key]
-    (let [idx   (lookup-insert-node keys key)
+    (let [idx   (binary-search-l keys 0 (- (alength keys) 2) key)
           nodes (.conj (aget pointers idx) key)]
       (when nodes
         (let [new-keys     (check-n-splice keys     idx (inc idx) (.map nodes lim-key))
@@ -247,7 +235,7 @@
         (aget keys idx))))
 
   (conj [this key]
-    (let [idx    (lookup-insert-leaf keys key)
+    (let [idx    (binary-search-l keys 0 (dec (alength keys)) key)
           keys-l (alength keys)]
       (cond
         ;; element already here
@@ -355,7 +343,7 @@
   (-next-path (.-root set) path (.-shift set)))
 
 
-(deftype BTSetIter [set path keys idx]
+(deftype BTSetIter [set path till-path keys idx]
   ISeqable
   (-seq [this]
     (when keys this))
@@ -364,27 +352,63 @@
   (-first [_]
     (when keys (aget keys idx)))
   
-  (-rest [_]
-    (if (< (inc idx) (alength keys))
-      ;; can use cached array to move forward
-      (BTSetIter. set (inc path) keys (inc idx))
-      (let [path (next-path set path)]
-        (if (== -1 path)
-          (BTSetIter. set -1 nil -1)
-          (BTSetIter. set path (keys-for set path) (path-get path 0))))))
+  (-rest [this]
+    (if-let [next (-next this)]
+      next
+      (BTSetIter. set -1 till-path nil -1)))
   
   INext
   (-next [_]
     (if (< (inc idx) (alength keys))
       ;; can use cached array to move forward
-      (BTSetIter. set (inc path) keys (inc idx))
+      (when (< (inc path) till-path)
+        (BTSetIter. set (inc path) till-path keys (inc idx)))
       (let [path (next-path set path)]
-        (when (not= -1 path)
-          (BTSetIter. set path (keys-for set path) (path-get path 0)))))))
+        (when (and (not= -1 path) (< path till-path))
+          (BTSetIter. set path till-path (keys-for set path) (path-get path 0)))))))
 
 (defn btset-iter [set]
-  (when (pos? (alength (.-keys (.-root set))))
-    (BTSetIter. set empty-path (keys-for set empty-path) 0)))
+  (let [root-l (alength (.-keys (.-root set)))]
+    (when (pos? root-l)
+      (BTSetIter. set empty-path (path-set empty-path (.-shift set) root-l) (keys-for set empty-path) 0))))
+
+(defn -seek [set key]
+  (loop [node  (.-root set)
+         path  empty-path
+         level (.-shift set)]
+    (let [keys   (.-keys node)
+          keys-l (alength keys)]
+      (if (== 0 level)
+        (let [idx (binary-search-l keys 0 (dec keys-l) key)]
+          (if (== keys-l idx) -1 (path-set path 0 idx)))
+        (let [idx (binary-search-l keys 0 (- keys-l 2) key)]
+          (recur (aget (.-pointers node) idx)
+                 (path-set path level idx)
+                 (- level level-shift)))))))
+
+(defn -rseek [set key]
+  (loop [node  (.-root set)
+         path  empty-path
+         level (.-shift set)]
+    (let [keys   (.-keys node)
+          keys-l (alength keys)]
+      (if (== 0 level)
+        (let [idx (binary-search-r keys 0 (dec keys-l) key)]
+          (path-set path 0 idx))
+        (let [idx (binary-search-r keys 0 (- keys-l 2) key)]
+          (recur (aget (.-pointers node) idx)
+                 (path-set path level idx)
+                 (- level level-shift)))))))
+
+(defn -slice [set key-from key-to]
+  (let [path (-seek set key-from)]
+    (when-not (neg? path)
+      (let [till-path (-rseek set key-to)]
+        (BTSetIter. set path till-path (keys-for set path) (path-get path 0))))))
+
+(defn slice [set key-from key-to]
+  (binding [*cmp* (.-comparator set)]
+    (-slice set key-from key-to)))
 
 ;; public interface
 
