@@ -404,11 +404,14 @@
   (let [path (-seek set key-from)]
     (when-not (neg? path)
       (let [till-path (-rseek set key-to)]
-        (BTSetIter. set path till-path (keys-for set path) (path-get path 0))))))
+        (when (> till-path path)
+          (BTSetIter. set path till-path (keys-for set path) (path-get path 0)))))))
 
-(defn slice [set key-from key-to]
-  (binding [*cmp* (.-comparator set)]
-    (-slice set key-from key-to)))
+(defn slice
+  ([set key] (slice set key key))
+  ([set key-from key-to]
+    (binding [*cmp* (.-comparator set)]
+      (-slice set key-from key-to))))
 
 ;; public interface
 
