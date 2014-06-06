@@ -3,7 +3,8 @@
     [clojure.set :as set]
     [clojure.walk :as walk]
     [cljs.reader :refer [read-string]]
-    [datascript.btset :refer [btset-by slice]]))
+    [datascript.btset :refer [btset-by slice]])
+  (:require-macros [datascript :refer [combine-cmp]]))
 
 (defrecord Datom [e a v tx added]
   Object
@@ -27,35 +28,42 @@
 
 (defn- some? [x] (not (nil? x)))
 
-(defn- combine-cmp [& vals]
-  (or (some #(when-not (== 0 %) %) vals) 0))
-
 (defn- compare-key [k o1 o2]
   (let [k1 (get o1 k)
         k2 (get o2 k)]
-    (if (and k1 k2)
+    (if (and (some? k1) (some? k2))
       (let [t1 (type k1)
             t2 (type k2)]
+        (if (= t1 t2)
+          (compare k1 k2)
+          (compare t1 t2)))
+      0)))
+
+(defn- cmp-val [o1 o2]
+  (if (and (some? o1) (some? o2))
+    (let [t1 (type o1)
+          t2 (type o2)]
       (if (= t1 t2)
-        (compare k1 k2)
-        (compare t1 t2)        
-      0)))))
+        (compare o1 o2)
+        (compare t1 t2)))
+    0))
+
+(defn- cmp [o1 o2]
+  (if (and o1 o2)
+    (compare o1 o2)
+    0))
 
 (defn cmp-datoms-ea [d1 d2]
   (combine-cmp
-    (compare-key :e d1 d2)
-    (compare-key :a d1 d2)
-    (compare-key :v d1 d2)
-    (compare-key :tx d1 d2)
-    (compare-key :added d1 d2)))
+    (cmp     (.-e d1) (.-e d2))
+    (cmp     (.-a d1) (.-a d2))
+    (cmp-val (.-v d1) (.-v d2))))
 
 (defn cmp-datoms-av [d1 d2]
   (combine-cmp
-    (compare-key :a d1 d2)
-    (compare-key :v d1 d2)
-    (compare-key :e d1 d2)
-    (compare-key :tx d1 d2)
-    (compare-key :added d1 d2)))
+    (cmp     (.-a d1) (.-a d2))
+    (cmp-val (.-v d1) (.-v d2))
+    (cmp     (.-e d1) (.-e d2))))
 
 (defrecord DB [schema ea av max-eid max-tx]
   ISearch
@@ -63,22 +71,18 @@
     (let [datom (Datom. e a v nil nil)]
       (cond->>
         (cond
-          (and (some? e) (some? a) (some? v))
-            (slice ea datom)
-          (and (some? e) (some? a))
-            (slice ea datom)
-          (and (some? a) (some? v))
-            (slice av datom)
-          (and (some? e) (some? v))
-            (throw (js/Error. "Cannot lookup by e and v"))
+          (and (some? e) (nil? a) (some? v))
+            (throw (js/Error. (str "Cannot lookup with: e v")))
           (some? e)
             (slice ea datom)
           (some? a)
             (slice av datom)
-          (some? v)
-            (throw (js/Error. "Cannot lookup only by v"))
           :else
-            (throw (js/Error. "Cannot lookup without nothing")))
+            (throw (js/Error. (str "Cannot lookup with:" (if (some? e) " e")
+                                                         (if (some? a) " a")
+                                                         (if (some? e) " v")
+                                                         (if (some? tx) " tx")
+                                                         (if (some? added) " added")))))
        (some? tx)
          (filter #(= tx (.-tx %)))
        (some? added)
@@ -418,7 +422,7 @@
         (aggregate query ins->sources))))
 
 (defn entity [db eid]
-  (when-let [datoms (not-empty (slice (:ea db) (Datom. eid nil nil nil nil)))]
+  (when-let [datoms (not-empty (-search db [eid]))]
     (reduce (fn [entity datom]
               (let [a (.-a datom)
                     v (.-v datom)]
