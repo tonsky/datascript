@@ -134,22 +134,23 @@
 (deftest test-resolve-eid-refs
   (let [conn (d/create-conn {:friend {:db/valueType :db.type/ref
                                       :db/cardinality :db.cardinality/many}})
-        tx   (d/transact! conn [{:db/id -3
-                                 :name "Sergey"
+        tx   (d/transact! conn [{:name "Sergey"
                                  :friend [-1 -2]}
                                 [:db/add -1 :name "Ivan"]
-                                [:db/add -1 :friend -2]
                                 [:db/add -2 :name "Petr"]
-                                [:db/add -2 :friend -1]])
+                                [:db/add -4 :name "Boris"]
+                                [:db/add -4 :friend -3]
+                                [:db/add -3 :name "Oleg"]
+                                [:db/add -3 :friend -4]])
         q '[:find ?fn
             :in $ ?n
             :where [?e :name ?n]
                    [?e :friend ?fe]
                    [?fe :name ?fn]]]
-    (is (= (:tempids tx) { -1 1, -2 2, -3 3 }))
-    (is (= (d/q q @conn "Ivan") #{["Petr"]}))
-    (is (= (d/q q @conn "Petr") #{["Ivan"]}))
-    (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))))
+    (is (= (:tempids tx) { -1 2, -2 3, -4 4, -3 5 }))
+    (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
+    (is (= (d/q q @conn "Boris") #{["Oleg"]}))
+    (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
 
 (deftest test-entity
   (let [conn (d/create-conn {:aka {:db/cardinality :db.cardinality/many}})
