@@ -11,3 +11,15 @@
              ~res
              c#)))
       res)))
+
+(defn- -case-tree [queries variants]
+  (if queries
+    (let [v1 (take (/ (count variants) 2) variants)
+          v2 (drop (/ (count variants) 2) variants)]
+      (list 'if (first queries)
+        (-case-tree (next queries) v1)
+        (-case-tree (next queries) v2)))
+    (first variants)))
+
+(defmacro case-tree [qs vs]
+  (-case-tree qs vs))

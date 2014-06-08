@@ -3,11 +3,9 @@
     [cemerick.cljs.test :refer (is deftest with-test run-tests testing test-var)])
   (:require
     [cemerick.cljs.test :as t]
-    [datascript :as d]
-    [test.datascript.perf :as perf]))
+    [datascript :as d]))
 
 (enable-console-print!)
-
 
 (deftest test-with
   (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
@@ -508,88 +506,81 @@
                        #(reverse (sort %))))
              #{[:red [5 4 3 2 1]] [:blue [8 7]]})))))
 
+(deftest test-datoms
+  (let [dvec #(vector (.-e %) (.-a %) (.-v %))
+        db (-> (d/empty-db)
+               (d/with [[:db/add 1 :name "Petr"]
+                        [:db/add 1 :age 44]
+                        [:db/add 2 :name "Ivan"]
+                        [:db/add 2 :age 25]
+                        [:db/add 3 :name "Sergey"]
+                        [:db/add 3 :age 11]]))]
+    (testing "Main indexes, sort order"
+      (is (= (map dvec (d/datoms db :aevt))
+             [ [1 :age 44]
+               [2 :age 25]
+               [3 :age 11]
+               [1 :name "Petr"]
+               [2 :name "Ivan"]
+               [3 :name "Sergey"] ]))
+
+      (is (= (map dvec (d/datoms db :eavt))
+             [ [1 :age 44]
+               [1 :name "Petr"]
+               [2 :age 25]      
+               [2 :name "Ivan"]
+               [3 :age 11]
+               [3 :name "Sergey"] ]))
+
+      (is (= (map dvec (d/datoms db :avet))
+             [ [3 :age 11]
+               [2 :age 25]
+               [1 :age 44]
+               [2 :name "Ivan"]
+               [1 :name "Petr"]
+               [3 :name "Sergey"] ])))
+    
+    (testing "Components filtration"
+      (is (= (map dvec (d/datoms db :eavt 1))
+             [ [1 :age 44]
+               [1 :name "Petr"] ]))
+
+      (is (= (map dvec (d/datoms db :eavt 1 :age))
+             [ [1 :age 44] ]))
+
+      (is (= (map dvec (d/datoms db :avet :age))
+             [ [3 :age 11]
+               [2 :age 25]
+               [1 :age 44] ])))))
+
+(deftest test-seek-datoms
+  (let [dvec #(vector (.-e %) (.-a %) (.-v %))
+        db (-> (d/empty-db)
+               (d/with [[:db/add 1 :name "Petr"]
+                        [:db/add 1 :age 44]
+                        [:db/add 2 :name "Ivan"]
+                        [:db/add 2 :age 25]
+                        [:db/add 3 :name "Sergey"]
+                        [:db/add 3 :age 11]]))]
+    
+    (testing "Non-termination"
+      (is (= (map dvec (d/seek-datoms db :avet :age 10))
+             [ [3 :age 11]
+               [2 :age 25]
+               [1 :age 44]
+               [2 :name "Ivan"]
+               [1 :name "Petr"]
+               [3 :name "Sergey"] ])))
+
+    (testing "Closest value lookup"
+      (is (= (map dvec (d/seek-datoms db :avet :name "P"))
+             [ [1 :name "Petr"]
+               [3 :name "Sergey"] ])))
+    
+    (testing "Exact value lookup"
+      (is (= (map dvec (d/seek-datoms db :avet :name "Petr"))
+             [ [1 :name "Petr"]
+               [3 :name "Sergey"] ])))))
+
 ;; (t/test-ns 'test.datascript)
 
-;; Performance
-
-(defn random-man []
-  {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-   :sex       (rand-nth [:male :female])
-   :age       (rand-int 10)
-   :salary    (rand-int 100000)})
-
-(def test-matrix-transact [ :test   ["transact"]
-                            :size   [100 500 2000]
-                            :batch  [1 5] ])
-
-(defn test-setup-people [opts]
-  (let [people (repeatedly (:size opts) random-man)
-        people (mapv #(assoc %1 :db/id (- -1 %2)) people (range))]
-    (assoc opts
-      :people people)))
-
-(defn ^:export perftest-transact []
-  (perf/suite (fn [opts]
-                (let [conn (d/create-conn)]
-                  (doseq [ps (partition-all (:batch opts 1) (:people opts))]
-                    (d/transact! conn ps))))
-    :duration 5000
-    :matrix   test-matrix-transact
-    :setup-fn test-setup-people))
-
-
-(def test-matrix-q [
-  :test   ["q"]
-  :method { 
-    "q-scan"        (fn [opts] (d/q (concat '[:find ?e :where]
-                                             (get-in opts [:lookup :q]))
-                                    (:db opts)))
-    "q-scan-join"   (fn [opts] (d/q (concat '[:find ?e ?ln :where]
-                                             (get-in opts [:lookup :q])
-                                            '[[?e :last-name ?ln]])
-                                      (:db opts)))
-    "q-scan-2joins" (fn [opts] (d/q (concat '[:find ?e ?ln ?s :where]
-                                             (get-in opts [:lookup :q])
-                                            '[[?e :last-name ?ln]
-                                              [?e :salary ?s]])
-                                      (:db opts)))
-    "filter"        (fn [opts] (->> (:people opts)
-                                    (filterv (get-in opts [:lookup :filter]))))
-    "filter-set"    (fn [opts] (->> (:people opts)
-                                    (filter (get-in opts [:lookup :filter]))
-                                    (map (juxt :db/id :last-name :salary))
-                                    set))
-  }
-
-  :lookup {
-    "name"         {:q      '[[?e :name "Ivan"]]
-                    :filter #(= (:name %) "Ivan") }
-
-    "name+age"     {:q      '[[?e :name "Ivan"]
-                              [?e :age 5]]
-                    :filter #(and (= (:name %) "Ivan")
-                              (= (:age %) 5))}
-
-    "name+age+sex" {:q      '[[?e :name "Ivan"]
-                              [?e :age 5]
-                              [?e :sex :male]]
-                    :filter #(and (= (:name %) "Ivan")
-                                  (= (:age %) 5)
-                                  (= (:sex %) :male)) }
-  }
-                    
-  :size   [100 500 2000]
-])
-
-(defn test-setup-db [opts]
-  (let [db (reduce #(d/with %1 [%2]) (d/empty-db) (:people opts))]
-    (assoc opts :db db)))
-                 
-(defn ^:export perftest-q []
-  (perf/suite (fn [opts] ((:method opts) opts))
-    :duration 1000
-    :matrix   test-matrix-q
-    :setup-fn (comp test-setup-db test-setup-people)))
-
-;; (perftest)

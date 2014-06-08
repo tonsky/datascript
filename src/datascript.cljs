@@ -4,7 +4,7 @@
     [clojure.walk :as walk]
     [cljs.reader :refer [read-string]]
     [datascript.btset :refer [btset-by slice]])
-  (:require-macros [datascript :refer [combine-cmp]]))
+  (:require-macros [datascript :refer [combine-cmp case-tree]]))
 
 (defrecord Datom [e a v tx added]
   Object
@@ -53,41 +53,54 @@
     (compare o1 o2)
     0))
 
-(defn cmp-datoms-ea [d1 d2]
+(defn- cmp-datoms-eavt [d1 d2]
   (combine-cmp
     (cmp     (.-e d1) (.-e d2))
     (cmp     (.-a d1) (.-a d2))
-    (cmp-val (.-v d1) (.-v d2))))
+    (cmp-val (.-v d1) (.-v d2))
+    (cmp     (.-tx d1) (.-tx d2))))
 
-(defn cmp-datoms-av [d1 d2]
+(defn- cmp-datoms-aevt [d1 d2]
+  (combine-cmp
+    (cmp     (.-a d1) (.-a d2))
+    (cmp     (.-e d1) (.-e d2))
+    (cmp-val (.-v d1) (.-v d2))
+    (cmp     (.-tx d1) (.-tx d2))))
+
+(defn- cmp-datoms-avet [d1 d2]
   (combine-cmp
     (cmp     (.-a d1) (.-a d2))
     (cmp-val (.-v d1) (.-v d2))
-    (cmp     (.-e d1) (.-e d2))))
+    (cmp     (.-e d1) (.-e d2))
+    (cmp     (.-tx d1) (.-tx d2))))
 
-(defrecord DB [schema ea av max-eid max-tx]
+(defrecord DB [schema eavt aevt avet max-eid max-tx]
   ISearch
-  (-search [db [e a v tx added :as pattern]]
-    (let [datom (Datom. e a v nil nil)]
-      (cond->>
-        (cond
-          (and (some? e) (nil? a) (some? v))
-            (throw (js/Error. (str "Cannot lookup with: e v")))
-          (some? e)
-            (slice ea datom)
-          (some? a)
-            (slice av datom)
-          :else
-            (throw (js/Error. (str "Cannot lookup with:" (if (some? e) " e")
-                                                         (if (some? a) " a")
-                                                         (if (some? e) " v")
-                                                         (if (some? tx) " tx")
-                                                         (if (some? added) " added")))))
-       (some? tx)
-         (filter #(= tx (.-tx %)))
-       (some? added)
-         (filter #(= added (.-added %)))))))
-
+  (-search [db [e a v tx]]
+    (case-tree [e a (some? v) tx] [
+      (slice eavt (Datom. e a v tx nil))                 ;; e a v tx
+      (slice eavt (Datom. e a v nil nil))                ;; e a v _
+      (->> (slice eavt (Datom. e a nil nil nil))         ;; e a _ tx
+           (filter #(= tx (.-tx %))))
+      (slice eavt (Datom. e a nil nil nil))              ;; e a _ _
+      (->> (slice eavt (Datom. e nil nil nil nil))       ;; e _ v tx
+           (filter #(and (= v (.-v %)) (= tx (.-tx %)))))
+      (->> (slice eavt (Datom. e nil nil nil nil))       ;; e _ v _
+           (filter #(= v (.-v %))))
+      (->> (slice eavt (Datom. e nil nil nil nil))       ;; e _ _ tx
+           (filter #(= tx (.-tx %))))
+      (slice eavt (Datom. e nil nil nil nil))            ;; e _ _ _
+      (->> (slice avet (Datom. nil a v nil nil))         ;; _ a v tx
+           (filter #(= tx (.-tx %))))
+      (slice avet (Datom. nil a v nil nil))              ;; _ a v _
+      (->> (slice avet (Datom. nil a nil nil nil))       ;; _ a _ tx
+           (filter #(= tx (.-tx %))))
+      (slice avet (Datom. nil a nil nil nil))            ;; _ a _ _
+      (filter #(and (= v (.-v %)) (= tx (.-tx %))) eavt) ;; _ _ v tx
+      (filter #(= v (.-v %)) eavt)                       ;; _ _ v _
+      (filter #(= tx (.-tx %)) eavt)                     ;; _ _ _ tx
+      eavt])))                                           ;; _ _ _ _
+  
 (defrecord TxReport [db-before db-after tx-data tempids])
 
 (defn multival? [db attr]
@@ -122,13 +135,15 @@
 (defn- with-datom [db datom]
   (if (.-added datom)
     (-> db
-      (update-in [:ea] conj datom)
-      (update-in [:av] conj datom)
+      (update-in [:eavt] conj datom)
+      (update-in [:aevt] conj datom)
+      (update-in [:avet] conj datom)
       (assoc :max-eid (max (.-e datom) (.-max-eid db))))
     (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
       (-> db
-        (update-in [:ea] disj removing)
-        (update-in [:av] disj removing)))))
+        (update-in [:eavt] disj removing)
+        (update-in [:aevt] disj removing)
+        (update-in [:avet] disj removing)))))
 
 (defn- transact-report [report datom]
   (-> report
@@ -445,7 +460,12 @@
 (def ^:const tx0 0x20000000)
 
 (defn empty-db [& [schema]]
-  (DB. schema (btset-by cmp-datoms-ea) (btset-by cmp-datoms-av) 0 tx0))
+  (DB. schema
+       (btset-by cmp-datoms-eavt) 
+       (btset-by cmp-datoms-aevt)
+       (btset-by cmp-datoms-avet)
+       0
+       tx0))
 
 (defn create-conn [& [schema]]
   (atom (empty-db schema)
@@ -480,3 +500,14 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
+(defn- components->pattern [index cs]
+  (case index
+    :eavt (Datom. (nth cs 0 nil) (nth cs 1 nil) (nth cs 2 nil) (nth cs 3 nil) nil)
+    :aevt (Datom. (nth cs 1 nil) (nth cs 0 nil) (nth cs 2 nil) (nth cs 3 nil) nil)
+    :avet (Datom. (nth cs 2 nil) (nth cs 0 nil) (nth cs 1 nil) (nth cs 3 nil) nil)))
+
+(defn datoms [db index & cs]
+  (slice (get db index) (components->pattern index cs)))
+
+(defn seek-datoms [db index & cs]
+  (slice (get db index) (components->pattern index cs) (Datom. nil nil nil nil nil)))

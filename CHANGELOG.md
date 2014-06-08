@@ -1,5 +1,6 @@
 # 0.1.5
 
+- `datoms` and `seek-datoms` API calls
 - referencing other entities’ tempids in transaction data (issue #10)
 
 # 0.1.4
