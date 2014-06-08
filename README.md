@@ -21,9 +21,9 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2173"]
+  [org.clojure/clojurescript "0.0-2227"]
   ...
-  [datascript "0.1.4"]
+  [datascript "0.1.5"]
 ]
 ```
 
@@ -95,10 +95,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.1.4.min.js"></script>
+<script src="datascript-0.1.5.min.js"></script>
 ```
 
-[Download datascript-0.1.4.min.js](https://github.com/tonsky/datascript/releases/download/0.1.4/datascript-0.1.4.min.js), 32k gzipped.
+[Download datascript-0.1.5.min.js](https://github.com/tonsky/datascript/releases/download/0.1.5/datascript-0.1.5.min.js), 35k gzipped.
 
 Queries:
 
@@ -125,10 +125,11 @@ The following features are supported:
 
 * Database as a value: each DB is an immutable value. New DBs are created on top of old ones, but old ones stay perfectly valid too
 * Triple store model
-* EA and AV indexes
+* EAVT, AEVT and AVET indexes
 * Multi-valued attributes via `:db/cardinality :db.cardinality/many`
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
+* Direct index lookup and iteration via `datoms` and `seek-datoms`
 
 Query engine features:
 
@@ -164,10 +165,10 @@ Expected soon:
 * DataScript is built totally from scratch and is not related by any means to the popular Clojure database Datomic
 * Runs in a browser
 * Simplified schema, not queryable
-* No need to declare attributes except for `:db/cardinality` `:db.cardinality/many`
-* Any value can be used as entity id, attribute or value. It’s better if they are immutable and fast to compare
+* No need to declare attributes except for `:db/cardinality` `:db.cardinality/many` and `:db/valueType` `:db.type/ref`
+* Any value can be used as value. It’s better if they are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
-* AV index for all datoms
+* AVET index for all datoms
 * No schema migrations
 * No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. Entire DB must reside in memory
