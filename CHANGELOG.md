@@ -1,3 +1,7 @@
+# 0.1.5
+
+- referencing other entities’ tempids in transaction data (issue #10)
+
 # 0.1.4
 
 - Transactor functions via `:db.fn/call` (thx [@thegeez](https://github.com/thegeez))

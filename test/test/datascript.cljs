@@ -133,6 +133,26 @@
              [2 "Petr" 22   (+ d/tx0 1)]
              [3 "Sergey" 30 (+ d/tx0 2)]}))))
 
+(deftest test-resolve-eid-refs
+  (let [conn (d/create-conn {:friend {:db/valueType :db.type/ref
+                                      :db/cardinality :db.cardinality/many}})
+        tx   (d/transact! conn [{:db/id -3
+                                 :name "Sergey"
+                                 :friend [-1 -2]}
+                                [:db/add -1 :name "Ivan"]
+                                [:db/add -1 :friend -2]
+                                [:db/add -2 :name "Petr"]
+                                [:db/add -2 :friend -1]])
+        q '[:find ?fn
+            :in $ ?n
+            :where [?e :name ?n]
+                   [?e :friend ?fe]
+                   [?fe :name ?fn]]]
+    (is (= (:tempids tx) { -1 1, -2 2, -3 3 }))
+    (is (= (d/q q @conn "Ivan") #{["Petr"]}))
+    (is (= (d/q q @conn "Petr") #{["Ivan"]}))
+    (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))))
+
 (deftest test-entity
   (let [conn (d/create-conn {:aka {:db/cardinality :db.cardinality/many}})
         p1   {:db/id 1, :name "Ivan", :age 19, :aka ["X" "Y"]}

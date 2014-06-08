@@ -93,6 +93,9 @@
 (defn multival? [db attr]
   (= (get-in db [:schema attr :db/cardinality]) :db.cardinality/many))
 
+(defn ref? [db attr]
+  (= (get-in db [:schema attr :db/valueType]) :db.type/ref))
+
 (defn- match-tuple [tuple pattern]
   (every? true?
     (map #(or (nil? %2) (= %1 %2)) tuple pattern)))
@@ -111,6 +114,11 @@
 (defn- current-tx [report]
   (inc (get-in report [:db-before :max-tx])))
 
+(defn- resolve-tempid [report eid]
+  (if (neg? eid)
+    (- (get-in report [:db-before :max-eid]) eid)
+    eid))
+
 (defn- with-datom [db datom]
   (if (.-added datom)
     (-> db
@@ -128,28 +136,36 @@
       (update-in [:tx-data] conj datom)))
 
 (defn- explode [db entity]
-  (let [eid (:db/id entity (inc (:max-eid db)))]
+  (if-let [eid (:db/id entity)]
     (for [[a vs] (dissoc entity :db/id)
           v      (if (and (sequential? vs)
                           (multival? db a))
                    vs [vs])]
-      [:db/add eid a v])))
+      [:db/add eid a v])
+    (throw (js/Error. (str ":db/id is required for entity " entity)))))
 
 (defn- transact-add [report [_ e a v]]
-  (let [tx    (current-tx report)
-        db    (:db-after report)
-        datom (Datom. e a v tx true)]
+  (let [tx      (current-tx report)
+        db      (:db-after report)
+        e'      (resolve-tempid report e)
+        v'      (if (ref? db a) (resolve-tempid report v) v)
+        report' (cond-> report
+                  (neg? e)
+                    (update-in [:tempids] merge {e e'})
+                  (and (ref? db a) (neg? v))
+                    (update-in [:tempids] merge {v v'}))
+        datom   (Datom. e' a v' tx true)]
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
-        (transact-report report datom)
+        (transact-report report' datom)
         report)
       (if-let [old-datom (first (-search db [e a]))]
         (if (= (.-v old-datom) v)
           report
-          (-> report
+          (-> report'
               (transact-report (Datom. e a (.-v old-datom) tx false))
               (transact-report datom)))
-        (transact-report report datom)))))
+        (transact-report report' datom)))))
 
 (defn- transact-retract-datom [report d]
   (let [tx (current-tx report)]
@@ -171,11 +187,6 @@
             (= op :db.fn/call)
               (let [[_ f & args] entity]
                 (recur report (concat (apply f db args) entities)))
-
-            (neg? (second entity))
-              (if-let [eid (get-in report [:tempids e])]
-                (recur report (concat [[op eid a v]] entities))
-                (recur (assoc-in report [:tempids e] (inc (:max-eid db))) es))
 
             (= op :db/add)
               (recur (transact-add report entity) entities)
