@@ -17,7 +17,7 @@
         if (!_.isEqual(expected, got)) {
           errors--;
           failures++;
-          throw (message || "Assertion failed") + ": expected: " + expected + ", got: " + got;
+          throw (message || "Assertion failed") + ": expected: " + JSON.stringify(expected) + ", got: " + JSON.stringify(got);
         }
       }
       
@@ -26,7 +26,7 @@
         if (!eq_set(expected, got)) {
           errors--;
           failures++;
-          throw (message || "Assertion failed") + ": expected: " + expected + ", got: " + got;
+          throw (message || "Assertion failed") + ": expected: " + JSON.stringify(expected) + ", got: " + JSON.stringify(got);
         }
       }
       
@@ -58,10 +58,11 @@
     <script src="../../web/datascript.js" type="text/javascript"></script>
     <script type="text/javascript">goog.require("datascript.js");</script>
  -->
-    <script src="../../web/datascript-0.1.4.min.js" type="text/javascript"></script>
+    <script src="../../web/datascript-0.1.5.min.js" type="text/javascript"></script>
     
     <script type="text/javascript">
       var d = datascript.js;
+      var tx0 =  0x20000000;
       
       function test_with_datoms() {
         var db = d.empty_db();
@@ -172,16 +173,30 @@
         assert_eq_set([[2], [3]], res);
       }
       
+      function test_datoms() {
+        assert_eq([{"e": 1, "a": "age", "v": 15, "tx": tx0+1, "added": true},
+                   {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true}],
+                  d.datoms(people_db, ":eavt", 1));
+        
+        assert_eq([{"e": 2, "a": "age", "v": 37, "tx": tx0+1, "added": true},
+                   {"e": 3, "a": "age", "v": 37, "tx": tx0+1, "added": true},
+                   {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
+                   {"e": 3, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
+                   {"e": 2, "a": "name", "v": "Petr", "tx": tx0+1, "added": true}],
+                  d.seek_datoms(people_db, ":avet", "age", 20));
+      }
+
       function run_tests() {
-        return test_fns([test_with_datoms,
+        return test_fns([ test_with_datoms,
                           test_dbfn_call,
                           test_schema,
                           test_tx_report,
                           test_entity,
                           test_q_relation,
                           test_q_rules,
-                          test_q_fns
-                         ]);
+                          test_q_fns,
+                          test_datoms
+                        ]);
       }
     </script>
   </body>

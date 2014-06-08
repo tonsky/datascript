@@ -88,3 +88,13 @@
 (def ^:export listen d/listen!)
 
 (def ^:export unlisten d/unlisten!)
+
+(defn ^:export datoms [db index & components]
+  (->> (apply d/datoms db (keywordize index) components)
+       (map datom->js)
+       into-array))
+
+(defn ^:export seek_datoms [db index & components]
+  (->> (apply d/seek-datoms db (keywordize index) components)
+       (map datom->js)
+       into-array))
