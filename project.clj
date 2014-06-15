@@ -5,12 +5,12 @@
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :url "https://github.com/tonsky/datascript"
-  
+
   :dependencies [
     [org.clojure/clojure "1.6.0"]
     [org.clojure/clojurescript "0.0-2227"]
   ]
-  :cljsbuild { 
+  :cljsbuild {
     :builds [
       { :id "release"
         :source-paths ["src"]
@@ -27,7 +27,7 @@
         [lein-cljsbuild "1.0.3"]
         [com.cemerick/clojurescript.test "0.3.0"]
       ]
-      :cljsbuild { 
+      :cljsbuild {
         :builds [
           { :id "dev"
             :source-paths ["src" "test"]
