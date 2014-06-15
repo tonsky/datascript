@@ -100,7 +100,7 @@
       (filter #(= v (.-v %)) eavt)                       ;; _ _ v _
       (filter #(= tx (.-tx %)) eavt)                     ;; _ _ _ tx
       eavt])))                                           ;; _ _ _ _
-  
+
 (defrecord TxReport [db-before db-after tx-data tempids])
 
 (defn multival? [db attr]
@@ -195,7 +195,7 @@
       (nil? entity)
         (-> report
             (update-in [:db-after :max-tx] inc))
-     
+
       (map? entity)
         (if (:db/id entity)
           (recur report (concat (explode db entity) entities))
@@ -203,7 +203,7 @@
                 entity (assoc entity :db/id eid)]
             (recur (allocate-eid report eid)
                    (concat [entity] entities))))
-     
+
       :else
         (let [[op e a v] entity]
           (cond
@@ -215,12 +215,12 @@
               (if-let [eid (get-in report [:tempids e])]
                 (recur report (concat [[op eid a v]] entities))
                 (recur (allocate-eid report e (next-eid db)) es))
-           
+
             (and (ref? db a) (neg? v))
               (if-let [vid (get-in report [:tempids v])]
                 (recur report (concat [[op e a vid]] entities))
                 (recur (allocate-eid report v (next-eid db)) es))
-           
+
             (= op :db/add)
               (recur (transact-add report entity) entities)
 
@@ -349,7 +349,7 @@
 
     (not-empty wheres) ;; parsing wheres
       (let [where (first wheres)]
-        
+
         ;; rule (rule ?a ?b ?c)
         (if-let [rule-branches (get (:__rules scope) (first where))]
           (let [[rule & call-args] where
@@ -362,7 +362,7 @@
                    (concat (bind-rule-branch % call-args (:__rules_ctx scope)) next-wheres)
                    next-scope)
               rule-branches))
-          
+
           (condp looks-like? where
             '[[*]] ;; predicate [(pred ?a ?b ?c)]
               (when (call (first where) scope)
@@ -377,7 +377,7 @@
                     found          (search-datoms source where scope)]
                 (collect #(-q nil (next wheres) (populate-scope scope where %)) found))
             )))
-   
+
    :else ;; reached bottom
       #{(mapv scope (:__find scope))}
     ))
@@ -479,11 +479,21 @@
 
 (defn empty-db [& [schema]]
   (DB. schema
-       (btset-by cmp-datoms-eavt) 
+       (btset-by cmp-datoms-eavt)
        (btset-by cmp-datoms-aevt)
        (btset-by cmp-datoms-avet)
        0
        tx0))
+
+(defn load-db
+  "Load database from a map read by cljs.reader."
+  [m]
+  (let [{:keys [eavt aevt avet]} m]
+    (map->DB
+     (assoc m
+       :eavt (apply (partial btset-by cmp-datoms-eavt) (seq eavt))
+       :aevt (apply (partial btset-by cmp-datoms-aevt) (seq aevt))
+       :avet (apply (partial btset-by cmp-datoms-avet) (seq avet))))))
 
 (defn create-conn [& [schema]]
   (atom (empty-db schema)
@@ -508,7 +518,7 @@
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
     report))
-           
+
 (defn listen!
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
