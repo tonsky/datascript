@@ -1,3 +1,7 @@
+# 0.1.6
+
+- Clojure reader support (pr/read) for DB and Datom
+
 # 0.1.5
 
 - `datoms` and `seek-datoms` API calls

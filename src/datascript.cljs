@@ -75,8 +75,12 @@
     (cmp     (.-tx d1) (.-tx d2))))
 
 (defrecord DB [schema eavt aevt avet max-eid max-tx]
+  Object
+  (toString [this]
+    (pr-str* this))
+    
   ISearch
-  (-search [db [e a v tx]]
+  (-search [_ [e a v tx]]
     (case-tree [e a (some? v) tx] [
       (slice eavt (Datom. e a v tx nil))                 ;; e a v tx
       (slice eavt (Datom. e a v nil nil))                ;; e a v _
@@ -529,3 +533,36 @@
 
 (defn seek-datoms [db index & cs]
   (slice (get db index) (components->pattern index cs) (Datom. nil nil nil nil nil)))
+
+;; printing and reading
+;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
+
+(extend-type Datom
+  IPrintWithWriter
+  (-pr-writer [d w opts]
+    (pr-sequential-writer w pr-writer "#datascript/Datom [" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)])))
+
+(defn datom-from-reader [[e a v tx added]]
+  (Datom. e a v tx added))
+
+(extend-type DB
+  IPrintWithWriter
+  (-pr-writer [db w opts]
+    (-write w "#datascript/DB {")
+    (-write w ":schema ")
+    (pr-writer (.-schema db) w opts)
+    (-write w ", :datoms ")
+    (pr-sequential-writer w
+      (fn [d w opts]
+        (pr-sequential-writer w pr-writer "[" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d)]))
+      "[" " " "]" opts (.-eavt db))
+    (-write w "}")))
+
+(defn db-from-reader [{:keys [schema datoms]}]
+  (let [datoms (map (fn [[e a v tx]] (Datom. e a v tx true)) datoms)]
+    (DB. schema
+         (apply btset-by cmp-datoms-eavt datoms)
+         (apply btset-by cmp-datoms-aevt datoms)
+         (apply btset-by cmp-datoms-avet datoms)
+         (reduce max 0 (map :e datoms))
+         (reduce max tx0 (map :tx datoms)))))
