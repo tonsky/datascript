@@ -21,9 +21,9 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2227"]
+  [org.clojure/clojurescript "0.0-2268"]
   ...
-  [datascript "0.1.5"]
+  [datascript "0.1.6"]
 ]
 ```
 
@@ -95,10 +95,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.1.5.min.js"></script>
+<script src="datascript-0.1.6.min.js"></script>
 ```
 
-[Download datascript-0.1.5.min.js](https://github.com/tonsky/datascript/releases/download/0.1.5/datascript-0.1.5.min.js), 35k gzipped.
+[Download datascript-0.1.6.min.js](https://github.com/tonsky/datascript/releases/download/0.1.6/datascript-0.1.6.min.js), 35k gzipped.
 
 Queries:
 

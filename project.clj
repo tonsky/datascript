@@ -1,4 +1,4 @@
-(def version "0.1.5")
+(def version "0.1.6")
 
 (defproject datascript version
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -8,7 +8,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0"]
-    [org.clojure/clojurescript "0.0-2227"]
+    [org.clojure/clojurescript "0.0-2268"]
   ]
   :cljsbuild { 
     :builds [
@@ -25,7 +25,7 @@
     :dev {
       :plugins [
         [lein-cljsbuild "1.0.3"]
-        [com.cemerick/clojurescript.test "0.3.0"]
+        [com.cemerick/clojurescript.test "0.3.1"]
       ]
       :cljsbuild { 
         :builds [

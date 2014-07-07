@@ -26,8 +26,6 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
-(defn- some? [x] (not (nil? x)))
-
 (defn- compare-key [k o1 o2]
   (let [k1 (get o1 k)
         k2 (get o2 k)]
