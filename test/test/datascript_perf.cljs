@@ -49,20 +49,35 @@
       (let [_fd (first _ds)
             _fe (first _es)]
         (if (and _fd _fe)
-          (condp == (compare (:e _fd) _fe)
-            0 (recur (conj _res [(:e _fd) (:v _fd)]) (next _ds) (next _es))
+          (condp == (compare (.-e _fd) _fe)
+            0 (recur (conj _res [(.-e _fd) (.-v _fd)]) (next _ds) (next _es))
             -1 (recur _res (next _ds) _es)
             1  (recur _res _ds (next _es))
             )
           _res)))))
 
-;; (defn hash-join [db eis a]
-;;   (let [min-e (first eis)
-;;         max-e (nth eis (dec (count eis)))
-;;         datoms (btset/slice (:ae db) (d/Datom. min-e a nil nil nil)
-;;                                      (d/Datom. max-e a nil nil nil))
-;;         hashmap (reduce (fn [m d] (assoc m (.-e d) (.-v d))) {} datoms)]
-;;     (set (map #(vector % (hashmap %)) eis))))
+(defn hash-join [db eis a]
+;;  (.time js/console "hash-join")
+;;   (.log js/console (str "eis: " (count eis)))
+  (let [min-e nil ;; (first eis)
+        max-e nil ;; (nth eis (dec (count eis)))
+        datoms (btset/slice (:aevt db) (d/Datom. min-e a nil nil nil)
+                                       (d/Datom. max-e a nil nil nil))
+;;        _ (.time js/console "hash")
+        hashmap (reduce (fn [m d] (assoc m (.-e d) (conj (get m (.-e d) '()) (.-v d)))) {} datoms)
+;;        _ (.timeEnd js/console "hash")
+;;         _       (.log js/console (str "hashmap: " (count hashmap)))
+;;        _ (.time js/console "join")
+        res     (reduce (fn [acc e] (if-let [vs (get hashmap e)]
+                                      (reduce (fn [acc v]
+                                                (conj acc #js [e v]))
+                                                acc vs)
+                                      acc))
+                                      [] eis)
+;;        _ (.timeEnd js/console "join")
+        ]
+;;    (.timeEnd js/console "hash-join")
+    (into #{} (map vec res))))
 
 
 (def test-matrix-q [
@@ -81,12 +96,17 @@
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
 
-     "hash-join"        (fn [opts] (dq/search (:db opts)))
-           
+     "dq/search"        (fn [opts] (dq/search (:db opts)))
+
+     "hash-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
+                                                 (mapv :e))]
+                           (hash-join (:db opts) es :age)))
+
      "sort-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
-                                       (mapv :e))]
+                                                 (mapv :e))]
                            (sort-merge-join (:db opts) es :age)))
-                                 
+
+
                                  
 ;;     "filter"        (fn [opts] (->> (:people opts)
 ;;                                     (filterv (get-in opts [:lookup :filter]))))
@@ -132,7 +152,7 @@
 
 #_(let [es (->> (d/-search people-db [nil :name "Ivan"])
                                     (mapv :e))]
-            (sort-merge-join people-db es :age))
+            (hash-join people-db es :age))
 
 (defn ^:export perftest-q []
   (perf/suite (fn [opts] ((:method opts) opts))
