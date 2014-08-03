@@ -37,7 +37,7 @@
           (compare t1 t2)))
       0)))
 
-(defn- cmp-val [o1 o2]
+(defn cmp-val [o1 o2]
   (if (and (some? o1) (some? o2))
     (let [t1 (type o1)
           t2 (type o2)]
@@ -352,8 +352,8 @@
     (not-empty wheres) ;; parsing wheres
       (let [where (first wheres)]
         
-        ;; rule (rule ?a ?b ?c)
         (if-let [rule-branches (get (:__rules scope) (first where))]
+          ;; rule (rule ?a ?b ?c)
           (let [[rule & call-args] where
                 next-scope (-> scope
                              (update-in [:__rules_ctx rule] conj call-args)

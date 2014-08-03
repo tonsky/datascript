@@ -76,7 +76,7 @@
 
 ;;;; PERFORMANCE
 
-(def test-matrix [:target    { ;; "sorted-set" (sorted-set)
+(def test-matrix [:target    { "sorted-set" (sorted-set)
                                "btset"      (btset)}
 ;;                   :distinct? [true false]
 ;;                   :size    [100 500 1000 2000 5000 10000 20000 50000]

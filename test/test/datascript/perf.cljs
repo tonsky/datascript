@@ -67,11 +67,13 @@
 
 (defn suite [f & {:as opts}]
   (let [opts (-> (merge {:duration 1000
-                         :repeats 5}
-                   opts)
+                         :repeats 5
+                         :setup-fn identity}
+                        opts)
                  (update-in [:matrix] #(partition 2 %))
                  (update-in [:matrix] reverse))
         results (vec (-suite f opts))]
     (println "SUITE COMPLETED")
     (prn results)
     results))
+
