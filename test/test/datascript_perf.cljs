@@ -154,6 +154,14 @@
                                     (mapv :e))]
             (hash-join people-db es :age))
 
+#_(do
+  (.time js/console "d/q")
+  (d/q '[:find ?e ?v
+         :where [?e :name "Ivan"]
+                [?e :age ?v]]
+      people-db)
+  (.timeEnd js/console "d/q"))
+
 (defn ^:export perftest-q []
   (perf/suite (fn [opts] ((:method opts) opts))
     :duration 1000

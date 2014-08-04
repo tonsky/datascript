@@ -49,9 +49,7 @@
     res))
 
 (defn hash-join [rel1 rel2]
-;;  (.time js/console "hash-join")
-  (let [;; [rel1 rel2]   (if (< (count (:tuples rel1)) (count (:tuples rel2))) [rel1 rel2] [rel2 rel1])
-        tuples1       (:tuples rel1)
+  (let [tuples1       (:tuples rel1)
         tuples2       (:tuples rel2)
         attrs1        (:attrs rel1)
         attrs2        (:attrs rel2)
@@ -62,13 +60,7 @@
         keep-attrs2   (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
         keep-idxs1    (to-array (map attrs1 keep-attrs1))
         keep-idxs2    (to-array (map attrs2 keep-attrs2))
-        
-;;        _             (.time js/console "hash-attrs")
         hash          (hash-attrs common-idxs1 tuples1)
-;;        _             (.timeEnd js/console "hash-attrs")
-        
-;;        _             (.time js/console "new-tuples")
-;;        _             (.log js/console (str "t1: " (count tuples1) ", hash: " (count hash) ", t2: "(count tuples2)))
         key-fn        (tuple-key-fn common-idxs2)
         new-tuples    (->>
                         (reduce (fn [acc tuple2]
@@ -79,10 +71,7 @@
                                               acc tuples1)
                                       acc)))
                           (transient []) tuples2)
-                        (persistent!))
-;;        _             (.timeEnd js/console "new-tuples")
-        ]
-;;    (.timeEnd js/console "hash-join")
+                        (persistent!))]
     (Relation. (into {}
                      (map vector (concat keep-attrs1 keep-attrs2) (range)))
                new-tuples)))
@@ -155,20 +144,15 @@
     (update-in context [:rels] collapse-rels relation)))
 
 (defn -q [sources clauses]
-;;  (.time js/console "search/-q")
   (let [res (reduce resolve-clause (Context. [] sources) clauses)]
-;;    (.timeEnd js/console "search/-q")
     res))
 
 (defn -collect
   ([context symbols]
-    ;;  (.time js/console "search/-collect")
     (let [symbols-map (into {} (map vector symbols (range)))
           rels        (:rels context)
-          data        (-collect [(make-array (count symbols))] rels symbols-map)
-          res         (set (map vec data))]
-      ;;      (.timeEnd js/console "search/-collect")
-      res))
+          data        (-collect [(make-array (count symbols))] rels symbols-map)]
+      (set (map vec data))))
   ([acc rels symbols-map]
     (if-let [rel (first rels)]
       (let [keep-attrs (vec (intersect-keys (:attrs rel) symbols-map))]
@@ -212,15 +196,39 @@
                       [:db/add 3 :name "Ivan"]
                       [:db/add 3 :age  22]])))
 
-(defn in? [vector el]
-  (>= (.indexOf vector el) 0))
 
-(defn bound? [symbol vars]
-  (and (symbol? symbol)
-       (in? vars symbol)))
+(defn sum-rel [a b]
+  (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
 
-(defn unbound? [symbol vars]
-  (and (symbol? symbol)
-       (not (in? vars symbol))))
+#_(sum-rel (Relation. '{?a 0 ?b 1} [#js [1 "Ivan"] #js [2 "Oleg"]])
+           (Relation. '{?a 0 ?b 1} [#js [3 15] #js [4 22]]))
 
+(defn prod-rel [a b]
+  (let [la (count (:attrs a))
+        lb (count (:attrs b))
+        attrs2 (map (fn [[k i]] [k (+ i la)]) (:attrs b))]
+    (Relation. (into (:attrs a) attrs2)
+               (for [t1 (:tuples a)
+                     t2 (:tuples b)]
+                 (join-tuples t1 (to-array (range la))
+                              t2 (to-array (range lb)))))))
+  
+#_(prod-rel (Relation. '{?a 0 ?b 1} [#js [1 "Ivan"] #js [2 "Oleg"]])
+          (Relation. '{?c 0 ?d 1} [#js [3 15] #js [4 22]]))
 
+(defn in->rel [form value]
+  (condp d/looks-like? form
+    '[_ ...] ;; collection binding [?x ...]
+      (reduce sum-rel 
+        (map #(in->rel (first form) %) value))
+    '[[*]]   ;; relation binding [[?a ?b]]
+      (reduce sum-rel 
+        (map #(in->rel (first form) %) value))
+    '[*]     ;; tuple binding [?a ?b]
+      (reduce prod-rel
+        (map #(in->rel %1 %2) form value))
+;;     '%       ;; rules
+    '_       ;; regular binding ?x
+      (Relation. {form 0} [#js [value]])))
+
+#_(in->rel '[[?k [?min ?max]] ...] {:a [1 2] :b [3 4] :c [5 6]})
