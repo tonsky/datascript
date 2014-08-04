@@ -6,32 +6,27 @@
 
 (defrecord Context [rels sources])
 ;; attrs:
-;;    [?e ?v ?e2 ?age]
+;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
-;;   [ #js [1 "Ivan" 5 14]
-;;     #js [2 "Oleg" 1 55]
-;;     ... ]
+;;    [ #js [1 "Ivan" 5 14] ... ]
+;; or [ (Datom. 2 "Oleg" 1 55) ... ]
 (defrecord Relation [attrs tuples])
 
-(defn intersect-keys [a1 a2]
-  (set/intersection (set a1)) (set a2))
+(defn intersect-keys [attrs1 attrs2]
+  (set/intersection (set (keys attrs1)) 
+                    (set (keys attrs2))))
 
 (defn concatv [& xs]
   (vec (apply concat xs)))
 
-(defn index [coll]
-  (map vector coll (range)))
-
-(defn index-map [coll]
-  (into {} (index coll)))
-
 (defn tuple-key-fn [idxs]
-  (if (== (alength idxs) 1)
+  (if (== (count idxs) 1)
     (let [idx (first idxs)]
       (fn [tuple]
         (aget tuple idx)))
-    (fn [tuple]
-      (list* (.map idxs #(aget tuple %))))))
+    (let [idxs (to-array idxs)]
+      (fn [tuple]
+        (list* (.map idxs #(aget tuple %))))))) ;; FIXME aget
 
 (defn hash-attrs [idxs tuples]
   (let [key-fn (tuple-key-fn idxs)]
@@ -43,34 +38,33 @@
                  (assoc! hash-table key (conj (get hash-table key '()) tuple))))
         (persistent! hash-table)))))
 
-(defn join-tuples [t1 t2 idxs2]
-  (let [l1  (alength t1)
-        l2  (count idxs2)
+(defn join-tuples [t1 idxs1 t2 idxs2]
+  (let [l1  (alength idxs1)
+        l2  (alength idxs2)
         res (js/Array. (+ l1 l2))]
     (dotimes [i l1]
-      (aset res i (aget t1 i)))
+      (aset res i (aget t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
-      (aset res (+ l1 i) (aget t2 (nth idxs2 i))))
+      (aset res (+ l1 i) (aget t2 (aget idxs2 i)))) ;; FIXME aget
     res))
 
 (defn hash-join [rel1 rel2]
 ;;  (.time js/console "hash-join")
-  (let [[rel1 rel2]   (if (< (count (:tuples rel1)) (count (:tuples rel2))) [rel1 rel2] [rel2 rel1])
+  (let [;; [rel1 rel2]   (if (< (count (:tuples rel1)) (count (:tuples rel2))) [rel1 rel2] [rel2 rel1])
         tuples1       (:tuples rel1)
         tuples2       (:tuples rel2)
-        attrs1-map    (index-map (:attrs rel1))
-        attrs2-map    (index-map (:attrs rel2))
-        common-attrs  (vec (set/intersection (set (keys attrs1-map)) (set (keys attrs2-map))))
-        common-idxs1  (to-array (map attrs1-map common-attrs))
-        common-idxs2  (to-array (map attrs2-map common-attrs))
-        keep-attrs+idx2 (->> attrs2-map
-                             (remove (fn [[a i]] (contains? attrs1-map a)))
-                             (sort-by second))
-        keep-attrs2   (mapv first keep-attrs+idx2)
-        keep-idxs2    (mapv second keep-attrs+idx2)
+        attrs1        (:attrs rel1)
+        attrs2        (:attrs rel2)
+        common-attrs  (vec (intersect-keys (:attrs rel1) (:attrs rel2)))
+        common-idxs1  (map attrs1 common-attrs)
+        common-idxs2  (map attrs2 common-attrs)
+        keep-attrs1   (keys attrs1)
+        keep-attrs2   (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
+        keep-idxs1    (to-array (map attrs1 keep-attrs1))
+        keep-idxs2    (to-array (map attrs2 keep-attrs2))
         
 ;;        _             (.time js/console "hash-attrs")
-        hash          (hash-attrs common-idxs1 (:tuples rel1))
+        hash          (hash-attrs common-idxs1 tuples1)
 ;;        _             (.timeEnd js/console "hash-attrs")
         
 ;;        _             (.time js/console "new-tuples")
@@ -81,7 +75,7 @@
                                   (let [key (key-fn tuple2)]
                                     (if-let [tuples1 (get hash key)]
                                       (reduce (fn [acc tuple1]
-                                                (conj! acc (join-tuples tuple1 tuple2 keep-idxs2)))
+                                                (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
                                               acc tuples1)
                                       acc)))
                           (transient []) tuples2)
@@ -89,15 +83,16 @@
 ;;        _             (.timeEnd js/console "new-tuples")
         ]
 ;;    (.timeEnd js/console "hash-join")
-    (Relation. (concatv (:attrs rel1) keep-attrs2)
+    (Relation. (into {}
+                     (map vector (concat keep-attrs1 keep-attrs2) (range)))
                new-tuples)))
 
 
-(hash-join (Relation. '[?e ?a ?v]
+#_(hash-join (Relation. '{?e 0 ?a 1 ?v 2}
                       [#js [1 :name "Ivan"]
                        #js [2 :name "Igor"]
                        #js [3 :name "Petr"]])
-           (Relation. '[?e ?a2 ?v2]
+           (Relation. '{?e 0 ?a2 1 ?v2 2}
                       [#js [1 :age 15]
                        #js [3 :age 25]]))
 
@@ -115,12 +110,11 @@
 (defn build-relation-db [db pattern]
   (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
         datoms         (d/-search db search-pattern)
-        attr+prop      (->> (map vector pattern ["e" "a" "v" "t"])
+        attr->prop     (->> (map vector pattern ["e" "a" "v" "t"])
                             (filter (fn [[s _]] (and (symbol? s)
-                                                     (not= '_ s)))))
-        props          (to-array (map second attr+prop))]
-    (Relation. (mapv first attr+prop)
-               (mapv (fn [el] (.map props #(aget el %))) datoms))))
+                                                     (not= '_ s))))
+                            (into {}))]
+    (Relation. attr->prop (vec datoms))))
 
 #_(build-relation-db (-> (d/empty-db)
                        (d/with [[:db/add 1 :name "Ivan"]
@@ -131,12 +125,11 @@
 
 (defn build-relation-coll [coll pattern]
   (let [data       (filter #(match-pattern pattern %) coll)
-        attr+idx   (->> (map vector pattern (range))
+        attr->idx  (->> (map vector pattern (range))
                         (filter (fn [[s _]] (and (symbol? s)
-                                                 (not= '_ s)))))
-        idxs       (to-array (map second attr+idx))]
-    (Relation. (mapv first attr+idx)
-               (mapv (fn [el] (.map idxs #(nth el %))) data))))
+                                                 (not= '_ s))))
+                        (into {}))]
+    (Relation. attr->idx (map to-array data)))) ;; FIXME to-array
 
 (defn build-relation [source pattern]
   (cond
@@ -167,24 +160,32 @@
 ;;    (.timeEnd js/console "search/-q")
     res))
 
-(defn -collect [acc rels symbols]
-;;  (.time js/console "search/-collect")
-  (if-let [rel (first rels)]
-    (let [attr->idx (index-map (:attrs rel))
-          idxs (->> symbols
-                    (map attr->idx)
-                    (remove nil?)
-                    vec)]
-      (if (empty? idxs)
-        (recur acc (next rels) symbols)
-        (recur (for [t1 acc
-                     t2 (:tuples rel)]
-                 (join-tuples t1 t2 idxs))
-               (next rels)
-               symbols)))
-    (do
-;;      (.timeEnd js/console "search/-collect")
-      (set (map vec acc)))))
+(defn -collect
+  ([context symbols]
+    ;;  (.time js/console "search/-collect")
+    (let [symbols-map (into {} (map vector symbols (range)))
+          rels        (:rels context)
+          data        (-collect [(make-array (count symbols))] rels symbols-map)
+          res         (set (map vec data))]
+      ;;      (.timeEnd js/console "search/-collect")
+      res))
+  ([acc rels symbols-map]
+    (if-let [rel (first rels)]
+      (let [keep-attrs (vec (intersect-keys (:attrs rel) symbols-map))]
+        (if (empty? keep-attrs)
+          (recur acc (next rels) symbols-map)
+          (let [idxs-map (mapv #(array ((:attrs rel) %) (symbols-map %)) keep-attrs)]
+            (recur (for [t1 acc
+                         t2 (:tuples rel)]
+                     (let [res (.slice t1 0)] ;; clone
+                       (doseq [idxs idxs-map
+                               :let [from (aget idxs 0)
+                                     to   (aget idxs 1)]]
+                         (aset res to (aget t2 from)))
+                       res))
+                   (next rels)
+                   symbols-map))))
+      acc)))
 
 #_(-q {'$ [[1 :name "Ivan" 42]
          [1 :age  15 34]
@@ -198,7 +199,7 @@
   (let [context (-q {'$ db}
                     '[[$ ?e :name "Ivan"]
                       [$ ?e :age ?a]])
-        res (-collect [#js[]] (:rels context) '[?e ?a])]
+        res (-collect context '[?e ?a])]
 ;;    (.timeEnd js/console "search")  
     res))
 
@@ -207,31 +208,9 @@
             (d/with [ [:db/add 1 :name "Ivan"]
                       [:db/add 1 :age  15]
                       [:db/add 2 :name "Petr"]
-                      [:db/add 2 :age  34]])))
-
-;; (defn -search2 [db a1 v1 a2]
-;;   (let [rel-e (slice (.-avet db)
-;;                      (Datom. nil a1 v1 nil nil))
-;;         hash1 (hash-attr #(.-e %) rel-e)
-;;         rel-a (slice (.-aevt db)
-;;                      (Datom. (:min hash1) a2 nil nil nil)
-;;                      (Datom. (:max hash1) a2 nil nil nil))]
-;;     (hash-join [#(.-e %)] hash1 rel-a #(.-e %) [#(.-v %)])))
-
-;; (defn search2 [db] (-search2 db :name "Ivan" :age))
-
-;; (defn -search3 [db a1 v1 a2]
-;;   (let [rel-e (slice (.-avet db)
-;;                      (Datom. nil a1 v1 nil nil))
-;;         min   (.-e (first rel-e))
-;;         rel-a (slice (.-aevt db)
-;;                      (Datom. min a2 nil nil nil)
-;;                      (Datom. nil a2 nil nil nil))]
-;;     (sort-join rel-e #(.-e %) [#(.-e %)] 
-;;                rel-a #(.-e %) [#(.-v %)])))
-
-;; (defn search3 [db] (-search3 db :name "Ivan" :age))
-
+                      [:db/add 2 :age  34]
+                      [:db/add 3 :name "Ivan"]
+                      [:db/add 3 :age  22]])))
 
 (defn in? [vector el]
   (>= (.indexOf vector el) 0))
@@ -244,63 +223,4 @@
   (and (symbol? symbol)
        (not (in? vars symbol))))
 
-
-;; (defn -q-clause [where vars data]
-;;   (let [bound   (filter #(bound? % vars) where)
-;;         unbound (filter #(unbound? % vars) where)
-;;         bound-vals (into {} (for [var bound]
-;;                               [var (build-var var data)]))]
-;;     ...
-
-;; (defn -q [ins->sources where vars data])
-  
-
-;; (defn q [query & sources]
-;;   (-q (zipmap (:in query '[$]) sources)
-;;       (:where query)
-;;       [] []))
-
-;; (defn aconj [arr x]
-;;   (datascript.btset/insert arr (alength arr) #js [x]))
-
-
-
-;; (defn get-avet [db a v]
-;;   (->> (slice (.-avet db) (Datom. nil a v nil nil))
-;;        (mapv #(vector (.-e %)))))
-
-;; (defn get-aevt [db a es]
-;;   (let [lookup-hash (hash-attr #(nth % 0) es)
-;;         lookup-map  (:hash-table lookup-hash)
-;; ;;                     {:min (aget (first es) 0)
-;; ;;                      :max (aget (nth es (dec (count es))) 0)}
-;;         datoms      (slice (.-aevt db)
-;;                       (Datom. (:min lookup-hash) a nil nil nil)
-;;                       (Datom. (:max lookup-hash) a nil nil nil))]
-;;     (->>
-;; ;;       (loop [_res (transient [])
-;; ;;              _ds  datoms
-;; ;;              _es  es]
-;; ;;         (let [_fd (first _ds)
-;; ;;               _fe (first _es)]
-;; ;;           (if (and _fd _fe)
-;; ;;             (condp == (cmp-val (.-e _fd) (aget _fe 0))
-;; ;;               0  (recur (conj! _res #js [(aget _fe 0) (.-v _fd)]) (next _ds) (next _es))
-;; ;;               -1 (recur _res (next _ds) _es)
-;; ;;               1  (recur _res _ds (next _es))
-;; ;;               )
-;; ;;             _res)))
-
-;;       (reduce (fn [acc d]
-;;                 (if-let [datas (get lookup-map (.-e d))]
-;;                   (reduce (fn [acc data]
-;;                             (conj! acc (conj data (.-v d))))
-;;                     acc datas)
-;;                   acc))
-;;         (transient []) datoms)
-;;       (persistent!))))
-
-;; (defn search [db]
-;;   (->> (get-avet db :name "Ivan")
-;;        (get-aevt db :age)))
 
