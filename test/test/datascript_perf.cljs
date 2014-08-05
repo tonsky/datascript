@@ -96,7 +96,10 @@
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
 
-     "dq/search"        (fn [opts] (dq/search (:db opts)))
+     "dq/search"        (fn [opts] (dq/q '[ :find  ?e ?a
+                                            :where [?e :name "Ivan"]
+                                                   [?e :age ?a] ]
+                                         (:db opts)))
 
      "hash-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
                                                  (mapv :e))]
@@ -147,8 +150,10 @@
   (let [db (reduce #(d/with %1 [%2]) (d/empty-db) (:people opts))]
     (assoc opts :db db)))
 
-#_(def people-db (:db (test-setup-db (test-setup-people {:size 10000}))))
-#_(dq/search people-db)
+#_(def people-db (:db (test-setup-db (test-setup-people {:size 50}))))
+#_(dq/q '[:find  ?e ?a
+          :where [?e :name "Ivan"]
+                 [?e :age ?a]] people-db)
 
 #_(let [es (->> (d/-search people-db [nil :name "Ivan"])
                                     (mapv :e))]

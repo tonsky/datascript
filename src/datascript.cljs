@@ -275,8 +275,8 @@
   (let [l (count xs)]
     (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
 
-(def ^:private built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
-                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil?,
+(def built-ins { '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
+                           'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?, 'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector
                            '-differ? -differ?})
 
 (defn- call [[f & args] scope]
@@ -444,7 +444,7 @@
          (group-by #(aggr-group-key find %))
          (mapv (fn [[_ results]] (-aggregate (:find query) scope results))))))
 
-(defn- parse-query [query]
+(defn parse-query [query]
   (loop [parsed {}, key nil, qs query]
     (if-let [q (first qs)]
       (if (keyword? q)
