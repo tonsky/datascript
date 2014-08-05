@@ -387,7 +387,7 @@
 
 ;; AGGREGATES
 
-(def ^:private built-in-aggregates {
+(def built-in-aggregates {
   'distinct (comp vec distinct)
   'min    (fn
             ([coll] (reduce min coll))

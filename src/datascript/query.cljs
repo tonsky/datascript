@@ -1,8 +1,7 @@
 (ns datascript.query
   (:require
     [clojure.set :as set]
-    [datascript :as d :refer [Datom cmp-val]]
-    [datascript.btset :refer [btset-by slice]]))
+    [datascript :as d]))
 
 (defrecord Context [rels sources rules])
 ;; attrs:
@@ -17,6 +16,9 @@
                     (set (keys attrs2))))
 (defn concatv [& xs]
   (vec (apply concat xs)))
+
+(defn multimap [k+vs]
+  (reduce (fn [acc [k v]] (update-in acc [k] (fnil conj []) v))  {} k+vs))
 
 (defn source? [sym]
   (and (symbol? sym)
@@ -35,9 +37,6 @@
 (defn sum-rel [a b]
   (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
 
-#_(sum-rel (Relation. '{?a 0 ?b 1} [#js [1 "Ivan"] #js [2 "Oleg"]])
-           (Relation. '{?a 0 ?b 1} [#js [3 15] #js [4 22]]))
-
 (defn prod-rel [rel1 rel2]
   (let [attrs1 (keys (:attrs rel1))
         attrs2 (keys (:attrs rel2))
@@ -49,11 +48,6 @@
             t2 (:tuples rel2)]
         (join-tuples t1 idxs1 t2 idxs2)))))
   
-#_(prod-rel (Relation. '{?a 0 ?b 1} [#js [1 "Ivan"] #js [2 "Oleg"]])
-            (Relation. '{?c 0 ?d 1} [#js [3 15] #js [4 22]]))
-#_(prod-rel (Relation. '{?a "e" ?b "v"} [(Datom. 1 :name "Ivan") (Datom. 2 :name "Oleg")])
-            (Relation. '{?c 0 ?d 1} [#js [3 15] #js [4 22]]))
-
 (defn in->rel [form value]
   (condp d/looks-like? form
     '[_ ...] ;; collection binding [?x ...]
@@ -65,11 +59,8 @@
     '[*]     ;; tuple binding [?a ?b]
       (reduce prod-rel
         (map #(in->rel %1 %2) form value))
-;;     '%       ;; rules ;; TODO
     '_       ;; regular binding ?x
       (Relation. {form 0} [#js [value]])))
-
-#_(in->rel '[[?k [?min ?max]] ...] {:a [1 2] :b [3 4] :c [5 6]})
 
 (defn parse-in [context [in value]]
   (cond
@@ -82,13 +73,6 @@
 
 (defn parse-ins [context ins values]
   (reduce parse-in context (map vector ins values)))
-
-#_(parse-ins (Context. [] {} nil)
-           '[$ % [?x ...] [?a ?b]]
-           [(d/empty-db)
-            777
-            [1 2 3 4]
-            [:a :b]])
 
 (defn tuple-key-fn [idxs]
   (if (== (count idxs) 1)
@@ -137,30 +121,15 @@
                      (map vector (concat keep-attrs1 keep-attrs2) (range)))
                new-tuples)))
 
-#_(hash-join (Relation. '{?e 0 ?a 1 ?v 2}
-                      [#js [1 :name "Ivan"]
-                       #js [2 :name "Igor"]
-                       #js [3 :name "Petr"]])
-           (Relation. '{?e 0 ?a2 1 ?v2 2}
-                      [#js [1 :age 15]
-                       #js [3 :age 25]]))
-
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
   (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
         datoms         (d/-search db search-pattern)
-        attr->prop     (->> (map vector pattern ["e" "a" "v" "t"])
+        attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (and (symbol? s)
                                                      (not= '_ s))))
                             (into {}))]
     (Relation. attr->prop datoms)))
-
-#_(lookup-pattern-db (-> (d/empty-db)
-                       (d/with [[:db/add 1 :name "Ivan"]
-                                [:db/add 1 :age  15]
-                                [:db/add 2 :name "Petr"]
-                                [:db/add 2 :age  34]]))
-                   ['?e '?a "Ivan"])
 
 (defn matches-pattern? [pattern tuple]
   (loop [tuple   tuple
@@ -203,8 +172,9 @@
       (conj acc new-rel))))
 
 
-(defn- rel-get-single-val [rels sym]
-  (when-let [rel (first (filter #(contains? (:attrs %) sym) rels))]
+(defn- context-resolve-val [context sym]
+  ;; TODO raise if more than one tuple bound
+  (when-let [rel (first (filter #(contains? (:attrs %) sym) (:rels context)))]
     (aget (first (:tuples rel)) ((:attrs rel) sym))))
   
 (defn- rel-contains-attrs? [rel attrs]
@@ -227,7 +197,7 @@
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
         pred         (or (get d/built-ins f)
-                         (rel-get-single-val (:rels context) f))
+                         (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         tuple-pred   (-call-fn production pred args)
         new-rel      (update-in production [:tuples] #(filter tuple-pred %))]
@@ -236,7 +206,7 @@
 (defn bind-by-fn [context clause]
   (let [[[f & args] out] clause
         fun      (or (get d/built-ins f)
-                     (rel-get-single-val (:rels context) f))
+                     (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         tuple-fn (-call-fn production fun args)
         new-rel  (->> (:tuples production)
@@ -265,7 +235,7 @@
 
 (defn -collect
   ([context symbols]
-    (let [symbols-map (into {} (map vector symbols (range)))
+    (let [symbols-map (multimap (map vector symbols (range)))
           rels        (:rels context)
           data        (-collect [(make-array (count symbols))] rels symbols-map)]
       (set (map vec data))))
@@ -274,28 +244,64 @@
       (let [keep-attrs (vec (intersect-keys (:attrs rel) symbols-map))]
         (if (empty? keep-attrs)
           (recur acc (next rels) symbols-map)
-          (let [idxs-map (mapv #(array ((:attrs rel) %) (symbols-map %)) keep-attrs)]
+          (let [from+to (map #(array ((:attrs rel) %) (symbols-map %)) keep-attrs)]
             (recur (for [t1 acc
                          t2 (:tuples rel)]
                      (let [res (.slice t1 0)] ;; clone
-                       (doseq [idxs idxs-map
-                               :let [from (aget idxs 0)
-                                     to   (aget idxs 1)]]
+                       (doseq [idxs from+to
+                               :let [from (aget idxs 0)]
+                               to   (aget idxs 1)]
                          (aset res to (aget t2 from)))
                        res))
                    (next rels)
                    symbols-map))))
       acc)))
 
+(defn find-attrs [q]
+  (concat
+    (map #(if (sequential? %) (last %) %) (:find q))
+    (:with q)))
+
+(defn -aggregate [q context tuples]
+  (mapv (fn [form fixed-value i]
+          (if (sequential? form)
+            (let [[f & args] form
+                  vals (map #(nth % i) tuples)
+                  args (map #(if (symbol? %) (context-resolve-val context %) %)
+                             (butlast args))
+                  f    (or (d/built-in-aggregates f)
+                           (context-resolve-val context f))]
+              (apply f (concat args [vals])))
+            fixed-value))
+    (:find q)
+    (first tuples)
+    (range)))
+
+(defn aggregate [q context resultset]
+  (let [group-idxs (->> (map #(when-not (sequential? %1) %2) (:find q) (range))
+                        (remove nil?))
+        group-fn   (fn [tuple]
+                     (map #(nth tuple %) group-idxs))
+        grouped    (group-by group-fn resultset)]
+    (for [[_ tuples] grouped]
+      (-aggregate q context tuples))))
+
 (defn q [q & inputs]
-  (let [q       (if (sequential? q) (d/parse-query q) q)
-        find    (:find q)
-        ins     (:in q '[$])
-        wheres  (:where q)]
-    (-> (Context. [] {} nil)
-        (parse-ins ins inputs)
-        (-q wheres)
-        (-collect find))))
+  (let [q         (if (sequential? q) (d/parse-query q) q)
+        find      (find-attrs q)
+        ins       (:in q '[$])
+        wheres    (:where q)
+        context   (-> (Context. [] {} nil)
+                    (parse-ins ins inputs))
+        resultset (-> context
+                    (-q wheres)
+                    (-collect find))]
+    (cond->> resultset
+      (:with q)
+        (mapv #(subvec % 0 (count (:find q))))
+      (not-empty (filter sequential? (:find q)))
+        (aggregate q context))))
+        
 
 
 #_(q '[:find  ?e ?n ?a
@@ -312,16 +318,29 @@
                 [:db/add 3 :age  22]]))
    ["Ivan" "Petr"])
 
-#_(q '[:find  ?e ?n ?e2 ?n2 ?x ?y
+#_(q '[:find ?e
+     :with ?e2
      :where [?e :name ?n]
-            [?e2 :name ?n2]
-            [(< ?e ?e2)]
-            [(not= ?n ?n2)]
-            [(vector ?n ?n2) [?x ?y]]]
+            [?e2 :name ?n2]]
   (-> (d/empty-db)
       (d/with [ [:db/add 1 :name "Ivan"]
                 [:db/add 1 :age  15]
                 [:db/add 2 :name "Petr"]
                 [:db/add 2 :age  34]
                 [:db/add 3 :name "Ivan"]
-                [:db/add 3 :age  22]])))
+                [:db/add 3 :age  22] ])))
+
+#_(let [monsters [ ["Cerberus" 3]
+                   ["Medusa" 1]
+                   ["Cyclops" 1]
+                   ["Chimera" 1] ]]
+  (q '[ :find (sum ?heads) (min ?heads) (max ?heads) (count ?heads)
+                       :with ?monster
+                       :in   [[?monster ?heads]] ]
+                    monsters))
+
+#_(q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
+      :in   [[?color ?x]] ?amount ]
+   [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+    [:blue 7] [:blue 8]]
+   3)

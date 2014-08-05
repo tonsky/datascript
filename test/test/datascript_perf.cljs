@@ -105,9 +105,9 @@
                                                  (mapv :e))]
                            (hash-join (:db opts) es :age)))
 
-     "sort-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
-                                                 (mapv :e))]
-                           (sort-merge-join (:db opts) es :age)))
+;;      "sort-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
+;;                                                  (mapv :e))]
+;;                            (sort-merge-join (:db opts) es :age)))
 
 
                                  
