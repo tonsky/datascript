@@ -17,9 +17,6 @@
 (defn concatv [& xs]
   (vec (apply concat xs)))
 
-(defn multimap [k+vs]
-  (reduce (fn [acc [k v]] (update-in acc [k] (fnil conj []) v))  {} k+vs))
-
 (defn source? [sym]
   (and (symbol? sym)
        (= \$ (first (name sym)))))
@@ -235,26 +232,25 @@
 
 (defn -collect
   ([context symbols]
-    (let [symbols-map (multimap (map vector symbols (range)))
-          rels        (:rels context)
-          data        (-collect [(make-array (count symbols))] rels symbols-map)]
+    (let [rels (:rels context)
+          data (-collect [(make-array (count symbols))] rels symbols)]
       (set (map vec data))))
-  ([acc rels symbols-map]
+  ([acc rels symbols]
     (if-let [rel (first rels)]
-      (let [keep-attrs (vec (intersect-keys (:attrs rel) symbols-map))]
+      (let [keep-attrs (select-keys (:attrs rel) symbols)]
         (if (empty? keep-attrs)
-          (recur acc (next rels) symbols-map)
-          (let [from+to (map #(array ((:attrs rel) %) (symbols-map %)) keep-attrs)]
+          (recur acc (next rels) symbols)
+          (let [copy-map (to-array (map #(get keep-attrs %) symbols))
+                len      (count symbols)]
             (recur (for [t1 acc
                          t2 (:tuples rel)]
-                     (let [res (.slice t1 0)] ;; clone
-                       (doseq [idxs from+to
-                               :let [from (aget idxs 0)]
-                               to   (aget idxs 1)]
-                         (aset res to (aget t2 from)))
+                     (let [res (aclone t1)]
+                       (dotimes [i len]
+                         (when-let [idx (aget copy-map i)]
+                           (aset res i (aget t2 idx))))
                        res))
                    (next rels)
-                   symbols-map))))
+                   symbols))))
       acc)))
 
 (defn find-attrs [q]
@@ -318,8 +314,7 @@
                 [:db/add 3 :age  22]]))
    ["Ivan" "Petr"])
 
-#_(q '[:find ?e
-     :with ?e2
+#_(q '[:find ?e ?n ?e2 ?n2
      :where [?e :name ?n]
             [?e2 :name ?n2]]
   (-> (d/empty-db)
@@ -334,10 +329,10 @@
                    ["Medusa" 1]
                    ["Cyclops" 1]
                    ["Chimera" 1] ]]
-  (q '[ :find (sum ?heads) (min ?heads) (max ?heads) (count ?heads)
-                       :with ?monster
-                       :in   [[?monster ?heads]] ]
-                    monsters))
+  (q '[:find (sum ?heads) (min ?heads) (max ?heads) (count ?heads)
+       :with ?monster
+       :in   [[?monster ?heads]] ]
+    monsters))
 
 #_(q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
       :in   [[?color ?x]] ?amount ]
