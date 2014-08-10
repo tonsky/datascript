@@ -467,16 +467,6 @@
       (not-empty (filter sequential? (:find query)))
         (aggregate query ins->sources))))
 
-(defn entity [db eid]
-  (when-let [datoms (not-empty (-search db [eid]))]
-    (reduce (fn [entity datom]
-              (let [a (.-a datom)
-                    v (.-v datom)]
-                (if (multival? db (.-a datom))
-                  (update-in entity [a] (fnil conj []) v)
-                  (assoc entity a v))))
-            { :db/id eid } datoms)))
-
 (def ^:const tx0 0x20000000)
 
 (defn empty-db [& [schema]]
