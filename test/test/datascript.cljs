@@ -424,7 +424,7 @@
                     [?t  :follow ?e1]]])
              #{[2] [3] [4]})))
     
-    (testing "Recursive rule"
+    (testing "Recursive rules"
       (is (= (dq/q '[:find  ?e2
                     :in    $ ?e1 %
                     :where (follow ?e1 ?e2)]
@@ -435,8 +435,28 @@
                    [(follow ?e1 ?e2)
                     [?e1 :follow ?t]
                     (follow ?t ?e2)]])
-             #{[2] [3] [4] [6]})))
-    
+             #{[2] [3] [4] [6]}))
+      
+      (is (= (dq/q '[:find ?e1 ?e2
+                     :in $ %
+                     :where (follow ?e1 ?e2)]
+                    [[1 :follow 2] [2 :follow 3]]
+                   '[[(follow ?e1 ?e2)
+                      [?e1 :follow ?e2]]
+                     [(follow ?e1 ?e2)
+                      (follow ?e2 ?e1)]])
+           #{[1 2] [2 3] [2 1] [3 2]}))
+      
+      (is (= (dq/q '[:find ?e1 ?e2
+                     :in $ %
+                     :where (follow ?e1 ?e2)]
+                    [[1 :follow 2] [2 :follow 3] [3 :follow 1]]
+                   '[[(follow ?e1 ?e2)
+                      [?e1 :follow ?e2]]
+                     [(follow ?e1 ?e2)
+                      (follow ?e2 ?e1)]])
+           #{[1 2] [2 3] [3 1] [2 1] [3 2] [1 3]})))
+        
     (testing "Mutually recursive rules"
       (is (= (dq/q '[:find  ?e1 ?e2
                     :in    $ %

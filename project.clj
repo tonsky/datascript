@@ -8,7 +8,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0"]
-    [org.clojure/clojurescript "0.0-2277"]
+    [org.clojure/clojurescript "0.0-2280"]
   ]
   :cljsbuild { 
     :builds [

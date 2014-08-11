@@ -271,7 +271,7 @@
     (remove nil?)
     (into scope)))
 
-(defn- -differ? [& xs]
+(defn -differ? [& xs]
   (let [l (count xs)]
     (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
 

@@ -1,6 +1,7 @@
 (ns datascript.query
   (:require
     [clojure.set :as set]
+    [clojure.walk :as walk]
     [datascript :as d]))
 
 (defrecord Context [rels sources rules])
@@ -21,6 +22,11 @@
   (and (symbol? sym)
        (= \$ (first (name sym)))))
 
+(defn free-var? [sym]
+  (and (symbol? sym)
+       (= \? (first (name sym)))
+       (not= '_ sym)))
+
 (defn join-tuples [t1 idxs1 t2 idxs2]
   (let [l1  (alength idxs1)
         l2  (alength idxs2)
@@ -40,7 +46,7 @@
         idxs1  (to-array (map (:attrs rel1) attrs1))
         idxs2  (to-array (map (:attrs rel2) attrs2))]
     (Relation.
-      (into {} (map vector (concat attrs1 attrs2) (range)))
+      (zipmap (concat attrs1 attrs2) (range))
       (for [t1 (:tuples rel1)
             t2 (:tuples rel2)]
         (join-tuples t1 idxs1 t2 idxs2)))))
@@ -59,12 +65,15 @@
     '_       ;; regular binding ?x
       (Relation. {form 0} [#js [value]])))
 
+(defn parse-rules [rules]
+  (group-by ffirst rules)) ;; TODO reorder rule clauses
+
 (defn parse-in [context [in value]]
   (cond
     (source? in)
       (update-in context [:sources] assoc in value)
     (= '% in)
-      (assoc context :rules value)
+      (assoc context :rules (parse-rules value))
     :else
       (update-in context [:rels] conj (in->rel in value))))
 
@@ -114,8 +123,7 @@
                                       acc)))
                           (transient []) tuples2)
                         (persistent!))]
-    (Relation. (into {}
-                     (map vector (concat keep-attrs1 keep-attrs2) (range)))
+    (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
                new-tuples)))
 
 (defn lookup-pattern-db [db pattern]
@@ -123,8 +131,7 @@
   (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
         datoms         (d/-search db search-pattern)
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
-                            (filter (fn [[s _]] (and (symbol? s)
-                                                     (not= '_ s))))
+                            (filter (fn [[s _]] (free-var? s)))
                             (into {}))]
     (Relation. attr->prop datoms)))
 
@@ -142,8 +149,7 @@
 (defn lookup-pattern-coll [coll pattern]
   (let [data       (filter #(matches-pattern? pattern %) coll)
         attr->idx  (->> (map vector pattern (range))
-                        (filter (fn [[s _]] (and (symbol? s)
-                                                 (not= '_ s))))
+                        (filter (fn [[s _]] (free-var? s)))
                         (into {}))]
     (Relation. attr->idx (map to-array data)))) ;; FIXME to-array
 
@@ -213,13 +219,110 @@
                    (reduce sum-rel))]
     (update-in context [:rels] conj new-rel)))
 
-(defn resolve-clause [context clause]
+
+
+;;; RULES
+
+(defn rule? [context clause]
+  (and (sequential? clause)
+       (contains? (:rules context) (first clause))))
+
+(declare -collect)
+(declare -resolve-clause)
+
+(def rule-seqid (atom 0))
+
+(defn expand-rule [clause context used-args]
+  (let [[rule & call-args] clause
+        seqid              (swap! rule-seqid inc)
+        branches           (get (:rules context) rule)]
+    (for [branch branches
+          :let [[[_ & rule-args] & clauses] branch
+                replacements (zipmap rule-args call-args)]]
+      (walk/postwalk
+       #(if (free-var? %)
+          (or (replacements %)
+              (symbol (str (name %) "__auto__" seqid)))
+          %)
+        clauses))))
+
+(defn remove-pairs [xs ys]
+  (let [pairs (->> (map vector xs ys)
+                   (remove (fn [[x y]] (= x y))))]
+    [(map first pairs)
+     (map second pairs)]))
+
+(defn rule-gen-guards [rule-clause used-args]
+  (let [[rule & call-args] rule-clause
+        prev-call-args     (get used-args rule)]
+    (for [prev-args prev-call-args
+          :let [[call-args prev-args] (remove-pairs call-args prev-args)]]
+      [(concat ['-differ?] call-args prev-args)])))
+
+(defn walk-collect [form pred]
+  (let [res (atom [])]
+    (walk/postwalk #(do (when (pred %) (swap! res conj %)) %) form)
+    @res))
+
+(defn split-guards [clauses guards]
+  (let [bound-vars (set (walk-collect clauses free-var?))
+        pred       (fn [[[_ & vars]]] (every? bound-vars vars))]
+    [(filter pred guards)
+     (remove pred guards)]))
+
+(defn solve-rule [context clause]
+  (let [final-attrs     (filter free-var? clause)
+        final-attrs-map (zipmap final-attrs (range))
+;;         prefix-cache    (atom {}) ;; TODO
+;;         clause-cache    (atom {}) ;; TODO
+        solve           (fn [clauses]
+                          (reduce -resolve-clause (assoc context :rels []) clauses))
+        empty-rels?     (fn [context]
+                          (some #(empty? (:tuples %)) (:rels context)))]
+    (loop [stack (list {:clauses   [clause]
+                        :used-args {}
+                        :pending-guards {}})
+           rel   (Relation. final-attrs-map [])]
+      (if-let [{:keys [clauses used-args pending-guards]} (first stack)]
+        (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) clauses)]
+          (if (nil? rule-clause)
+            
+            ;; no rules --> expand, collect, sum
+            (let [context (solve clauses)
+                  tuples  (-collect context final-attrs)
+                  new-rel (Relation. final-attrs-map tuples)]
+              (recur (next stack) (sum-rel rel new-rel)))
+              
+            ;; has rule --> add guards --> check if dead --> expand rule --> push to stack, recur
+            (let [[rule & call-args]     rule-clause
+                  guards                 (rule-gen-guards rule-clause used-args)
+                  [active-gs pending-gs] (split-guards clauses (concat guards pending-guards))]
+              
+              (if (or
+                    (some #(= % '[(-differ?)]) active-gs) ;; trivial always false case like [(not= [?a ?b] [?a ?b])]
+                    (empty-rels? (solve (concat clauses active-gs))))
+              
+                ;; this branch has no data, just drop it from stack
+                (recur (next stack) rel)
+              
+                ;; need to expand rule to branches
+                (let [used-args (assoc used-args rule
+                                  (conj (get used-args rule []) call-args))
+                      branches  (expand-rule rule-clause context used-args)]
+                  (recur (concat
+                           (for [branch branches]
+                             {:clauses        (concatv clauses active-gs branch next-clauses)
+                              :used-args      used-args
+                              :pending-guards pending-gs})
+                           (next stack))
+                         rel))))))
+        rel))))
+
+(defn -resolve-clause [context clause]
   (condp d/looks-like? clause
-    ;; TODO rules
-    
     '[[*]] ;; predicate [(pred ?a ?b ?c)]
       (filter-by-pred context clause)
-        
+
     '[[*] _] ;; function [(fn ?a ?b) ?res]
       (bind-by-fn context clause)
 
@@ -227,14 +330,20 @@
       (let [relation (lookup-pattern context clause)]
         (update-in context [:rels] collapse-rels relation))))
 
+(defn resolve-clause [context clause]
+  (if (rule? context clause)
+    ;; rule (rule ?a ?b ?c)
+    (let [rel (solve-rule context clause)]
+      (update-in context [:rels] collapse-rels rel))
+    (-resolve-clause context clause)))
+
 (defn -q [context clauses]
   (reduce resolve-clause context clauses))
 
 (defn -collect
   ([context symbols]
-    (let [rels (:rels context)
-          data (-collect [(make-array (count symbols))] rels symbols)]
-      (set (map vec data))))
+    (let [rels (:rels context)]
+      (-collect [(make-array (count symbols))] rels symbols)))
   ([acc rels symbols]
     (if-let [rel (first rels)]
       (let [keep-attrs (select-keys (:attrs rel) symbols)]
@@ -252,6 +361,11 @@
                    (next rels)
                    symbols))))
       acc)))
+
+(defn collect [context symbols]
+  (->> (-collect context symbols)
+       (map vec)
+       set))
 
 (defn find-attrs [q]
   (concat
@@ -287,11 +401,11 @@
         find      (find-attrs q)
         ins       (:in q '[$])
         wheres    (:where q)
-        context   (-> (Context. [] {} nil)
+        context   (-> (Context. [] {} {})
                     (parse-ins ins inputs))
         resultset (-> context
                     (-q wheres)
-                    (-collect find))]
+                    (collect find))]
     (cond->> resultset
       (:with q)
         (mapv #(subvec % 0 (count (:find q))))
