@@ -273,49 +273,57 @@
 (defn solve-rule [context clause]
   (let [final-attrs     (filter free-var? clause)
         final-attrs-map (zipmap final-attrs (range))
-;;         prefix-cache    (atom {}) ;; TODO
 ;;         clause-cache    (atom {}) ;; TODO
-        solve           (fn [clauses]
-                          (reduce -resolve-clause (assoc context :rels []) clauses))
+        solve           (fn [prefix-context clauses]
+                          (reduce -resolve-clause prefix-context clauses))
         empty-rels?     (fn [context]
                           (some #(empty? (:tuples %)) (:rels context)))]
-    (loop [stack (list {:clauses   [clause]
-                        :used-args {}
+    (loop [stack (list {:prefix-clauses []
+                        :prefix-context (assoc context :rels [])
+                        :clauses        [clause]
+                        :used-args      {}
                         :pending-guards {}})
            rel   (Relation. final-attrs-map [])]
-      (if-let [{:keys [clauses used-args pending-guards]} (first stack)]
-        (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) clauses)]
+      (if-let [frame (first stack)]
+        (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) (:clauses frame))]
           (if (nil? rule-clause)
             
             ;; no rules --> expand, collect, sum
-            (let [context (solve clauses)
+            (let [context (solve (:prefix-context frame) clauses)
                   tuples  (-collect context final-attrs)
                   new-rel (Relation. final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
               
             ;; has rule --> add guards --> check if dead --> expand rule --> push to stack, recur
             (let [[rule & call-args]     rule-clause
-                  guards                 (rule-gen-guards rule-clause used-args)
-                  [active-gs pending-gs] (split-guards clauses (concat guards pending-guards))]
-              
-              (if (or
-                    (some #(= % '[(-differ?)]) active-gs) ;; trivial always false case like [(not= [?a ?b] [?a ?b])]
-                    (empty-rels? (solve (concat clauses active-gs))))
-              
+                  guards                 (rule-gen-guards rule-clause (:used-args frame))
+                  [active-gs pending-gs] (split-guards (concat (:prefix-clauses frame) clauses)
+                                                       (concat guards (:pending-guards frame)))]
+              (if (some #(= % '[(-differ?)]) active-gs) ;; trivial always false case like [(not= [?a ?b] [?a ?b])]
+
                 ;; this branch has no data, just drop it from stack
                 (recur (next stack) rel)
-              
-                ;; need to expand rule to branches
-                (let [used-args (assoc used-args rule
-                                  (conj (get used-args rule []) call-args))
-                      branches  (expand-rule rule-clause context used-args)]
-                  (recur (concat
-                           (for [branch branches]
-                             {:clauses        (concatv clauses active-gs branch next-clauses)
-                              :used-args      used-args
-                              :pending-guards pending-gs})
-                           (next stack))
-                         rel))))))
+                
+                (let [prefix-clauses (concat clauses active-gs)
+                      prefix-context (solve (:prefix-context frame) prefix-clauses)]
+                  (if (empty-rels? prefix-context)
+                    
+                    ;; this branch has no data, just drop it from stack
+                    (recur (next stack) rel)
+
+                    ;; need to expand rule to branches
+                    (let [used-args  (assoc (:used-args frame) rule
+                                       (conj (get (:used-args frame) rule []) call-args))
+                          branches   (expand-rule rule-clause context used-args)]
+                      (recur (concat
+                               (for [branch branches]
+                                 {:prefix-clauses prefix-clauses
+                                  :prefix-context prefix-context
+                                  :clauses        (concatv branch next-clauses)
+                                  :used-args      used-args
+                                  :pending-guards pending-gs})
+                               (next stack))
+                             rel))))))))
         rel))))
 
 (defn -resolve-clause [context clause]
