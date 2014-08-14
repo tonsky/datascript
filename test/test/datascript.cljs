@@ -3,7 +3,8 @@
     [cemerick.cljs.test :refer (is deftest with-test run-tests testing test-var)])
   (:require
     [cemerick.cljs.test :as t]
-    [datascript :as d]))
+    [datascript :as d]
+    [datascript.entity :as e]))
 
 (enable-console-print!)
 
@@ -31,10 +32,8 @@
                #{}))
         (is (= (d/q '[:find ?v
                       :where [1 :aka ?v]] db)
-               #{["Tupen"]}))
-        
-        (is (= (d/entity db 1) { :db/id 1, :aka ["Tupen"] }))))
-    
+               #{["Tupen"]}))))
+
     (testing "Cannot retract what's not there"
       (let [db  (-> db
                     (d/with [[:db/retract 1 :name "Ivan"]]))]
@@ -109,7 +108,7 @@
     (is (thrown-with-msg? js/Error #"No entity with name: Bob"
                           (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
     (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
-          e (d/entity db-after 1)]
+          e (e/entity db-after 1)]
       (is (= (:age e) 32))
       (is (:had-birthday e)))))
 
@@ -151,14 +150,6 @@
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
     (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
-
-(deftest test-entity
-  (let [conn (d/create-conn {:aka {:db/cardinality :db.cardinality/many}})
-        p1   {:db/id 1, :name "Ivan", :age 19, :aka ["X" "Y"]}
-        p2   {:db/id 2, :name "Ivan", :sex "male", :aka ["Z"]}
-        t1   (d/transact! conn [p1 p2])]
-    (is (= (d/entity @conn 1) p1))
-    (is (= (d/entity @conn 2) p2))))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)

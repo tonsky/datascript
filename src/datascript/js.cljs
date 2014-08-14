@@ -46,11 +46,15 @@
         :tx_data   (->> (:tx-data report) (map datom->js) into-array)
         :tempids   (clj->js (:tempids report)) })
 
-(defn entity->js [e]
-  (-> e
-    (dissoc :db/id)
-    (assoc  ":db/id" (:db/id e))
-    clj->js))
+(defn- entity-map [db eid]
+  (when-let [datoms (not-empty (d/-search db [eid]))]
+    (reduce (fn [entity datom]
+              (let [a (.-a datom)
+                    v (.-v datom)]
+                (if (d/multival? db (.-a datom))
+                  (update-in entity [a] (fnil conj []) v)
+                  (assoc entity a v))))
+            { ":db/id" eid } datoms)))
 
 ;; Public API
 
@@ -68,8 +72,8 @@
   (d/with db (entities->clj entities)))
 
 (defn ^:export entity [db eid]
-  (-> (d/entity db eid)
-      entity->js))
+  (-> (entity-map db eid)
+      clj->js))
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
