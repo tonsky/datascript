@@ -481,8 +481,21 @@
               [1 3] [1 5]
               [2 3] [2 5]
               [3 5]
-              [4 5]})))))
-
+              [4 5]}))))
+  
+  (testing "Specifying db to rule"
+    (is (= (dq/q '[ :find ?n
+                    :in   $sexes $ages %
+                    :where ($sexes male ?n)
+                           ($ages adult ?n) ]
+                  [["Ivan" :male] ["Darya" :female] ["Oleg" :male] ["Igor" :male]]
+                  [["Ivan" 15] ["Oleg" 66] ["Darya" 32]]
+                  '[[(male ?x)
+                     [?x :male]]
+                    [(adult ?y)
+                     [?y ?a]
+                     [(>= ?a 18)]]])
+           #{["Oleg"]}))))
 
 (deftest test-aggregates
   (let [monsters [ ["Cerberus" 3]
@@ -622,4 +635,3 @@
       (is (= db (cljs.reader/read-string (pr-str db)))))))
 
 ;; (t/test-ns 'test.datascript)
-

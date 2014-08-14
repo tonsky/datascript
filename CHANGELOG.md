@@ -1,3 +1,9 @@
+# WIP
+
+- Rewritten query engine & rules engine, up to 10x times faster
+- You can specify DB for rule call (like `($db follows ?e1 ?e2)`)
+- Datoms are required to have integer id and keyword attributes, but no restriction on types of values
+
 # 0.1.6
 
 - Clojure reader support (pr/read) for DB and Datom

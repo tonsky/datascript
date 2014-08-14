@@ -225,7 +225,10 @@
 
 (defn rule? [context clause]
   (and (sequential? clause)
-       (contains? (:rules context) (first clause))))
+       (contains? (:rules context)
+                  (if (source? (first clause))
+                    (second clause)
+                    (first clause)))))
 
 (declare -collect)
 (declare -resolve-clause)
@@ -340,8 +343,11 @@
 
 (defn resolve-clause [context clause]
   (if (rule? context clause)
-    ;; rule (rule ?a ?b ?c)
-    (let [rel (solve-rule context clause)]
+    (let [[source rule] (if (source? (first clause))
+                          [(first clause) (next clause)]
+                          ['$ clause])
+          source (get-in context [:sources source])
+          rel    (solve-rule (assoc context :sources {'$ source}) rule)]
       (update-in context [:rels] collapse-rels rel))
     (-resolve-clause context clause)))
 

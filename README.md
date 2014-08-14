@@ -155,10 +155,10 @@ Expected soon:
 
 * Better error reporting
 * Support for components in schema
-* Direct access to indexes
-* Passing DB to rule
+* [v] Direct access to indexes
+* [v] Passing DB to rule
 * Proper API docs
-* Moar speed
+* [v] Moar speed
 
 ## Differences from Datomic
 
