@@ -150,62 +150,54 @@
   (let [db (reduce #(d/with %1 [%2]) (d/empty-db) (:people opts))]
     (assoc opts :db db)))
 
-#_(def people-db (:db (test-setup-db (test-setup-people {:size 50}))))
-#_(dq/q '[:find  ?e ?a
-          :where [?e :name "Ivan"]
-                 [?e :age ?a]] people-db)
-
-#_(let [es (->> (d/-search people-db [nil :name "Ivan"])
-                                    (mapv :e))]
-            (hash-join people-db es :age))
-
-#_(do
-  (.time js/console "d/q")
-  (d/q '[:find ?e ?v
-         :where [?e :name "Ivan"]
-                [?e :age ?v]]
-      people-db)
-  (.timeEnd js/console "d/q"))
-
 (defn ^:export perftest-q []
   (perf/suite (fn [opts] ((:method opts) opts))
     :duration 1000
     :matrix   test-matrix-q
     :setup-fn (comp test-setup-db test-setup-people)))
 
-;; (perftest-q)
+(defn- gen-wide-db [id depth width]
+  (if (pos? depth)
+    (let [children (map #(+ (* id width) %) (range width))]
+      (concat
+        (map #(vector :db/add id :follows %) children)
+        (mapcat #(gen-wide-db % (dec depth) width) children)))
+    []))
 
-;; (def db (:db (test-setup-db (test-setup-people {:size 1000}))))
+(defn- gen-long-db [depth width]
+  (for [x (range width)
+        y (range depth)]
+    [:db/add (+ (* x (inc depth)) y) :follows (+ (* x (inc depth)) y 1)]))
 
-;; (let [es (->> (d/-search db [nil :name "Ivan"])
-;;              (mapv :e))]
-;;   (vec (hash-join db es :last-name)))
-
-;; (vec (d/seek-datoms db :avet :age 8.5))
-
-(defrecord X [a b c d])
-
-(defn ^:export perftest-get-in []
-  (perf/suite (fn [opts] ((:method opts) (:obj opts) (:path opts)))
+(defn ^:export perftest-rules []
+  (perf/suite (fn [opts]
+                ((get opts "version")
+                   '[:find ?e ?e2
+                     :in $ %
+                     :where (follows ?e ?e2)]
+                  (:db opts)
+                  '[[(follows ?x ?y)
+                     [?x :follows ?y]]
+                    [(follows ?x ?y)
+                     [?x :follows ?t]
+                     (follows ?t ?y)]]))
     :duration 1000
-    :matrix   [:obj    { "vec-vec" [[1 2 3 4] (X. 5 6 7 8) [9 10]] }
-               :path   [[0 2] [1 :b]]
-               :method { "get-in"   (fn [x p] (get-in x p))
-                         "nth-get"  (fn [x [p1 p2]] (get (nth x p1) p2)) }]))
-
-
-(defn ^:export perftest-getters []
-  (perf/suite (fn [opts] ((:method opts) (X. 1 2 3 4)))
-    :duration 1000
-    :matrix   [:method { "prop"    (fn [x] (+ (.-a x) (.-b x) (.-c x) (.-d x)))
-                         "keyword" (fn [x] (+ (:a x) (:b x) (:c x) (:d x)))
-                         "aget"    (fn [x] (+ (aget x "a") (aget x "b") (aget x "c") (aget x "d"))) }]))
-
-
-(defn ^:export perftest-array-getters []
-  (perf/suite (fn [opts] ((:method opts) #js [1 2 3 4 5 6] [1 2 3 4 5 6]))
-    :duration 1000
-    :matrix   [:method { "aget a"  (fn [x _] (+ (aget x 0) (aget x 1) (aget x 2) (aget x 3)))
-                         "nth  a"  (fn [x _] (+ (nth x 0) (nth x 1) (nth x 2) (nth x 3)))
-                         "get  v"  (fn [_ x] (+ (get x 0) (get x 1) (get x 2) (get x 3)))
-                         "nth  v"  (fn [_ x] (+ (nth x 0) (nth x 1) (nth x 2) (nth x 3)))}]))
+    :matrix   ["version" {;;"d" d/q
+                          "dq" dq/q}
+               "form" [
+;;                        [:wide 3 3]
+;;                        [:wide 5 3]
+;;                        [:wide 7 3]
+;;                        [:wide 4 6]
+;;                        [:long 10 3]
+;;                        [:long 5 5]
+                       [:long 30 3]
+                       [:long 30 5]
+                       ]]
+    :setup-fn (fn [opts]
+                (let [[form depth width] (get opts "form")
+                      datoms (case form
+                               :wide (gen-wide-db 1 depth width)
+                               :long (gen-long-db depth width))
+                      db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)]
+                  (assoc opts :db db)))))
