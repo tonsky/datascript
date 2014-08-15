@@ -21,9 +21,9 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2268"]
+  [org.clojure/clojurescript "0.0-2280"]
   ...
-  [datascript "0.1.6"]
+  [datascript "0.2.0"]
 ]
 ```
 
@@ -95,10 +95,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.1.6.min.js"></script>
+<script src="datascript-0.2.0.min.js"></script>
 ```
 
-[Download datascript-0.1.6.min.js](https://github.com/tonsky/datascript/releases/download/0.1.6/datascript-0.1.6.min.js), 35k gzipped.
+[Download datascript-0.2.0.min.js](https://github.com/tonsky/datascript/releases/download/0.2.0/datascript-0.2.0.min.js), 40k gzipped.
 
 Queries:
 
@@ -119,7 +119,7 @@ Check out [test/js/js.html](test/js/js.html) for usage examples.
 
 ## Project status
 
-Pre-alpha quality. I spent just one week on implementation — it’s straightforward, non-optimized and has no meaningful error reporting.
+Alpha quality. Half of the features done, a lot of cases where error reporting is missing, no docs (use examples & Datomic documentation).
 
 The following features are supported:
 
@@ -155,10 +155,8 @@ Expected soon:
 
 * Better error reporting
 * Support for components in schema
-* [v] Direct access to indexes
-* [v] Passing DB to rule
-* Proper API docs
-* [v] Moar speed
+* Lazy entities
+* Proper documentation
 
 ## Differences from Datomic
 
@@ -166,7 +164,7 @@ Expected soon:
 * Runs in a browser
 * Simplified schema, not queryable
 * No need to declare attributes except for `:db/cardinality` `:db.cardinality/many` and `:db/valueType` `:db.type/ref`
-* Any value can be used as value. It’s better if they are immutable and fast to compare
+* Any type can be used for values. It’s better if values are immutable and fast to compare
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AVET index for all datoms
 * No schema migrations

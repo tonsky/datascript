@@ -1,11 +1,8 @@
 (ns test.datascript-perf
-  (:require-macros
-    [cemerick.cljs.test :refer (is deftest with-test run-tests testing test-var)])
   (:require
     [datascript.btset :as btset]
-    [cemerick.cljs.test :as t]
     [datascript :as d]
-    [datascript.query :as dq]
+    [datascript.core :as dc]
     [test.datascript.perf :as perf]))
 
 (enable-console-print!)
@@ -41,19 +38,18 @@
 (defn sort-merge-join [db eis a]
   (let [min-e nil ;;(first eis)
         max-e nil ;;(nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (d/Datom. min-e a nil nil nil)
-                                       (d/Datom. max-e a nil nil nil))]
+        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
+                                       (dc/Datom. max-e a nil nil nil))]
     (loop [_res []
            _ds  datoms
            _es  eis]
       (let [_fd (first _ds)
             _fe (first _es)]
         (if (and _fd _fe)
-          (condp == (compare (.-e _fd) _fe)
+          (case (compare (.-e _fd) _fe)
             0 (recur (conj _res [(.-e _fd) (.-v _fd)]) (next _ds) (next _es))
-            -1 (recur _res (next _ds) _es)
-            1  (recur _res _ds (next _es))
-            )
+           -1 (recur _res (next _ds) _es)
+            1 (recur _res _ds (next _es)))
           _res)))))
 
 (defn hash-join [db eis a]
@@ -61,8 +57,8 @@
 ;;   (.log js/console (str "eis: " (count eis)))
   (let [min-e nil ;; (first eis)
         max-e nil ;; (nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (d/Datom. min-e a nil nil nil)
-                                       (d/Datom. max-e a nil nil nil))
+        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
+                                       (dc/Datom. max-e a nil nil nil))
 ;;        _ (.time js/console "hash")
         hashmap (reduce (fn [m d] (assoc m (.-e d) (conj (get m (.-e d) '()) (.-v d)))) {} datoms)
 ;;        _ (.timeEnd js/console "hash")
@@ -96,18 +92,18 @@
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
 
-     "dq/search"        (fn [opts] (dq/q '[ :find  ?e ?a
-                                            :where [?e :name "Ivan"]
-                                                   [?e :age ?a] ]
+     "d/q"              (fn [opts] (d/q '[ :find  ?e ?a
+                                           :where [?e :name "Ivan"]
+                                                  [?e :age ?a] ]
                                          (:db opts)))
 
-     "hash-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
+     "hash-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
                                                  (mapv :e))]
                            (hash-join (:db opts) es :age)))
 
-;;      "sort-join"        (fn [opts] (let [es (->> (d/-search (:db opts) [nil :name "Ivan"])
-;;                                                  (mapv :e))]
-;;                            (sort-merge-join (:db opts) es :age)))
+     "sort-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
+                                                 (mapv :e))]
+                           (sort-merge-join (:db opts) es :age)))
 
 
                                  
@@ -171,7 +167,7 @@
 
 (defn ^:export perftest-rules []
   (perf/suite (fn [opts]
-                ((get opts "version")
+                (d/q
                    '[:find ?e ?e2
                      :in $ %
                      :where (follows ?e ?e2)]
@@ -182,15 +178,13 @@
                      [?x :follows ?t]
                      (follows ?t ?y)]]))
     :duration 1000
-    :matrix   ["version" {;;"d" d/q
-                          "dq" dq/q}
-               "form" [
-;;                        [:wide 3 3]
-;;                        [:wide 5 3]
-;;                        [:wide 7 3]
-;;                        [:wide 4 6]
-;;                        [:long 10 3]
-;;                        [:long 5 5]
+    :matrix   ["form" [
+                       [:wide 3 3]
+                       [:wide 5 3]
+                       [:wide 7 3]
+                       [:wide 4 6]
+                       [:long 10 3]
+                       [:long 5 5]
                        [:long 30 3]
                        [:long 30 5]
                        ]]

@@ -1,6 +1,10 @@
-# WIP
+# 0.2.0
 
-- Rewritten query engine & rules engine, up to 10x times faster
+Big performance improvements:
+
+- New B-tree based indexes
+- New set-at-a-time, hash-join powered query and rules engine
+- Queries now up to 10× times faster
 - You can specify DB for rule call (like `($db follows ?e1 ?e2)`)
 - Datoms are required to have integer id and keyword attributes, but no restriction on types of values
 

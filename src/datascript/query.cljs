@@ -2,7 +2,10 @@
   (:require
     [clojure.set :as set]
     [clojure.walk :as walk]
-    [datascript :as d]))
+    [datascript.core :as dc]))
+
+
+;; Records
 
 (defrecord Context [rels sources rules])
 ;; attrs:
@@ -11,6 +14,9 @@
 ;;    [ #js [1 "Ivan" 5 14] ... ]
 ;; or [ (Datom. 2 "Oleg" 1 55) ... ]
 (defrecord Relation [attrs tuples])
+
+
+;; Utilities
 
 (defn intersect-keys [attrs1 attrs2]
   (set/intersection (set (keys attrs1)) 
@@ -26,6 +32,24 @@
   (and (symbol? sym)
        (= \? (first (name sym)))
        (not= '_ sym)))
+
+(defn- looks-like? [pattern form]
+  (cond
+    (= '_ pattern)
+      true
+    (= '[*] pattern)
+      (sequential? form)
+    (sequential? pattern)
+      (and (sequential? form)
+           (= (count form) (count pattern))
+           (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
+                   (map vector pattern form)))
+    (symbol? pattern)
+      (= form pattern)
+    :else ;; (predicate? pattern)
+      (pattern form)))
+
+;; Relation algebra
 
 (defn join-tuples [t1 idxs1 t2 idxs2]
   (let [l1  (alength idxs1)
@@ -50,9 +74,55 @@
       (for [t1 (:tuples rel1)
             t2 (:tuples rel2)]
         (join-tuples t1 idxs1 t2 idxs2)))))
-  
+
+;; built-ins
+
+(defn- -differ? [& xs]
+  (let [l (count xs)]
+    (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
+
+(def built-ins {
+  '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -, 
+  '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
+  'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?,
+  'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector,
+  '-differ? -differ?})
+
+(def built-in-aggregates {
+  'distinct (comp vec distinct)
+  'min      (fn
+              ([coll] (reduce min coll))
+              ([n coll]
+                (vec
+                  (reduce (fn [acc x]
+                            (cond
+                              (< (count acc) n) (sort (conj acc x))
+                              (< x (last acc))  (sort (conj (butlast acc) x))
+                              :else             acc))
+                          [] coll))))
+  'max      (fn
+              ([coll] (reduce max coll))
+              ([n coll]
+                (vec
+                  (reduce (fn [acc x]
+                            (cond
+                              (< (count acc) n) (sort (conj acc x))
+                              (> x (first acc)) (sort (conj (next acc) x))
+                              :else             acc))
+                          [] coll))))
+  'sum      #(reduce + 0 %)
+  'rand     (fn
+              ([coll] (rand-nth coll))
+              ([n coll] (vec (repeatedly n #(rand-nth coll)))))
+  'sample   (fn [n coll]
+              (vec (take n (shuffle coll))))
+  'count    count})
+
+
+;;
+
 (defn in->rel [form value]
-  (condp d/looks-like? form
+  (condp looks-like? form
     '[_ ...] ;; collection binding [?x ...]
       (reduce sum-rel 
         (map #(in->rel (first form) %) value))
@@ -66,7 +136,8 @@
       (Relation. {form 0} [#js [value]])))
 
 (defn parse-rules [rules]
-  (group-by ffirst rules)) ;; TODO reorder rule clauses
+  (let [rules (if (string? rules) (cljs.reader/read-string rules) rules)] ;; for datascript.js interop
+    (group-by ffirst rules)))
 
 (defn parse-in [context [in value]]
   (cond
@@ -79,6 +150,8 @@
 
 (defn parse-ins [context ins values]
   (reduce parse-in context (map vector ins values)))
+
+;; 
 
 (defn tuple-key-fn [idxs]
   (if (== (count idxs) 1)
@@ -129,7 +202,7 @@
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
   (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
-        datoms         (d/-search db search-pattern)
+        datoms         (dc/-search db search-pattern)
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (free-var? s)))
                             (into {}))]
@@ -159,7 +232,7 @@
                                ['$ clause])
         source   (get (:sources context) source-sym)]
     (cond
-      (instance? d/DB source)
+      (instance? dc/DB source)
         (lookup-pattern-db source pattern)
       :else
         (lookup-pattern-coll source pattern))))
@@ -199,7 +272,7 @@
 
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
-        pred         (or (get d/built-ins f)
+        pred         (or (get built-ins f)
                          (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         tuple-pred   (-call-fn production pred args)
@@ -208,7 +281,7 @@
 
 (defn bind-by-fn [context clause]
   (let [[[f & args] out] clause
-        fun      (or (get d/built-ins f)
+        fun      (or (get built-ins f)
                      (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         tuple-fn (-call-fn production fun args)
@@ -330,7 +403,7 @@
         rel))))
 
 (defn -resolve-clause [context clause]
-  (condp d/looks-like? clause
+  (condp looks-like? clause
     '[[*]] ;; predicate [(pred ?a ?b ?c)]
       (filter-by-pred context clause)
 
@@ -393,7 +466,7 @@
                   vals (map #(nth % i) tuples)
                   args (map #(if (symbol? %) (context-resolve-val context %) %)
                              (butlast args))
-                  f    (or (d/built-in-aggregates f)
+                  f    (or (built-in-aggregates f)
                            (context-resolve-val context f))]
               (apply f (concat args [vals])))
             fixed-value))
@@ -410,8 +483,16 @@
     (for [[_ tuples] grouped]
       (-aggregate q context tuples))))
 
+(defn parse-query [query]
+  (loop [parsed {}, key nil, qs query]
+    (if-let [q (first qs)]
+      (if (keyword? q)
+        (recur parsed q (next qs))
+        (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
+      parsed)))
+
 (defn q [q & inputs]
-  (let [q         (if (sequential? q) (d/parse-query q) q)
+  (let [q         (if (sequential? q) (parse-query q) q)
         find      (find-attrs q)
         ins       (:in q '[$])
         wheres    (:where q)
@@ -425,45 +506,3 @@
         (mapv #(subvec % 0 (count (:find q))))
       (not-empty (filter sequential? (:find q)))
         (aggregate q context))))
-        
-
-
-#_(q '[:find  ?e ?n ?a
-     :in    $ [?n ...]
-     :where [?e :name ?n]
-            [?e :age ?a]
-            [(even? ?a)]]
-  (-> (d/empty-db)
-      (d/with [ [:db/add 1 :name "Ivan"]
-                [:db/add 1 :age  15]
-                [:db/add 2 :name "Petr"]
-                [:db/add 2 :age  34]
-                [:db/add 3 :name "Ivan"]
-                [:db/add 3 :age  22]]))
-   ["Ivan" "Petr"])
-
-#_(q '[:find ?e ?n ?e2 ?n2
-     :where [?e :name ?n]
-            [?e2 :name ?n2]]
-  (-> (d/empty-db)
-      (d/with [ [:db/add 1 :name "Ivan"]
-                [:db/add 1 :age  15]
-                [:db/add 2 :name "Petr"]
-                [:db/add 2 :age  34]
-                [:db/add 3 :name "Ivan"]
-                [:db/add 3 :age  22] ])))
-
-#_(let [monsters [ ["Cerberus" 3]
-                   ["Medusa" 1]
-                   ["Cyclops" 1]
-                   ["Chimera" 1] ]]
-  (q '[:find (sum ?heads) (min ?heads) (max ?heads) (count ?heads)
-       :with ?monster
-       :in   [[?monster ?heads]] ]
-    monsters))
-
-#_(q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
-      :in   [[?color ?x]] ?amount ]
-   [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
-    [:blue 7] [:blue 8]]
-   3)

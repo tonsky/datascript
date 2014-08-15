@@ -1,8 +1,9 @@
 (ns datascript.js
   (:require
     [datascript :as d]
+    [datascript.core :as dc]
     [clojure.walk :as walk]
-    [cljs.reader :refer [read-string]]))
+    [cljs.reader]))
 
 ;; Conversions
 
@@ -33,17 +34,10 @@
   (->> (js->clj entities)
        (map entity->clj)))
 
-(defn- datom->js [d]
-  #js { :e (.-e d)
-        :a (.-a d)
-        :v (.-v d)
-        :tx (.-tx d)
-        :added (.-added d) })
-
 (defn- tx-report->js [report]
   #js { :db_before (:db-before report)
         :db_after  (:db-after report)
-        :tx_data   (->> (:tx-data report) (map datom->js) into-array)
+        :tx_data   (->> (:tx-data report) into-array)
         :tempids   (clj->js (:tempids report)) })
 
 (defn entity->js [e]
@@ -58,7 +52,7 @@
   (d/empty-db (schema->clj schema)))
 
 (defn ^:export q [query & sources]
-  (let [query   (read-string query)
+  (let [query   (cljs.reader/read-string query)
         results (apply d/q query sources)]
     (->> (for [tuple results]
            (into-array tuple))
@@ -91,10 +85,8 @@
 
 (defn ^:export datoms [db index & components]
   (->> (apply d/datoms db (keywordize index) components)
-       (map datom->js)
        into-array))
 
 (defn ^:export seek_datoms [db index & components]
   (->> (apply d/seek-datoms db (keywordize index) components)
-       (map datom->js)
        into-array))

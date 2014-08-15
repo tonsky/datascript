@@ -11,6 +11,19 @@
         return _.every(s1, function(e1) { return _.find(s2, function(e2) { return _.isEqual(e1, e2); }) != undefined })
             && _.every(s2, function(e2) { return _.find(s1, function(e1) { return _.isEqual(e1, e2); }) != undefined });
       }
+
+      function cmp_datoms(d1, d2) {
+        return d1.e == d2.e && d1.a == d2.a && _.isEqual(d1.v, d2.v) && d1.tx == d2.tx && d1.added == d2.added;
+      }
+      
+      function assert_eq_datoms(expected, got, message) {
+        asserts++;
+        if(! _.every(_.zip(expected, got), function(dd) { return cmp_datoms(dd[0], dd[1]); }) ) {
+          errors--;
+          failures++;
+          throw (message || "Assertion failed") + ": expected: " + JSON.stringify(expected) + ", got: " + JSON.stringify(got);
+        }
+      }
       
       function assert_eq(expected, got, message) {
         asserts++;
@@ -56,9 +69,9 @@
 
 <!--     <script src="../../web/out/goog/base.js" type="text/javascript"></script>
     <script src="../../web/datascript.js" type="text/javascript"></script>
-    <script type="text/javascript">goog.require("datascript.js");</script>
- -->
-    <script src="../../web/datascript-0.1.6.min.js" type="text/javascript"></script>
+    <script type="text/javascript">goog.require("datascript.js");</script> -->
+
+    <script src="../../web/datascript-0.2.0.min.js" type="text/javascript"></script>
     
     <script type="text/javascript">
       var d = datascript.js;
@@ -106,13 +119,13 @@
         d.listen(conn, function(report) { log.push(report.tx_data); });
         var tx_report = d.transact(conn, [[":db/add", -1, "name", "Ivan"],
                                           [":db/add", -1, "age", 17]]);
-        assert_eq([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
-                   {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
-                  tx_report.tx_data);
+        assert_eq_datoms([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
+                          {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
+                         tx_report.tx_data);
         assert_eq({"-1": 1}, tx_report.tempids);
-        assert_eq([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
-                   {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
-                  log[0]);
+        assert_eq_datoms([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
+                          {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
+                          log[0]);
       }
       
       function test_entity() {
@@ -174,16 +187,16 @@
       }
       
       function test_datoms() {
-        assert_eq([{"e": 1, "a": "age", "v": 15, "tx": tx0+1, "added": true},
-                   {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true}],
-                  d.datoms(people_db, ":eavt", 1));
+        assert_eq_datoms([{"e": 1, "a": "age", "v": 15, "tx": tx0+1, "added": true},
+                          {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true}],
+                         d.datoms(people_db, ":eavt", 1));
         
-        assert_eq([{"e": 2, "a": "age", "v": 37, "tx": tx0+1, "added": true},
-                   {"e": 3, "a": "age", "v": 37, "tx": tx0+1, "added": true},
-                   {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
-                   {"e": 3, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
-                   {"e": 2, "a": "name", "v": "Petr", "tx": tx0+1, "added": true}],
-                  d.seek_datoms(people_db, ":avet", "age", 20));
+        assert_eq_datoms([{"e": 2, "a": "age", "v": 37, "tx": tx0+1, "added": true},
+                          {"e": 3, "a": "age", "v": 37, "tx": tx0+1, "added": true},
+                          {"e": 1, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
+                          {"e": 3, "a": "name", "v": "Ivan", "tx": tx0+1, "added": true},
+                          {"e": 2, "a": "name", "v": "Petr", "tx": tx0+1, "added": true}],
+                         d.seek_datoms(people_db, ":avet", "age", 20));
       }
 
       function run_tests() {

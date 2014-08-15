@@ -1,4 +1,4 @@
-(def version "0.1.6")
+(def version "0.2.0")
 
 (defproject datascript version
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -18,6 +18,7 @@
           :output-to     ~(str "web/datascript-" version ".min.js")
           :optimizations :advanced
           :pretty-print  false
+          :externs       ["src/externs.js"]
         }}
   ]}
 
