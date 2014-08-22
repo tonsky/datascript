@@ -21,10 +21,18 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2280"]
+  [org.clojure/clojurescript "0.0-2311"]
   ...
-  [datascript "0.2.0"]
+  [datascript "0.2.1"]
 ]
+
+;; for advanced optimizations externs are needed
+:cljsbuild { :builds [
+  :compiler {
+    :externs ["datascript/externs.js"]
+    :optimizations :advanced
+  }
+]}
 ```
 
 ```clj
