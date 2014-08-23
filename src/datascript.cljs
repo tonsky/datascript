@@ -2,21 +2,14 @@
   (:require
     [datascript.core :as dc]
     [datascript.query :as dq]
+    [datascript.impl.entity :as de]
     [datascript.btset :as btset]))
 
 ;; SUMMING UP
 
 (def q dq/q)
-
-(defn entity [db eid]
-  (when-let [datoms (not-empty (dc/-search db [eid]))]
-    (reduce (fn [entity datom]
-              (let [a (.-a datom)
-                    v (.-v datom)]
-                (if (dc/multival? db (.-a datom))
-                  (update-in entity [a] (fnil conj []) v)
-                  (assoc entity a v))))
-            { :db/id eid } datoms)))
+(def entity de/entity)
+(defn entity-db [entity] (.-db entity))
 
 (def ^:const tx0 0x20000000)
 
