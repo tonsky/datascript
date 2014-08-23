@@ -1,3 +1,7 @@
+# 0.2.1
+
+- Externs file now can be referred as `:externs [datascript/externs.js"]`
+
 # 0.2.0
 
 Big performance improvements:
