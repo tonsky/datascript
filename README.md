@@ -23,7 +23,7 @@ Also check out this blog post about [how DataScript fits into the current webdev
 :dependencies [
   [org.clojure/clojurescript "0.0-2311"]
   ...
-  [datascript "0.3.0"]
+  [datascript "0.3.1"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -103,10 +103,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.3.0.min.js"></script>
+<script src="datascript-0.3.1.min.js"></script>
 ```
 
-[Download datascript-0.3.0.min.js](https://github.com/tonsky/datascript/releases/download/0.3.0/datascript-0.3.0.min.js), 43k gzipped.
+[Download datascript-0.3.1.min.js](https://github.com/tonsky/datascript/releases/download/0.3.1/datascript-0.3.1.min.js), 43k gzipped.
 
 Queries:
 

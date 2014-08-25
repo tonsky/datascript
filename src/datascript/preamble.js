@@ -1,5 +1,5 @@
 /**
- * Datascript v0.3.0
+ * Datascript v0.3.1
  *
  * Copyright 2014 Nikita Prokopov
  *

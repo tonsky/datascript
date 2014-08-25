@@ -1,4 +1,4 @@
-# WIP
+# 0.3.1
 
 - Much faster DB’s `equiv` and `hash`, Datom’s `hash`
 
