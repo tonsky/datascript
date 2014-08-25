@@ -23,7 +23,7 @@ Also check out this blog post about [how DataScript fits into the current webdev
 :dependencies [
   [org.clojure/clojurescript "0.0-2311"]
   ...
-  [datascript "0.2.1"]
+  [datascript "0.3.0"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -103,15 +103,21 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.2.0.min.js"></script>
+<script src="datascript-0.3.0.min.js"></script>
 ```
 
-[Download datascript-0.2.0.min.js](https://github.com/tonsky/datascript/releases/download/0.2.0/datascript-0.2.0.min.js), 40k gzipped.
+[Download datascript-0.3.0.min.js](https://github.com/tonsky/datascript/releases/download/0.3.0/datascript-0.3.0.min.js), 43k gzipped.
 
 Queries:
 
 * Query and rules should be EDN passed as strings
 * Results of `q` are returned as regular JS arrays
+
+Entities:
+
+* Entities returned by `entity` call are lazy as in Clojure
+* Use `e.get("prop")`, `e.get(":db/id")`, `e.db` to access entity properties
+* Entities implement ECMAScript 6 Map interface (has/get/keys/...)
 
 Transactions:
 
@@ -135,6 +141,7 @@ The following features are supported:
 * Triple store model
 * EAVT, AEVT and AVET indexes
 * Multi-valued attributes via `:db/cardinality :db.cardinality/many`
+* Lazy entities and `:db/valueType :db.type/ref` auto-expansion
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
 * Direct index lookup and iteration via `datoms` and `seek-datoms`
@@ -163,7 +170,6 @@ Expected soon:
 
 * Better error reporting
 * Support for components in schema
-* Lazy entities
 * Proper documentation
 
 ## Differences from Datomic
