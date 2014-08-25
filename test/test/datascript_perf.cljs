@@ -195,3 +195,33 @@
                                :long (gen-long-db depth width))
                       db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)]
                   (assoc opts :db db)))))
+
+(def now test.datascript.perf/now)
+
+(defn ^:export perftest-db-hash []
+  (let [datoms (gen-long-db 30 10)]
+    (loop [time  0
+           iters 0]
+      (if (< iters 100)
+        (let [db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
+              t0 (now)]
+          (hash db)
+          (recur (+ time (- (now) t0)) (inc iters)))
+        (let [dt (/ (* 1000 time) iters)]
+          (println "perftest-db-hash:" dt "ms")
+          dt)))))
+
+
+(defn ^:export perftest-db-equiv []
+  (let [datoms (gen-long-db 30 10)]
+    (loop [time  0
+           iters 0]
+      (if (< iters 100)
+        (let [db1    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
+              db2    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
+              t0     (now)]
+          (= db1 db2)
+          (recur (+ time (- (now) t0)) (inc iters)))
+        (let [dt (/ (* 1000 time) iters)]
+          (println "perftest-db-equiv" dt "ms")
+          dt)))))

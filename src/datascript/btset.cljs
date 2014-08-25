@@ -435,9 +435,9 @@
   IEquiv
   (-equiv [this other]
     (and
-     (set? other)
-     (== cnt (count other))
-     (every? #(contains? this %) other)))
+      (set? other)
+      (== cnt (count other))
+      (every? #(contains? this %) other)))
 
   IHash
   (-hash [coll] (caching-hash coll hash-iset __hash))

@@ -1,3 +1,7 @@
+# WIP
+
+- Much faster DB’s `equiv` and `hash`, Datom’s `hash`
+
 # 0.3.0
 
 Proper entities implementation:

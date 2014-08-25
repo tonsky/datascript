@@ -12,9 +12,15 @@
 (extend-type Datom
   IHash
   (-hash [d] (or (.-__hash d)
-                 (set! (.-__hash d) (hash-coll [(.-e d) (.-a d) (.-v d)]))))
+                 (set! (.-__hash d)
+                       (-> (hash (.-e d))
+                           (hash-combine (hash (.-a d)))
+                           (hash-combine (hash (.-v d)))))))
   IEquiv
-  (-equiv [d o] (and (= (.-e d) (.-e o)) (= (.-a d) (.-a o)) (= (.-v d) (.-v o))))
+  (-equiv [d o] (and (= (.-e d) (.-e o))
+                     (= (.-a d) (.-a o))
+                     (= (.-v d) (.-v o))))
+  
   ISeqable
   (-seq [d] (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d))))
 
@@ -100,7 +106,28 @@
       (filter #(= v (.-v %)) eavt)                       ;; _ _ v _
       (filter #(= tx (.-tx %)) eavt)                     ;; _ _ _ tx
       eavt])))                                           ;; _ _ _ _
-  
+
+(defn- equiv-index [x y]
+  (and (= (count x) (count y))
+    (loop [xs (seq x)
+           ys (seq y)]
+      (cond
+        (nil? xs) true
+        (= (first xs) (first ys)) (recur (next xs) (next ys))
+        :else false))))
+
+(extend-type DB
+  IHash
+  (-hash [this]
+    (or (.-__hash this)
+        (set! (.-__hash this) (hash-coll (.-eavt this)))))
+  IEquiv
+  (-equiv [this other]
+    (and (instance? DB other)
+         (= (.-schema this) (.-schema other))
+         (equiv-index (.-eavt this) (.-eavt other)))))
+
+
 (defrecord TxReport [db-before db-after tx-data tempids])
 
 (defn multival? [db attr]
