@@ -34,6 +34,15 @@
         }
       }
       
+      function assert_ident(expected, got, message) {
+        asserts++;
+        if (expected !== got) {
+          errors--;
+          failures++;
+          throw (message || "Assertion failed") + ": expected: " + JSON.stringify(expected) + ", got: " + JSON.stringify(got);
+        }
+      }
+      
       function assert_eq_set(expected, got, message) {
         asserts++;
         if (!eq_set(expected, got)) {
@@ -41,6 +50,25 @@
           failures++;
           throw (message || "Assertion failed") + ": expected: " + JSON.stringify(expected) + ", got: " + JSON.stringify(got);
         }
+      }
+      
+      function assert_eq_refs(expected, got, message) {
+        var got_ids = _.map(got, function(e) { return e.get(":db/id"); });
+        assert_eq_set(expected, got_ids);
+      }
+      
+      function assert_eq_iter_set(expected, got, message) {
+        var got_arr = [];
+        // ECMAScript 6 iterators
+        // for (let v of got) { 
+        //   got_arr.push(v);
+        // }
+        var i = got.next();
+        while (!i.done) {
+          got_arr.push(i.value);
+          i = got.next();
+        }
+        assert_eq_set(expected, got_arr, message);
       }
       
       function test_fns(fns) {
@@ -131,10 +159,69 @@
       function test_entity() {
         var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
         var db = d.with_datoms(d.empty_db(schema), 
-                               [{":db/id": -1,
+                               [{":db/id": 1,
                                  "name": "Ivan",
-                                 "aka": ["X", "Y"]}]);
-        assert_eq({name: "Ivan", aka: ["X", "Y"], ":db/id": 1}, d.entity(db, 1));
+                                 "aka": ["X", "Y"]},
+                                {":db/id": 2}]);
+        var e = d.entity(db, 1);
+        assert_eq("Ivan",     e.get("name"));
+        assert_eq(["X", "Y"], e.get("aka"));
+        assert_eq(1,          e.get(":db/id"));
+        
+        assert_ident(db, e.db);
+        
+        var e2 = d.entity(db, 2);
+        assert_eq(null, e2.get("name"));
+        assert_eq(null, e2.get("aka"));
+        assert_eq(2,    e2.get(":db/id"));
+
+        // js interop
+        assert_eq_set(["name", "aka"], e.key_set());
+        assert_eq_set(["Ivan", ["X", "Y"]], e.value_set());
+        assert_eq_set([["name", "Ivan"], ["aka", ["X", "Y"]]], e.entry_set());
+        
+        var foreach = [];
+        e.forEach(function(v, a) { foreach.push([a,v]); });
+        assert_eq_set([["name", "Ivan"], ["aka", ["X", "Y"]]], foreach);
+        
+        foreach = [];
+        e.forEach(function(v, a) { this.push([a,v]); }, foreach);
+        assert_eq_set([["name", "Ivan"], ["aka", ["X", "Y"]]], foreach);
+        
+        // js/map interfaces
+        assert_eq_iter_set(["name", "aka"], e.keys());
+        assert_eq_iter_set(["Ivan", ["X", "Y"]], e.values());
+        assert_eq_iter_set([["name", "Ivan"], ["aka", ["X", "Y"]]], e.entries());
+      }
+      
+      function test_entity_refs() {
+        var schema = {"father":   {":db/valueType":   ":db.type/ref"},
+                      "children": {":db/valueType":   ":db.type/ref",
+                                   ":db/cardinality": ":db.cardinality/many"}};
+        var db = d.with_datoms(d.empty_db(schema), 
+                               [{":db/id": 1,   "children": [10]},
+                                {":db/id": 10,  "father":   1, "children": [100, 101]},
+                                {":db/id": 100, "father":   10}]);
+        
+        var e = function(id) { return d.entity(db, id); };
+        
+        assert_eq_refs([10], e(1).get("children"));
+        assert_eq_refs([101, 100], e(10).get("children"));
+        
+        // empty attribute
+        assert_eq(null, e(100).get("children"));
+        
+        // nested navigation
+        assert_eq_refs([100, 101], e(1).get("children")[0].get("children"));
+        assert_eq     (10,         e(10).get("children")[0].get("father").get(":db/id"));
+        assert_eq_refs([10],       e(10).get("father").get("children"));
+        
+        // backward navigation
+        assert_eq     (null,  e(1).get("_children"));
+        assert_eq_refs([10],  e(1).get("_father"));
+        assert_eq_refs([1],   e(10).get("_children"));
+        assert_eq_refs([100], e(10).get("_father"));
+        assert_eq_refs([1],   e(100).get("_children")[0].get("_children"));
       }
       
       var people_db = d.with_datoms(d.empty_db(),
@@ -205,6 +292,7 @@
                           test_schema,
                           test_tx_report,
                           test_entity,
+                          test_entity_refs,
                           test_q_relation,
                           test_q_rules,
                           test_q_fns,

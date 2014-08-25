@@ -40,12 +40,6 @@
         :tx_data   (->> (:tx-data report) into-array)
         :tempids   (clj->js (:tempids report)) })
 
-(defn entity->js [e]
-  (-> e
-    (dissoc :db/id)
-    (assoc  ":db/id" (:db/id e))
-    clj->js))
-
 ;; Public API
 
 (defn ^:export empty_db [& [schema]]
@@ -62,8 +56,7 @@
   (d/with db (entities->clj entities)))
 
 (defn ^:export entity [db eid]
-  (-> (d/entity db eid)
-      entity->js))
+  (d/entity db eid))
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
