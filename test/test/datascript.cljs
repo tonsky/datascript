@@ -234,7 +234,8 @@
   ;;Test that explode works properly with vectors, sets, and lists.
   (doseq [coll [["Devil" "Tupen"]
                 #{"Devil" "Tupen"}
-                '("Devil" "Tupen")]]
+                '("Devil" "Tupen")
+                #js ["Devil" "Tupen"]]]
     (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
                                :also { :db/cardinality :db.cardinality/many} })]
       (d/transact! conn [{:db/id -1

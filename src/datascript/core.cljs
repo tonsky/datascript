@@ -178,7 +178,8 @@
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
     (for [[a vs] (dissoc entity :db/id)
-          v      (if (and (coll? vs)
+          v      (if (and (or (array? vs) (coll? vs))
+                          (not (map? vs))
                           (multival? db a))
                    vs [vs])]
       [:db/add eid a v])))

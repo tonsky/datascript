@@ -2,6 +2,7 @@
 
 - Optimized speed of DB’s `equiv` and `hash`, Datom’s `hash`
 - Entity’s `touch` call accessible through `datascript` namespace
+- Accept sets in entity maps as values for `:db.cardinality/many` attributes
 
 # 0.3.0
 
