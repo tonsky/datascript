@@ -231,23 +231,27 @@
 
 
 (deftest test-explode
-  (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
-                              :also { :db/cardinality :db.cardinality/many} })]
-    (d/transact! conn [{:db/id -1
-                        :name  "Ivan"
-                        :age   16
-                        :aka   ["Devil" "Tupen"]
-                        :also  "ok"}])
-    (is (= (d/q '[:find  ?n ?a
-                  :where [1 :name ?n]
-                         [1 :age ?a]] @conn)
-           #{["Ivan" 16]}))
-    (is (= (d/q '[:find  ?v
-                  :where [1 :also ?v]] @conn)
-           #{["ok"]}))
-    (is (= (d/q '[:find  ?v
-                  :where [1 :aka ?v]] @conn)
-           #{["Devil"] ["Tupen"]}))))
+  ;;Test that explode works properly with vectors, sets, and lists.
+  (doseq [coll [["Devil" "Tupen"]
+                #{"Devil" "Tupen"}
+                '("Devil" "Tupen")]]
+    (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
+                               :also { :db/cardinality :db.cardinality/many} })]
+      (d/transact! conn [{:db/id -1
+                          :name  "Ivan"
+                          :age   16
+                          :aka   coll
+                          :also  "ok"}])
+      (is (= (d/q '[:find  ?n ?a
+                    :where [1 :name ?n]
+                    [1 :age ?a]] @conn)
+             #{["Ivan" 16]}))
+      (is (= (d/q '[:find  ?v
+                    :where [1 :also ?v]] @conn)
+             #{["ok"]}))
+      (is (= (d/q '[:find  ?v
+                    :where [1 :aka ?v]] @conn)
+             #{["Devil"] ["Tupen"]})))))
 
 
 (deftest test-joins
