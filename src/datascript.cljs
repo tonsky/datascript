@@ -7,9 +7,10 @@
 
 ;; SUMMING UP
 
-(def q dq/q)
-(def entity de/entity)
+(def  q dq/q)
+(def  entity de/entity)
 (defn entity-db [entity] (.-db entity))
+(def  touch de/touch)
 
 (def ^:const tx0 0x20000000)
 

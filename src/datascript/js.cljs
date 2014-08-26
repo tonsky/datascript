@@ -55,8 +55,9 @@
 (defn ^:export with_datoms [db entities]
   (d/with db (entities->clj entities)))
 
-(defn ^:export entity [db eid]
-  (d/entity db eid))
+(def ^:export entity    d/entity)
+(def ^:export touch     d/touch)
+(def ^:export entity_db d/entity-db)
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))

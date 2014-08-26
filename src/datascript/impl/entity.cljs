@@ -35,7 +35,7 @@
 (defn- multival->js [val]
   (when val (to-array val)))
 
-(defn js-seq [e]
+(defn- js-seq [e]
   (touch e)
   (for [[a v] (.-cache e)]
     (if (dc/multival? (.-db e) a)

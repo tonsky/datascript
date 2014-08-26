@@ -1,6 +1,7 @@
 # 0.3.1
 
-- Much faster DB’s `equiv` and `hash`, Datom’s `hash`
+- Optimized speed of DB’s `equiv` and `hash`, Datom’s `hash`
+- Entity’s `touch` call accessible through `datascript` namespace
 
 # 0.3.0
 
