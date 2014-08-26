@@ -204,7 +204,7 @@
   (let [tx (current-tx report)]
     (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
-(defn- transact-entities [report [entity & entities :as es]]
+(defn- transact-tx-data [report [entity & entities :as es]]
   (let [db (:db-after report)]
     (cond
       (nil? entity)

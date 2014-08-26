@@ -26,22 +26,22 @@
   (atom (empty-db schema)
         :meta { :listeners  (atom {}) }))
 
-(defn transact [db entities]
-  (dc/transact-entities (dc/TxReport. db db [] {}) entities))
+(defn with [db tx-data]
+  (dc/transact-tx-data (dc/TxReport. db db [] {}) tx-data))
 
-(defn with [db entities]
-  (:db-after (transact db entities)))
+(defn db-with [db tx-data]
+  (:db-after (with db tx-data)))
 
-(defn -transact! [conn entities]
+(defn -transact! [conn tx-data]
   (let [report (atom nil)]
     (swap! conn (fn [db]
-                  (let [r (transact db entities)]
+                  (let [r (with db tx-data)]
                     (reset! report r)
                     (:db-after r))))
     @report))
 
-(defn transact! [conn entities]
-  (let [report (-transact! conn entities)]
+(defn transact! [conn tx-data]
+  (let [report (-transact! conn tx-data)]
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
     report))
@@ -66,6 +66,10 @@
 
 (defn seek-datoms [db index & cs]
   (btset/slice (get db index) (components->pattern index cs) (dc/Datom. nil nil nil nil nil)))
+
+(defn index-range [db attr start end]
+  (btset/slice (:avet db) (dc/Datom. nil attr start nil nil)
+                          (dc/Datom. nil attr end nil nil)))
 
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
@@ -99,3 +103,60 @@
          (apply btset/btset-by dc/cmp-datoms-avet datoms)
          (reduce max 0 (map :e datoms))
          (reduce max tx0 (map :tx datoms)))))
+
+
+;; Datomic compatibility layer
+
+(def last-tempid (atom -1000000))
+(defn tempid
+  ([_part]  (swap! last-tempid dec))
+  ([_part x] x))
+(defn resolve-tempid [_db tempids tempid]
+  (get tempids tempid))
+
+(def db deref)
+
+(defn transact [conn tx-data]
+  (let [res (transact! conn tx-data)]
+    (reify
+      IDeref
+      (-deref [_] res)
+      IDerefWithTimeout
+      (-deref-with-timeout [_ _ _] res)
+      IPending
+      (-realized? [_] true))))
+
+;; ersatz future without proper blocking
+(defn- future-call [f]
+  (let [res      (atom nil)
+        realized (atom false)]
+    (js/setTimeout #(do (reset! res (f)) (reset! realized true)) 0)
+    (reify
+      IDeref
+      (-deref [_] @res)
+      IDerefWithTimeout
+      (-deref-with-timeout [_ _ timeout-val] (if @realized @res timeout-val))
+      IPending
+      (-realized? [_] @realized))))
+
+(defn transact-async [conn tx-data]
+  (future-call #(transact! conn tx-data)))
+
+(defn- rand-bits [pow]
+  (rand-int (bit-shift-left 1 pow)))
+
+(defn squuid []
+  (UUID.
+    (str
+          (-> (js/Date.) (.getTime) (/ 1000) (Math/round) (.toString 16))
+      "-" (-> (rand-bits 16) (.toString 16))
+      "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (.toString 16))
+      "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (.toString 16))
+      "-" (-> (rand-bits 16) (.toString 16))
+          (-> (rand-bits 16) (.toString 16))
+          (-> (rand-bits 16) (.toString 16)))))
+
+(defn squuid-time-millis [uuid]
+  (-> (subs (.-uuid uuid) 0 8)
+      (js/parseInt 16)
+      (* 1000)))

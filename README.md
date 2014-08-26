@@ -23,7 +23,7 @@ Also check out this blog post about [how DataScript fits into the current webdev
 :dependencies [
   [org.clojure/clojurescript "0.0-2311"]
   ...
-  [datascript "0.3.1"]
+  [datascript "0.4.0"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -103,10 +103,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.3.1.min.js"></script>
+<script src="datascript-0.4.0.min.js"></script>
 ```
 
-[Download datascript-0.3.1.min.js](https://github.com/tonsky/datascript/releases/download/0.3.1/datascript-0.3.1.min.js), 43k gzipped.
+[Download datascript-0.4.0.min.js](https://github.com/tonsky/datascript/releases/download/0.4.0/datascript-0.4.0.min.js), 43k gzipped.
 
 Queries:
 
@@ -122,12 +122,11 @@ Entities:
 Transactions:
 
 * Use strings such as `":db/id"`, `":db/add"`, etc. instead of db-namespaced keywords
-* Use regular JS arrays and objects to pass data to `transact` and `with_datoms`
+* Use regular JS arrays and objects to pass data to `transact` and `db_with`
 
 Transaction reports:
 
-* `report.tempids` has string keys (`"-1"` for entity tempid `-1`)
-* `report.tx_data` is list of objects with `e`, `a`, `v`, `tx` and `added` keys (instead of Datoms)
+* `report.tempids` has string keys (`"-1"` for entity tempid `-1`), use `resolve_tempid` set up a correspondence
 
 Check out [test/js/js.html](test/js/js.html) for usage examples.
 
@@ -164,12 +163,12 @@ Interface differences:
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
 * Additional `:db.fn/retractAttribute` shortcut
-* `transact!` and `transact` return `TxReport`, `with` returns new DB value
 
 Expected soon:
 
 * Better error reporting
 * Support for components in schema
+* Support for `get-else`, `get-some`, `ground`, `missing?` query functions
 * Proper documentation
 
 ## Differences from Datomic

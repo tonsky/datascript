@@ -29,7 +29,7 @@
 ;;     (dump (.-root o) writer "")))
 
 (deftest stresstest-btset
-  (let [iters 20]
+  (let [iters 5]
     (dotimes [i iters]
       (let [xs        (vec (repeatedly (rand-int 10000) #(rand-int 10000)))
             xs-sorted (distinct (sort xs))
@@ -57,7 +57,7 @@
   (println "[ OK ] btset checked"))
 
 (deftest stresstest-slice
-  (let [iters 20]
+  (let [iters 5]
     (dotimes [i iters]
       (let [xs        (repeatedly (rand-int 20000) #(rand-int 20000))
             xs-sorted (distinct (sort xs))

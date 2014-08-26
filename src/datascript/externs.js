@@ -10,8 +10,8 @@ datascript.core.Datom.added = true;
 datascript.impl = {};
 datascript.impl.entity = {};
 datascript.impl.entity.Entity = {};
-datascript.impl.entity.Entity.prototype.db = {};
-datascript.impl.entity.Entity.prototype.eid = {};
+datascript.impl.entity.Entity.db = {};
+datascript.impl.entity.Entity.eid = {};
 
 datascript.impl.entity.Entity.prototype.keys      = function() {};
 datascript.impl.entity.Entity.prototype.entries   = function() {};

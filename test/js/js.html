@@ -105,11 +105,11 @@
       var d = datascript.js;
       var tx0 =  0x20000000;
       
-      function test_with_datoms() {
+      function test_db_with() {
         var db = d.empty_db();
-        var db1 = d.with_datoms(db, [[":db/add", 1, "name", "Ivan"],
+        var db1 = d.db_with(db, [[":db/add", 1, "name", "Ivan"],
                                      [":db/add", 1, "age", 17]]);
-        var db2 = d.with_datoms(db1, [{":db/id": 2,
+        var db2 = d.db_with(db1, [{":db/id": 2,
                                        "name": "Igor",
                                        "age": 35}]);
         var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
@@ -122,14 +122,14 @@
           return [[":db/add", e, "name", n],
                   [":db/add", e, "age", a]]; 
         }
-        var db = d.with_datoms(d.empty_db(), [[":db.fn/call", dbfn, 1, "Ilya", 44]]);
+        var db = d.db_with(d.empty_db(), [[":db.fn/call", dbfn, 1, "Ilya", 44]]);
         var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
         assert_eq_set([["Ilya", 44]], d.q(q, db));
       }
       
       function test_schema() {
         var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
-        var db = d.with_datoms(d.empty_db(schema), 
+        var db = d.db_with(d.empty_db(schema), 
                                [[":db/add", -1, "name", "Ivan"],
                                 [":db/add", -1, "aka", "X"],
                                 [":db/add", -1, "aka", "Y"],
@@ -151,6 +151,7 @@
                           {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
                          tx_report.tx_data);
         assert_eq({"-1": 1}, tx_report.tempids);
+        assert_eq(1, d.resolve_tempid(tx_report.tempids, -1));
         assert_eq_datoms([{e: 1, a: "name", v: "Ivan", tx: 536870913, added: true },
                           {e: 1, a: "age", v: 17, tx: 536870913, added: true }],
                           log[0]);
@@ -158,7 +159,7 @@
       
       function test_entity() {
         var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
-        var db = d.with_datoms(d.empty_db(schema), 
+        var db = d.db_with(d.empty_db(schema), 
                                [{":db/id": 1,
                                  "name": "Ivan",
                                  "aka": ["X", "Y"]},
@@ -198,7 +199,7 @@
         var schema = {"father":   {":db/valueType":   ":db.type/ref"},
                       "children": {":db/valueType":   ":db.type/ref",
                                    ":db/cardinality": ":db.cardinality/many"}};
-        var db = d.with_datoms(d.empty_db(schema), 
+        var db = d.db_with(d.empty_db(schema), 
                                [{":db/id": 1,   "children": [10]},
                                 {":db/id": 10,  "father":   1, "children": [100, 101]},
                                 {":db/id": 100, "father":   10}]);
@@ -224,7 +225,7 @@
         assert_eq_refs([1],   e(100).get("_children")[0].get("_children"));
       }
       
-      var people_db = d.with_datoms(d.empty_db(),
+      var people_db = d.db_with(d.empty_db(),
                        [{ ":db/id": 1, "name": "Ivan", "age": 15 },
                         { ":db/id": 2, "name": "Petr", "age": 37 },
                         { ":db/id": 3, "name": "Ivan", "age": 37 }]);
@@ -287,7 +288,7 @@
       }
 
       function run_tests() {
-        return test_fns([ test_with_datoms,
+        return test_fns([ test_db_with,
                           test_dbfn_call,
                           test_schema,
                           test_tx_report,

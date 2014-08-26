@@ -52,8 +52,8 @@
            (into-array tuple))
          (into-array))))
 
-(defn ^:export with_datoms [db entities]
-  (d/with db (entities->clj entities)))
+(defn ^:export db_with [db entities]
+  (d/db-with db (entities->clj entities)))
 
 (def ^:export entity    d/entity)
 (def ^:export touch     d/touch)
@@ -77,6 +77,9 @@
 
 (def ^:export unlisten d/unlisten!)
 
+(defn ^:export resolve_tempid [tempids tempid]
+  (aget tempids (str tempid)))
+  
 (defn ^:export datoms [db index & components]
   (->> (apply d/datoms db (keywordize index) components)
        into-array))
@@ -84,3 +87,12 @@
 (defn ^:export seek_datoms [db index & components]
   (->> (apply d/seek-datoms db (keywordize index) components)
        into-array))
+
+(defn ^:export index_range [db attr start end]
+  (into-array (d/index-range db attr start end)))
+
+(defn ^:export squuid []
+  (.-uuid (d/squuid)))
+
+(defn ^:export squuid_time_millis [uuid]
+  (d/squuid-time-millis (UUID. uuid)))
