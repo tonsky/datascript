@@ -7,19 +7,26 @@
 (defn entity [db eid]
   (Entity. db eid false {}))
 
+(defn- entity-attr [db a datoms]
+  (if (dc/multival? db a)
+    (if (dc/ref? db a)
+      (reduce #(conj %1 (entity db (.-v %2))) #{} datoms)
+      (reduce #(conj %1 (.-v %2)) #{} datoms))
+    (if (dc/ref? db a)
+      (entity db (.-v (first datoms)))
+      (.-v (first datoms)))))
+
+(defn- datoms->cache [db datoms]
+  (reduce (fn [acc part]
+    (let [a (.-a (first part))]
+      (assoc acc a (entity-attr db a part))))
+    {} (partition-by :a datoms)))
+
 (defn touch [e]
   (when-not (.-touched e)
     (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
-      (let [db    (.-db e)
-            cache (reduce (fn [acc datom]
-                            (let [a (.-a datom)
-                                  v (.-v datom)]
-                              (if (dc/multival? db a)
-                                (assoc! acc a (conj (get acc a #{}) v))
-                                (assoc! acc a v))))
-                          (transient {}) datoms)]
-        (set! (.-touched e) true)
-        (set! (.-cache e) (persistent! cache)))))
+      (set! (.-touched e) true)
+      (set! (.-cache e) (datoms->cache (.-db e) datoms))))
   e)
 
 (defn- reverse-ref [attr]
@@ -113,12 +120,9 @@
             (if touched
               not-found
               (if-let [datoms (not-empty (dc/-search db [eid attr]))]
-                (let [wrap (if (dc/ref? db attr) #(entity db (.-v %)) #(.-v %))
-                      val  (if (dc/multival? db attr)
-                             (reduce #(conj %1 (wrap %2)) #{} datoms)
-                             (wrap (first datoms)))]
-                  (set! cache (assoc cache attr val))
-                  val)
+                (do
+                  (set! cache (assoc cache attr (entity-attr db attr datoms)))
+                  (cache attr))
                 not-found))))))
 
   IAssociative
