@@ -195,7 +195,16 @@
     (testing "nested navigation"
       (is (= (-> (e 1) :children first :children) #{(e 100) (e 101)}))
       (is (= (-> (e 10) :children first :father) (e 10)))
-      (is (= (-> (e 10) :father :children) #{(e 10)})))
+      (is (= (-> (e 10) :father :children) #{(e 10)}))
+
+      (testing "after touch"
+        (let [e1  (e 1)
+              e10 (e 10)]
+          (d/touch e1)
+          (d/touch e10)
+          (is (= (-> e1 :children first :children) #{(e 100) (e 101)}))
+          (is (= (-> e10 :children first :father) (e 10)))
+          (is (= (-> e10 :father :children) #{(e 10)})))))
     
     (testing "backward navigation"
       (is (= (:_children (e 1))  nil))
