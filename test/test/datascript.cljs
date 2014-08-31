@@ -437,6 +437,20 @@
                            [(get-else $ ?e :height 300) ?height]] db)
              #{[1 15 300] [2 22 240] [3 37 300]})))
 
+    (testing "get-some"
+      (is (= (d/q '[:find ?e ?v
+                    :in $
+                    :where [?e :name ?name]
+                           [(get-some $ ?e :height :age) ?v]] db)
+             #{[1 15] [2 240] [3 37]})))
+
+    (testing "missing?"
+      (is (= (d/q '[:find ?e ?age
+                    :in $
+                    :where [?e :age ?age]
+                           [(missing? $ ?e :height)]] db)
+             #{[1 15] [3 37]})))
+
     (testing "Built-in predicate"
       (is (= (d/q '[:find  ?e1 ?e2
                     :where [?e1 :age ?a1]

@@ -87,12 +87,25 @@
     (.-v datom)
     else-val))
 
+(defn- -get-some
+  [db e & as]
+  (reduce
+   (fn [_ a]
+     (when-let [datom (first (dc/-search db [e a]))]
+       (reduced (.-v datom))))
+   nil
+   as))
+
+(defn- -missing?
+  [db e a]
+  (empty? (dc/-search db [e a])))
+
 (def built-ins {
   '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -,
   '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
   'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?,
   'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector,
-  '-differ? -differ?, 'get-else -get-else})
+  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?})
 
 (def built-in-aggregates {
   'distinct (comp vec distinct)
