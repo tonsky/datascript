@@ -20,7 +20,7 @@
   (-equiv [d o] (and (= (.-e d) (.-e o))
                      (= (.-a d) (.-a o))
                      (= (.-v d) (.-v o))))
-  
+
   ISeqable
   (-seq [d] (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d))))
 
@@ -69,7 +69,7 @@
   Object
   (toString [this]
     (pr-str* this))
-    
+
   ISearch
   (-search [_ [e a v tx]]
     (case-tree [e a (some? v) tx] [
@@ -199,7 +199,7 @@
       (nil? entity)
         (-> report
             (update-in [:db-after :max-tx] inc))
-     
+
       (map? entity)
         (if (:db/id entity)
           (recur report (concat (explode db entity) entities))
@@ -207,7 +207,7 @@
                 entity (assoc entity :db/id eid)]
             (recur (allocate-eid report eid)
                    (concat [entity] entities))))
-     
+
       :else
         (let [[op e a v] entity]
           (cond
@@ -215,16 +215,23 @@
               (let [[_ f & args] entity]
                 (recur report (concat (apply f db args) entities)))
 
+            (= op :db.fn/cas)
+              (let [[_ e a ov nv] entity
+                    old-datom (first (-search db [e a]))]
+                (if (= (.-v old-datom) ov)
+                  (recur (transact-add report [:db/add e a nv]) entities)
+                  (throw (js/Error. (str "Value for entity " e " attribute " a " has changed to " (.-v old-datom))))))
+
             (neg? e)
               (if-let [eid (get-in report [:tempids e])]
                 (recur report (concat [[op eid a v]] entities))
                 (recur (allocate-eid report e (next-eid db)) es))
-           
+
             (and (ref? db a) (neg? v))
               (if-let [vid (get-in report [:tempids v])]
                 (recur report (concat [[op e a vid]] entities))
                 (recur (allocate-eid report v (next-eid db)) es))
-           
+
             (= op :db/add)
               (recur (transact-add report entity) entities)
 
@@ -240,4 +247,3 @@
             (= op :db.fn/retractEntity)
               (let [datoms (-search db [e])]
                 (recur (reduce transact-retract-datom report datoms) entities)))))))
-

@@ -87,6 +87,16 @@
                   :where [1 :aka ?v]] @conn)
            #{["Devil"] ["Tupen"]}))))
 
+(deftest test-db-fn-cas
+  (let [conn (d/create-conn)]
+    (d/transact! conn [[:db/add 1 :weight 200]])
+    (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
+    (try
+      (d/transact! conn [[:db.fn/cas 1 :weight 200 210]])
+      (throw (js/Error. "allowed update of attribute though old value did not match"))
+      (catch js/Error e
+        (is (= (.-message e) "Value for entity 1 attribute :weight has changed to 300"))))))
+
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
         inc-age (fn [db name]
