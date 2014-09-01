@@ -2,7 +2,8 @@
   (:require
     [clojure.set :as set]
     [clojure.walk :as walk]
-    [datascript.core :as dc]))
+    [datascript.core :as dc]
+    [datascript.impl.entity :as de]))
 
 
 ;; Records
@@ -98,7 +99,7 @@
 
 (defn- -missing?
   [db e a]
-  (empty? (dc/-search db [e a])))
+  (nil? (get (de/entity db e) a)))
 
 (def built-ins {
   '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -,

@@ -426,10 +426,10 @@
 
 
 (deftest test-user-funs
-  (let [db (-> (d/empty-db)
+  (let [db (-> (d/empty-db {:parent {:parent {:db/valueType :db.valueType/ref}}})
                (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
-                            { :db/id 2, :name  "Petr",  :age   22, :height 240}
-                            { :db/id 3, :name  "Slava", :age   37 }]))]
+                            { :db/id 2, :name  "Petr",  :age   22, :height 240 :parent 1}
+                            { :db/id 3, :name  "Slava", :age   37 :parent 2}]))]
     (testing "get-else"
       (is (= (d/q '[:find ?e ?age ?height
                     :in $
@@ -450,6 +450,13 @@
                     :where [?e :age ?age]
                            [(missing? $ ?e :height)]] db)
              #{[1 15] [3 37]})))
+
+    (testing "missing? back-ref"
+      (is (= (d/q '[:find ?e
+                    :in $
+                    :where [?e :age ?age]
+                    [(missing? $ ?e :_parent)]] db)
+             #{[3]})))
 
     (testing "Built-in predicate"
       (is (= (d/q '[:find  ?e1 ?e2
