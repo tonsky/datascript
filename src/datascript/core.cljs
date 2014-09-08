@@ -30,17 +30,6 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
-(defn- compare-key [k o1 o2]
-  (let [k1 (get o1 k)
-        k2 (get o2 k)]
-    (if (and (some? k1) (some? k2))
-      (let [t1 (type k1)
-            t2 (type k2)]
-        (if (= t1 t2)
-          (compare k1 k2)
-          (compare t1 t2)))
-      0)))
-
 (defn cmp-val [o1 o2]
   (if (and (some? o1) (some? o2))
     (let [t1 (type o1)
