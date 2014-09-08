@@ -39,6 +39,11 @@
         (compare t1 t2)))
     0))
 
+(defn- compare-key [k o1 o2]
+  (let [k1 (get o1 k)
+        k2 (get o2 k)]
+    (cmp-val k1 k2)))
+  
 (defn- cmp [o1 o2]
   (if (and o1 o2)
     (compare o1 o2)
