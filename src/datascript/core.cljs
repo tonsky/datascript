@@ -217,10 +217,18 @@
 
             (= op :db.fn/cas)
               (let [[_ e a ov nv] entity
-                    old-datom (first (-search db [e a]))]
-                (if (= (.-v old-datom) ov)
+                    datoms (-search db [e a])
+                    same-ov? (if (multival? db a)
+                               (reduce
+                                (fn [matched datom]
+                                  (when (= (.-v datom) ov)
+                                    (reduced true)))
+                                false
+                                datoms)
+                               (= (-> datoms first .-v) ov))]
+                (if same-ov?
                   (recur (transact-add report [:db/add e a nv]) entities)
-                  (throw (js/Error. (str "Value for entity " e " attribute " a " has changed to " (.-v old-datom))))))
+                  (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " nv "], expected " ov)))))
 
             (neg? e)
               (if-let [eid (get-in report [:tempids e])]

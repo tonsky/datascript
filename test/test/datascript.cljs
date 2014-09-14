@@ -88,14 +88,18 @@
            #{["Devil"] ["Tupen"]}))))
 
 (deftest test-db-fn-cas
-  (let [conn (d/create-conn)]
+  (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :weight 200]])
     (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
+    (d/transact! conn [[:db/add 1 :label :x]])
+    (d/transact! conn [[:db/add 1 :label :y]])
     (try
       (d/transact! conn [[:db.fn/cas 1 :weight 200 210]])
-      (throw (js/Error. "allowed update of attribute though old value did not match"))
+      (throw (js/Error. "expected :db.fn/cas to throw"))
       (catch js/Error e
-        (is (= (.-message e) "Value for entity 1 attribute :weight has changed to 300"))))))
+        (is (= (.-message e) ":db.fn/cas failed on datom [1 :weight 210], expected 200"))))
+    (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
+    (is (= (:label (d/entity @conn 1)) #{:x :y :z}))))
 
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
