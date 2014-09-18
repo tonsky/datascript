@@ -1,3 +1,9 @@
+# 0.4.1
+
+- Added `:db.fn/cas` transaction function (issue #20, thx [@montyxcantsin](https://github.com/montyxcantsin))
+- Added `get-some`, `get-else`, `misssing` query functions (issue #21, thx [@montyxcantsin](https://github.com/montyxcantsin))
+- Fixed `touch` breaking entity cache (issue #17)
+
 # 0.4.0
 
 Cosmetic changes to better mimic Datomic API. Useful for sharing code between Datomic and DataScript:

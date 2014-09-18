@@ -217,18 +217,15 @@
 
             (= op :db.fn/cas)
               (let [[_ e a ov nv] entity
-                    datoms (-search db [e a])
-                    same-ov? (if (multival? db a)
-                               (reduce
-                                (fn [matched datom]
-                                  (when (= (.-v datom) ov)
-                                    (reduced true)))
-                                false
-                                datoms)
-                               (= (-> datoms first .-v) ov))]
-                (if same-ov?
-                  (recur (transact-add report [:db/add e a nv]) entities)
-                  (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " nv "], expected " ov)))))
+                    datoms (-search db [e a])]
+                (if (multival? db a)
+                  (if (some #(= (.-v %) ov) datoms)
+                    (recur (transact-add report [:db/add e a nv]) entities)
+                    (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov))))
+                  (let [v (.-v (first datoms))] 
+                    (if (= v ov)
+                      (recur (transact-add report [:db/add e a nv]) entities)
+                      (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov)))))))
 
             (neg? e)
               (if-let [eid (get-in report [:tempids e])]
