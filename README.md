@@ -21,9 +21,9 @@ Also check out this blog post about [how DataScript fits into the current webdev
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2311"]
+  [org.clojure/clojurescript "0.0-2341"]
   ...
-  [datascript "0.4.0"]
+  [datascript "0.4.1"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -103,10 +103,10 @@ Also check out this blog post about [how DataScript fits into the current webdev
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.4.0.min.js"></script>
+<script src="datascript-0.4.1.min.js"></script>
 ```
 
-[Download datascript-0.4.0.min.js](https://github.com/tonsky/datascript/releases/download/0.4.0/datascript-0.4.0.min.js), 43k gzipped.
+[Download datascript-0.4.1.min.js](https://github.com/tonsky/datascript/releases/download/0.4.1/datascript-0.4.1.min.js), 43k gzipped.
 
 Queries:
 
@@ -126,7 +126,7 @@ Transactions:
 
 Transaction reports:
 
-* `report.tempids` has string keys (`"-1"` for entity tempid `-1`), use `resolve_tempid` set up a correspondence
+* `report.tempids` has string keys (`"-1"` for entity tempid `-1`), use `resolve_tempid` to set up a correspondence
 
 Check out [test/js/js.html](test/js/js.html) for usage examples.
 
@@ -168,8 +168,13 @@ Expected soon:
 
 * Better error reporting
 * Support for components in schema
-* Support for `get-else`, `get-some`, `ground`, `missing?` query functions
 * Proper documentation
+* Delete references when :db.fn/retractEntity is called
+* Expand backward ref attributes when transacting in a map format
+* Lookup refs
+* Fast db serialization and deserialization
+* Unique constraints, upsert?
+
 
 ## Differences from Datomic
 
