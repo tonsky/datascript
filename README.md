@@ -15,7 +15,15 @@ The intention with DataScript is to be a basic building block in client-side app
 - Datalog query engine to answer non-trivial questions about current app state.
 - Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
-Also check out this blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
+## Resources
+
+Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
+
+Sample application using DataScript: [CatChat](https://github.com/tonsky/datascript-chat)
+
+Detailed CatChat [code walkthrough](http://tonsky.me/datascript-chat/)
+
+Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/showkr)
 
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
