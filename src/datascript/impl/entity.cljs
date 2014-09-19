@@ -29,11 +29,6 @@
       (set! (.-cache e) (datoms->cache (.-db e) datoms))))
   e)
 
-(defn- reverse-ref [attr]
-  (let [name (name attr)]
-    (when (= "_" (nth name 0))
-      (keyword (namespace attr) (subs name 1)))))
-
 (defn- -lookup-backwards [db eid attr not-found]
   (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
     (reduce #(conj %1 (entity db (.-e %2))) #{} datoms)
@@ -114,7 +109,7 @@
   (-lookup [_ attr not-found]
     (if (= attr :db/id)
       eid
-      (if-let [attr (reverse-ref attr)]
+      (if-let [attr (dc/reverse-ref attr)]
         (-lookup-backwards db eid attr not-found)
         (or (cache attr)
             (if touched

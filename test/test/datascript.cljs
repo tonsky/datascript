@@ -268,31 +268,48 @@
              [1 :name "Alex2"  (+ d/tx0 3) true]  ;;         + add
              [4 :name "Evgeny" (+ d/tx0 3) false]]]))))
 
-
 (deftest test-explode
-  ;;Test that explode works properly with vectors, sets, and lists.
   (doseq [coll [["Devil" "Tupen"]
                 #{"Devil" "Tupen"}
                 '("Devil" "Tupen")
                 #js ["Devil" "Tupen"]]]
-    (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
-                               :also { :db/cardinality :db.cardinality/many} })]
-      (d/transact! conn [{:db/id -1
-                          :name  "Ivan"
-                          :age   16
-                          :aka   coll
-                          :also  "ok"}])
-      (is (= (d/q '[:find  ?n ?a
-                    :where [1 :name ?n]
-                    [1 :age ?a]] @conn)
-             #{["Ivan" 16]}))
-      (is (= (d/q '[:find  ?v
-                    :where [1 :also ?v]] @conn)
-             #{["ok"]}))
-      (is (= (d/q '[:find  ?v
-                    :where [1 :aka ?v]] @conn)
-             #{["Devil"] ["Tupen"]})))))
+    (testing coll
+      (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
+                                 :also { :db/cardinality :db.cardinality/many} })]
+        (d/transact! conn [{:db/id -1
+                            :name  "Ivan"
+                            :age   16
+                            :aka   coll
+                            :also  "ok"}])
+        (is (= (d/q '[:find  ?n ?a
+                      :where [1 :name ?n]
+                      [1 :age ?a]] @conn)
+               #{["Ivan" 16]}))
+        (is (= (d/q '[:find  ?v
+                      :where [1 :also ?v]] @conn)
+               #{["ok"]}))
+        (is (= (d/q '[:find  ?v
+                      :where [1 :aka ?v]] @conn)
+               #{["Devil"] ["Tupen"]}))))))
 
+(deftest test-explode-ref
+  (let [db0 (d/empty-db { :children { :db/valueType :db.type/ref
+                                      :db/cardinality :db.cardinality/many } })]
+    (let [db (d/db-with db0 [{:db/id -1, :name "Ivan", :children [-2 -3]}
+                             {:db/id -2, :name "Petr"} 
+                             {:db/id -3, :name "Evgeny"}])]
+      (is (= (d/q '[:find ?n
+                    :where [_ :children ?e]
+                           [?e :name ?n]] db)
+             #{["Petr"] ["Evgeny"]})))
+    
+    (let [db (d/db-with db0 [{:db/id -1, :name "Ivan"}
+                             {:db/id -2, :name "Petr", :_children -1} 
+                             {:db/id -3, :name "Evgeny", :_children -1}])]
+      (is (= (d/q '[:find ?n
+                    :where [_ :children ?e]
+                           [?e :name ?n]] db)
+             #{["Petr"] ["Evgeny"]})))))
 
 (deftest test-joins
   (let [db (-> (d/empty-db)
@@ -789,8 +806,6 @@
              [2 :age 20]
              [5 :age 20]
              [4 :age 45] ]))))
-
-(test-index-range)
 
 (deftest test-pr-read
   (binding [cljs.reader/*tag-table* (atom {"datascript/Datom" d/datom-from-reader})]

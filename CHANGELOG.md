@@ -6,6 +6,7 @@
 - Added `ground` fn (issue #25)
 - Fixed query predicate/fn calls without free variables
 - Retract incoming entity references on `:db.fn/retractEntity` (issue #18)
+- You can now use reverse relation name when transacting entity as a map
 
 # 0.4.0
 

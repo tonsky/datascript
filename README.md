@@ -169,12 +169,9 @@ Expected soon:
 * Better error reporting
 * Support for components in schema
 * Proper documentation
-* Delete references when :db.fn/retractEntity is called
-* Expand backward ref attributes when transacting in a map format
 * Lookup refs
 * Fast db serialization and deserialization
 * Unique constraints, upsert?
-
 
 ## Differences from Datomic
 

@@ -164,14 +164,22 @@
       (update-in [:db-after] with-datom datom)
       (update-in [:tx-data] conj datom)))
 
+(defn reverse-ref [attr]
+  (let [name (name attr)]
+    (when (= "_" (nth name 0))
+      (keyword (namespace attr) (subs name 1)))))
+
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
     (for [[a vs] (dissoc entity :db/id)
+          :let   [reverse-a (reverse-ref a)]
           v      (if (and (or (array? vs) (coll? vs))
                           (not (map? vs))
                           (multival? db a))
                    vs [vs])]
-      [:db/add eid a v])))
+      (if reverse-a
+        [:db/add v   reverse-a eid]
+        [:db/add eid a         v]))))
 
 (defn- transact-add [report [_ e a v]]
   (let [tx      (current-tx report)
