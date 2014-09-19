@@ -65,7 +65,7 @@
     (cmp     (.-e d1) (.-e d2))
     (cmp     (.-tx d1) (.-tx d2))))
 
-(defrecord DB [schema eavt aevt avet max-eid max-tx]
+(defrecord DB [schema eavt aevt avet max-eid max-tx refs]
   Object
   (toString [this]
     (pr-str* this))
@@ -250,5 +250,6 @@
                 (recur (reduce transact-retract-datom report datoms) entities))
 
             (= op :db.fn/retractEntity)
-              (let [datoms (-search db [e])]
-                (recur (reduce transact-retract-datom report datoms) entities)))))))
+              (let [e-datoms (-search db [e])
+                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (.-refs db))]
+                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms)) entities)))))))

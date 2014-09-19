@@ -1,10 +1,11 @@
 # 0.4.1
 
 - Added `:db.fn/cas` transaction function (issue #20, thx [@montyxcantsin](https://github.com/montyxcantsin))
-- Added `get-some`, `get-else`, `misssing` query functions (issue #21, thx [@montyxcantsin](https://github.com/montyxcantsin))
+- Added `get-some`, `get-else`, `misssing?` query functions (issue #21, thx [@montyxcantsin](https://github.com/montyxcantsin))
 - Fixed `touch` breaking entity cache (issue #17)
 - Added `ground` fn (issue #25)
 - Fixed query predicate/fn calls without free variables
+- Retract incoming entity references on `:db.fn/retractEntity` (issue #18)
 
 # 0.4.0
 

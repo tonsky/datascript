@@ -1,5 +1,6 @@
 (ns datascript.query
   (:require
+    [cljs.reader]
     [clojure.set :as set]
     [clojure.walk :as walk]
     [datascript.core :as dc]

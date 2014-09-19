@@ -45,8 +45,9 @@
                #{["Petr"]}))))))
 
 (deftest test-retract-fns
-  (let [db (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
-               (d/db-with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"] }
+  (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
+                            :friend { :db/valueType :db.type/ref }})
+               (d/db-with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2 }
                             { :db/id 2, :name  "Petr", :age 37 } ]))]
     (let [db (d/db-with db [ [:db.fn/retractEntity 1] ])]
       (is (= (d/q '[:find ?a ?v
@@ -56,10 +57,18 @@
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))
 
+    (testing "Retract entitiy with incoming refs"
+      (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
+             #{[2]}))
+      
+      (let [db (d/db-with db [ [:db.fn/retractEntity 2] ])]
+        (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
+               #{}))))
+    
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :name] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
-             #{[:age 15] [:aka "X"] [:aka "Y"] [:aka "Z"]}))
+             #{[:age 15] [:aka "X"] [:aka "Y"] [:aka "Z"] [:friend 2]}))
       (is (= (d/q '[:find ?a ?v
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))
@@ -67,11 +76,10 @@
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :aka] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
-             #{[:name "Ivan"] [:age 15]}))
+             #{[:name "Ivan"] [:age 15] [:friend 2]}))
       (is (= (d/q '[:find ?a ?v
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))))
-
 
 (deftest test-transact!
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})]
