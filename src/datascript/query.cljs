@@ -65,16 +65,18 @@
 (defn sum-rel [a b]
   (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
 
-(defn prod-rel [rel1 rel2]
-  (let [attrs1 (keys (:attrs rel1))
-        attrs2 (keys (:attrs rel2))
-        idxs1  (to-array (map (:attrs rel1) attrs1))
-        idxs2  (to-array (map (:attrs rel2) attrs2))]
-    (Relation.
-      (zipmap (concat attrs1 attrs2) (range))
-      (for [t1 (:tuples rel1)
-            t2 (:tuples rel2)]
-        (join-tuples t1 idxs1 t2 idxs2)))))
+(defn prod-rel
+  ([] (Relation. {} [#js[]]))
+  ([rel1 rel2]
+    (let [attrs1 (keys (:attrs rel1))
+          attrs2 (keys (:attrs rel2))
+          idxs1  (to-array (map (:attrs rel1) attrs1))
+          idxs2  (to-array (map (:attrs rel2) attrs2))]
+      (Relation.
+        (zipmap (concat attrs1 attrs2) (range))
+        (for [t1 (:tuples rel1)
+              t2 (:tuples rel2)]
+          (join-tuples t1 idxs1 t2 idxs2))))))
 
 ;; built-ins
 
@@ -106,7 +108,7 @@
   '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
   'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?,
   'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector,
-  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?})
+  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity})
 
 (def built-in-aggregates {
   'distinct (comp vec distinct)

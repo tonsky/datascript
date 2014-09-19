@@ -446,12 +446,23 @@
          #{[:a 2] [:a 4] [:a 6]
            [:b 2]})))
 
+(deftest test-query-fns
+  (testing "ground"
+    (is (= (d/q '[:find ?vowel
+                  :where [(ground [:a :e :i :o :u]) [?vowel ...]]])
+           #{[:a] [:e] [:i] [:o] [:u]})))
+  
+  (testing "predicate without free variables"
+    (is (= (d/q '[:find ?x
+                  :in [?x ...]
+                  :where [(> 2 1)]] [:a :b :c])
+           #{[:a] [:b] [:c]})))
 
-(deftest test-user-funs
   (let [db (-> (d/empty-db {:parent {:parent {:db/valueType :db.valueType/ref}}})
                (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
                             { :db/id 2, :name  "Petr",  :age   22, :height 240 :parent 1}
                             { :db/id 3, :name  "Slava", :age   37 :parent 2}]))]
+
     (testing "get-else"
       (is (= (d/q '[:find ?e ?age ?height
                     :in $
