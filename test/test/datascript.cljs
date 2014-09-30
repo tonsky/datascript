@@ -60,11 +60,11 @@
     (testing "Retract entitiy with incoming refs"
       (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
              #{[2]}))
-      
+
       (let [db (d/db-with db [ [:db.fn/retractEntity 2] ])]
         (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
                #{}))))
-    
+
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :name] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
@@ -105,7 +105,7 @@
       (throw (js/Error. "expected :db.fn/cas to throw"))
       (catch js/Error e
         (is (= (.-message e) ":db.fn/cas failed on datom [1 :weight 300], expected 200")))))
-  
+
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
@@ -296,15 +296,15 @@
   (let [db0 (d/empty-db { :children { :db/valueType :db.type/ref
                                       :db/cardinality :db.cardinality/many } })]
     (let [db (d/db-with db0 [{:db/id -1, :name "Ivan", :children [-2 -3]}
-                             {:db/id -2, :name "Petr"} 
+                             {:db/id -2, :name "Petr"}
                              {:db/id -3, :name "Evgeny"}])]
       (is (= (d/q '[:find ?n
                     :where [_ :children ?e]
                            [?e :name ?n]] db)
              #{["Petr"] ["Evgeny"]})))
-    
+
     (let [db (d/db-with db0 [{:db/id -1, :name "Ivan"}
-                             {:db/id -2, :name "Petr", :_children -1} 
+                             {:db/id -2, :name "Petr", :_children -1}
                              {:db/id -3, :name "Evgeny", :_children -1}])]
       (is (= (d/q '[:find ?n
                     :where [_ :children ?e]
@@ -476,7 +476,7 @@
     (is (= (d/q '[:find ?vowel
                   :where [(ground [:a :e :i :o :u]) [?vowel ...]]])
            #{[:a] [:e] [:i] [:o] [:u]})))
-  
+
   (testing "predicate without free variables"
     (is (= (d/q '[:find ?x
                   :in [?x ...]
@@ -625,7 +625,27 @@
               [1 3] [1 5]
               [2 3] [2 5]
               [3 5]
-              [4 5]}))))
+              [4 5]})))
+
+    (testing "Rule with predicate fn passed in"
+      (is (= (let [search-term "cat"
+                   regex (js/RegExp. search-term "i")
+                   search-fn (comp boolean (partial re-find regex))]
+               (d/q '[:find ?category
+                      :in $ % ?search-fn
+                      :where [?link :link/category ?category]
+                             (search ?search-fn ?link)]
+                    [[0 :link/title "cat"]
+                     [0 :link/category "animals"]
+                     [1 :link/title "pit"]
+                     [1 :link/category "fruit"]
+                     [2 :link/title "big cat"]
+                     [2 :link/category "wild-animals"]]
+                    '[[(search ?search-fn ?link)
+                       [?link :link/title ?title]
+                       [(?search-fn ?title)]]]
+                    search-fn))
+             #{["animals"] ["wild-animals"]}))))
 
   (testing "Specifying db to rule"
     (is (= (d/q '[ :find ?n
