@@ -53,11 +53,11 @@
   
   ;; js/map interface
   (keys [this]
-    (iterator (keys this)))
+    (es6-iterator (keys this)))
   (entries [this]
-    (entries-iterator (js-seq this)))
+    (es6-entries-iterator (js-seq this)))
   (values [this]
-    (iterator (map second (js-seq this))))
+    (es6-iterator (map second (js-seq this))))
   (has [this attr]
     (not (nil? (.get this attr))))
   (get [this attr]
@@ -145,5 +145,5 @@
 (goog/exportSymbol "datascript.impl.entity.Entity.prototype.values"    (.-values    (.-prototype Entity)))
 (goog/exportSymbol "datascript.impl.entity.Entity.prototype.entries"   (.-entries   (.-prototype Entity)))
 
-(goog/exportSymbol "cljs.core.Iterator.prototype.next"        (.-next (.-prototype cljs.core/Iterator)))
-(goog/exportSymbol "cljs.core.EntriesIterator.prototype.next" (.-next (.-prototype cljs.core/EntriesIterator)))
+(goog/exportSymbol "cljs.core.ES6Iterator.prototype.next"        (.-next (.-prototype cljs.core/ES6Iterator)))
+(goog/exportSymbol "cljs.core.ES6EntriesIterator.prototype.next" (.-next (.-prototype cljs.core/ES6EntriesIterator)))
