@@ -19,9 +19,7 @@ The intention with DataScript is to be a basic building block in client-side app
 
 Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
-Sample application using DataScript: [CatChat](https://github.com/tonsky/datascript-chat)
-
-Detailed CatChat [code walkthrough](http://tonsky.me/datascript-chat/)
+Sample application using DataScript: [CatChat](https://github.com/tonsky/datascript-chat) and [code walkthrough](http://tonsky.me/blog/datascript-chat/)
 
 Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/showkr)
 
