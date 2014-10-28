@@ -19,9 +19,15 @@ The intention with DataScript is to be a basic building block in client-side app
 
 Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
-Sample application using DataScript: [CatChat](https://github.com/tonsky/datascript-chat) and [code walkthrough](http://tonsky.me/blog/datascript-chat/)
+Projects using DataScript:
 
-Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/showkr)
+- CatChat, chat demo app: [sources](https://github.com/tonsky/datascript-chat), [code walkthrough](http://tonsky.me/blog/datascript-chat/), [live](http://tonsky.me/datascript-chat/)
+- Acha-acha, github achievements: [sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/), [live](http://acha-acha.co/)
+- Showkr, flickr gallery viewer: [sources](https://github.com/piranha/showkr), [live](http://showkr.solovyov.net)
+- Radiant, datalog sketchpad: [sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant), [live version](http://www.stuttaford.me/radiant/)
+- PossibleDB, server-side persistence for DataScript: [sources](https://github.com/runexec/PossibleDB)
+- clj-crud, demo CRUD app: [sources](https://github.com/thegeez/clj-crud), [blog post](http://thegeez.net/2014/04/30/datascript_clojure_web_app.html)
+
 
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
