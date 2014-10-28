@@ -119,7 +119,7 @@
          (equiv-index (.-eavt this) (.-eavt other)))))
 
 
-(defrecord TxReport [db-before db-after tx-data tempids])
+(defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
 (defn multival? [db attr]
   (= (get-in db [:schema attr :db/cardinality]) :db.cardinality/many))

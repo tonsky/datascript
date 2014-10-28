@@ -153,9 +153,11 @@
       function test_tx_report() {
         var conn = d.create_conn();
         var log = [];
-        d.listen(conn, function(report) { log.push(report.tx_data); });
+        var meta = [];
+        d.listen(conn, function(report) { log.push(report.tx_data); 
+                                          meta.push(report.tx_meta); });
         var tx_report = d.transact(conn, [[":db/add", -1, "name", "Ivan"],
-                                          [":db/add", -1, "age", 17]]);
+                                          [":db/add", -1, "age", 17]], {"some-meta": 1});
         assert_eq_datoms([[1, "name", "Ivan", tx0+1],
                           [1, "age", 17, tx0+1]],
                          tx_report.tx_data);
@@ -165,6 +167,8 @@
         assert_eq_datoms([[1, "name", "Ivan", tx0+1],
                           [1, "age", 17, tx0+1]],
                           log[0]);
+        assert_eq(tx_report.tx_meta, {"some-meta": 1});
+        assert_eq(meta[0], {"some-meta": 1});
       }
       
       function test_entity() {

@@ -33,22 +33,27 @@
   (atom (empty-db schema)
         :meta { :listeners  (atom {}) }))
 
-(defn with [db tx-data]
-  (dc/transact-tx-data (dc/TxReport. db db [] {}) tx-data))
+(defn with [db tx-data & [tx-meta]]
+  (dc/transact-tx-data (dc/map->TxReport
+                         { :db-before db
+                           :db-after  db
+                           :tx-data   []
+                           :tempids   {}
+                           :tx-meta   tx-meta}) tx-data))
 
 (defn db-with [db tx-data]
   (:db-after (with db tx-data)))
 
-(defn -transact! [conn tx-data]
+(defn -transact! [conn tx-data tx-meta]
   (let [report (atom nil)]
     (swap! conn (fn [db]
-                  (let [r (with db tx-data)]
+                  (let [r (with db tx-data tx-meta)]
                     (reset! report r)
                     (:db-after r))))
     @report))
 
-(defn transact! [conn tx-data]
-  (let [report (-transact! conn tx-data)]
+(defn transact! [conn tx-data & [tx-meta]]
+  (let [report (-transact! conn tx-data tx-meta)]
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
     report))
@@ -131,8 +136,8 @@
 
 (def db deref)
 
-(defn transact [conn tx-data]
-  (let [res (transact! conn tx-data)]
+(defn transact [conn tx-data & [tx-meta]]
+  (let [res (transact! conn tx-data tx-meta)]
     (reify
       IDeref
       (-deref [_] res)
@@ -154,8 +159,8 @@
       IPending
       (-realized? [_] @realized))))
 
-(defn transact-async [conn tx-data]
-  (future-call #(transact! conn tx-data)))
+(defn transact-async [conn tx-data & [tx-meta]]
+  (future-call #(transact! conn tx-data tx-meta)))
 
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))

@@ -1,7 +1,8 @@
 # 0.4.2
 
 - Reference transaction id inside transaction by using `:db/current-tx` instead of entity id (issue #32)
-- You can get id of transaction from tx-report: `(get-in tx-report [:tempids :db/current-tx])`
+- You can get id of transaction from `TxReport`: `(get-in tx-report [:tempids :db/current-tx])`
+- Ability to pass arbitrary metadata along with transaction (third argument to `transact!`) and read it in listener callback (`:tx-meta` key of `TxReport`) (issue #32)
 
 # 0.4.1
 

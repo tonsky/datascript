@@ -44,7 +44,8 @@
   #js { :db_before (:db-before report)
         :db_after  (:db-after report)
         :tx_data   (->> (:tx-data report) into-array)
-        :tempids   (tempids->js (:tempids report)) })
+        :tempids   (tempids->js (:tempids report))
+        :tx_meta   (:tx-meta report) })
 
 ;; Public API
 
@@ -71,9 +72,9 @@
 (defn ^:export db [conn]
   @conn)
 
-(defn ^:export transact [conn entities]
+(defn ^:export transact [conn entities & [tx-meta]]
   (let [entities (entities->clj entities)
-        report   (-> (d/-transact! conn entities)
+        report   (-> (d/-transact! conn entities tx-meta)
                      tx-report->js)]
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
