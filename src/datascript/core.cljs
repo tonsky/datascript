@@ -4,6 +4,8 @@
   (:require-macros
     [datascript :refer [combine-cmp case-tree]]))
 
+(def ^:const tx0 0x20000000)
+
 (defrecord Datom [e a v tx added]
   Object
   (toString [this]
@@ -135,7 +137,8 @@
 
 (defn- advance-max-eid [db eid]
   (cond-> db
-    (> eid (:max-eid db))
+    (and (> eid (:max-eid db))
+         (< eid tx0)) ;; do not trigger advance if transaction id was referenced
       (assoc :max-eid eid)))
 
 (defn- allocate-eid
@@ -201,20 +204,30 @@
   (let [tx (current-tx report)]
     (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
+(defn- tx-id? [e]
+  (or (= e :db/current-tx)
+      (= e ":db/current-tx")))
+
 (defn- transact-tx-data [report [entity & entities :as es]]
   (let [db (:db-after report)]
     (cond
       (nil? entity)
         (-> report
+            (assoc-in  [:tempids :db/current-tx] (current-tx report))
             (update-in [:db-after :max-tx] inc))
 
       (map? entity)
-        (if (:db/id entity)
-          (recur report (concat (explode db entity) entities))
-          (let [eid    (next-eid db)
-                entity (assoc entity :db/id eid)]
-            (recur (allocate-eid report eid)
-                   (concat [entity] entities))))
+        (cond
+          (tx-id? (:db/id entity))
+            (let [entity (assoc entity :db/id (current-tx report))]
+              (recur report (concat (explode db entity) entities)))
+          (nil? (:db/id entity))
+            (let [eid    (next-eid db)
+                  entity (assoc entity :db/id eid)]
+              (recur (allocate-eid report eid)
+                     (concat [entity] entities)))
+          :else
+            (recur report (concat (explode db entity) entities)))
 
       :else
         (let [[op e a v] entity]
@@ -234,6 +247,12 @@
                     (if (= v ov)
                       (recur (transact-add report [:db/add e a nv]) entities)
                       (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov)))))))
+           
+            (tx-id? e)
+              (recur report (concat [[op (current-tx report) a v]] entities))
+           
+            (and (ref? db a) (tx-id? v))
+              (recur report (concat [[op e a (current-tx report)]] entities))
 
             (neg? e)
               (if-let [eid (get-in report [:tempids e])]

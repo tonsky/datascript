@@ -34,11 +34,17 @@
   (->> (js->clj entities)
        (map entity->clj)))
 
+(defn- tempids->js [tempids]
+  (let [obj (js-obj)]
+    (doseq [[k v] tempids]
+      (aset obj (str k) v))
+    obj))
+
 (defn- tx-report->js [report]
   #js { :db_before (:db-before report)
         :db_after  (:db-after report)
         :tx_data   (->> (:tx-data report) into-array)
-        :tempids   (clj->js (:tempids report)) })
+        :tempids   (tempids->js (:tempids report)) })
 
 ;; Public API
 

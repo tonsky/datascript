@@ -12,7 +12,7 @@
 (defn entity-db [entity] (.-db entity))
 (def  touch de/touch)
 
-(def ^:const tx0 0x20000000)
+(def ^:const tx0 dc/tx0)
 
 (defn- refs [schema]
   (->> schema
@@ -118,8 +118,14 @@
 
 (def last-tempid (atom -1000000))
 (defn tempid
-  ([_part]  (swap! last-tempid dec))
-  ([_part x] x))
+  ([part]
+    (if (= part :db.part/tx)
+      :db/current-tx
+      (swap! last-tempid dec)))
+  ([part x]
+    (if (= part :db.part/tx)
+      :db/current-tx
+      x)))
 (defn resolve-tempid [_db tempids tempid]
   (get tempids tempid))
 

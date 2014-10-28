@@ -169,11 +169,13 @@ Interface differences:
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
 * Additional `:db.fn/retractAttribute` shortcut
+* Transactions are not annotated by default with `:db/txInstant`
 
 Expected soon:
 
 * Better error reporting
 * Support for components in schema
+* Nested maps in transactions
 * Proper documentation
 * Lookup refs
 * Fast db serialization and deserialization
@@ -189,14 +191,15 @@ Expected soon:
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AVET index for all datoms
 * No schema migrations
-* No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. Entire DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options, no full-text search, no partitions
 * No external dependencies
 * Free
 
-Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
+Aimed at interactive, long-living browser applications, DataScript DBs operate in constant space. If you do not add new entities, just update existing ones, or clean up database from time to time, memory consumption will be limited. This is unlike Datomic which keeps history of all changes, thus grows monotonically. DataScript does not track history by default, but you can do it via your own code if needed.
+
+Some of the features are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. DataScript is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
 
 ## License
 

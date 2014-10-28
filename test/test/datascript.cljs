@@ -154,8 +154,8 @@
                                 [:db/add -2 :age 22]])
         t2   (d/transact! conn [[:db/add -1 :name "Sergey"]
                                 [:db/add -1 :age 30]])]
-    (is (= (:tempids t1) { -1 1, -2 2 }))
-    (is (= (:tempids t2) { -1 3 }))
+    (is (= (:tempids t1) { -1 1, -2 2, :db/current-tx (+ d/tx0 1) }))
+    (is (= (:tempids t2) { -1 3, :db/current-tx (+ d/tx0 2) }))
     (is (= (d/q '[:find  ?e ?n ?a ?t
                   :where [?e :name ?n ?t]
                          [?e :age ?a]] @conn)
@@ -179,11 +179,33 @@
             :where [?e :name ?n]
                    [?e :friend ?fe]
                    [?fe :name ?fn]]]
-    (is (= (:tempids tx) { -1 2, -2 3, -4 4, -3 5 }))
+    (is (= (:tempids tx) { -1 2, -2 3, -4 4, -3 5, :db/current-tx (+ d/tx0 1) }))
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
     (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
 
+(deftest test-resolve-current-tx
+  (let [conn (d/create-conn {:created-at {:db/valueType :db.type/ref}})
+        tx1  (d/transact! conn [{:name "X"
+                                 :created-at :db/current-tx}
+                                {:db/id :db/current-tx
+                                 :prop1 "prop1"}
+                                [:db/add :db/current-tx :prop2 "prop2"]
+                                [:db/add -1 :name "Y"]
+                                [:db/add -1 :created-at :db/current-tx]])]
+    (is (= (d/q '[:find ?e ?a ?v :where [?e ?a ?v]] @conn)
+           #{[1 :name "X"]
+             [1 :created-at (+ d/tx0 1)]
+             [(+ d/tx0 1) :prop1 "prop1"]
+             [(+ d/tx0 1) :prop2 "prop2"]
+             [2 :name "Y"]
+             [2 :created-at (+ d/tx0 1)]}))
+    (is (= (:tempids tx1) {-1 2, :db/current-tx (+ d/tx0 1)}))
+    (let [tx2   (d/transact! conn [[:db/add :db/current-tx :prop3 "prop3"]])
+          tx-id (get-in tx2 [:tempids :db/current-tx])]
+      (is (= tx-id (+ d/tx0 2)))
+      (is (= (into {} (d/entity @conn tx-id))
+             {:prop3 "prop3"})))))
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})

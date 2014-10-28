@@ -1,3 +1,8 @@
+# 0.4.2
+
+- Reference transaction id inside transaction by using `:db/current-tx` instead of entity id (issue #32)
+- You can get id of transaction from tx-report: `(get-in tx-report [:tempids :db/current-tx])`
+
 # 0.4.1
 
 - Added `:db.fn/cas` transaction function (issue #20, thx [@montyxcantsin](https://github.com/montyxcantsin))
