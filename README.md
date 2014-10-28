@@ -27,9 +27,9 @@ Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/show
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2341"]
+  [org.clojure/clojurescript "0.0-2371"]
   ...
-  [datascript "0.4.1"]
+  [datascript "0.4.2"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -109,10 +109,10 @@ Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/show
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="datascript-0.4.1.min.js"></script>
+<script src="datascript-0.4.2.min.js"></script>
 ```
 
-[Download datascript-0.4.1.min.js](https://github.com/tonsky/datascript/releases/download/0.4.1/datascript-0.4.1.min.js), 43k gzipped.
+[Download datascript-0.4.2.min.js](https://github.com/tonsky/datascript/releases/download/0.4.2/datascript-0.4.2.min.js), 43k gzipped.
 
 Queries:
 
