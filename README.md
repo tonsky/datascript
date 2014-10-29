@@ -186,6 +186,8 @@ Expected soon:
 * Lookup refs
 * Fast db serialization and deserialization
 * Unique constraints, upsert?
+* Find specifications
+* Pull selections
 
 ## Differences from Datomic
 
