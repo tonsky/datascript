@@ -1,7 +1,7 @@
 # 0.5.0
 
-- Javascript version is now packaged as a proper CommonJS/RequireJS module (include via script tag still supported)
-- Published to npm as `datascript`
+- Javascript version is now packaged as a proper CommonJS/RequireJS module (include via script tag still supported) (issue #39)
+- Published to npm: https://www.npmjs.org/package/datascript
 - [ BREAKING ] Javascript namespace is renamed from `datascript.js` to `datascript`
 
 # 0.4.2
