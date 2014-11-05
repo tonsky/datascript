@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DataScript AMD load test</title>
+  </head>
+  <body>
+    <h1>DataScript AMD load test</h1>
+    <p id='output'>Check the browser console for errors and output.</p>
+    
+    <script src="http://requirejs.org/docs/release/2.1.15/minified/require.js"></script>
+    <script>
+      require(['datascript'], function(d) {
+        console.log("DataScript loaded using a require.js");
+        var conn = d.create_conn();
+        d.transact(conn, [[":db/add", -1, "name", "Ivan"]]);
+        var res = d.q("[:find ?e ?v :where [?e \"name\" ?v]]", d.db(conn));
+        var res_str = JSON.stringify(res);
+        document.getElementById('output').innerHTML = res_str;
+        console.log(res_str); // => [[1, "Ivan"]]
+      });
+    </script>
+
+  </body>
+</html>

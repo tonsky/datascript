@@ -1,3 +1,9 @@
+# 0.5.0
+
+- Javascript version is now packaged as a proper CommonJS/RequireJS module (include via script tag still supported)
+- Published to npm as `datascript`
+- [ BREAKING ] Javascript namespace is renamed from `datascript.js` to `datascript`
+
 # 0.4.2
 
 - Reference transaction id inside transaction by using `:db/current-tx` instead of entity id (issue #32)

@@ -1,0 +1,41 @@
+{
+  "name": "datascript",
+  "version": "0.5.0",
+  "description": "Immutable in-memory triplestore with Datalog queries",
+  "homepage": "https://github.com/tonsky/datascript",
+  "author": "Nikita Prokopov (https://github.com/tonsky)",
+  "keywords": [
+    "data",
+    "database",
+    "triplestore",
+    "datalog",
+    "persistent",
+    "immutable",
+    "clojure",
+    "clojurescript"
+  ],
+  "contributors": [
+    "Nikita Prokopov (https://github.com/tonsky)",
+    "montyxcantsin (https://github.com/montyxcantsin)",
+    "Gijs Stuurman (https://github.com/thegeez)"
+  ],
+  "bugs": {
+    "url": "https://github.com/tonsky/datascript/issues"
+  },
+  "licenses": [
+    {
+      "type": "EPL",
+      "url": "https://github.com/tonsky/datascript/blob/master/LICENSE"
+    }
+  ],
+  "main": "./datascript.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tonsky/datascript.git"
+  },
+  "engines": {
+      "node": ">=0.8.22"
+  },
+  "dependencies": {},
+  "files": ["datascript.js"]
+}

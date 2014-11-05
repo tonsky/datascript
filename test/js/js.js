@@ -5,7 +5,7 @@ page.onConsoleMessage = function (message) {
 };
 
 page.open('test/js/js.html', function (status) {
-    console.log("\nTesting test.datascript.js\n");
+    console.log("\nTesting datascript.js\n");
     var result = page.evaluate(function() {
         return run_tests();
     });
