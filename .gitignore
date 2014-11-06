@@ -10,5 +10,5 @@ pom.xml.asc
 web/out
 web/*.js
 perf
-release/datascript*.js
-release/npm-*
+release-js/datascript*.js
+release-js/npm-*

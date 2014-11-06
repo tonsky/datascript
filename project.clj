@@ -1,4 +1,4 @@
-(defproject datascript "0.5.0"
+(defproject datascript "0.5.1"
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -15,14 +15,14 @@
         :source-paths ["src"]
         :assert false
         :compiler {
-          :output-to     "release/datascript.bare.js"
+          :output-to     "release-js/datascript.bare.js"
           :optimizations :advanced
           :pretty-print  false
           :externs       ["src/datascript/externs.js"]
           :elide-asserts true
           :output-wrapper false 
         }
-        :notify-command ["release/wrap_bare.sh"]}
+        :notify-command ["release-js/wrap_bare.sh"]}
   ]}
 
   :profiles {

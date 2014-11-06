@@ -689,6 +689,18 @@
                      [(?pred ?e2)]]]
                   even?)
              #{[4 6] [2 4]})))
+    
+    (testing "Using built-ins inside rule"
+      (is (= (d/q '[:find ?x ?y
+                    :in $ %
+                    :where (match ?x ?y)]
+                  db
+                  '[[(match ?e ?e2)
+                     [?e :follow ?e2]
+                     [(even? ?e)]
+                     [(even? ?e2)]]])
+             #{[4 6] [2 4]})))
+
   )
 
 

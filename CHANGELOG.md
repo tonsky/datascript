@@ -1,3 +1,7 @@
+# 0.5.1
+
+- Ability to pass inputs (predicates/functions bindings) down to rules (issues #28 #29)
+
 # 0.5.0
 
 - Javascript version is now packaged as a proper CommonJS/RequireJS module (include via script tag still supported) (issue #39)
