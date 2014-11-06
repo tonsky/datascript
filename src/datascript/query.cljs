@@ -381,7 +381,7 @@
         empty-rels?     (fn [context]
                           (some #(empty? (:tuples %)) (:rels context)))]
     (loop [stack (list {:prefix-clauses []
-                        :prefix-context (assoc context :rels [])
+                        :prefix-context context
                         :clauses        [clause]
                         :used-args      {}
                         :pending-guards {}})

@@ -206,7 +206,7 @@
 
 (defn- tx-id? [e]
   (or (= e :db/current-tx)
-      (= e ":db/current-tx")))
+      (= e ":db/current-tx"))) ;; for datascript.js interop
 
 (defn- transact-tx-data [report [entity & entities :as es]]
   (let [db (:db-after report)]

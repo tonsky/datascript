@@ -583,6 +583,27 @@
                '[[(follow ?x ?y)
                   [?x :follow ?y]]])
            #{[1 2] [2 3] [3 4] [2 4] [5 3] [4 6]}))
+    
+    (testing "Joining regular clauses with rule"
+      (is (= (d/q '[:find ?y ?x
+                    :in $ %
+                    :where [_ _ ?x]
+                           (rule ?x ?y)
+                           [(even? ?x)]]
+                  db
+                  '[[(rule ?a ?b)
+                     [?a :follow ?b]]])
+             #{[3 2] [6 4] [4 2]})))
+    
+    (testing "Rule context is isolated from outer context"
+      (is (= (d/q '[:find ?x
+                    :in $ %
+                    :where [?e _ _]
+                           (rule ?x)]
+                  db
+                  '[[(rule ?e)
+                     [_ ?e _]]])
+             #{[:follow]})))
 
     (testing "Rule with branches"
       (is (= (d/q '[:find  ?e2
@@ -654,7 +675,22 @@
               [1 3] [1 5]
               [2 3] [2 5]
               [3 5]
-              [4 5]}))))
+              [4 5]})))
+
+    (testing "Passing ins to rule"
+      (is (= (d/q '[:find ?x ?y
+                    :in $ % ?even
+                    :where
+                    (match ?even ?x ?y)]
+                  db
+                  '[[(match ?pred ?e ?e2)
+                     [?e :follow ?e2]
+                     [(?pred ?e)]
+                     [(?pred ?e2)]]]
+                  even?)
+             #{[4 6] [2 4]})))
+  )
+
 
   (testing "Specifying db to rule"
     (is (= (d/q '[ :find ?n
@@ -668,7 +704,8 @@
                     [(adult ?y)
                      [?y ?a]
                      [(>= ?a 18)]]])
-           #{["Oleg"]}))))
+           #{["Oleg"]})))
+  )
 
 (deftest test-aggregates
   (let [monsters [ ["Cerberus" 3]
