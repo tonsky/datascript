@@ -8,6 +8,7 @@
     [org.clojure/clojure "1.6.0"]
     [org.clojure/clojurescript "0.0-2371"]
   ]
+  :jvm-opts ["-Xmx2g"]
   :cljsbuild { 
     :builds [
       { :id "release"
