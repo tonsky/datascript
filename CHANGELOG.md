@@ -1,3 +1,7 @@
+# 0.5.2
+
+- Externs provided via `deps.cljs` — no need to manually specify externs when using datascript dependency
+
 # 0.5.1
 
 - Ability to pass inputs (predicates/functions bindings) down to rules (issues #28 #29)
