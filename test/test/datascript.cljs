@@ -755,6 +755,30 @@
              #{[:red  [3 4 5] [1 2 3]]
                [:blue [7 8]   [7 8]]})))
 
+    (testing "avg aggregate" 
+      (is (= (ffirst (d/q '[:find (avg ?x) 
+                            :in [?x ...]]
+                           [10 15 20 35 75]))
+             31)))
+
+    (testing "median aggregate"
+      (is (= (ffirst (d/q '[:find (median ?x)
+                            :in [?x ...]]
+                           [10 15 20 35 75]))
+             20)))
+    
+    (testing "variance aggregate"
+      (is (= (ffirst (d/q '[:find (variance ?x)
+                            :in [?x ...]]
+                           [10 15 20 35 75]))
+              554)))
+
+    (testing "stddev aggregate"
+      (is (= (ffirst (d/q '[:find (stddev ?x) 
+                            :in [?x ...]]
+                          [10 15 20 35 75]))
+              23.53720459187964)))
+
     (testing "Custom aggregates"
       (is (= (set (d/q '[ :find ?color (?agg ?x)
                           :in   [[?color ?x]] ?agg ]

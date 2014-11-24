@@ -111,36 +111,59 @@
   'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?,
   'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector,
   '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity})
-
-(def built-in-aggregates {
-  'distinct (comp vec distinct)
-  'min      (fn
-              ([coll] (reduce min coll))
-              ([n coll]
-                (vec
-                  (reduce (fn [acc x]
-                            (cond
-                              (< (count acc) n) (sort (conj acc x))
-                              (< x (last acc))  (sort (conj (butlast acc) x))
-                              :else             acc))
-                          [] coll))))
-  'max      (fn
-              ([coll] (reduce max coll))
-              ([n coll]
-                (vec
-                  (reduce (fn [acc x]
-                            (cond
-                              (< (count acc) n) (sort (conj acc x))
-                              (> x (first acc)) (sort (conj (next acc) x))
-                              :else             acc))
-                          [] coll))))
-  'sum      #(reduce + 0 %)
-  'rand     (fn
-              ([coll] (rand-nth coll))
-              ([n coll] (vec (repeatedly n #(rand-nth coll)))))
-  'sample   (fn [n coll]
-              (vec (take n (shuffle coll))))
-  'count    count})
+ 
+(def built-in-aggregates 
+ (letfn [(sum [coll] (reduce + 0 coll))
+         (avg [coll] (/ (sum coll) (count coll)))
+         (median
+           [coll]
+           (let [terms (sort coll)
+                 size (count coll)
+                 med (bit-shift-right size 1)]
+             (cond-> (nth terms med)
+               (even? size)
+               (-> (+ (nth terms (dec med)))
+                   (/ 2)))))
+         (variance
+           [coll]
+           (let [mean (avg coll)]    
+             (avg (for [x coll] 
+                    (js/Math.pow (- x mean) 2)))))
+         (stddev 
+           [coll] 
+           (js/Math.sqrt (variance coll)))]
+   {'avg      avg
+    'median   median
+    'variance variance
+    'stddev   stddev
+    'distinct (comp vec distinct)
+    'min      (fn
+                ([coll] (reduce min coll))
+                ([n coll]
+                  (vec
+                    (reduce (fn [acc x]
+                              (cond
+                                (< (count acc) n) (sort (conj acc x))
+                                (< x (last acc))  (sort (conj (butlast acc) x))
+                                :else             acc))
+                            [] coll))))
+    'max      (fn
+                ([coll] (reduce max coll))
+                ([n coll]
+                  (vec
+                    (reduce (fn [acc x]
+                              (cond
+                                (< (count acc) n) (sort (conj acc x))
+                                (> x (first acc)) (sort (conj (next acc) x))
+                                :else             acc))
+                            [] coll))))
+    'sum      sum
+    'rand     (fn
+                ([coll] (rand-nth coll))
+                ([n coll] (vec (repeatedly n #(rand-nth coll)))))
+    'sample   (fn [n coll]
+                (vec (take n (shuffle coll))))
+    'count    count}))
 
 
 ;;
