@@ -19,25 +19,28 @@ The intention with DataScript is to be a basic building block in client-side app
 
 Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
-Sample application using DataScript: [CatChat](https://github.com/tonsky/datascript-chat)
+Projects using DataScript:
 
-Detailed CatChat [code walkthrough](http://tonsky.me/datascript-chat/)
+- CatChat, chat demo app: [sources](https://github.com/tonsky/datascript-chat), [code walkthrough](http://tonsky.me/blog/datascript-chat/), [live](http://tonsky.me/datascript-chat/)
+- Acha-acha, github achievements: [sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/), [live](http://acha-acha.co/)
+- Showkr, flickr gallery viewer: [sources](https://github.com/piranha/showkr), [live](http://showkr.solovyov.net)
+- Radiant, datalog sketchpad: [sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant), [live version](http://www.stuttaford.me/radiant/)
+- PossibleDB, server-side persistence for DataScript: [sources](https://github.com/runexec/PossibleDB)
+- clj-crud, demo CRUD app: [sources](https://github.com/thegeez/clj-crud), [blog post](http://thegeez.net/2014/04/30/datascript_clojure_web_app.html)
 
-Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/showkr)
 
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2341"]
+  [org.clojure/clojurescript "0.0-2371"]
   ...
-  [datascript "0.4.1"]
+  [datascript "0.5.2"]
 ]
 
 ;; for advanced optimizations externs are needed
 :cljsbuild { :builds [
   :compiler {
-    :externs ["datascript/externs.js"]
     :optimizations :advanced
   }
 ]}
@@ -110,11 +113,25 @@ Flickr gallery viewer using DataScript: [Showkr](https://github.com/piranha/show
 
 DataScript can be used from any JS engine without additional dependencies:
 
-```html
-<script src="datascript-0.4.1.min.js"></script>
+```
+<script src="datascript-0.5.2.min.js"></script>
 ```
 
-[Download datascript-0.4.1.min.js](https://github.com/tonsky/datascript/releases/download/0.4.1/datascript-0.4.1.min.js), 43k gzipped.
+[Download datascript-0.5.2.min.js](https://github.com/tonsky/datascript/releases/download/0.5.2/datascript-0.5.2.min.js), 46k gzipped.
+
+or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
+
+```
+npm install datascript
+
+var ds = require('datascript');
+```
+
+or as a RequireJS module:
+
+```
+require(['datascript'], function(ds) { ... });
+```
 
 Queries:
 
@@ -171,15 +188,19 @@ Interface differences:
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
 * Additional `:db.fn/retractAttribute` shortcut
+* Transactions are not annotated by default with `:db/txInstant`
 
 Expected soon:
 
 * Better error reporting
 * Support for components in schema
+* Nested maps in transactions
 * Proper documentation
 * Lookup refs
 * Fast db serialization and deserialization
 * Unique constraints, upsert?
+* Find specifications
+* Pull selections
 
 ## Differences from Datomic
 
@@ -191,14 +212,15 @@ Expected soon:
 * No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 * AVET index for all datoms
 * No schema migrations
-* No history support, though history can be implemented on top of immutable DB values
 * No cache segments management, no laziness. Entire DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server
 * No pluggable storage options, no full-text search, no partitions
 * No external dependencies
 * Free
 
-Some of these are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. This library is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
+Aimed at interactive, long-living browser applications, DataScript DBs operate in constant space. If you do not add new entities, just update existing ones, or clean up database from time to time, memory consumption will be limited. This is unlike Datomic which keeps history of all changes, thus grows monotonically. DataScript does not track history by default, but you can do it via your own code if needed.
+
+Some of the features are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. DataScript is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
 
 ## License
 

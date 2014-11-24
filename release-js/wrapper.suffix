@@ -1,0 +1,6 @@
+
+        ;return this.datascript.js;
+
+    }.call({});
+
+});

@@ -1,3 +1,23 @@
+# 0.5.2
+
+- Externs provided via `deps.cljs` — no need to manually specify externs when using datascript dependency
+
+# 0.5.1
+
+- Ability to pass inputs (predicates/functions bindings) down to rules (issues #28 #29)
+
+# 0.5.0
+
+- Javascript version is now packaged as a proper CommonJS/RequireJS module (include via script tag still supported) (issue #39)
+- Published to npm: [npmjs.org/package/datascript](https://www.npmjs.org/package/datascript)
+- [ BREAKING ] Javascript namespace is renamed from `datascript.js` to `datascript`
+
+# 0.4.2
+
+- Reference transaction id inside transaction by using `:db/current-tx` instead of entity id (issue #32)
+- You can get id of transaction from `TxReport`: `(get-in tx-report [:tempids :db/current-tx])`
+- Ability to pass arbitrary metadata along with transaction (third argument to `transact!`) and read it in listener callback (`:tx-meta` key of `TxReport`) (issue #32)
+
 # 0.4.1
 
 - Added `:db.fn/cas` transaction function (issue #20, thx [@montyxcantsin](https://github.com/montyxcantsin))

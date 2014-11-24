@@ -60,11 +60,11 @@
     (testing "Retract entitiy with incoming refs"
       (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
              #{[2]}))
-
+      
       (let [db (d/db-with db [ [:db.fn/retractEntity 2] ])]
         (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
                #{}))))
-
+    
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :name] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
@@ -105,7 +105,7 @@
       (throw (js/Error. "expected :db.fn/cas to throw"))
       (catch js/Error e
         (is (= (.-message e) ":db.fn/cas failed on datom [1 :weight 300], expected 200")))))
-
+  
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
@@ -154,8 +154,8 @@
                                 [:db/add -2 :age 22]])
         t2   (d/transact! conn [[:db/add -1 :name "Sergey"]
                                 [:db/add -1 :age 30]])]
-    (is (= (:tempids t1) { -1 1, -2 2 }))
-    (is (= (:tempids t2) { -1 3 }))
+    (is (= (:tempids t1) { -1 1, -2 2, :db/current-tx (+ d/tx0 1) }))
+    (is (= (:tempids t2) { -1 3, :db/current-tx (+ d/tx0 2) }))
     (is (= (d/q '[:find  ?e ?n ?a ?t
                   :where [?e :name ?n ?t]
                          [?e :age ?a]] @conn)
@@ -179,11 +179,33 @@
             :where [?e :name ?n]
                    [?e :friend ?fe]
                    [?fe :name ?fn]]]
-    (is (= (:tempids tx) { -1 2, -2 3, -4 4, -3 5 }))
+    (is (= (:tempids tx) { -1 2, -2 3, -4 4, -3 5, :db/current-tx (+ d/tx0 1) }))
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
     (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
 
+(deftest test-resolve-current-tx
+  (let [conn (d/create-conn {:created-at {:db/valueType :db.type/ref}})
+        tx1  (d/transact! conn [{:name "X"
+                                 :created-at :db/current-tx}
+                                {:db/id :db/current-tx
+                                 :prop1 "prop1"}
+                                [:db/add :db/current-tx :prop2 "prop2"]
+                                [:db/add -1 :name "Y"]
+                                [:db/add -1 :created-at :db/current-tx]])]
+    (is (= (d/q '[:find ?e ?a ?v :where [?e ?a ?v]] @conn)
+           #{[1 :name "X"]
+             [1 :created-at (+ d/tx0 1)]
+             [(+ d/tx0 1) :prop1 "prop1"]
+             [(+ d/tx0 1) :prop2 "prop2"]
+             [2 :name "Y"]
+             [2 :created-at (+ d/tx0 1)]}))
+    (is (= (:tempids tx1) {-1 2, :db/current-tx (+ d/tx0 1)}))
+    (let [tx2   (d/transact! conn [[:db/add :db/current-tx :prop3 "prop3"]])
+          tx-id (get-in tx2 [:tempids :db/current-tx])]
+      (is (= tx-id (+ d/tx0 2)))
+      (is (= (into {} (d/entity @conn tx-id))
+             {:prop3 "prop3"})))))
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
@@ -252,21 +274,28 @@
     (d/listen! conn :test #(swap! reports conj %))
     (d/transact! conn [[:db/add -1 :name "Dima"]
                        [:db/add -1 :age 19]
-                       [:db/add -2 :name "Evgeny"]])
+                       [:db/add -2 :name "Evgeny"]] {:some-metadata 1})
     (d/transact! conn [[:db/add -1 :name "Fedor"]
                        [:db/add 1 :name "Alex2"]         ;; should update
                        [:db/retract 2 :name "Not Boris"] ;; should be skipped
                        [:db/retract 4 :name "Evgeny"]])
     (d/unlisten! conn :test)
     (d/transact! conn [[:db/add -1 :name "Geogry"]])
-    (is (= (map (fn [report] (map #(into [] %) (:tx-data report))) @reports)
-           [[[3 :name "Dima"   (+ d/tx0 2) true]
-             [3 :age 19        (+ d/tx0 2) true]
-             [4 :name "Evgeny" (+ d/tx0 2) true]]
-            [[5 :name "Fedor"  (+ d/tx0 3) true]
-             [1 :name "Alex"   (+ d/tx0 3) false] ;; update -> retract
-             [1 :name "Alex2"  (+ d/tx0 3) true]  ;;         + add
-             [4 :name "Evgeny" (+ d/tx0 3) false]]]))))
+    
+    (is (= (:tx-data (first @reports))
+           [(dc/Datom. 3 :name "Dima"   (+ d/tx0 2) true)
+            (dc/Datom. 3 :age 19        (+ d/tx0 2) true)
+            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 2) true)]))
+    (is (= (:tx-meta (first @reports))
+           {:some-metadata 1}))
+    (is (= (:tx-data (second @reports))
+           [(dc/Datom. 5 :name "Fedor"  (+ d/tx0 3) true)
+            (dc/Datom. 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
+            (dc/Datom. 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
+            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 3) false)]))
+    (is (= (:tx-meta (second @reports))
+           nil))
+    ))
 
 (deftest test-explode
   (doseq [coll [["Devil" "Tupen"]
@@ -296,15 +325,15 @@
   (let [db0 (d/empty-db { :children { :db/valueType :db.type/ref
                                       :db/cardinality :db.cardinality/many } })]
     (let [db (d/db-with db0 [{:db/id -1, :name "Ivan", :children [-2 -3]}
-                             {:db/id -2, :name "Petr"}
+                             {:db/id -2, :name "Petr"} 
                              {:db/id -3, :name "Evgeny"}])]
       (is (= (d/q '[:find ?n
                     :where [_ :children ?e]
                            [?e :name ?n]] db)
              #{["Petr"] ["Evgeny"]})))
-
+    
     (let [db (d/db-with db0 [{:db/id -1, :name "Ivan"}
-                             {:db/id -2, :name "Petr", :_children -1}
+                             {:db/id -2, :name "Petr", :_children -1} 
                              {:db/id -3, :name "Evgeny", :_children -1}])]
       (is (= (d/q '[:find ?n
                     :where [_ :children ?e]
@@ -476,7 +505,7 @@
     (is (= (d/q '[:find ?vowel
                   :where [(ground [:a :e :i :o :u]) [?vowel ...]]])
            #{[:a] [:e] [:i] [:o] [:u]})))
-
+  
   (testing "predicate without free variables"
     (is (= (d/q '[:find ?x
                   :in [?x ...]
@@ -554,6 +583,27 @@
                '[[(follow ?x ?y)
                   [?x :follow ?y]]])
            #{[1 2] [2 3] [3 4] [2 4] [5 3] [4 6]}))
+    
+    (testing "Joining regular clauses with rule"
+      (is (= (d/q '[:find ?y ?x
+                    :in $ %
+                    :where [_ _ ?x]
+                           (rule ?x ?y)
+                           [(even? ?x)]]
+                  db
+                  '[[(rule ?a ?b)
+                     [?a :follow ?b]]])
+             #{[3 2] [6 4] [4 2]})))
+    
+    (testing "Rule context is isolated from outer context"
+      (is (= (d/q '[:find ?x
+                    :in $ %
+                    :where [?e _ _]
+                           (rule ?x)]
+                  db
+                  '[[(rule ?e)
+                     [_ ?e _]]])
+             #{[:follow]})))
 
     (testing "Rule with branches"
       (is (= (d/q '[:find  ?e2
@@ -627,25 +677,32 @@
               [3 5]
               [4 5]})))
 
-    (testing "Rule with predicate fn passed in"
-      (is (= (let [search-term "cat"
-                   regex (js/RegExp. search-term "i")
-                   search-fn (comp boolean (partial re-find regex))]
-               (d/q '[:find ?category
-                      :in $ % ?search-fn
-                      :where [?link :link/category ?category]
-                             (search ?search-fn ?link)]
-                    [[0 :link/title "cat"]
-                     [0 :link/category "animals"]
-                     [1 :link/title "pit"]
-                     [1 :link/category "fruit"]
-                     [2 :link/title "big cat"]
-                     [2 :link/category "wild-animals"]]
-                    '[[(search ?search-fn ?link)
-                       [?link :link/title ?title]
-                       [(?search-fn ?title)]]]
-                    search-fn))
-             #{["animals"] ["wild-animals"]}))))
+    (testing "Passing ins to rule"
+      (is (= (d/q '[:find ?x ?y
+                    :in $ % ?even
+                    :where
+                    (match ?even ?x ?y)]
+                  db
+                  '[[(match ?pred ?e ?e2)
+                     [?e :follow ?e2]
+                     [(?pred ?e)]
+                     [(?pred ?e2)]]]
+                  even?)
+             #{[4 6] [2 4]})))
+    
+    (testing "Using built-ins inside rule"
+      (is (= (d/q '[:find ?x ?y
+                    :in $ %
+                    :where (match ?x ?y)]
+                  db
+                  '[[(match ?e ?e2)
+                     [?e :follow ?e2]
+                     [(even? ?e)]
+                     [(even? ?e2)]]])
+             #{[4 6] [2 4]})))
+
+  )
+
 
   (testing "Specifying db to rule"
     (is (= (d/q '[ :find ?n
@@ -659,7 +716,8 @@
                     [(adult ?y)
                      [?y ?a]
                      [(>= ?a 18)]]])
-           #{["Oleg"]}))))
+           #{["Oleg"]})))
+  )
 
 (deftest test-aggregates
   (let [monsters [ ["Cerberus" 3]

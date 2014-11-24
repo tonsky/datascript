@@ -1,0 +1,12 @@
+machine:
+  java:
+    version: oraclejdk8
+   
+dependencies:
+  post:
+    - lein cljsbuild clean
+
+test:
+  override:
+    - lein cljsbuild test:
+        timeout: 300
