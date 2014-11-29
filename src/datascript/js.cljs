@@ -47,10 +47,18 @@
         :tempids   (tempids->js (:tempids report))
         :tx_meta   (:tx-meta report) })
 
+(defn js->Datom [d]
+  (if (array? d)
+    (dc/Datom. (aget d 0) (aget d 1) (aget d 2) (or (aget d 3) d/tx0) (or (aget d 4) true))
+    (dc/Datom. (.-e d) (.-a d) (.-v d) (or (.-tx d) d/tx0) (or (.-added d) true))))
+
 ;; Public API
 
 (defn ^:export empty_db [& [schema]]
   (d/empty-db (schema->clj schema)))
+
+(defn ^:export init_db [datoms & [schema]]
+  (d/init-db (map js->Datom datoms) schema))
 
 (defn ^:export q [query & sources]
   (let [query   (cljs.reader/read-string query)

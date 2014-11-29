@@ -18,7 +18,7 @@
    :salary    (rand-int 100000)})
 
 (def test-matrix-transact [ :test   ["transact"]
-                            :size   [100 500]
+                            :size   [100 500 2000]
                             :batch  [1]])
 
 (defn test-setup-people [opts]
@@ -32,7 +32,7 @@
                 (let [conn (d/create-conn)]
                   (doseq [ps (partition-all (:batch opts 1) (:people opts))]
                     (d/transact! conn ps))))
-    :duration 1000
+    :duration 5000
     :matrix   test-matrix-transact
     :setup-fn test-setup-people))
 

@@ -126,6 +126,23 @@
         assert_eq_set([["Ivan", 17], ["Igor", 35]], d.q(q, db2));
       }
       
+      function test_init_db() {
+        var q = '[:find ?n ?a ?tx :where [?e "name" ?n ?tx] [?e "age" ?a]]'; 
+        var db_ok = function(db) {
+          assert_eq_set([["Ivan", 17, tx0],
+                         ["Igor", 35, tx0+1]],
+                        d.q(q, db));
+        };
+        db_ok(d.init_db([[1, "name", "Ivan"],
+                         [1, "age", 17],
+                         [2, "name", "Igor", tx0+1],
+                         [2, "age", 35, tx0+1]]));
+        db_ok(d.init_db([{e: 1, a: "name", v: "Ivan"},
+                         {e: 1, a: "age", v: 17},
+                         {e: 2, a: "name", v: "Igor", tx: tx0+1},
+                         {e: 2, a: "age", v: 35, tx: tx0+1}]));
+      }
+      
       function test_dbfn_call() {
         var dbfn = function(db, e, n, a) { 
           return [[":db/add", e, "name", n],
@@ -324,6 +341,7 @@
 
       function run_tests() {
         return test_fns([ test_db_with,
+                          test_init_db,
                           test_dbfn_call,
                           test_schema,
                           test_tx_report,
