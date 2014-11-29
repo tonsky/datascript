@@ -1,3 +1,9 @@
+# 0.6.0
+
+- [ BREAKING ] Entity ids and transaction ids now have to be numbers, attributes can only be keywords (strings if used from JS)
+- New method `init-db` for fast creation of DB from existing datoms (useful for e.g. initialization from serialized state)
+- Improved performance of `transact!` (~20%) and initial database population (`init-db`, `db-from-reader`, ~800%)
+
 # 0.5.2
 
 - Externs provided via `deps.cljs` — no need to manually specify externs when using datascript dependency

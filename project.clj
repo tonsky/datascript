@@ -1,4 +1,4 @@
-(defproject datascript "0.5.2"
+(defproject datascript "0.6.0"
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -40,7 +40,7 @@
               :optimizations :none
               :source-map    true
             }}
-          { :id "perf"
+          #_{ :id "perf"
             :source-paths ["src" "test"]
             :compiler {
               :output-to     "web/datascript.perf.js"

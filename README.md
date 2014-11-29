@@ -35,7 +35,7 @@ Projects using DataScript:
 :dependencies [
   [org.clojure/clojurescript "0.0-2371"]
   ...
-  [datascript "0.5.2"]
+  [datascript "0.6.0"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -114,10 +114,10 @@ Projects using DataScript:
 DataScript can be used from any JS engine without additional dependencies:
 
 ```
-<script src="datascript-0.5.2.min.js"></script>
+<script src="datascript-0.6.0.min.js"></script>
 ```
 
-[Download datascript-0.5.2.min.js](https://github.com/tonsky/datascript/releases/download/0.5.2/datascript-0.5.2.min.js), 46k gzipped.
+[Download datascript-0.6.0.min.js](https://github.com/tonsky/datascript/releases/download/0.6.0/datascript-0.6.0.min.js), 46k gzipped.
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
 
