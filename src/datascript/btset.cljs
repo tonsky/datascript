@@ -1,4 +1,36 @@
-(ns datascript.btset)
+(ns ^{:doc
+" B+ tree
+  -------
+
+  LeafNode: keys[]     :: array of values
+
+  Node:     pointers[] :: links to children nodes
+            keys[]     :: max value for whole subtree
+                          node.keys[i] == max(node.pointers[i].keys)
+  All arrays are 64..128 elements, inclusive
+
+  BTSet:    root       :: Node or LeafNode
+            shift      :: path bit-shift of root level, == (depth - 1) * level-shift
+            cnt        :: size of a set, integer, rolling
+            comparator :: comparator used for ordering
+            meta       :: clojure meta map
+            __hash     :: hash code, same as for clojure collections, on-demand, cached
+
+  Path: conceptually a vector of indexes from root to leaf value, but encoded in a single int.
+        E.g. we have path [7 53 11] representing root.pointers[7].pointers[3].keys[11].
+        In our case level-shift is 8, meaning each index will take 8 bits:
+        (7 << 16) | (53 << 8) | 11 = 472331
+        0000 0111   0011 0101   0000 1011
+
+  BTSetIter: set       :: Set this iterator belongs to
+             path      :: Current path
+             till-path :: Right bound path (exclusive)
+             keys      :: Cached ref for keys array for a leaf
+             idx       :: Cached idx in keys array
+  Keys and idx are cached for fast iteration inside a leaf
+"
+  :author "Nikita Prokopov"}
+  datascript.btset)
 
 (declare BTSet Node LeafNode)
 
@@ -123,6 +155,51 @@
   (if (eq-arr arr from to new-arr 0 (alength new-arr) eq)
     arr
     (splice arr from to new-arr)))
+
+(defn arr-map-inplace [f arr]
+  (let [len (alength arr)]
+    (loop [i 0]
+      (when (< i len)
+        (aset arr i (f (aget arr i)))
+        (recur (inc i))))
+    arr))
+
+(defn- arr-partition-approx
+  "Splits `arr` into arrays of size between min-len and max-len,
+   trying to stick to (min+max)/2"
+  [min-len max-len arr]
+  (let [chunk-len (half (+ max-len min-len))
+        len       (alength arr)
+        acc       #js []]
+    (when (pos? len)
+      (loop [pos 0]
+        (let [rest (- len pos)]
+          (cond
+            (<= rest max-len)
+              (.push acc (.slice arr pos))
+            (>= rest (+ chunk-len min-len))
+              (do
+                (.push acc (.slice arr pos (+ pos chunk-len)))
+                (recur (+ pos chunk-len)))
+            :else
+              (let [piece-len (half rest)]
+                (.push acc (.slice arr pos (+ pos piece-len)))
+                (recur (+ pos piece-len)))))))
+    acc))
+
+(defn- arr-distinct
+  "Filter out repetitive values in a sorted array"
+  [arr cmp]
+  (loop [i 0]
+    (if (>= i (alength arr))
+      arr
+      (if (and (> i 0)
+               (== 0 (cmp (aget arr i) (aget arr (dec i)))))
+        (do
+          (.splice arr i 1)
+          (recur i))
+        (recur (inc i)))))
+  arr)
 
 ;; 
 
@@ -273,8 +350,8 @@
 
 (declare alter-btset)
 
-(defn btset-conj [set key]
-  (binding [*cmp* (.-comparator set)]
+(defn btset-conj [set key cmp]
+  (binding [*cmp* cmp]
     (let [roots (.conj (.-root set) key)]
       (cond
         ;; tree not changed
@@ -295,8 +372,8 @@
             (+ (.-shift set) level-shift)
             (inc (.-cnt set)))))))
 
-(defn btset-disj [set key]
-  (binding [*cmp* (.-comparator set)]
+(defn btset-disj [set key cmp]
+  (binding [*cmp* cmp]
     (let [new-roots (.disj (.-root set) key true nil nil)]
       (if (nil? new-roots) ;; nothing changed, key wasn't in the set
         set
@@ -443,11 +520,11 @@
   (-hash [coll] (caching-hash coll hash-iset __hash))
    
   ICollection
-  (-conj [set key] (btset-conj set key))
+  (-conj [set key] (btset-conj set key comparator))
 
   ISet
   (-disjoin [set key]
-    (btset-disj set key))
+    (btset-disj set key comparator))
   
   ILookup 
   (-lookup [set k]
@@ -476,12 +553,31 @@
 (defn alter-btset [set root shift cnt]
   (BTSet. root shift cnt (.-comparator set) (.-meta set) nil))
 
+(defn -btset-from-sorted-arr [arr cmp]
+  (let [leafs (->> arr
+                   (arr-partition-approx min-len max-len)
+                   (arr-map-inplace ->LeafNode))]
+    (loop [current-level leafs
+           shift 0]
+      (case (count current-level)
+        0 (BTSet. (LeafNode. (array)) 0 0 cmp nil 0)
+        1 (BTSet. (first current-level) shift (alength arr) cmp nil 0)
+        (recur (->> current-level
+                    (arr-partition-approx min-len max-len)
+                    (arr-map-inplace #(Node. (.map % lim-key) %)))
+               (+ shift level-shift))))))
+
+(defn -btset-from-seq [seq cmp]
+  (let [arr (-> seq into-array (.sort cmp) (arr-distinct cmp))]
+    (-btset-from-sorted-arr arr cmp)))
+
 (defn btset-by
   ([cmp] (BTSet. (LeafNode. (array)) 0 0 cmp nil 0))
   ([cmp & keys]
-    (reduce -conj (btset-by cmp) keys)))
+    (-btset-from-seq keys cmp)))
 
 (defn btset
   ([] (btset-by compare))
   ([& keys]
-    (reduce -conj (btset) keys)))
+    (-btset-from-seq keys compare)))
+

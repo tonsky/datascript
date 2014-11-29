@@ -1,6 +1,7 @@
 (ns datascript.core
   (:require
-    [datascript.btset :as btset])
+    [datascript.btset :as btset]
+    [goog.array :as garray])
   (:require-macros
     [datascript :refer [combine-cmp case-tree]]))
 
@@ -32,40 +33,100 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
-(defn cmp-val [o1 o2]
-  (if (and (some? o1) (some? o2))
-    (let [t1 (type o1)
-          t2 (type o2)]
-      (if (= t1 t2)
-        (compare o1 o2)
-        (compare t1 t2)))
-    0))
-
 (defn- cmp [o1 o2]
   (if (and o1 o2)
     (compare o1 o2)
     0))
 
-(defn- cmp-datoms-eavt [d1 d2]
-  (combine-cmp
-    (cmp     (.-e d1) (.-e d2))
-    (cmp     (.-a d1) (.-a d2))
-    (cmp-val (.-v d1) (.-v d2))
-    (cmp     (.-tx d1) (.-tx d2))))
+(defn- cmp-num [n1 n2]
+  (if (and n1 n2)
+    (- n1 n2)
+    0))
 
-(defn- cmp-datoms-aevt [d1 d2]
-  (combine-cmp
-    (cmp     (.-a d1) (.-a d2))
-    (cmp     (.-e d1) (.-e d2))
-    (cmp-val (.-v d1) (.-v d2))
-    (cmp     (.-tx d1) (.-tx d2))))
+(defn- cmp-val [o1 o2]
+  (if (and (some? o1) (some? o2))
+    (let [t1 (type o1)
+          t2 (type o2)]
+      (if (identical? t1 t2)
+        (compare o1 o2)
+        (garray/defaultCompare t1 t2)))
+    0))
 
-(defn- cmp-datoms-avet [d1 d2]
+;; Slower cmp-* fns allows for datom fields to be nil.
+;; Such datoms come from slice method where they are used as boundary markers.
+
+(defn cmp-datoms-eavt [d1 d2]
   (combine-cmp
-    (cmp     (.-a d1) (.-a d2))
+    (cmp-num (.-e d1) (.-e d2))
+    (cmp (.-a d1) (.-a d2))
     (cmp-val (.-v d1) (.-v d2))
-    (cmp     (.-e d1) (.-e d2))
-    (cmp     (.-tx d1) (.-tx d2))))
+    (cmp-num (.-tx d1) (.-tx d2))))
+
+(defn cmp-datoms-aevt [d1 d2]
+  (combine-cmp
+    (cmp (.-a d1) (.-a d2))
+    (cmp-num (.-e d1) (.-e d2))
+    (cmp-val (.-v d1) (.-v d2))
+    (cmp-num (.-tx d1) (.-tx d2))))
+
+(defn cmp-datoms-avet [d1 d2]
+  (combine-cmp
+    (cmp (.-a d1) (.-a d2))
+    (cmp-val (.-v d1) (.-v d2))
+    (cmp-num (.-e d1) (.-e d2))
+    (cmp-num (.-tx d1) (.-tx d2))))
+
+
+;; fast versions without nil checks
+
+;; see http://dev.clojure.org/jira/browse/CLJS-892
+(defn- compare-keywords-quick [a b]
+  (cond
+    (identical? (.-fqn a) (.-fqn b)) 0
+    (and (not (.-ns a)) (.-ns b)) -1
+    (.-ns a) (if-not (.-ns b)
+               1
+               (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
+                 (if (zero? nsc)
+                   (garray/defaultCompare (.-name a) (.-name b))
+                   nsc)))
+    :default (garray/defaultCompare (.-name a) (.-name b))))
+
+(defn- cmp-attr-quick [a1 a2]
+  ;; either both are keywords or both are strings
+  (if (keyword? a1)
+    (compare-keywords-quick a1 a2)
+    (garray/defaultCompare a1 a2)))
+
+(defn- cmp-val-quick [o1 o2]
+  (let [t1 (type o1)
+        t2 (type o2)]
+    (if (identical? t1 t2)
+      (compare o1 o2)
+      (garray/defaultCompare t1 t2))))
+
+(defn cmp-datoms-eavt-quick [d1 d2]
+  (combine-cmp
+    (- (.-e d1) (.-e d2))
+    (cmp-attr-quick (.-a d1) (.-a d2))
+    (cmp-val-quick  (.-v d1) (.-v d2))
+    (- (.-tx d1) (.-tx d2))))
+
+(defn cmp-datoms-aevt-quick [d1 d2]
+  (combine-cmp
+    (cmp-attr-quick (.-a d1) (.-a d2))
+    (- (.-e d1) (.-e d2))
+    (cmp-val-quick (.-v d1) (.-v d2))
+    (- (.-tx d1) (.-tx d2))))
+
+(defn cmp-datoms-avet-quick [d1 d2]
+  (combine-cmp
+    (cmp-attr-quick (.-a d1) (.-a d2))
+    (cmp-val-quick  (.-v d1) (.-v d2))
+    (- (.-e d1) (.-e d2))
+    (- (.-tx d1) (.-tx d2))))
+
+
 
 (defrecord DB [schema eavt aevt avet max-eid max-tx refs]
   Object
@@ -149,18 +210,21 @@
        (assoc-in [:tempids e] eid)
        (update-in [:db-after] advance-max-eid eid))))
 
+;; In context of `with-datom` we can use faster comparators which
+;; do not check for nil (~10-15% performance gain in `transact`)
+
 (defn- with-datom [db datom]
   (if (.-added datom)
     (-> db
-      (update-in [:eavt] conj datom)
-      (update-in [:aevt] conj datom)
-      (update-in [:avet] conj datom)
+      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
+      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
+      (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
       (advance-max-eid (.-e datom)))
     (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
       (-> db
-        (update-in [:eavt] disj removing)
-        (update-in [:aevt] disj removing)
-        (update-in [:avet] disj removing)))))
+        (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
+        (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
+        (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)))))
 
 (defn- transact-report [report datom]
   (-> report

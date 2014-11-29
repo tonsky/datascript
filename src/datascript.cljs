@@ -29,6 +29,24 @@
     :max-tx  tx0
     :refs    (refs schema)}))
 
+(defn init-db [datoms & [schema]]
+  (let [datoms  (into-array datoms)
+        len     (alength datoms)
+        eavt    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-eavt-quick) dc/cmp-datoms-eavt)
+        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0)
+        aevt    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-aevt-quick) dc/cmp-datoms-aevt)
+        avet    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-avet-quick) dc/cmp-datoms-avet)
+        max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
+    (dc/map->DB {
+      :schema  schema
+      :eavt    eavt
+      :aevt    aevt
+      :avet    avet
+      :max-eid max-eid
+      :max-tx  max-tx
+      :refs    (refs schema)})))
+
+
 (defn create-conn [& [schema]]
   (atom (empty-db schema)
         :meta { :listeners  (atom {}) }))
@@ -108,16 +126,7 @@
     (-write w "}")))
 
 (defn db-from-reader [{:keys [schema datoms]}]
-  (let [datoms (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms)]
-    (dc/map->DB {
-      :schema  schema
-      :eavt    (apply btset/btset-by dc/cmp-datoms-eavt datoms)
-      :aevt    (apply btset/btset-by dc/cmp-datoms-aevt datoms)
-      :avet    (apply btset/btset-by dc/cmp-datoms-avet datoms)
-      :max-eid (reduce max 0 (map :e datoms))
-      :max-tx  (reduce max tx0 (map :tx datoms))
-      :refs    (refs schema)})))
-
+  (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
 
 ;; Datomic compatibility layer
 

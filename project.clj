@@ -40,6 +40,12 @@
               :optimizations :none
               :source-map    true
             }}
+          { :id "perf"
+            :source-paths ["src" "test"]
+            :compiler {
+              :output-to     "web/datascript.perf.js"
+              :optimizations :advanced
+            }}
           { :id "testable"
             :source-paths ["src" "test"]
             :compiler {

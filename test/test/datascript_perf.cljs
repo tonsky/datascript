@@ -3,7 +3,8 @@
     [datascript.btset :as btset]
     [datascript :as d]
     [datascript.core :as dc]
-    [test.datascript.perf :as perf]))
+    [test.datascript.perf :as perf]
+    [goog.array :as garray]))
 
 (enable-console-print!)
 
@@ -17,8 +18,8 @@
    :salary    (rand-int 100000)})
 
 (def test-matrix-transact [ :test   ["transact"]
-                            :size   [100 500 2000]
-                            :batch  [1 5] ])
+                            :size   [100 500]
+                            :batch  [1]])
 
 (defn test-setup-people [opts]
   (let [people (repeatedly (:size opts) random-man)
@@ -31,9 +32,29 @@
                 (let [conn (d/create-conn)]
                   (doseq [ps (partition-all (:batch opts 1) (:people opts))]
                     (d/transact! conn ps))))
-    :duration 5000
+    :duration 1000
     :matrix   test-matrix-transact
     :setup-fn test-setup-people))
+
+(defn- setup-datoms [opts]
+  (let [people (repeatedly (:size opts) random-man)
+        people (map #(assoc %1 :db/id %2) people (range))
+        datoms (mapcat (fn [person]
+                         (map (fn [[k v]]
+                                (dc/Datom. (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
+                              (dissoc person :db/id)))
+                       people)]
+    (assoc opts :datoms (vec datoms))))
+
+(defn ^:export perftest-from-reader []
+  (perf/suite (fn [opts]
+                ((:fn opts) (:datoms opts)))
+    :duration 5000
+    :matrix   [ :fn   {;; "old" d/db-from-reader
+                       "new" d/init-db}
+                :size [100 500 2000 5000 20000] ]
+    :setup-fn setup-datoms))
+      
 
 (defn sort-merge-join [db eis a]
   (let [min-e nil ;;(first eis)
@@ -225,3 +246,63 @@
         (let [dt (/ (* 1000 time) iters)]
           (println "perftest-db-equiv" dt "ms")
           dt)))))
+
+(defn ^:export perftest-db-equiv []
+  (let [datoms (gen-long-db 30 10)]
+    (loop [time  0
+           iters 0]
+      (if (< iters 100)
+        (let [db1    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
+              db2    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
+              t0     (now)]
+          (= db1 db2)
+          (recur (+ time (- (now) t0)) (inc iters)))
+        (let [dt (/ (* 1000 time) iters)]
+          (println "perftest-db-equiv" dt "ms")
+          dt)))))
+
+(def letters  (seq "abcdefghijklmnopqrstuvwxyz"))
+(def alphabet (concat letters (seq "-------_1234567890")))
+(defn rand-str [n]
+  (apply str (rand-nth letters) (repeatedly (rand-int n) #(rand-nth alphabet))))
+(defn rand-keyword []
+  (if (> (rand) 0.5)
+    (keyword (rand-str 10) (rand-str 20))
+    (keyword (rand-str 20))))
+
+(defn compare-keywords-1 [a b]
+  (cond
+   (= a b) 0
+   (and (not (.-ns a)) (.-ns b)) -1
+   (.-ns a) (if-not (.-ns b)
+              1
+              (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
+                (if (zero? nsc)
+                  (garray/defaultCompare (.-name a) (.-name b))
+                  nsc)))
+   :default (garray/defaultCompare (.-name a) (.-name b))))
+
+(defn compare-keywords-quick [a b]
+  (cond
+   (identical? (.-fqn a) (.-fqn b)) 0
+   (and (not (.-ns a)) (.-ns b)) -1
+   (.-ns a) (if-not (.-ns b)
+              1
+              (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
+                (if (zero? nsc)
+                  (garray/defaultCompare (.-name a) (.-name b))
+                  nsc)))
+   :default (garray/defaultCompare (.-name a) (.-name b))))
+
+(defn ^:export perftest-keywords-compare []
+  (perf/suite (fn [opts] (.sort (:set opts) (:fn opts)))
+    :duration 1000
+    :matrix   [:fn {"compare-symbols" compare-symbols
+                    "compare-keywords-1" compare-keywords-1
+                    "compare-keywords-quick" compare-keywords-quick
+                    }
+               :size [5000]]
+    :setup-fn (fn [opts]
+                (let [seed (vec (repeatedly 50 rand-keyword))
+                      set  (repeatedly (:size opts) #(rand-nth seed))]
+                  (assoc opts :set (into-array set))))))

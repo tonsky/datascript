@@ -2,7 +2,7 @@
   (:require-macros
     [cemerick.cljs.test :refer [is deftest testing]])
   (:require
-    [datascript.btset :refer [btset slice LeafNode]]
+    [datascript.btset :refer [btset -btset-from-sorted-arr slice LeafNode]]
     [cemerick.cljs.test :as t]
     [test.datascript.perf :as perf]))
 
@@ -37,24 +37,24 @@
             xs-rm     (reduce disj (into (sorted-set) xs) rm)
             _         (println "Checking btset" (str (inc i)  "/" iters ":")
                                (count xs) "adds" (str "(" (count xs-sorted) " distinct),")
-                               (count rm) "removals" (str "(down to " (count xs-rm) ")"))
-            set0      (into (btset) xs)
-            
-            set1      (reduce disj set0 rm)]
-        (testing xs
-          (testing "conj, seq"
-            (is (= (vec set0) xs-sorted)))
-          (testing "eq"
-            (is (= set0 (set xs-sorted))))
-          (testing "count"
-            (is (= (count set0) (count xs-sorted))))
-          (testing rm
-            (testing "disj"
-              (is (= (vec set1) (vec xs-rm)))
-              (is (= (count set1) (count xs-rm)))
-              (is (= set1 xs-rm)))))
-        )))
-  (println "[ OK ] btset checked"))
+                               (count rm) "removals" (str "(down to " (count xs-rm) ")"))]
+        (doseq [[method set0] [["conj" (into (btset) xs)]
+                               ["bulk" (apply btset xs)]]
+                :let [set1 (reduce disj set0 rm)]]
+          (testing method
+            (testing "conj, seq"
+              (is (= (vec set0) xs-sorted)))
+            (testing "eq"
+              (is (= set0 (set xs-sorted))))
+            (testing "count"
+              (is (= (count set0) (count xs-sorted))))
+            (testing rm
+              (testing "disj"
+                (is (= (vec set1) (vec xs-rm)))
+                (is (= (count set1) (count xs-rm)))
+                (is (= set1 xs-rm)))))
+          ))))
+    (println "[ OK ] btset checked"))
 
 (deftest stresstest-slice
   (let [iters 5]
@@ -101,4 +101,20 @@
     :matrix   test-matrix
     :setup-fn test-setup))
 
+(defn ^:export perftest-bulk []
+  (perf/suite (fn [opts]
+                (let [f (:fn opts)
+                      s (repeatedly (:size opts) #(rand-int (:size opts)))]
+                  (f s (-> s into-array (.sort)))))
+    :duration 1000
+    :matrix   [:size [100 500 5000 20000]
+               :fn   {"bulk"        (fn [seq _] (apply btset seq))
+;;                       "bulk-sorted" (fn [_ sorted-arr] (btset-from-sorted-arr sorted-arr compare))
+                      "conj"        (fn [seq _] (into (btset) seq))
+                      
+                      }]))
+       
 ;; (perftest)
+;; (perftest-bulk)
+
+;; (.log js/console (apply btset (range 129)))
