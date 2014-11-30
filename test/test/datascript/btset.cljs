@@ -2,7 +2,7 @@
   (:require-macros
     [cemerick.cljs.test :refer [is deftest testing]])
   (:require
-    [datascript.btset :refer [btset -btset-from-sorted-arr slice LeafNode]]
+    [datascript.btset :as btset :refer [btset btset-iter -btset-from-sorted-arr slice LeafNode]]
     [cemerick.cljs.test :as t]
     [test.datascript.perf :as perf]))
 
@@ -27,6 +27,19 @@
 ;;   IPrintWithWriter
 ;;   (-pr-writer [o writer _]
 ;;     (dump (.-root o) writer "")))
+
+(defn decode-path [path]
+  (cond
+    (== path -1) -1
+    (== path 0)  [0]
+    :else
+    (loop [path path
+           acc  ()]
+      (if (== 0 path)
+        (vec acc)
+        (recur
+          (unsigned-bit-shift-right path 8)
+          (conj acc (bit-and path 0xFF)))))))
 
 (deftest stresstest-btset
   (let [iters 5]
@@ -69,7 +82,10 @@
             set-range (slice set from to)]
         (testing xs
           (testing (str "from " from " to " to)
-            (is (= (vec set-range) expected)))))))
+            (is (= (vec set-range) expected))
+            (is (= (vec (reverse set-range)) (reverse expected)))
+            (is (= (vec (reverse (reverse set-range))) expected))
+            )))))
   (println "[ OK ] btset slice checked"))
 
 ;; (t/test-ns 'test.datascript.btset)

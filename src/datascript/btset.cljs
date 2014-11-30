@@ -23,8 +23,8 @@
         0000 0111   0011 0101   0000 1011
 
   BTSetIter: set       :: Set this iterator belongs to
-             path      :: Current path
-             till-path :: Right bound path (exclusive)
+             left      :: Current path
+             right     :: Right bound path (exclusive)
              keys      :: Cached ref for keys array for a leaf
              idx       :: Cached idx in keys array
   Keys and idx are cached for fast iteration inside a leaf
@@ -94,6 +94,9 @@
       idx)))
 
 ;; Array operations
+
+(defn alast [arr]
+  (aget arr (dec (alength arr))))
 
 (defn cut-n-splice [arr cut-from cut-to splice-from splice-to xs]
   (let [arr-l   (alength arr)
@@ -204,7 +207,7 @@
 ;; 
 
 (defn lim-key [node]
-  (aget (.-keys node) (dec (alength (.-keys node)))))
+  (alast (.-keys node)))
 
 (defn return-array
   "Drop non-nil references and return array of arguments"
@@ -416,11 +419,57 @@
         ;; leaf overflow
         -1))))
 
-(defn next-path [set path]
+(defn next-path
+  "Returns path representing next item after `path` in natural traversal order,
+   or -1 if end of tree has been reached"
+  [set path]
   (-next-path (.-root set) path (.-shift set)))
 
+(defn -rpath
+  "Returns rightmost path possible starting from node and going deeper"
+  [node level]
+  (loop [node  node
+         path  empty-path
+         level level]
+    (if (pos? level)
+      (recur (alast (.-pointers node))
+             (path-set path level (dec (alength (.-pointers node))))
+             (- level level-shift))
+      (path-set path 0 (dec (alength (.-keys node)))))))
 
-(deftype BTSetIter [set path till-path keys idx]
+(defn -prev-path [node path level]
+  (let [idx (path-get path level)]
+    (if (pos? level)
+      ;; inner node
+      (let [sub-level (- level level-shift)
+            sub-path  (-prev-path (aget (.-pointers node) idx) path sub-level)]
+        (if (== -1 sub-path)
+          ;; nested node overflow
+          (if (>= (dec idx) 0)
+            ;; advance current node idx, reset subsequent indexes
+            (let [idx      (dec idx)
+                  sub-path (-rpath (aget (.-pointers node) idx) sub-level)]
+              (path-set sub-path level idx))
+            ;; current node overflow
+            -1)
+          ;; keep current idx
+          (path-set sub-path level idx)))
+      ;; leaf
+      (if (>= (dec idx) 0)
+        ;; advance leaf idx
+        (path-set empty-path 0 (dec idx))
+        ;; leaf overflow
+        -1))))
+
+(defn prev-path
+  "Returns path representing previous item before `path` in natural traversal order,
+   or -1 if `path` was already beginning of a tree"
+  [set path]
+  (-prev-path (.-root set) path (.-shift set)))
+
+(declare BTSetBackwardsIter -btset-iter -btset-backwards-iter)
+
+(deftype BTSetIter [set left right keys idx]
   ISeqable
   (-seq [this]
     (when keys this))
@@ -432,24 +481,75 @@
   (-rest [this]
     (if-let [next (-next this)]
       next
-      (BTSetIter. set -1 till-path nil -1)))
+      (BTSetIter. set -1 -1 nil -1)))
   
   INext
   (-next [_]
-    (if (< (inc idx) (alength keys))
-      ;; can use cached array to move forward
-      (when (< (inc path) till-path)
-        (BTSetIter. set (inc path) till-path keys (inc idx)))
-      (let [path (next-path set path)]
-        (when (and (not= -1 path) (< path till-path))
-          (BTSetIter. set path till-path (keys-for set path) (path-get path 0)))))))
+    (when keys
+      (if (< (inc idx) (alength keys))
+        ;; can use cached array to move forward
+        (when (< (inc left) right)
+          (BTSetIter. set (inc left) right keys (inc idx)))
+        (let [left (next-path set left)]
+          (when (and (not= -1 left) (< left right))
+            (-btset-iter set left right))))))
+  
+  IReversible
+  (-rseq [_]
+    (when keys
+      (-btset-backwards-iter set (prev-path set left) (prev-path set right)))))
 
-(defn btset-iter [set]
-  (let [root-l (alength (.-keys (.-root set)))]
-    (when (pos? root-l)
-      (BTSetIter. set empty-path (path-set empty-path (.-shift set) root-l) (keys-for set empty-path) 0))))
+(defn -btset-iter [set left right]
+  (BTSetIter. set left right (keys-for set left) (path-get left 0)))
 
-(defn -seek [set key]
+(deftype BTSetBackwardsIter [set left right keys idx]
+  ISeqable
+  (-seq [this]
+    (when keys this))
+  
+  ISeq
+  (-first [_]
+    (when keys (aget keys idx)))
+  
+  (-rest [this]
+    (if-let [next (-next this)]
+      next
+      (BTSetBackwardsIter. set -1 -1 nil -1)))
+  
+  INext
+  (-next [_]
+    (when keys
+      (if (>= (dec idx) 0)
+        ;; can use cached array to advance
+        (when (> (dec right) left)
+          (BTSetBackwardsIter. set left (dec right) keys (dec idx)))
+        (let [right (prev-path set right)]
+          (when (and (not= -1 right) (> right left))
+            (-btset-backwards-iter set left right))))))
+  
+  IReversible
+  (-rseq [_]
+    (when keys
+      (let [new-left  (if (== left -1) 0 (next-path set left))
+            new-right (next-path set right)
+            new-right (if (== new-right -1) (inc right) new-right)]
+        (-btset-iter set new-left new-right)))))
+
+(defn -btset-backwards-iter [set left right]
+  (BTSetBackwardsIter. set left right (keys-for set right) (path-get right 0)))
+
+(defn btset-iter
+  "Iterator that represents whole set"
+  [set]
+  (when (pos? (alength (.-keys (.-root set))))
+    (let [left   empty-path
+          right  (inc (-rpath (.-root set) (.-shift set)))]
+      (-btset-iter set left right))))
+
+(defn -seek
+  "Returns path to first element >= key,
+   or -1 if all elements in a set < key"
+  [set key]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
@@ -463,7 +563,11 @@
                  (path-set path level idx)
                  (- level level-shift)))))))
 
-(defn -rseek [set key]
+(defn -rseek
+  "Returns path to the first element that is > key.
+   If all elements in a set are <= key, returns `(-rpath set) + 1`.
+   It’s a virtual path that is bigger than any path in a tree"
+  [set key]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
@@ -485,6 +589,8 @@
           (BTSetIter. set path till-path (keys-for set path) (path-get path 0)))))))
 
 (defn slice
+  "When called with single key, returns iterator over set that contains all elements equal to the key.
+   When called with two keys (range), returns iterator for all X where key-from <= X <= key-to"
   ([set key] (slice set key key))
   ([set key-from key-to]
     (binding [*cmp* (.-comparator set)]
@@ -536,6 +642,10 @@
   ISeqable
   (-seq [this]
     (btset-iter this))
+  
+  IReversible
+  (-rseq [this]
+    (reverse (btset-iter this)))
   
   ICounted
   (-count [_] cnt)

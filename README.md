@@ -197,7 +197,6 @@ Expected soon:
 * Nested maps in transactions
 * Proper documentation
 * Lookup refs
-* Fast db serialization and deserialization
 * Unique constraints, upsert?
 * Find specifications
 * Pull selections

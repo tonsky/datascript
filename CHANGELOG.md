@@ -1,3 +1,7 @@
+# WIP
+
+- BTSet and its slices (returned by `datoms`/`seek-datoms` calls) now support fast reverse iteration via `reverse`.
+
 # 0.6.0
 
 - [ BREAKING ] Entity ids and transaction ids now have to be numbers, attributes can only be keywords (strings if used from JS)
