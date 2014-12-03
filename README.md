@@ -66,7 +66,7 @@ Projects using DataScript:
 ;; => #{ ["Maksim" 45] }
 
 
-;; Desctucturing, function call, predicate call, query over collection
+;; Destructuring, function call, predicate call, query over collection
 
 (d/q '[ :find  ?k ?x
         :in    [[?k [?min ?max]] ...] ?range
