@@ -1,6 +1,7 @@
 # WIP
 
 - BTSet and its slices (returned by `datoms`/`seek-datoms` calls) now support fast reverse iteration via `reverse`.
+- `(datascript/datom e a v & [tx added])` call for creating new datoms
 
 # 0.6.0
 

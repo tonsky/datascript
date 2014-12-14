@@ -109,8 +109,11 @@
   (-pr-writer [d w opts]
     (pr-sequential-writer w pr-writer "#datascript/Datom [" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)])))
 
+(defn datom [e a v & [tx added]]
+  (dc/Datom. e a v (or tx tx0) (if (nil? added) true added)))
+
 (defn datom-from-reader [[e a v tx added]]
-  (dc/Datom. e a v tx added))
+  (datom e a v tx added))
 
 (extend-type dc/DB
   IPrintWithWriter
