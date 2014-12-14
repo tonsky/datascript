@@ -2,6 +2,7 @@
 
 - BTSet and its slices (returned by `datoms`/`seek-datoms` calls) now support fast reverse iteration via `reverse`.
 - `(datascript/datom e a v & [tx added])` call for creating new datoms
+- Added missing aggregate funs: `avg`, `median`, `variance`, `stddev` and `count-distinct` (issue #42, thx [@montyxcantsin](https://github.com/montyxcantsin))
 
 # 0.6.0
 

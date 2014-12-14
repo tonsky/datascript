@@ -740,11 +740,11 @@
              [[4]])))
 
     (testing "Multiple aggregates, correct grouping with :with"
-      (is (= (d/q '[ :find (sum ?heads) (min ?heads) (max ?heads) (count ?heads)
+      (is (= (d/q '[ :find (sum ?heads) (min ?heads) (max ?heads) (count ?heads) (count-distinct ?heads)
                      :with ?monster
                      :in   [[?monster ?heads]] ]
                   monsters)
-             [[6 1 3 4]])))
+             [[6 1 3 4 2]])))
 
     (testing "Grouping and parameter passing"
       (is (= (set (d/q '[ :find ?color (max ?amount ?x) (min ?amount ?x)

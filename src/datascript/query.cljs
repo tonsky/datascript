@@ -126,9 +126,11 @@
                    (/ 2)))))
          (variance
            [coll]
-           (let [mean (avg coll)]    
-             (avg (for [x coll] 
-                    (js/Math.pow (- x mean) 2)))))
+           (let [mean (avg coll)
+                 sum  (sum (for [x coll
+                                 :let [delta (- x mean)]]
+                             (* delta delta)))]
+             (/ sum (count coll))))
          (stddev 
            [coll] 
            (js/Math.sqrt (variance coll)))]
@@ -163,7 +165,8 @@
                 ([n coll] (vec (repeatedly n #(rand-nth coll)))))
     'sample   (fn [n coll]
                 (vec (take n (shuffle coll))))
-    'count    count}))
+    'count    count
+    'count-distinct (fn [coll] (count (distinct coll)))}))
 
 
 ;;
