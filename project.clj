@@ -6,7 +6,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-2371" :scope "provided"]
+    [org.clojure/clojurescript "0.0-2411" :scope "provided"]
   ]
   :jvm-opts ["-Xmx2g"]
   :cljsbuild { 

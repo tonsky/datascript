@@ -43,7 +43,7 @@
     (- n1 n2)
     0))
 
-(defn- cmp-val [o1 o2]
+(defn cmp-val [o1 o2]
   (if (and (some? o1) (some? o2))
     (let [t1 (type o1)
           t2 (type o2)]

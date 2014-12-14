@@ -140,24 +140,34 @@
     'stddev   stddev
     'distinct (comp vec distinct)
     'min      (fn
-                ([coll] (reduce min coll))
+                ([coll] (reduce (fn [acc x]
+                                  (if (neg? (dc/cmp-val x acc))
+                                    x acc))
+                                (first coll) (next coll)))
                 ([n coll]
                   (vec
                     (reduce (fn [acc x]
                               (cond
-                                (< (count acc) n) (sort (conj acc x))
-                                (< x (last acc))  (sort (conj (butlast acc) x))
-                                :else             acc))
+                                (< (count acc) n)
+                                  (sort dc/cmp-val (conj acc x))
+                                (neg? (dc/cmp-val x (last acc)))
+                                  (sort dc/cmp-val (conj (butlast acc) x))
+                                :else acc))
                             [] coll))))
     'max      (fn
-                ([coll] (reduce max coll))
+                ([coll] (reduce (fn [acc x]
+                                  (if (pos? (dc/cmp-val x acc))
+                                    x acc))
+                                (first coll) (next coll)))
                 ([n coll]
                   (vec
                     (reduce (fn [acc x]
                               (cond
-                                (< (count acc) n) (sort (conj acc x))
-                                (> x (first acc)) (sort (conj (next acc) x))
-                                :else             acc))
+                                (< (count acc) n)
+                                  (sort dc/cmp-val (conj acc x))
+                                (pos? (dc/cmp-val x (first acc)))
+                                  (sort dc/cmp-val (conj (next acc) x))
+                                :else acc))
                             [] coll))))
     'sum      sum
     'rand     (fn
