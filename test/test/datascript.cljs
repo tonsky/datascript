@@ -569,7 +569,15 @@
                            [(+ ?a1 ?a2) ?a12]
                            [(= ?a12 ?a3)]]
                   db)
-             #{[1 2 3] [2 1 3]})))))
+             #{[1 2 3] [2 1 3]})))
+    
+    (testing "Function on empty rel"
+      (is (= (d/q '[:find  ?e ?y
+                    :where [?e :salary ?x]
+                           [(+ ?x 100) ?y]]
+                  [[0 :age 15] [1 :age 35]])
+             #{})))
+    ))
 
 
 (deftest test-rules
@@ -960,3 +968,4 @@
       (is (= db (cljs.reader/read-string (pr-str db)))))))
 
 ;; (t/test-ns 'test.datascript)
+

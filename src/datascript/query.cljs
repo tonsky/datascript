@@ -181,19 +181,26 @@
 
 ;;
 
-(defn in->rel [form value]
-  (condp looks-like? form
-    '[_ ...] ;; collection binding [?x ...]
-      (reduce sum-rel
-        (map #(in->rel (first form) %) value))
-    '[[*]]   ;; relation binding [[?a ?b]]
-      (reduce sum-rel
-        (map #(in->rel (first form) %) value))
-    '[*]     ;; tuple binding [?a ?b]
-      (reduce prod-rel
-        (map #(in->rel %1 %2) form value))
-    '_       ;; regular binding ?x
-      (Relation. {form 0} [#js [value]])))
+(defn in->rel
+  ([form]
+    (let [attrs (as-> form form
+                  (flatten form)
+                  (filter #(and (symbol? %) (not= '... %) (not= '_ %)) form)
+                  (zipmap form (range)))]
+      (Relation. attrs ())))
+  ([form value]
+    (condp looks-like? form
+      '[_ ...] ;; collection binding [?x ...]
+        (reduce sum-rel
+          (map #(in->rel (first form) %) value))
+      '[[*]]   ;; relation binding [[?a ?b]]
+        (reduce sum-rel
+          (map #(in->rel (first form) %) value))
+      '[*]     ;; tuple binding [?a ?b]
+        (reduce prod-rel
+          (map #(in->rel %1 %2) form value))
+      '_       ;; regular binding ?x
+        (Relation. {form 0} [#js [value]]))))
 
 (defn parse-rules [rules]
   (let [rules (if (string? rules) (cljs.reader/read-string rules) rules)] ;; for datascript.js interop
@@ -347,14 +354,14 @@
                      (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         tuple-fn (-call-fn context production fun args)
-        new-rel  (->> (:tuples production)
-                   (map #(let [val (tuple-fn %)
-                               rel (in->rel out val)]
-                             (prod-rel (Relation. (:attrs production) [%]) rel)))
-                   (reduce sum-rel))]
+        new-rel (if-let [tuples (not-empty (:tuples production))]
+                  (->> tuples
+                       (map #(let [val (tuple-fn %)
+                                   rel (in->rel out val)]
+                               (prod-rel (Relation. (:attrs production) [%]) rel)))
+                       (reduce sum-rel))
+                  (prod-rel production (in->rel out)))]
     (update-in context [:rels] conj new-rel)))
-
-
 
 ;;; RULES
 
