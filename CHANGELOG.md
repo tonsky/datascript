@@ -1,3 +1,7 @@
+# 0.7.1
+
+- Fixed a bug when emtpy coll in input was not creating empty relation
+
 # 0.7.0
 
 - BTSet and its slices (returned by `datoms`/`seek-datoms` calls) now support fast reverse iteration via `reverse`.

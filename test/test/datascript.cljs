@@ -464,7 +464,21 @@
                     :in    $ ?e [?attr ...]
                     :where [?e ?attr ?value]]
                   db 1 [:name :age])
-             #{[:name "Ivan"] [:age 15]}))))
+             #{[:name "Ivan"] [:age 15]})))
+    
+    (testing "Empty coll handling"
+      (is (= (d/q '[:find ?id
+                    :in $ [?id ...]
+                    :where [?id :age _]]
+               [[1 :name "Ivan"]
+                [2 :name "Petr"]])
+             #{}))
+      (is (= (d/q '[:find ?id
+                    :in $ [[?id]]
+                    :where [?id :age _]]
+               [[1 :name "Ivan"]
+                [2 :name "Petr"]])
+             #{}))))
 
   (testing "Query without DB"
     (is (= (d/q '[:find ?a ?b

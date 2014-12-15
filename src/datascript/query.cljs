@@ -187,15 +187,16 @@
                   (flatten form)
                   (filter #(and (symbol? %) (not= '... %) (not= '_ %)) form)
                   (zipmap form (range)))]
-      (Relation. attrs ())))
+      (Relation. attrs [])))
   ([form value]
     (condp looks-like? form
       '[_ ...] ;; collection binding [?x ...]
-        (reduce sum-rel
-          (map #(in->rel (first form) %) value))
+        (if (empty? value)
+          (in->rel form)
+          (reduce sum-rel
+            (map #(in->rel (first form) %) value)))
       '[[*]]   ;; relation binding [[?a ?b]]
-        (reduce sum-rel
-          (map #(in->rel (first form) %) value))
+        (in->rel [(first form) '...] value)
       '[*]     ;; tuple binding [?a ?b]
         (reduce prod-rel
           (map #(in->rel %1 %2) form value))
