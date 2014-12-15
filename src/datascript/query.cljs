@@ -299,7 +299,7 @@
                                ['$ clause])
         source   (get (:sources context) source-sym)]
     (cond
-      (instance? dc/DB source)
+      (satisfies? dc/ISearch source)
         (lookup-pattern-db source pattern)
       :else
         (lookup-pattern-coll source pattern))))

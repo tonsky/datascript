@@ -1,4 +1,5 @@
 (ns datascript
+  (:refer-clojure :exclude [filter])
   (:require
     [datascript.core :as dc]
     [datascript.query :as dq]
@@ -15,9 +16,11 @@
 (def ^:const tx0 dc/tx0)
 
 (defn- refs [schema]
-  (->> schema
-    (filter (fn [[_ v]] (= (:db/valueType v) :db.type/ref)))
-    (mapv first)))
+  (reduce-kv (fn [acc attr v]
+               (if (= (:db/valueType v) :db.type/ref)
+                 (conj acc attr)
+                 acc))
+             #{} schema))
 
 (defn empty-db [& [schema]]
   (dc/map->DB {
@@ -46,21 +49,42 @@
       :max-tx  max-tx
       :refs    (refs schema)})))
 
+(defn is-filtered [db]
+  (instance? dc/FilteredDB db))
+
+(defn filter [db pred]
+  (if (is-filtered db)
+    (let [u (.-unfiltered-db db)]
+      (dc/FilteredDB. u #(and (pred u %) ((.-pred db) %))))
+    (dc/FilteredDB. db #(pred db %))))
+
+(defn with [db tx-data & [tx-meta]]
+  (if (is-filtered db)
+    (throw (js/Error. "Filtered DB cannot be modified"))
+    (dc/transact-tx-data (dc/map->TxReport
+                           { :db-before db
+                             :db-after  db
+                             :tx-data   []
+                             :tempids   {}
+                             :tx-meta   tx-meta}) tx-data)))
+
+(defn db-with [db tx-data]
+  (:db-after (with db tx-data)))
+
+(defn datoms [db index & cs]
+  (dc/-datoms db index cs))
+
+(defn seek-datoms [db index & cs]
+  (dc/-seek-datoms db index cs))
+
+(defn index-range [db attr start end]
+  (dc/-index-range db attr start end))
+
+;; Conn
 
 (defn create-conn [& [schema]]
   (atom (empty-db schema)
         :meta { :listeners  (atom {}) }))
-
-(defn with [db tx-data & [tx-meta]]
-  (dc/transact-tx-data (dc/map->TxReport
-                         { :db-before db
-                           :db-after  db
-                           :tx-data   []
-                           :tempids   {}
-                           :tx-meta   tx-meta}) tx-data))
-
-(defn db-with [db tx-data]
-  (:db-after (with db tx-data)))
 
 (defn -transact! [conn tx-data tx-meta]
   (let [report (atom nil)]
@@ -85,21 +109,6 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
-(defn- components->pattern [index [c0 c1 c2 c3]]
-  (case index
-    :eavt (dc/Datom. c0 c1 c2 c3 nil)
-    :aevt (dc/Datom. c1 c0 c2 c3 nil)
-    :avet (dc/Datom. c2 c0 c1 c3 nil)))
-
-(defn datoms [db index & cs]
-  (btset/slice (get db index) (components->pattern index cs)))
-
-(defn seek-datoms [db index & cs]
-  (btset/slice (get db index) (components->pattern index cs) (dc/Datom. nil nil nil nil nil)))
-
-(defn index-range [db attr start end]
-  (btset/slice (:avet db) (dc/Datom. nil attr start nil nil)
-                          (dc/Datom. nil attr end nil nil)))
 
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
@@ -115,25 +124,34 @@
 (defn datom-from-reader [[e a v tx added]]
   (datom e a v tx added))
 
-(extend-type dc/DB
-  IPrintWithWriter
+(defn pr-db [db w opts]
+  (-write w "#datascript/DB {")
+  (-write w ":schema ")
+  (pr-writer (dc/-schema db) w opts)
+  (-write w ", :datoms ")
+  (pr-sequential-writer w
+    (fn [d w opts]
+      (pr-sequential-writer w pr-writer "[" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d)]))
+    "[" " " "]" opts (dc/-datoms db :eavt []))
+  (-write w "}"))
+
+(extend-protocol IPrintWithWriter
+  dc/DB
   (-pr-writer [db w opts]
-    (-write w "#datascript/DB {")
-    (-write w ":schema ")
-    (pr-writer (.-schema db) w opts)
-    (-write w ", :datoms ")
-    (pr-sequential-writer w
-      (fn [d w opts]
-        (pr-sequential-writer w pr-writer "[" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d)]))
-      "[" " " "]" opts (.-eavt db))
-    (-write w "}")))
+    (pr-db db w opts))
+
+  dc/FilteredDB
+  (-pr-writer [db w opts]
+    (pr-db db w opts)))
 
 (defn db-from-reader [{:keys [schema datoms]}]
   (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
 
+
 ;; Datomic compatibility layer
 
 (def last-tempid (atom -1000000))
+
 (defn tempid
   ([part]
     (if (= part :db.part/tx)
@@ -143,6 +161,7 @@
     (if (= part :db.part/tx)
       :db/current-tx
       x)))
+
 (defn resolve-tempid [_db tempids tempid]
   (get tempids tempid))
 

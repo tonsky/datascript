@@ -169,6 +169,7 @@ The following features are supported:
 * Database “mutations” via `transact!`
 * Callback-based analogue to txReportQueue via `listen!`
 * Direct index lookup and iteration via `datoms` and `seek-datoms`
+* Filtered databases via `filter`
 
 Query engine features:
 

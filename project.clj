@@ -36,7 +36,7 @@
             :source-paths ["src" "test"]
             :compiler {
               :output-to     "web/datascript.js"
-              :output-dir    "web/out"
+              :output-dir    "web/target-cljs"
               :optimizations :none
               :source-map    true
             }}

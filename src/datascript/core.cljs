@@ -33,6 +33,15 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
+(defprotocol IIndexAccess
+  (-datoms [db index components])
+  (-seek-datoms [db index components])
+  (-index-range [db attr start end]))
+
+(defprotocol IDB
+  (-schema [db])
+  (-refs [db]))
+
 (defn- cmp [o1 o2]
   (if (and o1 o2)
     (compare o1 o2)
@@ -126,12 +135,20 @@
     (- (.-e d1) (.-e d2))
     (- (.-tx d1) (.-tx d2))))
 
-
+(defn- components->pattern [index [c0 c1 c2 c3]]
+  (case index
+    :eavt (Datom. c0 c1 c2 c3 nil)
+    :aevt (Datom. c1 c0 c2 c3 nil)
+    :avet (Datom. c2 c0 c1 c3 nil)))
 
 (defrecord DB [schema eavt aevt avet max-eid max-tx refs]
   Object
   (toString [this]
     (pr-str* this))
+  
+  IDB
+  (-schema [_] schema)
+  (-refs   [_] refs)
 
   ISearch
   (-search [_ [e a v tx]]
@@ -157,9 +174,43 @@
       (filter #(and (= v (.-v %)) (= tx (.-tx %))) eavt) ;; _ _ v tx
       (filter #(= v (.-v %)) eavt)                       ;; _ _ v _
       (filter #(= tx (.-tx %)) eavt)                     ;; _ _ _ tx
-      eavt])))                                           ;; _ _ _ _
+      eavt]))                                            ;; _ _ _ _
 
-(defn- equiv-index [x y]
+  IIndexAccess
+  (-datoms [this index cs]
+    (btset/slice (get this index) (components->pattern index cs)))
+
+  (-seek-datoms [this index cs]
+    (btset/slice (get this index) (components->pattern index cs) (Datom. nil nil nil nil nil)))
+
+  (-index-range [_ attr start end]
+    (btset/slice avet (Datom. nil attr start nil nil)
+                      (Datom. nil attr end nil nil))))
+
+(defrecord FilteredDB [unfiltered-db pred]
+  Object
+  (toString [this]
+    (pr-str* this))
+  
+  IDB
+  (-schema [_] (-schema unfiltered-db))
+  (-refs   [_] (-refs unfiltered-db))
+  
+  ISearch
+  (-search [_ pattern]
+    (filter pred (-search unfiltered-db pattern)))
+  
+  IIndexAccess
+  (-datoms [_ index cs]
+    (filter pred (-datoms unfiltered-db index cs)))
+
+  (-seek-datoms [_ index cs]
+    (filter pred (-seek-datoms unfiltered-db index cs)))
+
+  (-index-range [_ attr start end]
+    (filter pred (-index-range unfiltered-db attr start end))))
+  
+(defn- -equiv-index [x y]
   (and (= (count x) (count y))
     (loop [xs (seq x)
            ys (seq y)]
@@ -168,25 +219,30 @@
         (= (first xs) (first ys)) (recur (next xs) (next ys))
         :else false))))
 
-(extend-type DB
-  IHash
-  (-hash [this]
-    (or (.-__hash this)
-        (set! (.-__hash this) (hash-coll (.-eavt this)))))
-  IEquiv
-  (-equiv [this other]
-    (and (instance? DB other)
-         (= (.-schema this) (.-schema other))
-         (equiv-index (.-eavt this) (.-eavt other)))))
+(defn- -hash-db [db]
+  (or (.-__hash db)
+      (set! (.-__hash db) (hash-coll (-datoms db :eavt [])))))
 
+(defn- -equiv-db [this other]
+  (and (or (instance? DB other) (instance? FilteredDB other))
+       (= (-schema this) (-schema other))
+       (-equiv-index (-datoms this :eavt []) (-datoms other :eavt []))))
+
+(extend-type DB
+  IHash (-hash [this] (-hash-db this))
+  IEquiv (-equiv [this other] (-equiv-db this other)))
+
+(extend-type FilteredDB
+  IHash (-hash [this] (-hash-db this))
+  IEquiv (-equiv [this other] (-equiv-db this other)))
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
 (defn multival? [db attr]
-  (= (get-in db [:schema attr :db/cardinality]) :db.cardinality/many))
+  (= (get-in (-schema db) [attr :db/cardinality]) :db.cardinality/many))
 
 (defn ref? [db attr]
-  (= (get-in db [:schema attr :db/valueType]) :db.type/ref))
+  (contains? (-refs db) attr))
 
 ;;;;;;;;;; Transacting
 
@@ -342,5 +398,5 @@
 
             (= op :db.fn/retractEntity)
               (let [e-datoms (-search db [e])
-                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (.-refs db))]
+                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (-refs db))]
                 (recur (reduce transact-retract-datom report (concat e-datoms v-datoms)) entities)))))))

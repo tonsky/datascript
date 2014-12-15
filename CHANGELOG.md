@@ -5,6 +5,7 @@
 - Added missing aggregate funs: `avg`, `median`, `variance`, `stddev` and `count-distinct` (issue #42, thx [@montyxcantsin](https://github.com/montyxcantsin))
 - `min` and `max` aggregates use comparator instead of default js `<` comparison
 - Fixed a bug when fn inside a query on empty relation returned non-empty result
+- Filtered DB support via `filter`
 
 # 0.6.0
 
