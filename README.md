@@ -19,13 +19,22 @@ The intention with DataScript is to be a basic building block in client-side app
 
 Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
 
+Talks:
+
+- “DataScript for Web Development” talk (Clojure eXchange, Dec 2014): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2014.12%20clojure%20eXchange.pdf), [video](https://skillsmatter.com/skillscasts/6038-datascript-for-web-development)
+- DataScript hangout (May 2014, in Russian): [video](http://www.youtube.com/watch?v=jhBC81pczZY)
+
 Projects using DataScript:
 
-- CatChat, chat demo app: [sources](https://github.com/tonsky/datascript-chat), [code walkthrough](http://tonsky.me/blog/datascript-chat/), [live](http://tonsky.me/datascript-chat/)
 - Acha-acha, github achievements: [sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/), [live](http://acha-acha.co/)
 - Showkr, flickr gallery viewer: [sources](https://github.com/piranha/showkr), [live](http://showkr.solovyov.net)
 - Radiant, datalog sketchpad: [sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant), [live version](http://www.stuttaford.me/radiant/)
 - PossibleDB, server-side persistence for DataScript: [sources](https://github.com/runexec/PossibleDB)
+
+Demo applications:
+
+- ToDo, task manager demo app: [sources](https://github.com/tonsky/datascript-todo), [live](http://tonsky.me/datascript-todo/)
+- CatChat, chat demo app: [sources](https://github.com/tonsky/datascript-chat), [code walkthrough](http://tonsky.me/blog/datascript-chat/), [live](http://tonsky.me/datascript-chat/)
 - clj-crud, demo CRUD app: [sources](https://github.com/thegeez/clj-crud), [blog post](http://thegeez.net/2014/04/30/datascript_clojure_web_app.html)
 
 
