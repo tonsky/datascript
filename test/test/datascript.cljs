@@ -1,6 +1,6 @@
 (ns test.datascript
   (:require-macros
-    [cemerick.cljs.test :refer (is are deftest with-test run-tests testing test-var)])
+    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
     [datascript.core :as dc]
     [datascript :as d]

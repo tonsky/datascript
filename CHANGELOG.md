@@ -1,3 +1,7 @@
+# 0.7.2
+
+- Fixed a bug with function call after function relation was filtered out (issue #44) 
+
 # 0.7.1
 
 - Fixed a bug when emtpy coll in input was not creating empty relation
