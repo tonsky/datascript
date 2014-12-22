@@ -722,7 +722,16 @@
                      [(even? ?e)]
                      [(even? ?e2)]]])
              #{[4 6] [2 4]})))
-
+    (testing "Calling rule twice (#44)"
+      (d/q '[:find ?p
+             :in $ % ?fn
+             :where (rule ?p ?fn "a")
+                    (rule ?p ?fn "b")]
+           [[1 :attr "a"]]
+          '[[(rule ?p ?fn ?x)
+             [?p :attr ?x]
+             [(?fn ?x)]]]
+           (constantly true)))
   )
 
 
@@ -1038,4 +1047,3 @@
              (hash (d/filter db remove-ivan)))))))
 
 ;; (t/test-ns 'test.datascript)
-

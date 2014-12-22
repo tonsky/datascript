@@ -317,9 +317,9 @@
 
 
 (defn- context-resolve-val [context sym]
-  ;; TODO raise if more than one tuple bound
   (when-let [rel (first (filter #(contains? (:attrs %) sym) (:rels context)))]
-    (aget (first (:tuples rel)) ((:attrs rel) sym))))
+    (when-let [tuple (first (:tuples rel))]
+      (aget tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -345,8 +345,10 @@
         pred         (or (get built-ins f)
                          (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
-        tuple-pred   (-call-fn context production pred args)
-        new-rel      (update-in production [:tuples] #(filter tuple-pred %))]
+        new-rel      (if pred
+                       (let [tuple-pred (-call-fn context production pred args)]
+                         (update-in production [:tuples] #(filter tuple-pred %)))
+                       (assoc production [:tuples] []))]
     (update-in context [:rels] conj new-rel)))
 
 (defn bind-by-fn [context clause]
@@ -354,14 +356,16 @@
         fun      (or (get built-ins f)
                      (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
-        tuple-fn (-call-fn context production fun args)
-        new-rel (if-let [tuples (not-empty (:tuples production))]
-                  (->> tuples
-                       (map #(let [val (tuple-fn %)
-                                   rel (in->rel out val)]
-                               (prod-rel (Relation. (:attrs production) [%]) rel)))
-                       (reduce sum-rel))
-                  (prod-rel production (in->rel out)))]
+        new-rel (if fun
+                  (let [tuple-fn (-call-fn context production fun args)]
+                    (if-let [tuples (not-empty (:tuples production))]
+                      (->> tuples
+                           (map #(let [val (tuple-fn %)
+                                       rel (in->rel out val)]
+                                   (prod-rel (Relation. (:attrs production) [%]) rel)))
+                           (reduce sum-rel))
+                      (prod-rel production (in->rel out))))
+                  (prod-rel (assoc production [:tuples] []) (in->rel out)))]
     (update-in context [:rels] conj new-rel)))
 
 ;;; RULES
@@ -434,13 +438,13 @@
         (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) (:clauses frame))]
           (if (nil? rule-clause)
 
-            ;; no rules --> expand, collect, sum
+            ;; no rules -> expand, collect, sum
             (let [context (solve (:prefix-context frame) clauses)
                   tuples  (-collect context final-attrs)
                   new-rel (Relation. final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
 
-            ;; has rule --> add guards --> check if dead --> expand rule --> push to stack, recur
+            ;; has rule -> add guards -> check if dead -> expand rule -> push to stack, recur
             (let [[rule & call-args]     rule-clause
                   guards                 (rule-gen-guards rule-clause (:used-args frame))
                   [active-gs pending-gs] (split-guards (concat (:prefix-clauses frame) clauses)
