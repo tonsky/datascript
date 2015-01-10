@@ -27,6 +27,7 @@ Talks:
 
 Projects using DataScript:
 
+- Precursor, collaborative prototyping tool: [live](https://prcrsr.com), [blog](https://prcrsr.com/blog)
 - Acha-acha, github achievements: [sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/), [live](http://acha-acha.co/)
 - Showkr, flickr gallery viewer: [sources](https://github.com/piranha/showkr), [live](http://showkr.solovyov.net)
 - Radiant, datalog sketchpad: [sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant), [live version](http://www.stuttaford.me/radiant/)
