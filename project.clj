@@ -6,9 +6,16 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-2505" :scope "provided"]
+    [org.clojure/clojurescript "0.0-2665" :scope "provided"]
   ]
+  
+  :global-vars {
+    *warn-on-reflection* true
+    *unchecked-math* :warn-on-boxed
+  }
+  
   :jvm-opts ["-Xmx2g"]
+  
   :cljsbuild { 
     :builds [
       { :id "release"
@@ -40,17 +47,11 @@
               :optimizations :none
               :source-map    true
             }}
-          #_{ :id "perf"
-            :source-paths ["src" "test"]
-            :compiler {
-              :output-to     "web/datascript.perf.js"
-              :optimizations :advanced
-            }}
           { :id "testable"
             :source-paths ["src" "test"]
             :compiler {
               :output-to     "web/datascript.testable.js"
-              :optimizations :whitespace
+              :optimizations :advanced
             }}
         ]
         :test-commands {
@@ -59,4 +60,16 @@
         }
       }
     }
-  })
+  }
+  
+  :clean-targets ^{:protect false} [
+    "target"
+    "web/target-cljs"
+    "web/datascript.js"
+    "web/datascript.testable.js"
+    "release-js/datascript.bare.js"
+    "release-js/datascript.js"
+  ]
+  
+
+  )

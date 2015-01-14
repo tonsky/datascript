@@ -794,21 +794,21 @@
              [[[:a/b :a/c] [:a/c :a-/b]]])))
 
     (testing "Min and max comparator order types reliably"
-      ;; Wrong: js '<' operator coerce everything to string
-      ;; (apply min ["1" :1 1]) => 1
-      ;; (apply max ["1" :1 1]) => 1
-      ;; Correct: dc/cmp-val compares types first
-      ;; (sort dc/cmp-val ["1" :1 1]) => (:1 1 "1")
-      (is (= (d/q '[:find (min ?x) (max ?x)
-                    :in [?x ...]]
-                  ["1" :1 1])
-             [[:1 "1"]]))
+      (let [date (js/Date.)]
+        ;; Wrong: js '<' operator coerce everything to string
+        ;; (apply min ["1" date 1]) => 1
+        ;; (apply max ["1" date 1]) => 1
+        ;; Correct: dc/cmp-val compares types first
+        ;; (sort dc/cmp-val ["1" date 1]) => (date 1 "1")
+        (is (= (d/q '[:find (min ?x) (max ?x)
+                      :in [?x ...]]
+                    ["1" date 1])
+               [[date "1"]]))
 
-      (is (= (d/q '[:find (min 2 ?x) (max 2 ?x)
-                    :in [?x ...]]
-                  ["1" :1 1])
-             [[[:1 1] [1 "1"]]])))
-    
+        (is (= (d/q '[:find (min 2 ?x) (max 2 ?x)
+                      :in [?x ...]]
+                    ["1" date 1])
+               [[[date 1] [1 "1"]]]))))
 
     (testing "Grouping and parameter passing"
       (is (= (set (d/q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
@@ -1047,3 +1047,4 @@
              (hash (d/filter db remove-ivan)))))))
 
 ;; (t/test-ns 'test.datascript)
+
