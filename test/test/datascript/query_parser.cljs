@@ -17,13 +17,13 @@
 
 (deftest test-parse-aggregate
   (is (= (qp/parse-find '[?a (count ?b)])
-         (qp/FindRel. [(qp/Variable. '?a) (qp/Aggregate. (qp/BuiltIn. 'count) [(qp/Variable. '?b)])])))
+         (qp/FindRel. [(qp/Variable. '?a) (qp/Aggregate. (qp/BuiltInAggr. 'count) [(qp/Variable. '?b)])])))
   (is (= (qp/parse-find '[[(count ?a) ...]])
-         (qp/FindColl. (qp/Aggregate. (qp/BuiltIn. 'count) [(qp/Variable. '?a)]))))
+         (qp/FindColl. (qp/Aggregate. (qp/BuiltInAggr. 'count) [(qp/Variable. '?a)]))))
   (is (= (qp/parse-find '[(count ?a) .])
-         (qp/FindScalar. (qp/Aggregate. (qp/BuiltIn. 'count) [(qp/Variable. '?a)]))))
+         (qp/FindScalar. (qp/Aggregate. (qp/BuiltInAggr. 'count) [(qp/Variable. '?a)]))))
   (is (= (qp/parse-find '[[(count ?a) ?b]])
-         (qp/FindTuple. [(qp/Aggregate. (qp/BuiltIn. 'count) [(qp/Variable. '?a)]) (qp/Variable. '?b)]))))
+         (qp/FindTuple. [(qp/Aggregate. (qp/BuiltInAggr. 'count) [(qp/Variable. '?a)]) (qp/Variable. '?b)]))))
 
 (deftest test-parse-custom-aggregates
   (is (= (qp/parse-find '[(aggregate ?f ?a)])
@@ -39,7 +39,7 @@
 
 (deftest test-parse-find-elements
   (is (= (qp/parse-find '[(count ?b 1 $x) .])
-         (qp/FindScalar. (qp/Aggregate. (qp/BuiltIn. 'count)
+         (qp/FindScalar. (qp/Aggregate. (qp/BuiltInAggr. 'count)
                                         [(qp/Variable. '?b)
                                          (qp/Constant. 1)
                                          (qp/SrcVar. '$x)])))))

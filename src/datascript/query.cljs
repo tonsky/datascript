@@ -4,6 +4,7 @@
     [clojure.set :as set]
     [clojure.walk :as walk]
     [datascript.core :as dc]
+    [datascript.query-parser :as qp]
     [datascript.impl.entity :as de]))
 
 
@@ -317,7 +318,7 @@
 
 
 (defn- context-resolve-val [context sym]
-  (when-let [rel (first (filter #(contains? (:attrs %) sym) (:rels context)))]
+  (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
       (aget tuple ((:attrs rel) sym)))))
 
@@ -528,34 +529,46 @@
        (map vec)
        set))
 
-(defn find-attrs [q]
-  (concat
-    (map #(if (sequential? %) (last %) %) (:find q))
-    (:with q)))
+(defprotocol IResolve
+  (-resolve [var context]))
 
-(defn -aggregate [q context tuples]
-  (mapv (fn [form fixed-value i]
-          (if (sequential? form)
-            (let [[f & args] form
-                  vals (map #(nth % i) tuples)
-                  args (map #(if (symbol? %) (context-resolve-val context %) %)
-                             (butlast args))
-                  f    (or (built-in-aggregates f)
-                           (context-resolve-val context f))]
+(extend-protocol IResolve
+  qp/Variable
+  (-resolve [var context]
+    (context-resolve-val context (.-symbol var)))
+  qp/SrcVar
+  (-resolve [var context]
+    (get-in context [:sources (.-symbol var)]))
+  qp/BuiltInAggr
+  (-resolve [var _]
+    (get built-in-aggregates (.-symbol var)))
+  qp/Constant
+  (-resolve [var _]
+    (.-value var)))
+
+(defn -aggregate [find-elements context tuples]
+  (mapv (fn [element fixed-value i]
+          (if (qp/aggregate? element)
+            (let [f    (-resolve (:fn element) context)
+                  args (map #(-resolve % context) (butlast (:args element)))
+                  vals (map #(nth % i) tuples)]
               (apply f (concat args [vals])))
             fixed-value))
-    (:find q)
+    find-elements
     (first tuples)
     (range)))
 
-(defn aggregate [q context resultset]
-  (let [group-idxs (->> (map #(when-not (sequential? %1) %2) (:find q) (range))
-                        (remove nil?))
+(defn- idxs-of [pred coll]
+  (->> (map #(when (pred %1) %2) coll (range))
+       (remove nil?)))
+
+(defn aggregate [find-elements context resultset]
+  (let [group-idxs (idxs-of (complement qp/aggregate?) find-elements)
         group-fn   (fn [tuple]
                      (map #(nth tuple %) group-idxs))
         grouped    (group-by group-fn resultset)]
     (for [[_ tuples] grouped]
-      (-aggregate q context tuples))))
+      (-aggregate find-elements context tuples))))
 
 (defn parse-query [query]
   (loop [parsed {}, key nil, qs query]
@@ -567,16 +580,18 @@
 
 (defn q [q & inputs]
   (let [q         (if (sequential? q) (parse-query q) q)
-        find      (find-attrs q)
+        find          (qp/parse-find (:find q))
+        find-elements (qp/elements find)
+        find-vars     (qp/vars find)
         ins       (:in q '[$])
         wheres    (:where q)
         context   (-> (Context. [] {} {})
                     (parse-ins ins inputs))
         resultset (-> context
                     (-q wheres)
-                    (collect find))]
+                    (collect (concat find-vars (:with q))))]
     (cond->> resultset
       (:with q)
-        (mapv #(subvec % 0 (count (:find q))))
-      (not-empty (filter sequential? (:find q)))
-        (aggregate q context))))
+        (mapv #(subvec % 0 (count find-vars)))
+      (some qp/aggregate? find-elements)
+        (aggregate find-elements context))))

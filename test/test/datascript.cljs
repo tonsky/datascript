@@ -844,7 +844,7 @@
               23.53720459187964)))
 
     (testing "Custom aggregates"
-      (is (= (set (d/q '[ :find ?color (?agg ?x)
+      (is (= (set (d/q '[ :find ?color (aggregate ?agg ?x)
                           :in   [[?color ?x]] ?agg ]
                        [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
                         [:blue 7] [:blue 8]]
@@ -1047,4 +1047,5 @@
              (hash (d/filter db remove-ivan)))))))
 
 ;; (t/test-ns 'test.datascript)
+
 

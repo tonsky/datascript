@@ -12,15 +12,31 @@
 ;; src-var                    = symbol starting with "$"
 ;; constant                   = any non-variable data literal
 
-(defrecord Variable [symbol])
-(defrecord SrcVar   [symbol])
-(defrecord BuiltIn  [symbol])
-(defrecord Constant [value])
-(defrecord FindRel    [elements])
-(defrecord FindColl   [element])
-(defrecord FindScalar [element])
-(defrecord FindTuple  [elements])
-(defrecord Aggregate  [fn args])
+(defprotocol IElements
+  (-elements [this]))
+
+(defprotocol IVars
+  (-vars [this]))
+
+(defrecord Variable [symbol]
+  IVars (-vars [_] [symbol]))
+(defrecord SrcVar   [symbol]
+  IVars (-vars [_] []))
+(defrecord BuiltInAggr  [symbol]
+  IVars (-vars [_] []))
+(defrecord Constant [value]
+  IVars (-vars [_] []))
+(defrecord Aggregate  [fn args]
+  IVars (-vars [_] (-vars (last args))))
+
+(defrecord FindRel    [elements]
+  IElements (-elements [_] elements))
+(defrecord FindColl   [element]
+  IElements (-elements [_] [element]))
+(defrecord FindScalar [element]
+  IElements (-elements [_] [element]))
+(defrecord FindTuple  [elements]
+  IElements (-elements [_] elements))
 
 (defn parse-seq [parse-el form]
   (when (sequential? form)
@@ -47,7 +63,7 @@
   (when (and (symbol? form)
              (not (parse-variable form))
              (not (parse-src-var form)))
-    (BuiltIn. form))) ;; TODO check actual builtin table
+    (BuiltInAggr. form)))
 
 (defn parse-fn-arg [form]
   (or (parse-variable form)
@@ -117,3 +133,11 @@
       (parse-find-tuple form)
       (throw (js/Error. "Cannot parse :find, expected: (find-rel | find-coll | find-tuple | find-scalar)"))))
 
+(defn aggregate? [element]
+  (instance? Aggregate element))
+
+(defn elements [find]
+  (-elements find))
+
+(defn vars [find]
+  (mapcat -vars (-elements find)))
