@@ -63,9 +63,7 @@
 (defn ^:export q [query & sources]
   (let [query   (cljs.reader/read-string query)
         results (apply d/q query sources)]
-    (->> (for [tuple results]
-           (into-array tuple))
-         (into-array))))
+    (clj->js results)))
 
 (defn ^:export db_with [db entities]
   (d/db-with db (entities->clj entities)))

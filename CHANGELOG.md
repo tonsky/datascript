@@ -1,3 +1,8 @@
+# WIP
+
+- [ BREAKING ] Custom aggregate fns must be called via special syntax (`aggregate` keyword): `(q '[:find (aggregate ?myfn ?e) :in $ ?myfn ...])`. Built-in aggregates work as before: `(q '[:find (count ?e) ...]`
+- Find specifications: collection `:find [?e ...]`, tuple `:find [?e ?v]`, and scalar `:find ?e .`
+
 # 0.7.2
 
 - Fixed a bug with function call after function relation was filtered out (issue #44) 
@@ -8,7 +13,7 @@
 
 # 0.7.0
 
-- BTSet and its slices (returned by `datoms`/`seek-datoms` calls) now support fast reverse iteration via `reverse`.
+- BTSet and its slices (returned by `datoms`/`seek-datoms`/`index-range` calls) now support fast reverse iteration via `reverse`.
 - `(datascript/datom e a v & [tx added])` call for creating new datoms
 - Added missing aggregate funs: `avg`, `median`, `variance`, `stddev` and `count-distinct` (issue #42, thx [@montyxcantsin](https://github.com/montyxcantsin))
 - `min` and `max` aggregates use comparator instead of default js `<` comparison

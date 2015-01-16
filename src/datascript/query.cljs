@@ -11,6 +11,7 @@
 ;; Records
 
 (defrecord Context [rels sources rules])
+
 ;; attrs:
 ;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
@@ -570,7 +571,20 @@
     (for [[_ tuples] grouped]
       (-aggregate find-elements context tuples))))
 
-(defn parse-query [query]
+(defprotocol IPostProcess
+  (-post-process [find tuples]))
+
+(extend-protocol IPostProcess
+  qp/FindRel
+  (-post-process [_ tuples] tuples)
+  qp/FindColl
+  (-post-process [_ tuples] (into [] (map first) tuples))
+  qp/FindScalar
+  (-post-process [_ tuples] (ffirst tuples))
+  qp/FindTuple
+  (-post-process [_ tuples] (first tuples)))
+
+(defn query->map [query]
   (loop [parsed {}, key nil, qs query]
     (if-let [q (first qs)]
       (if (keyword? q)
@@ -579,19 +593,23 @@
       parsed)))
 
 (defn q [q & inputs]
-  (let [q         (if (sequential? q) (parse-query q) q)
+  (let [q             (cond-> q
+                        (sequential? q) query->map)
         find          (qp/parse-find (:find q))
         find-elements (qp/elements find)
         find-vars     (qp/vars find)
-        ins       (:in q '[$])
-        wheres    (:where q)
-        context   (-> (Context. [] {} {})
-                    (parse-ins ins inputs))
-        resultset (-> context
-                    (-q wheres)
-                    (collect (concat find-vars (:with q))))]
+        result-arity  (count find-vars)
+        ins           (:in q '[$])
+        wheres        (:where q)
+        context       (-> (Context. [] {} {})
+                        (parse-ins ins inputs))
+        resultset     (-> context
+                        (-q wheres)
+                        (collect (concat find-vars (:with q))))]
     (cond->> resultset
       (:with q)
-        (mapv #(subvec % 0 (count find-vars)))
+        (mapv #(vec (subvec % 0 result-arity)))
       (some qp/aggregate? find-elements)
-        (aggregate find-elements context))))
+        (aggregate find-elements context)
+      true
+        (-post-process find))))

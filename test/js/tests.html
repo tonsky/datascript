@@ -326,6 +326,24 @@
         assert_eq_set([[2], [3]], res);
       }
       
+      function test_find_specs() {
+        var res = d.q('[:find [?name ...] \
+                        :where [_ "name" ?name]]',
+                      people_db);
+        assert_eq(["Ivan", "Petr"], res);
+        
+        var res = d.q('[:find [?name ?age] \
+                        :where [1 "name" ?name] \
+                               [1 "age" ?age]]',
+                      people_db);
+        assert_eq(["Ivan", 15], res);
+        
+        var res = d.q('[:find ?name . \
+                        :where [1 "name" ?name]]',
+                      people_db);
+        assert_eq("Ivan", res);
+      }
+      
       function test_datoms() {
         assert_eq_datoms([[1, "age", 15, tx0+1],
                           [1, "name", "Ivan", tx0+1]],
@@ -351,6 +369,7 @@
                           test_q_relation,
                           test_q_rules,
                           test_q_fns,
+                          test_find_specs,
                           test_datoms
                         ]);
       }

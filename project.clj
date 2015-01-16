@@ -56,7 +56,7 @@
         ]
         :test-commands {
           "test.datascript"    [ "phantomjs" :runner "web/datascript.testable.js" ]
-          "test.datascript.js" [ "phantomjs" "test/js/js.js" ]
+          "test.datascript.js" [ "phantomjs" "test/js/runner.js" ]
         }
       }
     }

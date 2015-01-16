@@ -192,10 +192,12 @@ Query engine features:
 * Predicates and user functions in query
 * Rules, recursive rules
 * Aggregates
+* Find specifications
 
 Interface differences:
 
 * Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
+* Custom aggregate functions are called via aggregate keyword: `:find (aggregate ?myfn ?e) :in $ ?myfn`
 * Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
@@ -210,8 +212,7 @@ Expected soon:
 * Proper documentation
 * Lookup refs
 * Unique constraints, upsert?
-* Find specifications
-* Pull selections
+* Pull API
 
 ## Differences from Datomic
 
