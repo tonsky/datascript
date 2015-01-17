@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [filter])
   (:require
     [datascript.core :as dc]
+    [datascript.pull-api :as dp]
     [datascript.query :as dq]
     [datascript.impl.entity :as de]
     [datascript.btset :as btset]))
@@ -11,6 +12,9 @@
 (def  q dq/q)
 (def  entity de/entity)
 (defn entity-db [entity] (.-db entity))
+
+(def  pull dp/pull)
+(def  pull-many dp/pull-many)
 (def  touch de/touch)
 
 (def ^:const tx0 dc/tx0)
