@@ -1,7 +1,8 @@
 # WIP
 
-- [ BREAKING ] Custom aggregate fns must be called via special syntax (`aggregate` keyword): `(q '[:find (aggregate ?myfn ?e) :in $ ?myfn ...])`. Built-in aggregates work as before: `(q '[:find (count ?e) ...]`
 - Find specifications: collection `:find [?e ...]`, tuple `:find [?e ?v]`, and scalar `:find ?e .`
+- [ BREAKING ] Custom aggregate fns must be called via special syntax (`aggregate` keyword): `(q '[:find (aggregate ?myfn ?e) :in $ ?myfn ...])`. Built-in aggregates work as before: `(q '[:find (count ?e) ...]`
+- Return nil from `entity` when passed nil eid (issue #47)
 
 # 0.7.2
 

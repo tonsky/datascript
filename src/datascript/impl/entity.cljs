@@ -5,7 +5,9 @@
 (declare Entity)
 
 (defn entity [db eid]
-  (Entity. db eid false {}))
+  {:pre [(satisfies? dc/IDB db) (satisfies? dc/ISearch db)]}
+  (cond
+    (number? eid) (Entity. db eid false {})))
 
 (defn- entity-attr [db a datoms]
   (if (dc/multival? db a)
