@@ -79,13 +79,11 @@
   (get [this attr]
     (if (= attr ":db/id")
       eid
-      (if-let [[_ ns name] (re-matches #"(?:([^/]+)/)?_([^/]+)" attr)]
-        (let [attr (if ns (str ns "/" name) name)]
-          (-> (-lookup-backwards db eid attr nil)
-              multival->js))
+      (if (dc/reverse-ref? attr)
+        (-> (-lookup-backwards db eid (dc/reverse-ref attr) nil)
+            multival->js)
         (cond-> (-lookup this attr)
-          (dc/multival? db attr)
-            multival->js))))
+          (dc/multival? db attr) multival->js))))
   (forEach [this f]
     (doseq [[a v] (js-seq this)]
       (f v a this)))

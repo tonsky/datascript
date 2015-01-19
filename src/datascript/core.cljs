@@ -290,13 +290,32 @@
       (update-in [:db-after] with-datom datom)
       (update-in [:tx-data] conj datom)))
 
-(defn- reverse-ref? [attr]
-  (= "_" (nth (name attr) 0)))
+(defn- ^boolean reverse-ref? [attr]
+  (cond
+    (keyword? attr)
+    (= "_" (nth (name attr) 0))
+    
+    (string? attr)
+    (boolean (re-matches #"(?:([^/]+)/)?_([^/]+)" attr))
+   
+    :else
+    (throw (js/Error. "Bad attribute type: " attr ", expected keyword or string"))))
 
 (defn- reverse-ref [attr]
-  (if (reverse-ref? attr)
-    (keyword (namespace attr) (subs (name attr) 1))
-    (keyword (namespace attr) (str "_" (name attr)))))
+  (cond
+    (keyword? attr)
+    (if (reverse-ref? attr)
+      (keyword (namespace attr) (subs (name attr) 1))
+      (keyword (namespace attr) (str "_" (name attr))))
+
+   (string? attr)
+   (let [[_ ns name] (re-matches #"(?:([^/]+)/)?([^/]+)" attr)]
+     (if (= "_" (nth name 0))
+       (if ns (str ns "/" (subs name 1)) (subs name 1))
+       (if ns (str ns "/_" name) (str "_" name))))
+   
+   :else
+    (throw (js/Error. "Bad attribute type: " attr ", expected keyword or string"))))
 
 (defn- validate-eid [eid at]
   (when-not (number? eid)

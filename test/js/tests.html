@@ -117,13 +117,31 @@
       function test_db_with() {
         var db = d.empty_db();
         var db1 = d.db_with(db, [[":db/add", 1, "name", "Ivan"],
-                                     [":db/add", 1, "age", 17]]);
+                                 [":db/add", 1, "age", 17]]);
         var db2 = d.db_with(db1, [{":db/id": 2,
-                                       "name": "Igor",
-                                       "age": 35}]);
+                                  "name": "Igor",
+                                  "age": 35}]);
         var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
         assert_eq_set([["Ivan", 17]], d.q(q, db1));
         assert_eq_set([["Ivan", 17], ["Igor", 35]], d.q(q, db2));
+      }
+      
+      function test_nested_maps() {
+        var q = '[:find ?e ?a ?v :where [?e ?a ?v]]';
+        
+        var db0 = d.empty_db({"profile": {":db/valueType": ":db.type/ref"}});
+        var db = d.db_with(db0, [{"name": "Igor", "profile": {"email": "@2"} }]);
+        assert_eq_set([[1, "name", "Igor"], [1, "profile", 2], [2, "email", "@2"]], d.q(q, db));
+        
+        db = d.db_with(db0, [{"email": "@2", "_profile": {"name": "Igor"}}]);
+        assert_eq_set([[1, "email", "@2"], [2, "name", "Igor"], [2, "profile", 1]], d.q(q, db));
+        
+        db0 = d.empty_db({"user/profile": {":db/valueType": ":db.type/ref"}});
+        db = d.db_with(db0, [{"name": "Igor", "user/profile": {"email": "@2"} }]);
+        assert_eq_set([[1, "name", "Igor"], [1, "user/profile", 2], [2, "email", "@2"]], d.q(q, db));
+        
+        db = d.db_with(db0, [{"email": "@2", "user/_profile": {"name": "Igor"}}]);
+        assert_eq_set([[1, "email", "@2"], [2, "name", "Igor"], [2, "user/profile", 1]], d.q(q, db));
       }
       
       function test_init_db() {
@@ -359,6 +377,7 @@
 
       function run_tests() {
         return test_fns([ test_db_with,
+                          test_nested_maps,
                           test_init_db,
                           test_dbfn_call,
                           test_schema,
