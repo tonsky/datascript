@@ -298,11 +298,25 @@
     (keyword (namespace attr) (subs (name attr) 1))
     (keyword (namespace attr) (str "_" (name attr)))))
 
+(defn- validate-eid [eid at]
+  (when-not (number? eid)
+    (throw (js/Error. (str "Bad entity id " eid " at " at ", expected number")))))
+
+(defn- validate-attr [attr at]
+  (when-not (or (keyword? attr) (string? attr))
+    (throw (js/Error. (str "Bad entity attribute " attr " at " at ", expected keyword or string")))))
+
+(defn- validate-val [v at]
+  (when (nil? v)
+    (throw (js/Error. (str "Cannot store nil as a value at " at)))))
+
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
     (for [[a vs] entity
           :when  (not= a :db/id)
-          :let   [reverse?   (reverse-ref? a)
+          :let   [_          (when-not (or (keyword? a) (string? a))
+                               (throw (js/Error. (str "Bad entity attribute at {:db/id " eid ", " a " " vs "}, expected keyword or string"))))
+                  reverse?   (reverse-ref? a)
                   straight-a (if reverse? (reverse-ref a) a)
                   _          (when (and reverse? (not (ref? db straight-a)))
                                (throw (js/Error. (str "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"))))]
@@ -316,10 +330,15 @@
           [:db/add v   straight-a eid]
           [:db/add eid straight-a v])))))
 
-(defn- transact-add [report [_ e a v]]
-  (let [tx      (current-tx report)
-        db      (:db-after report)
-        datom   (Datom. e a v tx true)]
+(defn- transact-add [report [_ e a v :as ent]]
+  (validate-eid e ent)
+  (validate-attr a ent)
+  (validate-val v ent)
+  (let [tx    (current-tx report)
+        db    (:db-after report)
+        datom (Datom. e a v tx true)]
+    (when (and (ref? db a) (not (number? v)))
+      (throw (js/Error. (str "Bad value at " ent ", expected number due to {:db/valueType :db.type/ref}"))))
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
         (transact-report report datom)
@@ -345,8 +364,11 @@
               (filter #(component? db (.-a %)))
               (map #(vector :db.fn/retractEntity (.-v %)))) datoms))
 
-(defn- transact-tx-data [report [entity & entities :as es]]
-  (let [db (:db-after report)]
+(defn- transact-tx-data [report es]
+  (when-not (or (nil? es) (sequential? es))
+    (throw (js/Error. (str "Bad transaction data " es ", expected sequential collection"))))
+  (let [[entity & entities] es
+        db (:db-after report)]
     (cond
       (nil? entity)
         (-> report
@@ -366,7 +388,7 @@
           :else
             (recur report (concat (explode db entity) entities)))
 
-      :else
+      (sequential? entity)
         (let [[op e a v] entity]
           (cond
             (= op :db.fn/call)
@@ -375,6 +397,10 @@
 
             (= op :db.fn/cas)
               (let [[_ e a ov nv] entity
+                    _ (validate-eid e entity)
+                    _ (validate-attr a entity)
+                    _ (validate-val ov entity)
+                    _ (validate-val nv entity)
                     datoms (-search db [e a])]
                 (if (multival? db a)
                   (if (some #(= (.-v %) ov) datoms)
@@ -405,17 +431,32 @@
               (recur (transact-add report entity) entities)
 
             (= op :db/retract)
-              (if-let [old-datom (first (-search db [e a v]))]
-                (recur (transact-retract-datom report old-datom) entities)
-                (recur report entities))
+              (do
+                (validate-eid e entity)
+                (validate-attr a entity)
+                (validate-val v entity)
+                (if-let [old-datom (first (-search db [e a v]))]
+                  (recur (transact-retract-datom report old-datom) entities)
+                  (recur report entities)))
 
             (= op :db.fn/retractAttribute)
-              (let [datoms (-search db [e a])]
-                (recur (reduce transact-retract-datom report datoms)
-                       (concat (retract-components db datoms) entities)))
+              (do
+                (validate-eid e entity)
+                (validate-attr a entity)
+                (let [datoms (-search db [e a])]
+                  (recur (reduce transact-retract-datom report datoms)
+                         (concat (retract-components db datoms) entities))))
 
             (= op :db.fn/retractEntity)
-              (let [e-datoms (-search db [e])
-                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (-refs db))]
-                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
-                       (concat (retract-components db e-datoms) entities))))))))
+              (do
+                (validate-eid e entity)
+                (let [e-datoms (-search db [e])
+                      v-datoms (mapcat (fn [a] (-search db [nil a e])) (-refs db))]
+                  (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
+                         (concat (retract-components db e-datoms) entities))))
+           
+           :else
+             (throw (js/Error. (str "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity")))))
+     :else
+       (throw (js/Error. (str "Bad entity type at " entity ", expected map or vector")))
+     )))

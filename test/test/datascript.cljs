@@ -44,6 +44,30 @@
                       :where [1 :name ?v]] db)
                #{["Petr"]}))))))
 
+(deftest test-with-validation
+  (let [db (d/empty-db {:profile { :db/valueType :db.type/ref }})]
+    (are [tx] (thrown-with-msg? js/Error #"Bad entity id" (d/db-with db tx))
+      [[:db/add nil :name "Ivan"]]
+      [[:db/add "aaa" :name "Ivan"]]
+      [{:db/id "aaa" :name "Ivan"}])
+    
+    (are [tx] (thrown-with-msg? js/Error #"Bad entity attribute" (d/db-with db tx))
+      [[:db/add -1 nil "Ivan"]]
+      [[:db/add -1 17 "Ivan"]]
+      [{:db/id -1 17 "Ivan"}])
+    
+    (are [tx] (thrown-with-msg? js/Error #"Cannot store nil as a value" (d/db-with db tx))
+      [[:db/add -1 :name nil]]
+      [{:db/id -1 :name nil}])
+    
+    (are [tx] (thrown-with-msg? js/Error #"Bad value" (d/db-with db tx))
+      [[:db/add -1 :profile "aaa"]]
+      [{:db/id -1 :profile "aaa"}])
+    
+    (is (thrown-with-msg? js/Error #"Unknown operation" (d/db-with db [["aaa" :name "Ivan"]])))
+    (is (thrown-with-msg? js/Error #"Bad entity type at" (d/db-with db [:db/add "aaa" :name "Ivan"])))
+    (is (thrown-with-msg? js/Error #"Bad transaction data" (d/db-with db {:profile "aaa"})))))
+
 (deftest test-retract-fns
   (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
                             :friend { :db/valueType :db.type/ref }})
@@ -647,10 +671,10 @@
                   :where [(> 2 1)]] [:a :b :c])
            #{[:a] [:b] [:c]})))
 
-  (let [db (-> (d/empty-db {:parent {:parent {:db/valueType :db.valueType/ref}}})
+  (let [db (-> (d/empty-db {:parent {:db/valueType :db.type/ref}})
                (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
-                            { :db/id 2, :name  "Petr",  :age   22, :height 240 :parent 1}
-                            { :db/id 3, :name  "Slava", :age   37 :parent 2}]))]
+                            { :db/id 2, :name  "Petr",  :age   22, :height 240, :parent 1}
+                            { :db/id 3, :name  "Slava", :age   37, :parent 2}]))]
 
     (testing "get-else"
       (is (= (d/q '[:find ?e ?age ?height

@@ -5,6 +5,7 @@
 - Support for nested maps in `transact!` (also fixes #38)
 - [ BREAKING ] Custom aggregate fns must be called via special syntax (`aggregate` keyword): `(q '[:find (aggregate ?myfn ?e) :in $ ?myfn ...])`. Built-in aggregates work as before: `(q '[:find (count ?e) ...]`
 - Return nil from `entity` when passed nil eid (issue #47)
+- Transaction data is now validated, with proper error messages (also fixes #48)
 
 # 0.7.2
 
