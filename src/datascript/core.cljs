@@ -290,22 +290,31 @@
       (update-in [:db-after] with-datom datom)
       (update-in [:tx-data] conj datom)))
 
-(defn reverse-ref [attr]
-  (let [name (name attr)]
-    (when (= "_" (nth name 0))
-      (keyword (namespace attr) (subs name 1)))))
+(defn- reverse-ref? [attr]
+  (= "_" (nth (name attr) 0)))
+
+(defn- reverse-ref [attr]
+  (if (reverse-ref? attr)
+    (keyword (namespace attr) (subs (name attr) 1))
+    (keyword (namespace attr) (str "_" (name attr)))))
 
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
-    (for [[a vs] (dissoc entity :db/id)
-          :let   [reverse-a (reverse-ref a)]
+    (for [[a vs] entity
+          :when  (not= a :db/id)
+          :let   [reverse?   (reverse-ref? a)
+                  straight-a (if reverse? (reverse-ref a) a)
+                  _          (when (and reverse? (not (ref? db straight-a)))
+                               (throw (js/Error. (str "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"))))]
           v      (if (and (or (array? vs) (coll? vs))
                           (not (map? vs))
-                          (multival? db a))
+                          (or reverse? (multival? db a)))
                    vs [vs])]
-      (if reverse-a
-        [:db/add v   reverse-a eid]
-        [:db/add eid a         v]))))
+      (if (and (ref? db straight-a) (map? v)) ;; another entity specified as nested map
+        (assoc v (reverse-ref a) eid)
+        (if reverse?
+          [:db/add v   straight-a eid]
+          [:db/add eid straight-a v])))))
 
 (defn- transact-add [report [_ e a v]]
   (let [tx      (current-tx report)

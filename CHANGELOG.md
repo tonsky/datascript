@@ -2,6 +2,7 @@
 
 - Find specifications: collection `:find [?e ...]`, tuple `:find [?e ?v]`, and scalar `:find ?e .`
 - Support for `:db/isComponent` (issue #3)
+- Support for nested maps in `transact!` (also fixes #38)
 - [ BREAKING ] Custom aggregate fns must be called via special syntax (`aggregate` keyword): `(q '[:find (aggregate ?myfn ?e) :in $ ?myfn ...])`. Built-in aggregates work as before: `(q '[:find (count ?e) ...]`
 - Return nil from `entity` when passed nil eid (issue #47)
 

@@ -125,8 +125,8 @@
   (-lookup [_ attr not-found]
     (if (= attr :db/id)
       eid
-      (if-let [attr (dc/reverse-ref attr)]
-        (-lookup-backwards db eid attr not-found)
+      (if (dc/reverse-ref? attr)
+        (-lookup-backwards db eid (dc/reverse-ref attr) not-found)
         (or (cache attr)
             (if touched
               not-found
