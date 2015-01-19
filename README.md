@@ -46,7 +46,7 @@ Demo applications:
 :dependencies [
   [org.clojure/clojurescript "0.0-2505"]
   ...
-  [datascript "0.7.2"]
+  [datascript "0.8.0"]
 ]
 
 ;; for advanced optimizations externs are needed
@@ -125,10 +125,10 @@ Demo applications:
 DataScript can be used from any JS engine without additional dependencies:
 
 ```
-<script src="datascript-0.7.2.min.js"></script>
+<script src="datascript-0.8.0.min.js"></script>
 ```
 
-[Download datascript-0.7.2.min.js](https://github.com/tonsky/datascript/releases/download/0.7.2/datascript-0.7.2.min.js), 48k gzipped.
+[Download datascript-0.8.0.min.js](https://github.com/tonsky/datascript/releases/download/0.8.0/datascript-0.8.0.min.js), 53k gzipped.
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
 
@@ -196,22 +196,20 @@ Query engine features:
 
 Interface differences:
 
-* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
-* Custom aggregate functions are called via aggregate keyword: `:find (aggregate ?myfn ?e) :in $ ?myfn`
 * Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
+* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
+* Custom aggregate functions are called via aggregate keyword: `:find (aggregate ?myfn ?e) :in $ ?myfn`
 * Additional `:db.fn/retractAttribute` shortcut
 * Transactions are not annotated by default with `:db/txInstant`
 
 Expected soon:
 
 * Better error reporting
-* Support for components in schema
-* Nested maps in transactions
 * Proper documentation
 * Lookup refs
-* Unique constraints, upsert?
+* Unique constraints, upsert
 * Pull API
 
 ## Differences from Datomic
@@ -236,6 +234,6 @@ Some of the features are omitted intentionally. Different apps have different ne
 
 ## License
 
-Copyright © 2014 Nikita Prokopov
+Copyright © 2014–2015 Nikita Prokopov
 
 Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
