@@ -44,17 +44,9 @@ Demo applications:
 
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2505"]
-  ...
+  [org.clojure/clojurescript "0.0-2665"]
   [datascript "0.8.0"]
 ]
-
-;; for advanced optimizations externs are needed
-:cljsbuild { :builds [
-  :compiler {
-    :optimizations :advanced
-  }
-]}
 ```
 
 ```clj
