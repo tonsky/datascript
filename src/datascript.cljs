@@ -22,9 +22,19 @@
                  acc))
              #{} schema))
 
+(defn- validate-schema [schema]
+  (doseq [[a kv] schema]
+    (let [v (:db/isComponent kv false)]
+      (when-not (or (= false v) (= true v))
+        (throw (js/Error. (str "Bad attribute specification for " a ": :db/isComponent should have boolean value"))))
+      (when (and (= true v) (not= (:db/valueType kv) :db.type/ref))
+        (throw (js/Error. (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")))))
+    )
+  schema)
+
 (defn empty-db [& [schema]]
   (dc/map->DB {
-    :schema  schema
+    :schema  (validate-schema schema)
     :eavt    (btset/btset-by dc/cmp-datoms-eavt) 
     :aevt    (btset/btset-by dc/cmp-datoms-aevt)
     :avet    (btset/btset-by dc/cmp-datoms-avet)
@@ -41,7 +51,7 @@
         avet    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-avet-quick) dc/cmp-datoms-avet)
         max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
     (dc/map->DB {
-      :schema  schema
+      :schema  (validate-schema schema)
       :eavt    eavt
       :aevt    aevt
       :avet    avet

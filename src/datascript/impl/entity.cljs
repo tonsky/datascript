@@ -2,7 +2,7 @@
   (:require
     [datascript.core :as dc]))
 
-(declare Entity)
+(declare Entity touch)
 
 (defn entity [db eid]
   {:pre [(satisfies? dc/IDB db) (satisfies? dc/ISearch db)]}
@@ -24,16 +24,30 @@
       (assoc acc a (entity-attr db a part))))
     {} (partition-by :a datoms)))
 
+(defn touch-components [db a->v]
+  (reduce-kv (fn [acc a v]
+               (assoc acc a
+                 (if (dc/component? db a)
+                   (if (dc/multival? db a)
+                     (set (map touch v))
+                     (touch v))
+                   v)))
+             {} a->v))
+
 (defn touch [e]
   (when-not (.-touched e)
     (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
       (set! (.-touched e) true)
-      (set! (.-cache e) (datoms->cache (.-db e) datoms))))
+      (set! (.-cache e) (->> datoms
+                          (datoms->cache (.-db e))
+                          (touch-components (.-db e))))))
   e)
 
 (defn- -lookup-backwards [db eid attr not-found]
   (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
-    (reduce #(conj %1 (entity db (.-e %2))) #{} datoms)
+    (if (dc/component? db attr)
+      (entity db (.-e (first datoms)))
+      (reduce #(conj %1 (entity db (.-e %2))) #{} datoms)-)
     not-found))
 
 (defn- multival->js [val]

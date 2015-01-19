@@ -238,11 +238,14 @@
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
-(defn multival? [db attr]
+(defn ^boolean multival? [db attr]
   (= (get-in (-schema db) [attr :db/cardinality]) :db.cardinality/many))
 
-(defn ref? [db attr]
+(defn ^boolean ref? [db attr]
   (contains? (-refs db) attr))
+
+(defn ^boolean component? [db attr]
+  (get-in (-schema db) [attr :db/isComponent] false))
 
 ;;;;;;;;;; Transacting
 
@@ -328,6 +331,11 @@
   (or (= e :db/current-tx)
       (= e ":db/current-tx"))) ;; for datascript.js interop
 
+(defn- retract-components [db datoms]
+  (into #{} (comp
+              (filter #(component? db (.-a %)))
+              (map #(vector :db.fn/retractEntity (.-v %)))) datoms))
+
 (defn- transact-tx-data [report [entity & entities :as es]]
   (let [db (:db-after report)]
     (cond
@@ -394,9 +402,11 @@
 
             (= op :db.fn/retractAttribute)
               (let [datoms (-search db [e a])]
-                (recur (reduce transact-retract-datom report datoms) entities))
+                (recur (reduce transact-retract-datom report datoms)
+                       (concat (retract-components db datoms) entities)))
 
             (= op :db.fn/retractEntity)
               (let [e-datoms (-search db [e])
                     v-datoms (mapcat (fn [a] (-search db [nil a e])) (-refs db))]
-                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms)) entities)))))))
+                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
+                       (concat (retract-components db e-datoms) entities))))))))
