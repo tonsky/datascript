@@ -1,3 +1,7 @@
+# WIP
+
+- Support for `:db/unique` constraints and upserts
+
 # 0.8.0
 
 - Find specifications: collection `:find [?e ...]`, tuple `:find [?e ?v]`, and scalar `:find ?e .`

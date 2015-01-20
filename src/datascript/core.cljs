@@ -40,7 +40,7 @@
 
 (defprotocol IDB
   (-schema [db])
-  (-refs [db]))
+  (-attrs-by [db property]))
 
 (defn- cmp [o1 o2]
   (if (and o1 o2)
@@ -141,14 +141,14 @@
     :aevt (Datom. c1 c0 c2 c3 nil)
     :avet (Datom. c2 c0 c1 c3 nil)))
 
-(defrecord DB [schema eavt aevt avet max-eid max-tx refs]
+(defrecord DB [schema eavt aevt avet max-eid max-tx rschema]
   Object
   (toString [this]
     (pr-str* this))
   
   IDB
   (-schema [_] schema)
-  (-refs   [_] refs)
+  (-attrs-by [_ property] (rschema property))
 
   ISearch
   (-search [_ [e a v tx]]
@@ -194,7 +194,7 @@
   
   IDB
   (-schema [_] (-schema unfiltered-db))
-  (-refs   [_] (-refs unfiltered-db))
+  (-attrs-by [_ property] (-attrs-by unfiltered-db property))
   
   ISearch
   (-search [_ pattern]
@@ -238,19 +238,44 @@
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
+(defn ^boolean is-attr? [db attr property]
+  (contains? (-attrs-by db property) attr))
+
 (defn ^boolean multival? [db attr]
-  (= (get-in (-schema db) [attr :db/cardinality]) :db.cardinality/many))
+  (is-attr? db attr :db.cardinality/many))
 
 (defn ^boolean ref? [db attr]
-  (contains? (-refs db) attr))
+  (is-attr? db attr :db.type/ref))
 
 (defn ^boolean component? [db attr]
-  (get-in (-schema db) [attr :db/isComponent] false))
+  (is-attr? db attr :db/isComponent))
 
-(defn unique [db attr]
-  (get-in (-schema db) [attr :db/unique]))
 
 ;;;;;;;;;; Transacting
+
+(defn validate-datom [db datom]
+  (when (and (.-added datom)
+             (is-attr? db (.-a datom) :db/unique))
+    (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
+      (throw (ex-info (str "Cannot add " datom " because of unique constraint: " found)
+                      {:error :transact/unique
+                       :attribute (.-a datom)
+                       :datom datom})))))
+
+(defn- validate-eid [eid at]
+  (when-not (number? eid)
+    (throw (ex-info (str "Bad entity id " eid " at " at ", expected number")
+                    {:error :transact/syntax, :entity-id eid, :context at}))))
+
+(defn- validate-attr [attr at]
+  (when-not (or (keyword? attr) (string? attr))
+    (throw (ex-info (str "Bad entity attribute " attr " at " at ", expected keyword or string")
+                    {:error :transact/syntax, :attribute attr, :context at}))))
+
+(defn- validate-val [v at]
+  (when (nil? v)
+    (throw (ex-info (str "Cannot store nil as a value at " at)
+                    {:error :transact/syntax, :value v, :context at}))))
 
 (defn- current-tx [report]
   (inc (get-in report [:db-before :max-tx])))
@@ -266,20 +291,15 @@
 
 (defn- allocate-eid
   ([report eid]
-     (update-in report [:db-after] advance-max-eid eid))
+    (update-in report [:db-after] advance-max-eid eid))
   ([report e eid]
-     (-> report
-       (assoc-in [:tempids e] eid)
-       (update-in [:db-after] advance-max-eid eid))))
+    (-> report
+      (assoc-in [:tempids e] eid)
+      (update-in [:db-after] advance-max-eid eid))))
 
-(defn validate-datom [db datom]
-  (when (and (.-added datom)
-             (unique db (.-a datom)))
-    (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
-      (throw (ex-info (str "Cannot add " datom " because of unique constraint: " found)
-                      {:error :transact/unique
-                       :attribute (.-a datom)
-                       :datom datom})))))
+(defn- ^boolean tx-id? [e]
+  (or (= e :db/current-tx)
+      (= e ":db/current-tx"))) ;; for datascript.js interop
 
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
@@ -332,20 +352,28 @@
     (throw (ex-info (str "Bad attribute type: " attr ", expected keyword or string")
                     {:error :transact/syntax, :attribute attr}))))
 
-(defn- validate-eid [eid at]
-  (when-not (number? eid)
-    (throw (ex-info (str "Bad entity id " eid " at " at ", expected number")
-                    {:error :transact/syntax, :entity-id eid, :context at}))))
-
-(defn- validate-attr [attr at]
-  (when-not (or (keyword? attr) (string? attr))
-    (throw (ex-info (str "Bad entity attribute " attr " at " at ", expected keyword or string")
-                    {:error :transact/syntax, :attribute attr, :context at}))))
-
-(defn- validate-val [v at]
-  (when (nil? v)
-    (throw (ex-info (str "Cannot store nil as a value at " at)
-                    {:error :transact/syntax, :value v, :context at}))))
+(defn- resolve-upsert [db entity]
+  (if-let [idents (not-empty (-attrs-by db :db.unique/identity))]
+    (reduce-kv
+      (fn [ent a v]
+        (if-let [datom (first (-datoms db :avet [a v]))]
+          (let [old-eid (:db/id ent)
+                new-eid (.-e datom)]
+            (cond
+              (nil? old-eid)
+                (-> ent (dissoc a) (assoc :db/id new-eid)) ;; replace upsert attr with :db/id
+              (= old-eid new-eid)
+                (dissoc ent a) ;; upsert attr already in db
+              :else              
+                (throw (ex-info (str "Cannot resolve upsert for " entity ": " (pr-str {:db/id old-eid a v}) " conflicts with existing " datom)
+                       {:error     :transact/upsert
+                        :attribute a
+                        :entity    entity
+                        :datom     datom }))))
+          ent))
+      entity
+      (select-keys entity idents))
+    entity))
 
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
@@ -359,7 +387,7 @@
                                                {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}})))]
           v      (if (and (or (array? vs) (coll? vs))
                           (not (map? vs))
-                          (or reverse? (multival? db a)))
+                          (or reverse? (multival? db a))) ;; multivals/reverse can be specified as coll or as a single value, trying to guess
                    vs [vs])]
       (if (and (ref? db straight-a) (map? v)) ;; another entity specified as nested map
         (assoc v (reverse-ref a) eid)
@@ -393,10 +421,6 @@
   (let [tx (current-tx report)]
     (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
-(defn- tx-id? [e]
-  (or (= e :db/current-tx)
-      (= e ":db/current-tx"))) ;; for datascript.js interop
-
 (defn- retract-components [db datoms]
   (into #{} (comp
               (filter #(component? db (.-a %)))
@@ -415,17 +439,18 @@
             (update-in [:db-after :max-tx] inc))
 
       (map? entity)
-        (cond
-          (tx-id? (:db/id entity))
-            (let [entity (assoc entity :db/id (current-tx report))]
-              (recur report (concat (explode db entity) entities)))
-          (nil? (:db/id entity))
-            (let [eid    (next-eid db)
-                  entity (assoc entity :db/id eid)]
-              (recur (allocate-eid report eid)
-                     (concat [entity] entities)))
-          :else
-            (recur report (concat (explode db entity) entities)))
+        (let [old-eid      (:db/id entity)
+              resolved-eid (cond
+                             (neg? old-eid)   (get-in report [:tempids old-eid])
+                             (tx-id? old-eid) (current-tx report)
+                             :else            old-eid)
+              upserted     (resolve-upsert db (assoc entity :db/id resolved-eid))
+              new-eid      (or (:db/id upserted) (next-eid db))
+              new-entity   (assoc upserted :db/id new-eid)
+              new-report   (if (neg? old-eid)
+                             (allocate-eid report old-eid new-eid)
+                             report)]
+          (recur new-report (concat (explode db new-entity) entities)))
 
       (sequential? entity)
         (let [[op e a v] entity]
@@ -492,7 +517,7 @@
               (do
                 (validate-eid e entity)
                 (let [e-datoms (-search db [e])
-                      v-datoms (mapcat (fn [a] (-search db [nil a e])) (-refs db))]
+                      v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
                   (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
                          (concat (retract-components db e-datoms) entities))))
            

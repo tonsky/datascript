@@ -15,13 +15,28 @@
 
 (def ^:const tx0 dc/tx0)
 
-(defn- refs [schema]
-  (reduce-kv (fn [acc attr v]
-               (if (= (:db/valueType v) :db.type/ref)
-                 (conj acc attr)
-                 acc))
-             #{} schema))
-
+(defn attr->properties [k v]
+  (cond
+    (= [k v] [:db/isComponent true]) [:db/isComponent]
+    (= v :db.type/ref)               [:db.type/ref]
+    (= v :db.cardinality/many)       [:db.cardinality/many]
+    (= v :db.unique/identity)        [:db/unique :db.unique/identity]
+    (= v :db.unique/value)           [:db/unique :db.unique/value]))
+   
+(defn- multimap [e m]
+  (reduce
+    (fn [acc [k v]]
+      (update-in acc [k] (fnil conj e) v))
+    {} m))
+   
+(defn- rschema [schema]
+  (->>
+    (for [[a kv] schema
+          [k v]  kv
+          prop   (attr->properties k v)]
+      [prop a])
+    (multimap #{})))
+ 
 (defn- validate-schema-key [a k v expected]
   (when-not (or (nil? v)
                 (contains? expected v))
@@ -54,7 +69,7 @@
     :avet    (btset/btset-by dc/cmp-datoms-avet)
     :max-eid 0
     :max-tx  tx0
-    :refs    (refs schema)}))
+    :rschema (rschema schema)}))
 
 (defn init-db [datoms & [schema]]
   (let [datoms  (into-array datoms)
@@ -71,7 +86,7 @@
       :avet    avet
       :max-eid max-eid
       :max-tx  max-tx
-      :refs    (refs schema)})))
+      :rschema (rschema schema)})))
 
 (defn is-filtered [db]
   (instance? dc/FilteredDB db))
