@@ -68,6 +68,16 @@
     (is (thrown-with-msg? js/Error #"Bad entity type at" (d/db-with db [:db/add "aaa" :name "Ivan"])))
     (is (thrown-with-msg? js/Error #"Bad transaction data" (d/db-with db {:profile "aaa"})))))
 
+(deftest test-unique
+  (let [db (d/db-with (d/empty-db {:name { :db/unique :db.unique/value }})
+                      [[:db/add 1 :name "Ivan"]
+                       [:db/add 2 :name "Petr"]])]
+    (are [tx] (thrown-with-msg? js/Error #"unique constraint" (d/db-with db tx))
+      [[:db/add 3 :name "Ivan"]]
+      [{:db/add 3 :name "Petr"}])
+    (d/db-with db [[:db/add 3 :name "Igor"]])
+    (d/db-with db [[:db/add 3 :nick "Ivan"]])))
+
 (deftest test-retract-fns
   (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
                             :friend { :db/valueType :db.type/ref }})
@@ -293,7 +303,7 @@
 (deftest test-components
   (is (thrown-with-msg? js/Error #"Bad attribute specification for :profile"
         (d/empty-db {:profile {:db/isComponent true}})))
-  (is (thrown-with-msg? js/Error #"Bad attribute specification for :profile"
+  (is (thrown-with-msg? js/Error #"Bad attribute specification for [{]:profile [{]:db/isComponent \"aaa\"}}"
         (d/empty-db {:profile {:db/isComponent "aaa" :db/valueType :db.type/ref}})))
   
   (let [db (d/db-with

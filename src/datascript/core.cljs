@@ -247,6 +247,9 @@
 (defn ^boolean component? [db attr]
   (get-in (-schema db) [attr :db/isComponent] false))
 
+(defn unique [db attr]
+  (get-in (-schema db) [attr :db/unique]))
+
 ;;;;;;;;;; Transacting
 
 (defn- current-tx [report]
@@ -269,10 +272,20 @@
        (assoc-in [:tempids e] eid)
        (update-in [:db-after] advance-max-eid eid))))
 
+(defn validate-datom [db datom]
+  (when (and (.-added datom)
+             (unique db (.-a datom)))
+    (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
+      (throw (ex-info (str "Cannot add " datom " because of unique constraint: " found)
+                      {:error :transact/unique
+                       :attribute (.-a datom)
+                       :datom datom})))))
+
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
 
 (defn- with-datom [db datom]
+  (validate-datom db datom)
   (if (.-added datom)
     (-> db
       (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
@@ -299,7 +312,8 @@
     (boolean (re-matches #"(?:([^/]+)/)?_([^/]+)" attr))
    
     :else
-    (throw (js/Error. "Bad attribute type: " attr ", expected keyword or string"))))
+    (throw (ex-info (str "Bad attribute type: " attr ", expected keyword or string")
+                    {:error :transact/syntax, :attribute attr}))))
 
 (defn- reverse-ref [attr]
   (cond
@@ -315,30 +329,34 @@
        (if ns (str ns "/_" name) (str "_" name))))
    
    :else
-    (throw (js/Error. "Bad attribute type: " attr ", expected keyword or string"))))
+    (throw (ex-info (str "Bad attribute type: " attr ", expected keyword or string")
+                    {:error :transact/syntax, :attribute attr}))))
 
 (defn- validate-eid [eid at]
   (when-not (number? eid)
-    (throw (js/Error. (str "Bad entity id " eid " at " at ", expected number")))))
+    (throw (ex-info (str "Bad entity id " eid " at " at ", expected number")
+                    {:error :transact/syntax, :entity-id eid, :context at}))))
 
 (defn- validate-attr [attr at]
   (when-not (or (keyword? attr) (string? attr))
-    (throw (js/Error. (str "Bad entity attribute " attr " at " at ", expected keyword or string")))))
+    (throw (ex-info (str "Bad entity attribute " attr " at " at ", expected keyword or string")
+                    {:error :transact/syntax, :attribute attr, :context at}))))
 
 (defn- validate-val [v at]
   (when (nil? v)
-    (throw (js/Error. (str "Cannot store nil as a value at " at)))))
+    (throw (ex-info (str "Cannot store nil as a value at " at)
+                    {:error :transact/syntax, :value v, :context at}))))
 
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
     (for [[a vs] entity
           :when  (not= a :db/id)
-          :let   [_          (when-not (or (keyword? a) (string? a))
-                               (throw (js/Error. (str "Bad entity attribute at {:db/id " eid ", " a " " vs "}, expected keyword or string"))))
+          :let   [_          (validate-attr a {:db/id eid, a vs})
                   reverse?   (reverse-ref? a)
                   straight-a (if reverse? (reverse-ref a) a)
                   _          (when (and reverse? (not (ref? db straight-a)))
-                               (throw (js/Error. (str "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"))))]
+                               (throw (ex-info (str "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema")
+                                               {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}})))]
           v      (if (and (or (array? vs) (coll? vs))
                           (not (map? vs))
                           (or reverse? (multival? db a)))
@@ -357,7 +375,8 @@
         db    (:db-after report)
         datom (Datom. e a v tx true)]
     (when (and (ref? db a) (not (number? v)))
-      (throw (js/Error. (str "Bad value at " ent ", expected number due to {:db/valueType :db.type/ref}"))))
+      (throw (ex-info (str "Bad value at " ent ", expected number due to {:db/valueType :db.type/ref}")
+                      {:error :transact/syntax, :value v, :context ent} )))
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
         (transact-report report datom)
@@ -385,7 +404,8 @@
 
 (defn- transact-tx-data [report es]
   (when-not (or (nil? es) (sequential? es))
-    (throw (js/Error. (str "Bad transaction data " es ", expected sequential collection"))))
+    (throw (ex-info (str "Bad transaction data " es ", expected sequential collection")
+                    {:error :transact/syntax, :tx-data es})))
   (let [[entity & entities] es
         db (:db-after report)]
     (cond
@@ -424,11 +444,13 @@
                 (if (multival? db a)
                   (if (some #(= (.-v %) ov) datoms)
                     (recur (transact-add report [:db/add e a nv]) entities)
-                    (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov))))
+                    (throw (ex-info (str ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov)
+                                    {:error :transact/cas, :old datoms, :expected ov, :new nv})))
                   (let [v (.-v (first datoms))] 
                     (if (= v ov)
                       (recur (transact-add report [:db/add e a nv]) entities)
-                      (throw (js/Error. (str ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov)))))))
+                      (throw (ex-info (str ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov)
+                                      {:error :transact/cas, :old (first datoms), :expected ov, :new nv }))))))
            
             (tx-id? e)
               (recur report (concat [[op (current-tx report) a v]] entities))
@@ -475,7 +497,9 @@
                          (concat (retract-components db e-datoms) entities))))
            
            :else
-             (throw (js/Error. (str "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity")))))
+             (throw (ex-info (str "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity")
+                             {:error :transact/syntax, :operation op, :tx-data entity}))))
      :else
-       (throw (js/Error. (str "Bad entity type at " entity ", expected map or vector")))
+       (throw (ex-info (str "Bad entity type at " entity ", expected map or vector")
+                       {:error :transact/syntax, :tx-data entity}))
      )))

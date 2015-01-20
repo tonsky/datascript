@@ -22,14 +22,28 @@
                  acc))
              #{} schema))
 
+(defn- validate-schema-key [a k v expected]
+  (when-not (or (nil? v)
+                (contains? expected v))
+    (throw (ex-info (str "Bad attribute specification for " (pr-str {a {k v}}) ", expected one of " expected)
+                    {:error :schema/validation
+                     :attribute a
+                     :key k
+                     :value v}))))
+
 (defn- validate-schema [schema]
   (doseq [[a kv] schema]
-    (let [v (:db/isComponent kv false)]
-      (when-not (or (= false v) (= true v))
-        (throw (js/Error. (str "Bad attribute specification for " a ": :db/isComponent should have boolean value"))))
-      (when (and (= true v) (not= (:db/valueType kv) :db.type/ref))
-        (throw (js/Error. (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")))))
-    )
+    (let [comp? (:db/isComponent kv false)]
+      (validate-schema-key a :db/isComponent (:db/isComponent kv) #{true false})
+      (when (and comp? (not= (:db/valueType kv) :db.type/ref))
+        (throw (ex-info (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")
+                        {:error     :schema/validation
+                         :attribute a
+                         :key       :db/isComponent}))))
+    (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
+    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
+    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})
+  )
   schema)
 
 (defn empty-db [& [schema]]
@@ -70,7 +84,7 @@
 
 (defn with [db tx-data & [tx-meta]]
   (if (is-filtered db)
-    (throw (js/Error. "Filtered DB cannot be modified"))
+    (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
     (dc/transact-tx-data (dc/map->TxReport
                            { :db-before db
                              :db-after  db
