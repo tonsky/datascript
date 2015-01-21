@@ -5,9 +5,12 @@
 (declare Entity touch)
 
 (defn entity [db eid]
-  {:pre [(satisfies? dc/IDB db) (satisfies? dc/ISearch db)]}
-  (cond
-    (number? eid) (Entity. db eid false {})))
+  {:pre [(satisfies? dc/IDB db)
+         (satisfies? dc/ISearch db)
+         (satisfies? dc/IIndexAccess db)]}
+  (when eid
+    (when-let [e (dc/resolve-eid db eid)]
+      (Entity. db e false {}))))
 
 (defn- entity-attr [db a datoms]
   (if (dc/multival? db a)

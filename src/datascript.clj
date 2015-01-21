@@ -23,3 +23,8 @@
 
 (defmacro case-tree [qs vs]
   (-case-tree qs vs))
+
+(defmacro raise [& fragments]
+  (let [msgs (butlast fragments)
+        data (last fragments)]
+   `(throw (ex-info (str ~@(map #(if (string? %) % (list 'pr-str %)) msgs)) ~data))))

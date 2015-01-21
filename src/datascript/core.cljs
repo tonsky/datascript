@@ -3,7 +3,7 @@
     [datascript.btset :as btset]
     [goog.array :as garray])
   (:require-macros
-    [datascript :refer [combine-cmp case-tree]]))
+    [datascript :refer [combine-cmp case-tree raise]]))
 
 (def ^:const tx0 0x20000000)
 
@@ -250,6 +250,24 @@
 (defn ^boolean component? [db attr]
   (is-attr? db attr :db/isComponent))
 
+(defn resolve-eid [db eid]
+  (cond
+    (number? eid) eid
+    (sequential? eid)
+      (cond
+        (not= (count eid) 2)
+          (raise "Lookup ref should contain 2 elements: " eid
+                 {:error :lookup-ref/syntax, :entity-id eid})
+        (not (is-attr? db (first eid) :db.unique/identity))
+          (raise "Lookup ref attribute should be marked as :db.unique/identity: " eid
+                 {:error :lookup-ref/unique
+                  :entity-id eid})
+        :else
+          (:e (first (-datoms db :avet eid))))
+    :else
+      (raise "Expected number or lookup ref for entity id, got " eid
+             {:error :entity-id/syntax
+              :entity-id eid})))
 
 ;;;;;;;;;; Transacting
 
@@ -257,25 +275,25 @@
   (when (and (.-added datom)
              (is-attr? db (.-a datom) :db/unique))
     (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
-      (throw (ex-info (str "Cannot add " datom " because of unique constraint: " found)
-                      {:error :transact/unique
-                       :attribute (.-a datom)
-                       :datom datom})))))
+      (raise "Cannot add " datom " because of unique constraint: " found
+             {:error :transact/unique
+              :attribute (.-a datom)
+              :datom datom}))))
 
 (defn- validate-eid [eid at]
   (when-not (number? eid)
-    (throw (ex-info (str "Bad entity id " eid " at " at ", expected number")
-                    {:error :transact/syntax, :entity-id eid, :context at}))))
+    (raise "Bad entity id " eid " at " at ", expected number"
+           {:error :transact/syntax, :entity-id eid, :context at})))
 
 (defn- validate-attr [attr at]
   (when-not (or (keyword? attr) (string? attr))
-    (throw (ex-info (str "Bad entity attribute " attr " at " at ", expected keyword or string")
-                    {:error :transact/syntax, :attribute attr, :context at}))))
+    (raise "Bad entity attribute " attr " at " at ", expected keyword or string"
+           {:error :transact/syntax, :attribute attr, :context at})))
 
 (defn- validate-val [v at]
   (when (nil? v)
-    (throw (ex-info (str "Cannot store nil as a value at " at)
-                    {:error :transact/syntax, :value v, :context at}))))
+    (raise "Cannot store nil as a value at " at
+           {:error :transact/syntax, :value v, :context at})))
 
 (defn- current-tx [report]
   (inc (get-in report [:db-before :max-tx])))
@@ -332,8 +350,8 @@
     (boolean (re-matches #"(?:([^/]+)/)?_([^/]+)" attr))
    
     :else
-    (throw (ex-info (str "Bad attribute type: " attr ", expected keyword or string")
-                    {:error :transact/syntax, :attribute attr}))))
+    (raise "Bad attribute type: " attr ", expected keyword or string"
+           {:error :transact/syntax, :attribute attr})))
 
 (defn- reverse-ref [attr]
   (cond
@@ -349,8 +367,8 @@
        (if ns (str ns "/_" name) (str "_" name))))
    
    :else
-    (throw (ex-info (str "Bad attribute type: " attr ", expected keyword or string")
-                    {:error :transact/syntax, :attribute attr}))))
+    (raise "Bad attribute type: " attr ", expected keyword or string"
+           {:error :transact/syntax, :attribute attr})))
 
 (defn- resolve-upsert [db entity]
   (if-let [idents (not-empty (-attrs-by db :db.unique/identity))]
@@ -365,15 +383,36 @@
               (= old-eid new-eid)
                 (dissoc ent a) ;; upsert attr already in db
               :else              
-                (throw (ex-info (str "Cannot resolve upsert for " entity ": " (pr-str {:db/id old-eid a v}) " conflicts with existing " datom)
+                (raise "Cannot resolve upsert for " entity ": " {:db/id old-eid a v} " conflicts with existing " datom
                        {:error     :transact/upsert
                         :attribute a
                         :entity    entity
-                        :datom     datom }))))
+                        :datom     datom })))
           ent))
       entity
       (select-keys entity idents))
     entity))
+
+;; multivals/reverse can be specified as coll or as a single value, trying to guess
+(defn- maybe-wrap-multival [db a vs]
+  (cond
+    ;; not a multival context
+    (not (or (reverse-ref? a)
+             (multival? db a)))
+    [vs]
+
+    ;; not a collection at all, so definetely a single value
+    (not (or (array? vs)
+             (and (coll? vs) (not (map? vs)))))
+    [vs]
+    
+    ;; probably lookup ref
+    (and (= (count vs) 2)
+         (is-attr? db (first vs) :db.unique/identity))
+    [vs]
+    
+    :else vs))
+
 
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
@@ -383,12 +422,9 @@
                   reverse?   (reverse-ref? a)
                   straight-a (if reverse? (reverse-ref a) a)
                   _          (when (and reverse? (not (ref? db straight-a)))
-                               (throw (ex-info (str "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema")
-                                               {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}})))]
-          v      (if (and (or (array? vs) (coll? vs))
-                          (not (map? vs))
-                          (or reverse? (multival? db a))) ;; multivals/reverse can be specified as coll or as a single value, trying to guess
-                   vs [vs])]
+                               (raise "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"
+                                      {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}}))]
+          v      (maybe-wrap-multival db a vs)]
       (if (and (ref? db straight-a) (map? v)) ;; another entity specified as nested map
         (assoc v (reverse-ref a) eid)
         (if reverse?
@@ -396,15 +432,13 @@
           [:db/add eid straight-a v])))))
 
 (defn- transact-add [report [_ e a v :as ent]]
-  (validate-eid e ent)
   (validate-attr a ent)
-  (validate-val v ent)
+  (validate-val  v ent)
   (let [tx    (current-tx report)
         db    (:db-after report)
+        e     (resolve-eid db e)
+        v     (if (ref? db a) (resolve-eid db v) v)
         datom (Datom. e a v tx true)]
-    (when (and (ref? db a) (not (number? v)))
-      (throw (ex-info (str "Bad value at " ent ", expected number due to {:db/valueType :db.type/ref}")
-                      {:error :transact/syntax, :value v, :context ent} )))
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
         (transact-report report datom)
@@ -428,8 +462,8 @@
 
 (defn- transact-tx-data [report es]
   (when-not (or (nil? es) (sequential? es))
-    (throw (ex-info (str "Bad transaction data " es ", expected sequential collection")
-                    {:error :transact/syntax, :tx-data es})))
+    (raise "Bad transaction data " es ", expected sequential collection"
+           {:error :transact/syntax, :tx-data es}))
   (let [[entity & entities] es
         db (:db-after report)]
     (cond
@@ -440,11 +474,13 @@
 
       (map? entity)
         (let [old-eid      (:db/id entity)
-              resolved-eid (cond
-                             (neg? old-eid)   (get-in report [:tempids old-eid])
-                             (tx-id? old-eid) (current-tx report)
-                             :else            old-eid)
-              upserted     (resolve-upsert db (assoc entity :db/id resolved-eid))
+              known-eid    (some->> 
+                             (cond
+                               (neg? old-eid)   (get-in report [:tempids old-eid])
+                               (tx-id? old-eid) (current-tx report)
+                               :else            old-eid)
+                             (resolve-eid db))
+              upserted     (resolve-upsert db (assoc entity :db/id known-eid))
               new-eid      (or (:db/id upserted) (next-eid db))
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (if (neg? old-eid)
@@ -461,21 +497,23 @@
 
             (= op :db.fn/cas)
               (let [[_ e a ov nv] entity
-                    _ (validate-eid e entity)
+                    e (resolve-eid db e)
                     _ (validate-attr a entity)
+                    ov (if (ref? db a) (resolve-eid db ov) ov)
+                    nv (if (ref? db a) (resolve-eid db nv) nv)
                     _ (validate-val ov entity)
                     _ (validate-val nv entity)
                     datoms (-search db [e a])]
                 (if (multival? db a)
                   (if (some #(= (.-v %) ov) datoms)
                     (recur (transact-add report [:db/add e a nv]) entities)
-                    (throw (ex-info (str ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov)
-                                    {:error :transact/cas, :old datoms, :expected ov, :new nv})))
+                    (raise ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov
+                           {:error :transact/cas, :old datoms, :expected ov, :new nv}))
                   (let [v (.-v (first datoms))] 
                     (if (= v ov)
                       (recur (transact-add report [:db/add e a nv]) entities)
-                      (throw (ex-info (str ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov)
-                                      {:error :transact/cas, :old (first datoms), :expected ov, :new nv }))))))
+                      (raise ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov
+                             {:error :transact/cas, :old (first datoms), :expected ov, :new nv })))))
            
             (tx-id? e)
               (recur report (concat [[op (current-tx report) a v]] entities))
@@ -497,8 +535,8 @@
               (recur (transact-add report entity) entities)
 
             (= op :db/retract)
-              (do
-                (validate-eid e entity)
+              (let [e (resolve-eid db e)
+                    v (if (ref? db a) (resolve-eid db v) v)]
                 (validate-attr a entity)
                 (validate-val v entity)
                 (if-let [old-datom (first (-search db [e a v]))]
@@ -506,25 +544,23 @@
                   (recur report entities)))
 
             (= op :db.fn/retractAttribute)
-              (do
-                (validate-eid e entity)
+              (let [e (resolve-eid db e)]
                 (validate-attr a entity)
                 (let [datoms (-search db [e a])]
                   (recur (reduce transact-retract-datom report datoms)
                          (concat (retract-components db datoms) entities))))
 
             (= op :db.fn/retractEntity)
-              (do
-                (validate-eid e entity)
-                (let [e-datoms (-search db [e])
-                      v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
-                  (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
-                         (concat (retract-components db e-datoms) entities))))
+              (let [e (resolve-eid db e)
+                    e-datoms (-search db [e])
+                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
+                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
+                       (concat (retract-components db e-datoms) entities)))
            
            :else
-             (throw (ex-info (str "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity")
-                             {:error :transact/syntax, :operation op, :tx-data entity}))))
+             (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity"
+                    {:error :transact/syntax, :operation op, :tx-data entity})))
      :else
-       (throw (ex-info (str "Bad entity type at " entity ", expected map or vector")
-                       {:error :transact/syntax, :tx-data entity}))
+       (raise "Bad entity type at " entity ", expected map or vector"
+              {:error :transact/syntax, :tx-data entity})
      )))

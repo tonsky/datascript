@@ -52,6 +52,7 @@
             :compiler {
               :output-to     "web/datascript.testable.js"
               :optimizations :advanced
+              :pretty-print  true
             }}
         ]
         :test-commands {

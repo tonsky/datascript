@@ -1,6 +1,7 @@
 # WIP
 
 - Support for `:db/unique` constraints and upserts
+- Lookup refs
 
 # 0.8.0
 

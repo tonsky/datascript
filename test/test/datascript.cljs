@@ -5,9 +5,18 @@
     [datascript.core :as dc]
     [datascript :as d]
     [cljs.reader]
-    [cemerick.cljs.test :as t]))
+    [cemerick.cljs.test :as t]
+    test.datascript.core))
 
 (enable-console-print!)
+
+(defn- entity-map [db e]
+  (when-let [entity (d/entity db e)]
+    (->> (assoc (into {} entity) :db/id (:db/id entity))
+         (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
+                                     {:db/id (:db/id %)}
+                                     %)))))
+
 
 (deftest test-with
   (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
@@ -46,7 +55,7 @@
 
 (deftest test-with-validation
   (let [db (d/empty-db {:profile { :db/valueType :db.type/ref }})]
-    (are [tx] (thrown-with-msg? js/Error #"Bad entity id" (d/db-with db tx))
+    (are [tx] (thrown-with-msg? js/Error #"Expected number or lookup ref for entity id" (d/db-with db tx))
       [[:db/add nil :name "Ivan"]]
       [[:db/add "aaa" :name "Ivan"]]
       [{:db/id "aaa" :name "Ivan"}])
@@ -60,7 +69,7 @@
       [[:db/add -1 :name nil]]
       [{:db/id -1 :name nil}])
     
-    (are [tx] (thrown-with-msg? js/Error #"Bad value" (d/db-with db tx))
+    (are [tx] (thrown-with-msg? js/Error #"Expected number or lookup ref for entity id" (d/db-with db tx))
       [[:db/add -1 :profile "aaa"]]
       [{:db/id -1 :profile "aaa"}])
     
@@ -493,6 +502,125 @@
     (testing "reverse navigation"
       (is (= (visible (:_profile (d/entity db 3)))
              {:db/id 1})))))
+
+(deftest test-lookup-refs
+  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
+                                   :email { :db/unique :db.unique/identity }})
+                      [{:db/id 1 :name "Ivan" :email "@1" :age 35}
+                       {:db/id 2 :name "Petr" :email "@2" :age 22}])]
+    
+    (are [eid res] (= (entity-map db eid) res)
+      [:name "Ivan"]   {:db/id 1 :name "Ivan" :email "@1" :age 35}
+      [:email "@1"]    {:db/id 1 :name "Ivan" :email "@1" :age 35}
+      [:name "Sergey"] nil)
+    
+    (are [eid msg] (thrown-with-msg? js/Error msg (d/entity db eid))
+      [:name]     #"Lookup ref should contain 2 elements"
+      [:name 1 2] #"Lookup ref should contain 2 elements"
+      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity"
+      "abc"       #"Expected number or lookup ref for entity id")))
+
+(deftest test-lookup-refs-transact
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
+                                   :friend  { :db/valueType :db.type/ref }})
+                      [{:db/id 1 :name "Ivan"}
+                       {:db/id 2 :name "Petr"}])]
+    (are [tx res] (= (entity-map (d/db-with db tx) 1) res)
+      ;; Additions
+      [[:db/add [:name "Ivan"] :age 35]]
+      {:db/id 1 :name "Ivan" :age 35}
+      
+      [{:db/id [:name "Ivan"] :age 35}]
+      {:db/id 1 :name "Ivan" :age 35}
+         
+      [[:db/add 1 :friend [:name "Petr"]]]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+
+      [[:db/add 1 :friend [:name "Petr"]]]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+         
+      [{:db/id 1 :friend [:name "Petr"]}]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+      
+      [{:db/id 2 :_friend [:name "Ivan"]}]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+      
+      ;; lookup refs are resolved at intermediate DB value
+      [[:db/add 3 :name "Oleg"]
+       [:db/add 1 :friend [:name "Oleg"]]]
+      {:db/id 1 :name "Ivan" :friend {:db/id 3}}
+      
+      ;; CAS
+      [[:db.fn/cas [:name "Ivan"] :name "Ivan" "Oleg"]]
+      {:db/id 1 :name "Oleg"}
+      
+      [[:db/add 1 :friend 1]
+       [:db.fn/cas 1 :friend [:name "Ivan"] 2]]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+         
+      [[:db/add 1 :friend 1]
+       [:db.fn/cas 1 :friend 1 [:name "Petr"]]]
+      {:db/id 1 :name "Ivan" :friend {:db/id 2}}
+         
+      ;; Retractions
+      [[:db/add 1 :age 35]
+       [:db/retract [:name "Ivan"] :age 35]]
+      {:db/id 1 :name "Ivan"}
+      
+      [[:db/add 1 :friend 2]
+       [:db/retract 1 :friend [:name "Petr"]]]
+      {:db/id 1 :name "Ivan"}
+         
+      [[:db/add 1 :age 35]
+       [:db.fn/retractAttribute [:name "Ivan"] :age]]
+      {:db/id 1 :name "Ivan"}
+         
+      [[:db.fn/retractEntity [:name "Ivan"]]]
+      {:db/id 1}
+    )))
+
+(deftest test-lookup-refs-transact-multi
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
+                                   :friends { :db/valueType :db.type/ref
+                                              :db/cardinality :db.cardinality/many }})
+                      [{:db/id 1 :name "Ivan"}
+                       {:db/id 2 :name "Petr"}
+                       {:db/id 3 :name "Oleg"}
+                       {:db/id 4 :name "Sergey"}])]
+    (are [tx res] (= (entity-map (d/db-with db tx) 1) res)
+      ;; Additions
+      [[:db/add 1 :friends [:name "Petr"]]]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+
+      [[:db/add 1 :friends [:name "Petr"]]
+       [:db/add 1 :friends [:name "Oleg"]]]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2} {:db/id 3}}}
+         
+      [{:db/id 1 :friends [:name "Petr"]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+
+      [{:db/id 1 :friends [[:name "Petr"]]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+         
+      [{:db/id 1 :friends [[:name "Petr"] [:name "Oleg"]]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2} {:db/id 3}}}
+
+      [{:db/id 1 :friends [2 [:name "Oleg"]]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2} {:db/id 3}}}
+
+      [{:db/id 1 :friends [[:name "Petr"] 3]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2} {:db/id 3}}}
+         
+      ;; reverse refs
+      [{:db/id 2 :_friends [:name "Ivan"]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+
+      [{:db/id 2 :_friends [[:name "Ivan"]]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+
+      [{:db/id 2 :_friends [[:name "Ivan"] [:name "Oleg"]]}]
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
+    )))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)
@@ -1361,6 +1489,6 @@
       (is (= (hash (d/db-with db [[:db.fn/retractEntity 2]]))
              (hash (d/filter db remove-ivan)))))))
 
-;; (t/test-ns 'test.datascript)
+#_(t/test-ns 'test.datascript)
 
 
