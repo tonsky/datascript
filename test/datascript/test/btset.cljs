@@ -1,10 +1,10 @@
-(ns test.datascript.btset
+(ns datascript.test.btset
   (:require-macros
     [cemerick.cljs.test :refer [is deftest testing]])
   (:require
     [datascript.btset :as btset :refer [btset btset-iter -btset-from-sorted-arr slice LeafNode]]
     [cemerick.cljs.test :as t]
-    [test.datascript.perf :as perf]))
+    [datascript.perf :as perf]))
 
 (enable-console-print!)
 
@@ -88,7 +88,7 @@
             )))))
   (println "[ OK ] btset slice checked"))
 
-;; (t/test-ns 'test.datascript.btset)
+;; (t/test-ns 'datascript.test.btset)
 
 ;;;; PERFORMANCE
 

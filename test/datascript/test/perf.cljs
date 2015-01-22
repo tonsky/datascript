@@ -1,9 +1,9 @@
-(ns test.datascript-perf
+(ns datascript.test.perf
   (:require
     [datascript.btset :as btset]
     [datascript :as d]
     [datascript.core :as dc]
-    [test.datascript.perf :as perf]
+    [datascript.perf :as perf]
     [goog.array :as garray]))
 
 (enable-console-print!)
@@ -217,7 +217,7 @@
                       db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)]
                   (assoc opts :db db)))))
 
-(def now test.datascript.perf/now)
+(def now datascript.perf/now)
 
 (defn ^:export perftest-db-hash []
   (let [datoms (gen-long-db 30 10)]

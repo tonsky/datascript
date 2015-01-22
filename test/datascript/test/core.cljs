@@ -1,8 +1,9 @@
-(ns test.datascript.core
+(ns datascript.test.core
   (:require-macros
     [cemerick.cljs.test :refer [with-test-out]])
   (:require
-    [cemerick.cljs.test :as t]))
+    [cemerick.cljs.test :as t]
+    [datascript :as d]))
 
 (enable-console-print!)
 
@@ -39,3 +40,12 @@
          (println (.-stack actual))
        :else
          (prn actual)))))
+
+;; utils
+
+(defn entity-map [db e]
+  (when-let [entity (d/entity db e)]
+    (->> (assoc (into {} entity) :db/id (:db/id entity))
+         (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
+                                     {:db/id (:db/id %)}
+                                     %)))))

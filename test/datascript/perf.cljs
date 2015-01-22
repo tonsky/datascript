@@ -1,4 +1,4 @@
-(ns test.datascript.perf
+(ns datascript.perf
   (:require
     [clojure.string :as str]))
 

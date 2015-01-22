@@ -1,4 +1,4 @@
-(ns test.datascript.query-parser
+(ns datascript.test.query-parser
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
@@ -44,4 +44,4 @@
                                          (qp/Constant. 1)
                                          (qp/SrcVar. '$x)])))))
 
-#_(t/test-ns 'test.datascript.query-parser)
+#_(t/test-ns 'datascript.test.query-parser)
