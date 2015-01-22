@@ -7,21 +7,6 @@
 
 (enable-console-print!)
 
-;; See http://dev.clojure.org/jira/browse/CLJS-985
-(defn -ex-info
-  ([msg data]
-    (set! (.-prototype ExceptionInfo) (js/Error msg))
-    (set! (.. ExceptionInfo -prototype -name) "ExceptionInfo")
-    (set! (.. ExceptionInfo -prototype -constructor) ExceptionInfo)
-    (ExceptionInfo. msg data nil))
-  ([msg data cause]
-    (set! (.-prototype ExceptionInfo) (js/Error msg))
-    (set! (.. ExceptionInfo -prototype -name) "ExceptionInfo")
-    (set! (.. ExceptionInfo -prototype -constructor) ExceptionInfo)
-    (ExceptionInfo. msg data cause)))
-
-(set! cljs.core/ex-info -ex-info)
-
 ;; Added special case for printing ex-data of ExceptionInfo
 (defmethod t/report :error [{:keys [test-env] :as m}]
   (with-test-out test-env

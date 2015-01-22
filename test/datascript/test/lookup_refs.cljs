@@ -177,3 +177,64 @@
        :friends [:name "Petr"] [:name "Oleg"]
        [[1 :friends 2] [1 :friends 3] [2 :friends 3]])
 ))
+
+(deftest test-lookup-refs-query
+  (let [schema {:name   { :db/unique :db.unique/identity }
+                :friend { :db/valueType :db.type/ref }}
+        db (d/db-with (d/empty-db schema)
+                    [{:db/id 1 :id 1 :name "Ivan" :age 11 :friend 2}
+                     {:db/id 2 :id 2 :name "Petr" :age 22 :friend 3}
+                     {:db/id 3 :id 3 :name "Oleg" :age 33 }])]
+    (is (= (set (d/q '[:find [?v ...]
+                       :in $ ?e
+                       :where [?e :age ?v]]
+                     db [:name "Ivan"]))
+           #{11}))
+    
+    (is (= (set (d/q '[:find [?v ...]
+                       :in $ [?e ...]
+                       :where [?e :age ?v]]
+                     db [[:name "Ivan"] [:name "Petr"]]))
+           #{11 22}))
+    
+    (is (= (set (d/q '[:find [?e ...]
+                       :in $ ?v
+                       :where [?e :friend ?v]]
+                     db [:name "Petr"]))
+           #{1}))
+    
+    (is (= (set (d/q '[:find [?e ...]
+                       :in $ [?v ...]
+                       :where [?e :friend ?v]]
+                     db [[:name "Petr"] [:name "Oleg"]]))
+           #{1 2}))
+    
+    (is (= (d/q '[:find ?e ?v
+                  :in $ ?e ?v
+                  :where [?e :friend ?v]]
+                db [:name "Ivan"] [:name "Petr"])
+           #{[[:name "Ivan"] [:name "Petr"]]}))
+    
+    (is (= (d/q '[:find ?e ?v
+                  :in $ [?e ...] [?v ...]
+                  :where [?e :friend ?v]]
+                db [[:name "Ivan"] [:name "Petr"] [:name "Oleg"]]
+                   [[:name "Ivan"] [:name "Petr"] [:name "Oleg"]])
+           #{[[:name "Ivan"] [:name "Petr"]]
+             [[:name "Petr"] [:name "Oleg"]]}))
+    
+    (let [db2 (d/db-with (d/empty-db schema)
+                [{:db/id 3 :name "Ivan" :id 3}
+                 {:db/id 1 :name "Petr" :id 1}
+                 {:db/id 2 :name "Oleg" :id 2}])]
+      (is (= (d/q '[:find ?e ?e1 ?e2
+                    :in $1 $2 [?e ...]
+                    :where [$1 ?e :id ?e1]
+                           [$2 ?e :id ?e2]]
+                  db db2 [[:name "Ivan"] [:name "Petr"] [:name "Oleg"]])
+             #{[[:name "Ivan"] 1 3]
+               [[:name "Petr"] 2 1]
+               [[:name "Oleg"] 3 2]})))
+))
+
+#_(test-lookup-refs-query)

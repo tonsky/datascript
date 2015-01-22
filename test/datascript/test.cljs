@@ -24,3 +24,6 @@
    ))
 
 #_(t/run-all-tests)
+
+(defn ^:export test-all []
+  (t/run-all-tests))

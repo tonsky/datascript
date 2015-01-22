@@ -112,19 +112,29 @@
 ;;                                             '[[?e :last-name ?ln]
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
+     "d/q1"              (fn [opts] (d/q '[ :find  ?e ?a
+                                           :where [?e :name "Ivan"]]
+                                         (:db opts)))
 
-     "d/q"              (fn [opts] (d/q '[ :find  ?e ?a
+
+     "d/q2"              (fn [opts] (d/q '[ :find  ?e ?a
                                            :where [?e :name "Ivan"]
                                                   [?e :age ?a] ]
                                          (:db opts)))
 
-     "hash-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
-                                                 (mapv :e))]
-                           (hash-join (:db opts) es :age)))
+     "d/q3"              (fn [opts] (d/q '[ :find  ?e ?a
+                                           :where [?e :name "Ivan"]
+                                                  [?e :age ?a]
+                                                  [?e :sex :male] ]
+                                         (:db opts)))
 
-     "sort-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
-                                                 (mapv :e))]
-                           (sort-merge-join (:db opts) es :age)))
+     ; "hash-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
+     ;                                             (mapv :e))]
+     ;                       (hash-join (:db opts) es :age)))
+
+     ; "sort-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
+     ;                                             (mapv :e))]
+     ;                       (sort-merge-join (:db opts) es :age)))
 
 
                                  
@@ -142,29 +152,29 @@
 
   }
 
-  :lookup {
-    "name"         {:q      '[[?e :name "Ivan"]]
-                    :filter #(= (:name %) "Ivan") }
+  ; :lookup {
+    ; "name"         {:q      '[[?e :name "Ivan"]]
+    ;                 :filter #(= (:name %) "Ivan") }
 
 ;;     "name+age"     {:q      '[[?e :name "Ivan"]
 ;;                               [?e :age 5]]
 ;;                     :filter #(and (= (:name %) "Ivan")
 ;;                               (= (:age %) 5))}
 
-;;     "name+age+sex" {:q      '[[?e :name "Ivan"]
-;;                               [?e :age 5]
-;;                               [?e :sex :male]]
-;;                     :filter #(and (= (:name %) "Ivan")
-;;                                   (= (:age %) 5)
-;;                                   (= (:sex %) :male)) }
-  }
+    ; "name+age+sex" {:q      '[[?e :name "Ivan"]
+    ;                           [?e :age 5]
+    ;                           [?e :sex :male]]
+    ;                 :filter #(and (= (:name %) "Ivan")
+    ;                               (= (:age %) 5)
+    ;                               (= (:sex %) :male)) }
+  ; }
                     
-  :size   [2000] ;; [100 500 2000 20000]
+  :size [500 2000] ;; [100 500 2000 20000]
 ])
 
 
 (defn test-setup-db [opts]
-  (let [db (reduce #(d/with %1 [%2]) (d/empty-db) (:people opts))]
+  (let [db (reduce #(d/db-with %1 [%2]) (d/empty-db) (:people opts))]
     (assoc opts :db db)))
 
 (defn ^:export perftest-q []

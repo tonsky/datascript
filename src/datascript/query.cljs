@@ -35,8 +35,7 @@
 
 (defn free-var? [sym]
   (and (symbol? sym)
-       (= \? (first (name sym)))
-       (not= '_ sym)))
+       (= \? (first (name sym)))))
 
 (defn- looks-like? [pattern form]
   (cond
@@ -223,24 +222,36 @@
 
 ;;
 
-(defn tuple-key-fn [idxs]
-  (if (== (count idxs) 1)
-    (let [idx (first idxs)]
-      (fn [tuple]
-        (aget tuple idx)))
-    (let [idxs (to-array idxs)]
-      (fn [tuple]
-        (list* (.map idxs #(aget tuple %))))))) ;; FIXME aget
+(def ^:dynamic *lookup-attrs*)
+(def ^:dynamic *lookup-source*)
 
-(defn hash-attrs [idxs tuples]
-  (let [key-fn (tuple-key-fn idxs)]
-    (loop [tuples     tuples
-           hash-table (transient {})]
-      (if-let [tuple (first tuples)]
-        (let [key (key-fn tuple)]
-          (recur (next tuples)
-                 (assoc! hash-table key (conj (get hash-table key '()) tuple))))
-        (persistent! hash-table)))))
+(defn getter-fn [attrs attr]
+  (let [idx (attrs attr)]
+    (if (and (not (nil? *lookup-attrs*))
+             (contains? *lookup-attrs* attr))
+      (fn [tuple]
+          (let [eid (aget tuple idx)]  ;; FIXME aget
+            (if (number? eid) ;; quick path to avoid fn call
+              eid
+              (dc/entid *lookup-source* eid))))
+      (fn [tuple]
+        (aget tuple idx)))))  ;; FIXME aget
+
+(defn tuple-key-fn [getters]
+  (if (== (count getters) 1)
+    (first getters)
+    (let [getters (to-array getters)]
+      (fn [tuple]
+        (list* (.map getters #(% tuple)))))))
+
+(defn hash-attrs [key-fn tuples]
+  (loop [tuples     tuples
+         hash-table (transient {})]
+    (if-let [tuple (first tuples)]
+      (let [key (key-fn tuple)]
+        (recur (next tuples)
+               (assoc! hash-table key (conj (get hash-table key '()) tuple))))
+      (persistent! hash-table))))
 
 (defn hash-join [rel1 rel2]
   (let [tuples1       (:tuples rel1)
@@ -248,17 +259,18 @@
         attrs1        (:attrs rel1)
         attrs2        (:attrs rel2)
         common-attrs  (vec (intersect-keys (:attrs rel1) (:attrs rel2)))
-        common-idxs1  (map attrs1 common-attrs)
-        common-idxs2  (map attrs2 common-attrs)
+        common-gtrs1  (map #(getter-fn attrs1 %) common-attrs)
+        common-gtrs2  (map #(getter-fn attrs2 %) common-attrs)
         keep-attrs1   (keys attrs1)
         keep-attrs2   (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
         keep-idxs1    (to-array (map attrs1 keep-attrs1))
         keep-idxs2    (to-array (map attrs2 keep-attrs2))
-        hash          (hash-attrs common-idxs1 tuples1)
-        key-fn        (tuple-key-fn common-idxs2)
+        key-fn1       (tuple-key-fn common-gtrs1)
+        hash          (hash-attrs key-fn1 tuples1)
+        key-fn2       (tuple-key-fn common-gtrs2)
         new-tuples    (->>
                         (reduce (fn [acc tuple2]
-                                  (let [key (key-fn tuple2)]
+                                  (let [key (key-fn2 tuple2)]
                                     (if-let [tuples1 (get hash key)]
                                       (reduce (fn [acc tuple1]
                                                 (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
@@ -296,16 +308,17 @@
                         (into {}))]
     (Relation. attr->idx (map to-array data)))) ;; FIXME to-array
 
-(defn lookup-pattern [context clause]
-  (let [[source-sym pattern] (if (source? (first clause))
-                               [(first clause) (next clause)]
-                               ['$ clause])
-        source   (get (:sources context) source-sym)]
-    (cond
-      (satisfies? dc/ISearch source)
-        (lookup-pattern-db source pattern)
-      :else
-        (lookup-pattern-coll source pattern))))
+(defn normalize-pattern-clause [clause]
+  (if (source? (first clause))
+    clause
+    (concat ['$] clause)))
+
+(defn lookup-pattern [source pattern]
+  (cond
+    (satisfies? dc/ISearch source)
+      (lookup-pattern-db source pattern)
+    :else
+      (lookup-pattern-coll source pattern)))
 
 (defn collapse-rels [rels new-rel]
   (loop [rels    rels
@@ -478,6 +491,16 @@
                              rel))))))))
         rel))))
 
+(defn lookup-attrs [source pattern]
+  (let [[e a v tx] pattern]
+    (cond-> #{}
+      (free-var? e) (conj e)
+      (free-var? tx) (conj tx)
+      (and
+        (free-var? v)
+        (not (free-var? a))
+        (dc/ref? source a)) (conj v))))
+
 (defn -resolve-clause [context clause]
   (condp looks-like? clause
     '[[*]] ;; predicate [(pred ?a ?b ?c)]
@@ -487,8 +510,13 @@
       (bind-by-fn context clause)
 
     '[*] ;; pattern
-      (let [relation (lookup-pattern context clause)]
-        (update-in context [:rels] collapse-rels relation))))
+      (let [[source-sym & pattern] (normalize-pattern-clause clause)
+            source   (get (:sources context) source-sym)
+            relation (lookup-pattern source pattern)
+            lookup-source? (satisfies? dc/IDB source)]
+        (binding [*lookup-source* (when lookup-source? source)
+                  *lookup-attrs*  (when lookup-source? (lookup-attrs source pattern))]
+          (update-in context [:rels] collapse-rels relation)))))
 
 (defn resolve-clause [context clause]
   (if (rule? context clause)
