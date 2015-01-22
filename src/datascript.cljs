@@ -116,8 +116,9 @@
 (defn seek-datoms [db index & cs]
   (dc/-seek-datoms db index cs))
 
-(defn index-range [db attr start end]
-  (dc/-index-range db attr start end))
+(def index-range dc/-index-range)
+
+(def entid dc/entid)
 
 ;; Conn
 

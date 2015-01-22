@@ -1,7 +1,9 @@
 # WIP
 
-- Support for `:db/unique` constraints and upserts
+- `:db/unique` constraints 
+- Upserts
 - Lookup refs
+- `entid` function
 
 # 0.8.0
 

@@ -517,8 +517,7 @@
     (are [eid msg] (thrown-with-msg? js/Error msg (d/entity db eid))
       [:name]     #"Lookup ref should contain 2 elements"
       [:name 1 2] #"Lookup ref should contain 2 elements"
-      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity"
-      "abc"       #"Expected number or lookup ref for entity id")))
+      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity")))
 
 (deftest test-lookup-refs-transact
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
@@ -621,6 +620,59 @@
       [{:db/id 2 :_friends [[:name "Ivan"] [:name "Oleg"]]}]
       {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
     )))
+
+(deftest lookup-refs-index-access
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
+                                   :friends { :db/valueType :db.type/ref
+                                              :db/cardinality :db.cardinality/many}})
+                      [{:db/id 1 :name "Ivan" :friends [2 3]}
+                       {:db/id 2 :name "Petr" :friends 3}
+                       {:db/id 3 :name "Oleg"}])]
+     (are [index attrs datoms] (= (map (juxt :e :a :v) (apply d/datoms db index attrs)) datoms)
+       :eavt [[:name "Ivan"]]
+       [[1 :friends 2] [1 :friends 3] [1 :name "Ivan"]]
+       
+       :eavt [[:name "Ivan"] :friends]
+       [[1 :friends 2] [1 :friends 3]]
+          
+       :eavt [[:name "Ivan"] :friends [:name "Petr"]]
+       [[1 :friends 2]]
+       
+       :aevt [:friends [:name "Ivan"]]
+       [[1 :friends 2] [1 :friends 3]]
+          
+       :aevt [:friends [:name "Ivan"] [:name "Petr"]]
+       [[1 :friends 2]]
+       
+       :avet [:friends [:name "Oleg"]]
+       [[1 :friends 3] [2 :friends 3]]
+       
+       :avet [:friends [:name "Oleg"] [:name "Ivan"]]
+       [[1 :friends 3]])
+    
+     (are [index attrs resolved-attrs] (= (vec (apply d/seek-datoms db index attrs))
+                                          (vec (apply d/seek-datoms db index resolved-attrs)))
+       :eavt [[:name "Ivan"]] [1]
+       :eavt [[:name "Ivan"] :name] [1 :name]
+       :eavt [[:name "Ivan"] :friends [:name "Oleg"]] [1 :friends 3]
+       
+       :aevt [:friends [:name "Petr"]] [:friends 2]
+       :aevt [:friends [:name "Ivan"] [:name "Oleg"]] [:friends 1 3]
+       
+       :avet [:friends [:name "Oleg"]] [:friends 3]
+       :avet [:friends [:name "Oleg"] [:name "Petr"]] [:friends 3 2]
+      )
+    
+    (are [attr start end datoms] (= (map (juxt :e :a :v) (d/index-range db attr start end)) datoms)
+       :friends [:name "Oleg"] [:name "Oleg"]
+       [[1 :friends 3] [2 :friends 3]]
+       
+       :friends [:name "Petr"] [:name "Petr"]
+       [[1 :friends 2]]
+       
+       :friends [:name "Petr"] [:name "Oleg"]
+       [[1 :friends 2] [1 :friends 3] [2 :friends 3]])
+))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)

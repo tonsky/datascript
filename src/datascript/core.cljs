@@ -7,6 +7,8 @@
 
 (def ^:const tx0 0x20000000)
 
+(declare entid-strict entid-some ref? validate-attr)
+
 (defrecord Datom [e a v tx added]
   Object
   (toString [this]
@@ -135,11 +137,22 @@
     (- (.-e d1) (.-e d2))
     (- (.-tx d1) (.-tx d2))))
 
-(defn- components->pattern [index [c0 c1 c2 c3]]
+(defn- resolve-datom [db e a v t]
+  (when a (validate-attr a))
+  (Datom.
+    (entid-some db e)         ;; e
+    a                               ;; a
+    (if (and (some? v) (ref? db a)) ;; v
+      (entid-strict db v)
+      v)
+    (entid-some db t)         ;; t
+    nil))
+
+(defn- components->pattern [db index [c0 c1 c2 c3]]
   (case index
-    :eavt (Datom. c0 c1 c2 c3 nil)
-    :aevt (Datom. c1 c0 c2 c3 nil)
-    :avet (Datom. c2 c0 c1 c3 nil)))
+    :eavt (resolve-datom db c0 c1 c2 c3)
+    :aevt (resolve-datom db c1 c0 c2 c3)
+    :avet (resolve-datom db c2 c0 c1 c3)))
 
 (defrecord DB [schema eavt aevt avet max-eid max-tx rschema]
   Object
@@ -178,14 +191,15 @@
 
   IIndexAccess
   (-datoms [this index cs]
-    (btset/slice (get this index) (components->pattern index cs)))
+    (btset/slice (get this index) (components->pattern this index cs)))
 
   (-seek-datoms [this index cs]
-    (btset/slice (get this index) (components->pattern index cs) (Datom. nil nil nil nil nil)))
+    (btset/slice (get this index) (components->pattern this index cs) (Datom. nil nil nil nil nil)))
 
-  (-index-range [_ attr start end]
-    (btset/slice avet (Datom. nil attr start nil nil)
-                      (Datom. nil attr end nil nil))))
+  (-index-range [this attr start end]
+    (validate-attr attr)
+    (btset/slice avet (resolve-datom this nil attr start nil)
+                      (resolve-datom this nil attr end nil))))
 
 (defrecord FilteredDB [unfiltered-db pred]
   Object
@@ -250,7 +264,7 @@
 (defn ^boolean component? [db attr]
   (is-attr? db attr :db/isComponent))
 
-(defn resolve-eid [db eid]
+(defn entid [db eid]
   (cond
     (number? eid) eid
     (sequential? eid)
@@ -263,11 +277,17 @@
                  {:error :lookup-ref/unique
                   :entity-id eid})
         :else
-          (:e (first (-datoms db :avet eid))))
-    :else
+          (:e (first (-datoms db :avet eid))))))
+
+(defn entid-strict [db eid]
+  (or (entid db eid)
       (raise "Expected number or lookup ref for entity id, got " eid
              {:error :entity-id/syntax
               :entity-id eid})))
+
+(defn entid-some [db eid]
+  (when eid
+    (entid-strict db eid)))
 
 ;;;;;;;;;; Transacting
 
@@ -436,8 +456,8 @@
   (validate-val  v ent)
   (let [tx    (current-tx report)
         db    (:db-after report)
-        e     (resolve-eid db e)
-        v     (if (ref? db a) (resolve-eid db v) v)
+        e     (entid-strict db e)
+        v     (if (ref? db a) (entid-strict db v) v)
         datom (Datom. e a v tx true)]
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
@@ -474,12 +494,12 @@
 
       (map? entity)
         (let [old-eid      (:db/id entity)
-              known-eid    (some->> 
+              known-eid    (->> 
                              (cond
                                (neg? old-eid)   (get-in report [:tempids old-eid])
                                (tx-id? old-eid) (current-tx report)
                                :else            old-eid)
-                             (resolve-eid db))
+                             (entid-some db))
               upserted     (resolve-upsert db (assoc entity :db/id known-eid))
               new-eid      (or (:db/id upserted) (next-eid db))
               new-entity   (assoc upserted :db/id new-eid)
@@ -497,10 +517,10 @@
 
             (= op :db.fn/cas)
               (let [[_ e a ov nv] entity
-                    e (resolve-eid db e)
+                    e (entid-strict db e)
                     _ (validate-attr a entity)
-                    ov (if (ref? db a) (resolve-eid db ov) ov)
-                    nv (if (ref? db a) (resolve-eid db nv) nv)
+                    ov (if (ref? db a) (entid-strict db ov) ov)
+                    nv (if (ref? db a) (entid-strict db nv) nv)
                     _ (validate-val ov entity)
                     _ (validate-val nv entity)
                     datoms (-search db [e a])]
@@ -535,8 +555,8 @@
               (recur (transact-add report entity) entities)
 
             (= op :db/retract)
-              (let [e (resolve-eid db e)
-                    v (if (ref? db a) (resolve-eid db v) v)]
+              (let [e (entid-strict db e)
+                    v (if (ref? db a) (entid-strict db v) v)]
                 (validate-attr a entity)
                 (validate-val v entity)
                 (if-let [old-datom (first (-search db [e a v]))]
@@ -544,14 +564,14 @@
                   (recur report entities)))
 
             (= op :db.fn/retractAttribute)
-              (let [e (resolve-eid db e)]
+              (let [e (entid-strict db e)]
                 (validate-attr a entity)
                 (let [datoms (-search db [e a])]
                   (recur (reduce transact-retract-datom report datoms)
                          (concat (retract-components db datoms) entities))))
 
             (= op :db.fn/retractEntity)
-              (let [e (resolve-eid db e)
+              (let [e (entid-strict db e)
                     e-datoms (-search db [e])
                     v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
                 (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
