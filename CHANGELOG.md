@@ -1,4 +1,4 @@
-# WIP
+# 0.8.1
 
 - `:db/unique` constraints 
 - Upserts

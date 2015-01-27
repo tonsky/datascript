@@ -42,10 +42,12 @@ Demo applications:
 
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
+For more examples, see [our acceptance test suite](test/datascript/test/).
+
 ```clj
 :dependencies [
-  [org.clojure/clojurescript "0.0-2665"]
-  [datascript "0.8.0"]
+  [org.clojure/clojurescript "0.0-2727"]
+  [datascript "0.8.1"]
 ]
 ```
 
@@ -117,10 +119,10 @@ Demo applications:
 DataScript can be used from any JS engine without additional dependencies:
 
 ```
-<script src="datascript-0.8.0.min.js"></script>
+<script src="datascript-0.8.1.min.js"></script>
 ```
 
-[Download datascript-0.8.0.min.js](https://github.com/tonsky/datascript/releases/download/0.8.0/datascript-0.8.0.min.js), 53k gzipped.
+[Download datascript-0.8.1.min.js](https://github.com/tonsky/datascript/releases/download/0.8.1/datascript-0.8.1.min.js), 55k gzipped.
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
 
@@ -156,7 +158,7 @@ Transaction reports:
 
 * `report.tempids` has string keys (`"-1"` for entity tempid `-1`), use `resolve_tempid` to set up a correspondence
 
-Check out [test/js/js.html](test/js/js.html) for usage examples.
+Check out [test/js/tests.html](test/js/tests.html) for usage examples.
 
 ## Project status
 
@@ -173,6 +175,8 @@ The following features are supported:
 * Callback-based analogue to txReportQueue via `listen!`
 * Direct index lookup and iteration via `datoms` and `seek-datoms`
 * Filtered databases via `filter`
+* Lookup refs
+* Unique constraints, upsert
 
 Query engine features:
 
@@ -200,9 +204,8 @@ Expected soon:
 
 * Better error reporting
 * Proper documentation
-* Lookup refs
-* Unique constraints, upsert
 * Pull API
+* `not`, `not-join`, `or` and `or-join` datalog clauses
 
 ## Differences from Datomic
 
