@@ -1,3 +1,7 @@
+# WIP
+
+- Lookup refs can be inlined in query :where patterns (issue #53)
+
 # 0.8.1
 
 - `:db/unique` constraints 

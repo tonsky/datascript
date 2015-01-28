@@ -7,6 +7,7 @@
     [datascript.query-parser :as qp]
     [datascript.impl.entity :as de]))
 
+(declare built-ins)
 
 ;; Records
 
@@ -27,7 +28,27 @@
                     (set (keys attrs2))))
 
 (defn concatv [& xs]
-  (vec (apply concat xs)))
+  (into [] cat xs))
+
+(defn- looks-like? [pattern form]
+  (cond
+    (= '_ pattern)
+      true
+    (= '[*] pattern)
+      (sequential? form)
+    (symbol? pattern)
+      (= form pattern)
+    (sequential? pattern)
+      (if (= (last pattern) '*)
+        (and (sequential? form)
+             (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
+                     (map vector (butlast pattern) form)))
+        (and (sequential? form)
+             (= (count form) (count pattern))
+             (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
+                     (map vector pattern form))))
+    :else ;; (predicate? pattern)
+      (pattern form)))
 
 (defn source? [sym]
   (and (symbol? sym)
@@ -37,21 +58,11 @@
   (and (symbol? sym)
        (= \? (first (name sym)))))
 
-(defn- looks-like? [pattern form]
-  (cond
-    (= '_ pattern)
-      true
-    (= '[*] pattern)
-      (sequential? form)
-    (sequential? pattern)
-      (and (sequential? form)
-           (= (count form) (count pattern))
-           (every? (fn [[pattern-el form-el]] (looks-like? pattern-el form-el))
-                   (map vector pattern form)))
-    (symbol? pattern)
-      (= form pattern)
-    :else ;; (predicate? pattern)
-      (pattern form)))
+(defn attr? [form]
+  (or (keyword? form) (string? form)))
+
+(defn lookup-ref? [form]
+  (looks-like? [attr? '_] form))
 
 ;; Relation algebra
 
@@ -491,7 +502,18 @@
                              rel))))))))
         rel))))
 
-(defn lookup-attrs [source pattern]
+(defn resolve-pattern-lookup-refs [source pattern]
+  (if (satisfies? dc/IDB source)
+    (let [[e a v tx] pattern]
+      (->
+        [(if (lookup-ref? e) (dc/entid-strict source e) e)
+         a
+         (if (and v (attr? a) (dc/ref? source a) (lookup-ref? v)) (dc/entid-strict source v) v)
+         (if (lookup-ref? tx) (dc/entid-strict source tx) tx)]
+        (subvec 0 (count pattern))))
+    pattern))
+
+(defn dynamic-lookup-attrs [source pattern]
   (let [[e a v tx] pattern]
     (cond-> #{}
       (free-var? e) (conj e)
@@ -503,19 +525,20 @@
 
 (defn -resolve-clause [context clause]
   (condp looks-like? clause
-    '[[*]] ;; predicate [(pred ?a ?b ?c)]
+    [[symbol? '*]] ;; predicate [(pred ?a ?b ?c)]
       (filter-by-pred context clause)
 
-    '[[*] _] ;; function [(fn ?a ?b) ?res]
+    [[symbol? '*] '_] ;; function [(fn ?a ?b) ?res]
       (bind-by-fn context clause)
 
-    '[*] ;; pattern
+    ['*] ;; pattern
       (let [[source-sym & pattern] (normalize-pattern-clause clause)
             source   (get (:sources context) source-sym)
+            pattern  (resolve-pattern-lookup-refs source pattern)
             relation (lookup-pattern source pattern)
             lookup-source? (satisfies? dc/IDB source)]
         (binding [*lookup-source* (when lookup-source? source)
-                  *lookup-attrs*  (when lookup-source? (lookup-attrs source pattern))]
+                  *lookup-attrs*  (when lookup-source? (dynamic-lookup-attrs source pattern))]
           (update-in context [:rels] collapse-rels relation)))))
 
 (defn resolve-clause [context clause]

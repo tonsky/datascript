@@ -18,10 +18,11 @@
       [:email "@1"]    {:db/id 1 :name "Ivan" :email "@1" :age 35}
       [:name "Sergey"] nil)
     
-    (are [eid msg] (thrown-with-msg? js/Error msg (d/entity db eid))
+    (are [eid msg] (thrown-with-msg? ExceptionInfo msg (d/entity db eid))
       [:name]     #"Lookup ref should contain 2 elements"
       [:name 1 2] #"Lookup ref should contain 2 elements"
-      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity")))
+      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity"
+      :abc        #"Expected number or lookup ref for entity id")))
 
 (deftest test-lookup-refs-transact
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
@@ -235,6 +236,24 @@
              #{[[:name "Ivan"] 1 3]
                [[:name "Petr"] 2 1]
                [[:name "Oleg"] 3 2]})))
+    
+    (testing "inline refs"
+      (is (= (d/q '[:find ?v
+                    :where [[:name "Ivan"] :friend ?v]]
+                  db)
+             #{[2]}))
+      
+      (is (= (d/q '[:find ?e
+                    :where [?e :friend [:name "Petr"]]]
+                  db)
+             #{[1]}))
+      
+      (is (thrown-with-msg? ExceptionInfo #"Nothing found"
+            (d/q '[:find ?e
+                   :where [[:name "Valery"] :friend _]]
+                  db)))
+
+      )
 ))
 
 #_(test-lookup-refs-query)

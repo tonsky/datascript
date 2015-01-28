@@ -277,12 +277,16 @@
                  {:error :lookup-ref/unique
                   :entity-id eid})
         :else
-          (:e (first (-datoms db :avet eid))))))
+          (:e (first (-datoms db :avet eid))))
+   :else
+     (raise "Expected number or lookup ref for entity id, got " eid
+             {:error :entity-id/syntax
+              :entity-id eid})))
 
 (defn entid-strict [db eid]
   (or (entid db eid)
-      (raise "Expected number or lookup ref for entity id, got " eid
-             {:error :entity-id/syntax
+      (raise "Nothing found for entity id " eid
+             {:error :entity-id/missing
               :entity-id eid})))
 
 (defn entid-some [db eid]
