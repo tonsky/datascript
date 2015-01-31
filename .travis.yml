@@ -1,3 +1,11 @@
 language: clojure
 lein: lein2
 script: lein2 cljsbuild test
+
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/0d39167ae8524d111b5d
+    on_success: always
+    on_failure: always
+
