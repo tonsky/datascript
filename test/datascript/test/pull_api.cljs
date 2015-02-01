@@ -156,20 +156,22 @@
 
 (deftest test-pull-map
   (let [db (create-test-db)]
-    (is (= {:name "Petr" :child [{:name "David"}
-                                 {:name "Thomas"}]}
-           (d/pull db '[:name {:child [:name]}] 1)))
+    (testing "Single attrs yield a map"
+      (is (= {:name "Matthew" :father {:name "Thomas"}}
+             (d/pull db '[:name {:father [:name]}] 6))))
 
-    (is (= {:name "Matthew" :father {:name "Thomas"}}
-           (d/pull db '[:name {:father [:name]}] 6)))
+    (testing "Multi attrs yield a collection of maps"
+      (is (= {:name "Petr" :child [{:name "David"}
+                                   {:name "Thomas"}]}
+             (d/pull db '[:name {:child [:name]}] 1))))
 
-    (is (= {:name "Petr"}
-           (d/pull db '[:name {:father [:name]}] 1)))
+    (testing "Missing attrs are dropped"
+      (is (= {:name "Petr"}
+             (d/pull db '[:name {:father [:name]}] 1))))
 
-    ;; Non matching results are removed from collections; even though
-    ;; Petr has children, none of those children have a `:foo` attribute
-    (is (= {:name "Petr" :child []}
-           (d/pull db '[:name {:child [:foo]}] 1)))))
+    (testing "Non matching results are removed from collections"
+      (is (= {:name "Petr" :child []}
+             (d/pull db '[:name {:child [:foo]}] 1))))))
 
 (deftest test-pull-recursion
   (let [db      (-> (create-test-db)

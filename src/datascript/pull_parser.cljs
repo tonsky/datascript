@@ -2,42 +2,58 @@
   (:require
    [datascript.core :as dc]))
 
-;; pattern            = [attr-spec+]
-;; attr-spec          = attr-name | wildcard | map-spec | attr-expr
-;; attr-name          = an edn keyword that names an attr
-;; wildcard           = "*" or '*'
-;; map-spec           = { ((attr-name | limit-expr) (pattern | recursion-limit))+ }
-;; attr-expr          = limit-expr | default-expr
-;; limit-expr         = ["limit" attr-name (positive-number | nil)]
-;; default-expr       = ["default" attr-name any-value]
-;; recursion-limit    = positive-number | '...'
+(defrecord PullSpec [wildcard? attrs])
 
-(defprotocol IPullAttrExpr
-  (-attr [this]))
+(defprotocol IPullSpecComponent
+  (-as-spec [this]))
 
 (defrecord PullAttrName [attr]
-  IPullAttrExpr
-  (-attr [this] attr))
+  IPullSpecComponent
+  (-as-spec [this]
+    [attr {:attr attr}]))
 
 (defrecord PullReverseAttrName [attr rattr]
-  IPullAttrExpr
-  (-attr [this] rattr))
-
-(defrecord PullMapSpecEntry [attr porrl]
-  IPullAttrExpr
-  (-attr [this] (-attr (.-attr this))))
+  IPullSpecComponent
+  (-as-spec [this]
+    [rattr {:attr attr}]))
 
 (defrecord PullLimitExpr [attr limit]
-  IPullAttrExpr
-  (-attr [this] (-attr (.-attr this))))
+  IPullSpecComponent
+  (-as-spec [this]
+    (-> (-as-spec attr)
+        (assoc-in [1 :limit] limit))))
 
 (defrecord PullDefaultExpr [attr value]
-  IPullAttrExpr
-  (-attr [this] (-attr (.-attr this))))
+  IPullSpecComponent
+  (-as-spec [this]
+    (-> (-as-spec attr)
+        (assoc-in [1 :default] value))))
 
-(defrecord PullWildcard [except])
-(defrecord PullRecursionLimit [limit])
-(defrecord PullPattern [specs])
+(defrecord PullWildcard [])
+
+(defrecord PullRecursionLimit [limit]
+  IPullSpecComponent
+  (-as-spec [this]
+    [:recursion limit]))
+
+(defrecord PullMapSpecEntry [attr porrl]
+  IPullSpecComponent
+  (-as-spec [this]
+    (-> (-as-spec attr)
+        (update 1 conj (-as-spec porrl)))))
+
+(defn- aggregate-specs
+  [res part]
+  (if (instance? PullWildcard part)
+    (assoc res :wildcard? true)
+    (update res :attrs conj! (-as-spec part))))
+
+(defrecord PullPattern [specs]
+  IPullSpecComponent
+  (-as-spec [this]
+    (let [init (PullSpec. false (transient {}))
+          spec (reduce aggregate-specs init specs)]
+      [:subpattern (update spec :attrs persistent!)])))
 
 (declare parse-pattern)
 
@@ -46,7 +62,7 @@
 (defn- parse-wildcard
   [spec]
   (when (wildcard? spec)
-    (PullWildcard. #{})))
+    (PullWildcard.)))
 
 (defn- parse-attr-name
   [spec]
@@ -142,20 +158,59 @@
         (into (get groups :other))
         (into (mapcat expand-map-clause) (get groups :map)))))
 
-(defn- parse-pattern
+(defn parse-pattern
+  "Parse an EDN pull pattern into a tree of records using the following
+grammar:
+
+```
+pattern            = [attr-spec+]
+attr-spec          = attr-name | wildcard | map-spec | attr-expr
+attr-name          = an edn keyword that names an attr
+wildcard           = \"*\" or '*'
+map-spec           = { ((attr-name | limit-expr) (pattern | recursion-limit))+ }
+attr-expr          = limit-expr | default-expr
+limit-expr         = [\"limit\" attr-name (positive-number | nil)]
+default-expr       = [\"default\" attr-name any-value]
+recursion-limit    = positive-number | '...'
+```"
   [pattern]
   (when (sequential? pattern)
-    (let [simplified      (simplify-pattern-clauses pattern)
-          has-wildcard?   (wildcard? (first simplified))
-          parsed          (into [] (map parse-attr-spec) simplified)
-          analyzed        (if has-wildcard?
-                            (update-in parsed [0 :except] into
-                                       (map -attr)
-                                       (rest parsed))
-                            parsed)]
-      (PullPattern. analyzed))))
+    (->> pattern
+         simplify-pattern-clauses
+         (into [] (map parse-attr-spec))
+         (PullPattern.))))
+
+(defn pattern->spec
+  "Convert a parsed tree of pull pattern records into a `PullSpec` instance,
+a record type containing two keys:
+
+* `:wildcard?` - a boolean indicating if the pattern contains a wildcard.
+* `:attrs` - a map of attribute specifications.
+
+The attribute specification map consists of keys which will become the keys
+in the result map, and values which are themselves maps describing the
+attribute:
+
+* `:attr`       (required) - The attr name to pull; for reverse attributes
+                             this will be the normalized attribute name.
+* `:limit`      (optional) - If present, specifies a custom limit for this
+                             attribute; Either `nil`, indicating no limit,
+                             or a positive integer.
+* `:default`    (optional) - If present, specifies a default value for this
+                             attribute
+* `:recursion`  (optional) - If present, specifies a recursion limit for this
+                             attribute; Either `nil`, indicating no limit, or
+                             a positive integer.
+* `:subpattern` (optional) - If present, specifies a sub `PullSpec` instance
+                             to be applied to entities matched by this
+                             attribute."
+  [pattern]
+  (nth (-as-spec pattern) 1))
 
 (defn parse-pull
+  "Parse EDN pull `pattern` specification (see `parse-pattern`), and
+convert the resulting tree into a `PullSpec` instance (see `pattern->spec`).
+Throws an error if the supplied `pattern` cannot be parsed."
   [pattern]
-  (or (parse-pattern pattern)
+  (or (-> pattern parse-pattern pattern->spec)
       (throw (js/Error. "Cannot parse pull pattern, expected: [attr-spec+]"))))
