@@ -130,10 +130,9 @@
              (update :kvps assoc! attr-key (:default opts)))
            (conj frames)))))
 
-(defn- pull-attr-frame
-  [db frame frames]
-  (let [{:keys [spec eid]} frame
-        [attr-key opts] spec]
+(defn- pull-attr
+  [db spec eid frames]
+  (let [[attr-key opts] spec]
     (if (= :db/id attr-key)
       (if (not-empty (dc/-datoms db :eavt [eid]))
         (conj (rest frames)
@@ -181,10 +180,8 @@
       (if-let [specs (seq (:specs frame))]
         (let [spec       (first specs)
               pattern    (:pattern frame)
-              new-frames (conj frames (assoc frame :specs (rest specs)))
-              attr-frame {:state :attr :pattern pattern :spec spec
-                          :eid (first eids)}]
-          (pull-attr-frame db attr-frame new-frames))
+              new-frames (conj frames (assoc frame :specs (rest specs)))]
+          (pull-attr db spec (first eids) new-frames))
         (->> frame :kvps persistent! not-empty
              (reset-frame frame (rest eids))
              (conj frames)
