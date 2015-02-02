@@ -109,7 +109,7 @@
     <script type="text/javascript">goog.require("datascript.js");</script> -->
 
     <script src="../../release-js/datascript.js" type="text/javascript"></script>
-    
+
     <script type="text/javascript">
       var d = datascript;
       var tx0 = 0x20000000; // we just know it, alright?
@@ -273,6 +273,27 @@
         assert_eq_refs([100], e(10).get("_father"));
         assert_eq_refs([1],   e(100).get("_children")[0].get("_children"));
       }
+
+      function test_pull() {
+        var schema = {"father":   {":db/valueType":   ":db.type/ref"},
+                      "children": {":db/valueType":   ":db.type/ref",
+                                   ":db/cardinality": ":db.cardinality/many"}};
+        var db = d.db_with(d.empty_db(schema),
+                               [{":db/id": 1,   "name": "Ivan", "children": [10]},
+                                {":db/id": 10,  "father":   1, "children": [100, 101]},
+                                {":db/id": 100, "father":   10}]);
+
+        var actual, expected;
+
+        actual   = d.pull(db, '["children"]', 1);
+        expected = {"children": [{":db/id": 10}]};
+        assert_eq(expected, actual);
+
+        actual   = d.pull(db, '["children", {"father" ["name" :db/id]}]', 10);
+        expected = {"children": [{":db/id": 100}, {":db/id": 101}],
+                    "father": {"name": "Ivan", ":db/id": 1}};
+        assert_eq(expected, actual);
+      }
       
       function test_resolve_current_tx() {
         var schema = {"created-at": {":db/valueType":   ":db.type/ref"}};
@@ -384,6 +405,7 @@
                           test_tx_report,
                           test_entity,
                           test_entity_refs,
+                          test_pull,
                           test_resolve_current_tx,
                           test_q_relation,
                           test_q_rules,

@@ -52,6 +52,12 @@
     (dc/Datom. (aget d 0) (aget d 1) (aget d 2) (or (aget d 3) d/tx0) (or (aget d 4) true))
     (dc/Datom. (.-e d) (.-a d) (.-v d) (or (.-tx d) d/tx0) (or (.-added d) true))))
 
+(defn- pull-result->js
+  [result]
+  (->> result
+       (walk/postwalk #(if (keyword? %) (str %) %))
+       clj->js))
+
 ;; Public API
 
 (defn ^:export empty_db [& [schema]]
@@ -64,6 +70,16 @@
   (let [query   (cljs.reader/read-string query)
         results (apply d/q query sources)]
     (clj->js results)))
+
+(defn ^:export pull [db pattern eid]
+  (let [pattern (cljs.reader/read-string pattern)
+        results (d/pull db pattern eid)]
+    (pull-result->js results)))
+
+(defn ^:export pull_many [db pattern eids]
+  (let [pattern (cljs.reader/read-string pattern)
+        results (d/pull-many db pattern eids)]
+    (pull-result->js results)))
 
 (defn ^:export db_with [db entities]
   (d/db-with db (entities->clj entities)))

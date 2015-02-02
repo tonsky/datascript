@@ -365,7 +365,7 @@
       (update-in [:db-after] with-datom datom)
       (update-in [:tx-data] conj datom)))
 
-(defn- ^boolean reverse-ref? [attr]
+(defn ^boolean reverse-ref? [attr]
   (cond
     (keyword? attr)
     (= "_" (nth (name attr) 0))
@@ -377,7 +377,7 @@
     (raise "Bad attribute type: " attr ", expected keyword or string"
            {:error :transact/syntax, :attribute attr})))
 
-(defn- reverse-ref [attr]
+(defn reverse-ref [attr]
   (cond
     (keyword? attr)
     (if (reverse-ref? attr)
