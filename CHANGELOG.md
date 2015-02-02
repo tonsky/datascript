@@ -1,6 +1,7 @@
 # WIP
 
 - Lookup refs can be inlined in query :where patterns (issue #53)
+- Pull API (issue #37, pull request #51) by [David Thomas Hume](https://github.com/dthume)
 
 # 0.8.1
 

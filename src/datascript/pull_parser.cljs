@@ -1,6 +1,8 @@
 (ns datascript.pull-parser
   (:require
-   [datascript.core :as dc]))
+   [datascript.core :as dc])
+  (:require-macros
+    [datascript :refer [raise]]))
 
 (defrecord PullSpec [wildcard? attrs])
 
@@ -71,10 +73,12 @@
       (PullReverseAttrName. (dc/reverse-ref spec) spec)
       (PullAttrName. spec))))
 
+(def ^:private unlimited-recursion? #{'... "..."})
+
 (defn- parse-recursion-limit
   [spec]
   (cond
-    (= '... spec)
+    (unlimited-recursion? spec)
     (PullRecursionLimit. nil)
 
     (and (number? spec) (pos? spec))
@@ -84,7 +88,7 @@
   [spec]
   (and (sequential? spec) (= 3 (count spec))))
 
-(def ^:private limit? #{'limit "limit"})
+(def ^:private limit? #{'limit :limit "limit"})
 
 (defn- parse-limit-expr
   [spec]
@@ -94,9 +98,10 @@
                                   (and (number? pos-num) (pos? pos-num)))
                               (parse-attr-name attr-name-spec))]
         (PullLimitExpr. attr-name pos-num)
-        (throw (js/Error. "Expected [\"limit\" attr-name (positive-number | nil)]"))))))
+        (raise "Expected [\"limit\" attr-name (positive-number | nil)]"
+               {:error :pull/parser, :fragment spec})))))
 
-(def ^:private default? #{'default "default"})
+(def ^:private default? #{'default :default "default"})
 
 (defn- parse-default-expr
   [spec]
@@ -105,7 +110,8 @@
       (if-let [attr-name (and (default? default-sym)
                               (parse-attr-name attr-name-spec))]
         (PullDefaultExpr. attr-name default-val)
-        (throw (js/Error. "Expected [\"default\" attr-name any-value]"))))))
+        (raise "Expected [\"default\" attr-name any-value]"
+               {:error :pull/parser, :fragment spec})))))
 
 (defn- parse-map-spec-entry
   [[k v]]
@@ -115,8 +121,10 @@
     (if-let [pattern-or-rec (or (parse-recursion-limit v)
                                 (parse-pattern v))]
       (PullMapSpecEntry. attr-name pattern-or-rec)
-      (throw (js/Error. "Expected (pattern | recursion-limit)")))
-    (throw (js/Error. "Expected (attr-name | limit-expr)"))))
+      (raise "Expected (pattern | recursion-limit)"
+             {:error :pull/parser, :fragment [k v]}))
+    (raise "Expected (attr-name | limit-expr)"
+           {:error :pull/parser, :fragment [k v]})))
 
 (defn- parse-map-spec
   [spec]
@@ -136,14 +144,15 @@
       (parse-wildcard spec)
       (parse-map-spec spec)
       (parse-attr-expr spec)
-      (throw (js/Error. "Cannot parse attr-spec, expected: (attr-name | wildcard | map-spec | attr-expr)"))))
+      (raise "Cannot parse attr-spec, expected: (attr-name | wildcard | map-spec | attr-expr)"
+             {:error :pull/parser, :fragment spec})))
 
 (defn- pattern-clause-type
   [clause]
   (cond
-    (map? clause)         :map
-    (#{'* :* "*"} clause) :wildcard
-    :else                 :other))
+    (map? clause)      :map
+    (wildcard? clause) :wildcard
+    :else              :other))
 
 (defn- expand-map-clause
   [clause]
@@ -213,4 +222,5 @@ convert the resulting tree into a `PullSpec` instance (see `pattern->spec`).
 Throws an error if the supplied `pattern` cannot be parsed."
   [pattern]
   (or (-> pattern parse-pattern pattern->spec)
-      (throw (js/Error. "Cannot parse pull pattern, expected: [attr-spec+]"))))
+      (raise "Cannot parse pull pattern, expected: [attr-spec+]"
+             {:error :pull/parser, :fragment pattern})))
