@@ -18,6 +18,7 @@
      datascript.test.query-find-specs
      datascript.test.query-fns
      datascript.test.query-parser
+     datascript.test.query-pull
      datascript.test.query-rules
      datascript.test.serialization
      datascript.test.transact

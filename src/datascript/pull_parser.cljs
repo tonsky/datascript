@@ -221,6 +221,6 @@ attribute:
 convert the resulting tree into a `PullSpec` instance (see `pattern->spec`).
 Throws an error if the supplied `pattern` cannot be parsed."
   [pattern]
-  (or (-> pattern parse-pattern pattern->spec)
+  (or (some-> pattern parse-pattern pattern->spec)
       (raise "Cannot parse pull pattern, expected: [attr-spec+]"
              {:error :pull/parser, :fragment pattern})))

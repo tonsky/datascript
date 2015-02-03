@@ -5,6 +5,8 @@
     [clojure.walk :as walk]
     [datascript.core :as dc]
     [datascript.query-parser :as qp]
+    [datascript.pull-api :as dp]
+    [datascript.pull-parser :as dpp]
     [datascript.impl.entity :as de]))
 
 (declare built-ins)
@@ -643,6 +645,21 @@
         (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
       parsed)))
 
+(defn- pull [find-elements context resultset]
+  (let [resolved (for [find find-elements]
+                   (when (qp/pull? find)
+                     [(-resolve (.-source find) context)
+                      (dpp/parse-pull
+                        (-resolve (.-pattern find) context))]))]
+    (for [tuple resultset]
+      (mapv (fn [env el]
+              (if env
+                (let [[src spec] env]
+                  (dp/pull-spec src spec [el] false))
+                el))
+            resolved
+            tuple))))
+
 (defn q [q & inputs]
   (let [q             (cond-> q
                         (sequential? q) query->map)
@@ -662,5 +679,7 @@
         (mapv #(vec (subvec % 0 result-arity)))
       (some qp/aggregate? find-elements)
         (aggregate find-elements context)
+      (some qp/pull? find-elements)
+        (pull find-elements context)
       true
         (-post-process find))))

@@ -204,16 +204,15 @@
                          (recur db))
                     result))))
 
-(defn- pull-selector
-  [db selector eids multi?]
-  (let [eids    (into [] (comp (remove not) (map #(dc/entid-strict db %))) eids)
-        pattern (pp/parse-pull selector)]
+(defn pull-spec
+  [db pattern eids multi?]
+  (let [eids (into [] (map #(dc/entid-strict db %)) eids)]
     (pull-pattern db (list (initial-frame pattern eids multi?)))))
 
 (defn pull
   [db selector eid]
-  (pull-selector db selector [eid] false))
+  (pull-spec db (pp/parse-pull selector) [eid] false))
 
 (defn pull-many
   [db selector eids]
-  (pull-selector db selector eids true))
+  (pull-spec db (pp/parse-pull selector) eids true))

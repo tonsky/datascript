@@ -1,16 +1,22 @@
-(ns datascript.query-parser)
+(ns datascript.query-parser
+  (:require
+    [datascript.pull-parser :as dp])
+  (:require-macros
+    [datascript :refer [raise]]))
 
-;; find-spec                  = ':find' (find-rel | find-coll | find-tuple | find-scalar)
-;; find-rel                   = find-elem+
-;; find-coll                  = [find-elem '...']
-;; find-scalar                = find-elem '.'
-;; find-tuple                 = [find-elem+]
-;; find-elem                  = (variable | pull-expr | aggregate) 
-;; variable                   = symbol starting with "?"
-;; aggregate                  = [aggregate-fn-name fn-arg+]
-;; fn-arg                     = (variable | constant | src-var)
-;; src-var                    = symbol starting with "$"
-;; constant                   = any non-variable data literal
+;; find-spec        = ':find' (find-rel | find-coll | find-tuple | find-scalar)
+;; find-rel         = find-elem+
+;; find-coll        = [find-elem '...']
+;; find-scalar      = find-elem '.'
+;; find-tuple       = [find-elem+]
+;; find-elem        = (variable | pull-expr | aggregate | custom-aggregate) 
+;; pull-expr        = ['pull' src-var? variable pull-pattern] 
+;; pull-pattern     = (constant | variable)
+;; variable         = symbol starting with "?"
+;; aggregate        = ([aggregate-fn-name fn-arg+] | ['aggregate' variable fn-arg+])
+;; fn-arg           = (variable | constant | src-var)
+;; src-var          = symbol starting with "$"
+;; constant         = any non-variable data literal
 
 (defprotocol IElements
   (-elements [this]))
@@ -20,14 +26,16 @@
 
 (defrecord Variable [symbol]
   IVars (-vars [_] [symbol]))
-(defrecord SrcVar   [symbol]
+(defrecord SrcVar [symbol]
   IVars (-vars [_] []))
-(defrecord BuiltInAggr  [symbol]
+(defrecord BuiltInAggr [symbol]
   IVars (-vars [_] []))
 (defrecord Constant [value]
   IVars (-vars [_] []))
-(defrecord Aggregate  [fn args]
+(defrecord Aggregate [fn args]
   IVars (-vars [_] (-vars (last args))))
+(defrecord Pull [source var pattern]
+  IVars (-vars [_] (-vars var)))
 
 (defrecord FindRel    [elements]
   IElements (-elements [_] elements))
@@ -81,20 +89,42 @@
         (Aggregate. fn* args*)))))
 
 (defn parse-aggregate-custom [form]
-  (when
-    (and (sequential? form)
-         (>= (count form) 3)
-         (= (first form) 'aggregate))
-    (let [[_ fn & args] form
-          fn*   (parse-variable fn)
-          args* (parse-seq parse-fn-arg args)]
-      (when (and fn* args*)
-        (Aggregate. fn* args*)))))
+  (when (and (sequential? form)
+             (= (first form) 'aggregate))
+    (if (>= (count form) 3)
+      (let [[_ fn & args] form
+            fn*   (parse-variable fn)
+            args* (parse-seq parse-fn-arg args)]
+        (if (and fn* args*)
+          (Aggregate. fn* args*)
+          (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
+                 {:error :query/parser, :fragment form})))
+      (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
+             {:error :query/parser, :fragment form}))))
+
+(defn parse-pull-expr [form]
+  (when (and (sequential? form)
+             (= (first form) 'pull))
+    (if (<= 3 (count form) 4)
+      (let [long?         (= (count form) 4)
+            src           (if long? (nth form 1) '$)
+            [var pattern] (if long? (nnext form) (next form))
+            src*          (parse-src-var src)                    
+            var*          (parse-variable var)
+            pattern*      (or (parse-variable pattern)
+                              (parse-constant pattern))]
+        (if (and src* var* pattern*)
+          (Pull. src* var* pattern*)
+          (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
+             {:error :query/parser, :fragment form})))
+      (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
+             {:error :query/parser, :fragment form}))))
 
 (defn parse-find-elem [form]
   (or (parse-variable form)
+      (parse-pull-expr form)
       (parse-aggregate-custom form)
-      (parse-aggregate form))) ;; TODO or pull-expr
+      (parse-aggregate form)))
 
 (defn parse-find-rel [form]
   (some->
@@ -131,10 +161,14 @@
       (parse-find-coll form)
       (parse-find-scalar form)
       (parse-find-tuple form)
-      (throw (js/Error. "Cannot parse :find, expected: (find-rel | find-coll | find-tuple | find-scalar)"))))
+      (raise "Cannot parse :find, expected: (find-rel | find-coll | find-tuple | find-scalar)"
+             {:error :query/parser, :fragment form})))
 
 (defn aggregate? [element]
   (instance? Aggregate element))
+
+(defn pull? [element]
+  (instance? Pull element))
 
 (defn elements [find]
   (-elements find))
