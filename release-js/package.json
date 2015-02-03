@@ -1,6 +1,6 @@
 {
   "name": "datascript",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Immutable in-memory triplestore with Datalog queries",
   "homepage": "https://github.com/tonsky/datascript",
   "author": "Nikita Prokopov (https://github.com/tonsky)",
@@ -16,6 +16,7 @@
   ],
   "contributors": [
     "Nikita Prokopov (https://github.com/tonsky)",
+    "David Thomas Hume (https://github.com/dthume)",
     "montyxcantsin (https://github.com/montyxcantsin)",
     "Gijs Stuurman (https://github.com/thegeez)",
     "Yevgeny Armor (https://github.com/izirku)",

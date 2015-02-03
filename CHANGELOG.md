@@ -1,4 +1,4 @@
-# WIP
+# 0.9.0
 
 - Lookup refs can be inlined in query `:where` patterns (issue #53)
 - Pull API (issue #37, pull request #51) by [David Thomas Hume](https://github.com/dthume)

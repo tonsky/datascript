@@ -47,7 +47,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ```clj
 :dependencies [
   [org.clojure/clojurescript "0.0-2727"]
-  [datascript "0.8.1"]
+  [datascript "0.9.0"]
 ]
 ```
 
@@ -119,10 +119,10 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 DataScript can be used from any JS engine without additional dependencies:
 
 ```
-<script src="datascript-0.8.1.min.js"></script>
+<script src="datascript-0.9.0.min.js"></script>
 ```
 
-[Download datascript-0.8.1.min.js](https://github.com/tonsky/datascript/releases/download/0.8.1/datascript-0.8.1.min.js), 55k gzipped.
+[Download datascript-0.9.0.min.js](https://github.com/tonsky/datascript/releases/download/0.9.0/datascript-0.9.0.min.js), 59k gzipped.
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
 
@@ -177,6 +177,7 @@ The following features are supported:
 * Filtered databases via `filter`
 * Lookup refs
 * Unique constraints, upsert
+* Pull API (thx [David Thomas Hume](https://github.com/dthume))
 
 Query engine features:
 
@@ -204,7 +205,6 @@ Expected soon:
 
 * Better error reporting
 * Proper documentation
-* Pull API
 * `not`, `not-join`, `or` and `or-join` datalog clauses
 
 ## Differences from Datomic
