@@ -1,7 +1,7 @@
 (ns datascript.pull-api
   (:require
    [datascript.core :as dc]
-   [datascript.pull-parser :as pp]))
+   [datascript.pull-parser :as dpp]))
 
 (defn- into!
   [transient-coll items]
@@ -83,7 +83,7 @@
               :recursion (update recursion attr push-recursion eid)
               :results (transient [])})))))
 
-(let [pattern  (pp/PullSpec. true {})]
+(let [pattern  (dpp/PullSpec. true {})]
   (defn- expand-frame
     [attr-key multi? eids]
     (subpattern-frame pattern eids multi? attr-key)))
@@ -211,8 +211,8 @@
 
 (defn pull
   [db selector eid]
-  (pull-spec db (pp/parse-pull selector) [eid] false))
+  (pull-spec db (dpp/parse-pull selector) [eid] false))
 
 (defn pull-many
   [db selector eids]
-  (pull-spec db (pp/parse-pull selector) eids true))
+  (pull-spec db (dpp/parse-pull selector) eids true))
