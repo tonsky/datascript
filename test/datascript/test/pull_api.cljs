@@ -170,7 +170,15 @@
 
   (testing "Non matching results are removed from collections"
     (is (= {:name "Petr" :child []}
-           (d/pull test-db '[:name {:child [:foo]}] 1)))))
+           (d/pull test-db '[:name {:child [:foo]}] 1))))
+
+  (testing "Map specs can override component expansion"
+    (let [parts {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}]
+      (is (= parts
+             (d/pull test-db '[:name {:part [:name]}] 10)))
+
+      (is (= parts
+             (d/pull test-db '[:name {:part 1}] 10))))))
 
 (deftest test-pull-recursion
   (let [db      (-> test-db

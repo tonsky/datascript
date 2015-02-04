@@ -100,12 +100,6 @@
             component? (and ref? (dc/component? db attr))
             datom-val  (if forward? #(.-v %) #(.-e %))]
         (cond
-          (and forward? component?)
-          (->> found
-               (mapv datom-val)
-               (expand-frame attr-key multi?)
-               (conj frames parent))
-
           (contains? opts :subpattern)
           (->> (subpattern-frame (:subpattern opts)
                                  (mapv datom-val found)
@@ -116,6 +110,12 @@
           (recurse-attr db attr-key multi?
                         (mapv datom-val found)
                         eid parent frames)
+
+          (and forward? component?)
+          (->> found
+               (mapv datom-val)
+               (expand-frame attr-key multi?)
+               (conj frames parent))
           
           :else 
           (let [as-value  (cond->> datom-val
