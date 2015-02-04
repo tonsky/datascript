@@ -8,6 +8,7 @@
      datascript.test.entity
      datascript.test.explode
      datascript.test.filter
+     datascript.test.find-parser
      datascript.test.index
      datascript.test.listen
      datascript.test.lookup-refs
@@ -17,7 +18,6 @@
      datascript.test.query-aggregates
      datascript.test.query-find-specs
      datascript.test.query-fns
-     datascript.test.query-parser
      datascript.test.query-pull
      datascript.test.query-rules
      datascript.test.serialization

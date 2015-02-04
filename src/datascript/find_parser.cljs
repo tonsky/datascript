@@ -1,4 +1,4 @@
-(ns datascript.query-parser
+(ns datascript.find-parser
   (:require
     [datascript.pull-parser :as dp])
   (:require-macros
