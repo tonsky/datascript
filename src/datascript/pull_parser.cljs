@@ -99,7 +99,7 @@
                               (parse-attr-name attr-name-spec))]
         (PullLimitExpr. attr-name pos-num)
         (raise "Expected [\"limit\" attr-name (positive-number | nil)]"
-               {:error :pull/parser, :fragment spec})))))
+               {:error :parser/pull, :fragment spec})))))
 
 (def ^:private default? #{'default :default "default"})
 
@@ -111,7 +111,7 @@
                               (parse-attr-name attr-name-spec))]
         (PullDefaultExpr. attr-name default-val)
         (raise "Expected [\"default\" attr-name any-value]"
-               {:error :pull/parser, :fragment spec})))))
+               {:error :parser/pull, :fragment spec})))))
 
 (defn- parse-map-spec-entry
   [[k v]]
@@ -122,9 +122,9 @@
                                 (parse-pattern v))]
       (PullMapSpecEntry. attr-name pattern-or-rec)
       (raise "Expected (pattern | recursion-limit)"
-             {:error :pull/parser, :fragment [k v]}))
+             {:error :parser/pull, :fragment [k v]}))
     (raise "Expected (attr-name | limit-expr)"
-           {:error :pull/parser, :fragment [k v]})))
+           {:error :parser/pull, :fragment [k v]})))
 
 (defn- parse-map-spec
   [spec]
@@ -145,7 +145,7 @@
       (parse-map-spec spec)
       (parse-attr-expr spec)
       (raise "Cannot parse attr-spec, expected: (attr-name | wildcard | map-spec | attr-expr)"
-             {:error :pull/parser, :fragment spec})))
+             {:error :parser/pull, :fragment spec})))
 
 (defn- pattern-clause-type
   [clause]
@@ -223,4 +223,4 @@ Throws an error if the supplied `pattern` cannot be parsed."
   [pattern]
   (or (some-> pattern parse-pattern pattern->spec)
       (raise "Cannot parse pull pattern, expected: [attr-spec+]"
-             {:error :pull/parser, :fragment pattern})))
+             {:error :parser/pull, :fragment pattern})))

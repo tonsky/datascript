@@ -23,6 +23,7 @@
      datascript.test.serialization
      datascript.test.transact
      datascript.test.validation
+     datascript.test.where-parser
      datascript.test.upsert
    ))
 

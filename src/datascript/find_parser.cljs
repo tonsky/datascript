@@ -75,9 +75,9 @@
         (if (and fn* args*)
           (Aggregate. fn* args*)
           (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
-                 {:error :query/parser, :fragment form})))
+                 {:error :parser/find, :fragment form})))
       (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
-             {:error :query/parser, :fragment form}))))
+             {:error :parser/find, :fragment form}))))
 
 (defn parse-pull-expr [form]
   (when (and (sequential? form)
@@ -93,9 +93,9 @@
         (if (and src* var* pattern*)
           (Pull. src* var* pattern*)
           (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
-             {:error :query/parser, :fragment form})))
+             {:error :parser/find, :fragment form})))
       (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
-             {:error :query/parser, :fragment form}))))
+             {:error :parser/find, :fragment form}))))
 
 (defn parse-find-elem [form]
   (or (dp/parse-variable form)
@@ -139,5 +139,5 @@
       (parse-find-scalar form)
       (parse-find-tuple form)
       (raise "Cannot parse :find, expected: (find-rel | find-coll | find-tuple | find-scalar)"
-             {:error :query/parser, :fragment form})))
+             {:error :parser/find, :fragment form})))
 

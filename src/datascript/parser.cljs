@@ -1,5 +1,9 @@
 (ns datascript.parser)
 
+(defn of-size? [form size]
+  (and (sequential? form)
+       (= (count form) size)))
+
 ;; src-var                    = symbol starting with "$"
 ;; variable                   = symbol starting with "?"
 ;; plain-symbol               = symbol that does not begin with "$" or "?"
@@ -8,8 +12,10 @@
 ;; rules-var                  = the symbol "%"
 ;; rule-vars                  = [ variable+ | ([ variable+ ] variable*) ]
 
+(defrecord Placeholder [])
 (defrecord Variable    [symbol])
 (defrecord SrcVar      [symbol])
+(defrecord DefaultSrc  [])
 (defrecord Constant    [value])
 (defrecord PlainSymbol [symbol])
 
@@ -19,6 +25,10 @@
                (conj %1 parsed)
                (reduced nil))
             [] form)))
+
+(defn parse-placeholder [form]
+  (when (= '_ form)
+    (Placeholder.)))
 
 (defn parse-variable [form]
   (when (and (symbol? form)
@@ -37,7 +47,8 @@
 (defn parse-plain-symbol [form]
   (when (and (symbol? form)
              (not (parse-variable form))
-             (not (parse-src-var form)))
+             (not (parse-src-var form))
+             (not (parse-placeholder form)))
     (PlainSymbol. form)))
 
 (defn parse-fn-arg [form]
