@@ -78,10 +78,10 @@
           (dwp/parse-clause '[[fn] _])))
 )
 
-(deftest rule
+(deftest rule-expr
   (are [clause pattern] (= (dwp/parse-clause clause) pattern)
     '[friends ?x ?y]
-    (dwp/Rule. (dp/DefaultSrc.) (dp/PlainSymbol. 'friends) [(dp/Variable. '?x) (dp/Variable. '?y)]))
+    (dwp/RuleExpr. (dp/DefaultSrc.) (dp/PlainSymbol. 'friends) [(dp/Variable. '?x) (dp/Variable. '?y)]))
   
   (is (thrown-with-msg? ExceptionInfo #"Rule requieres at least one variable"
         (dwp/parse-clause '[friends])))

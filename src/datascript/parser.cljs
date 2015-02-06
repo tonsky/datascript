@@ -1,4 +1,6 @@
-(ns datascript.parser)
+(ns datascript.parser
+  (:require-macros
+    [datascript :refer [raise]]))
 
 (defn of-size? [form size]
   (and (sequential? form)
@@ -18,6 +20,7 @@
 (defrecord DefaultSrc  [])
 (defrecord Constant    [value])
 (defrecord PlainSymbol [symbol])
+(defrecord RuleVars    [required free])
 
 (defn parse-seq [parse-el form]
   (when (sequential? form)
@@ -56,3 +59,19 @@
       (parse-constant form)
       (parse-src-var form)))
 
+(defn parse-rule-vars [form]
+  (if (sequential? form)
+    (let [[required rest] (if (sequential? (first form))
+                            [(first form) (next form)]
+                            [nil form])
+          required* (parse-seq parse-variable required)
+          free*     (parse-seq parse-variable rest)]
+      (when (and (empty? required*) (empty? free*))
+        (raise "Cannot parse rule-vars, expected [ variable+ | ([ variable+ ] variable*) ]"
+               {:error :parser/generic, :form form}))
+      (when-not (apply distinct? (concat required* free*))
+        (raise "Rule variables should be distinct"
+               {:error :parser/generic, :form form}))
+      (RuleVars. required* free*))
+    (raise "Cannot parse rule-vars, expected [ variable+ | ([ variable+ ] variable*) ]"
+           {:error :parser/generic, :form form})))

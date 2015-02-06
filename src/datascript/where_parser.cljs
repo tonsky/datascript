@@ -42,7 +42,7 @@
 (defrecord BindColl   [binding])
 
 ;; TODO rule with constant as argument
-(defrecord Rule [source name args])
+(defrecord RuleExpr [source name args])
 
 ;; TODO support for default source
 (defrecord Not [source join-vars clauses])
@@ -133,11 +133,11 @@
         (when-let [binding* (parse-binding binding)]
           (Function. fn* args* binding*))))))
 
-(defn parse-rule [form]
+(defn parse-rule-expr [form]
   (when-let [[source* next-form] (take-source form)]
     (let [[name & args] next-form
           name* (dp/parse-plain-symbol name)
-          args* (dp/parse-seq dp/parse-variable args)]
+          args* (dp/parse-seq dp/parse-variable args)] ;; TODO allow for constants and placeholder
       (when name*
         (cond
           (empty? args)
@@ -147,7 +147,7 @@
             (raise "Cannot parse rule args, expected [variable+]"
                    {:error :parser/where, :form form})
           :else
-            (Rule. source* name* args*)
+            (RuleExpr. source* name* args*)
           )))))
 
 (defn parse-clause [form]
@@ -156,7 +156,7 @@
 ;;       (parse-or form)
       (parse-pred form)
       (parse-fn form)
-      (parse-rule form)
+      (parse-rule-expr form)
       (parse-pattern form)
       (raise "Cannot parse clause, expected (data-pattern | pred-expr | fn-expr | rule-expr | not-clause | not-join-clause | or-clause | or-join-clause)"
              {:error :parser/where, :form form} )))

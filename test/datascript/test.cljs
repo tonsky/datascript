@@ -14,6 +14,7 @@
      datascript.test.lookup-refs
      datascript.test.pull-api
      datascript.test.pull-parser
+     datascript.test.rule-parser
      datascript.test.query
      datascript.test.query-aggregates
      datascript.test.query-find-specs
