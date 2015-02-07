@@ -80,11 +80,19 @@
 
 (deftest rule-expr
   (are [clause pattern] (= (dwp/parse-clause clause) pattern)
-    '[friends ?x ?y]
+    '(friends ?x ?y)
     (dwp/RuleExpr. (dp/DefaultSrc.) (dp/PlainSymbol. 'friends) [(dp/Variable. '?x) (dp/Variable. '?y)]))
   
-  (is (thrown-with-msg? ExceptionInfo #"Rule requieres at least one variable"
-        (dwp/parse-clause '[friends])))
+  (are [clause pattern] (= (dwp/parse-clause clause) pattern)
+    '(friends "Ivan" _)
+    (dwp/RuleExpr. (dp/DefaultSrc.) (dp/PlainSymbol. 'friends) [(dp/Constant. "Ivan") (dp/Placeholder.)]))
+
+  (are [clause pattern] (= (dwp/parse-clause clause) pattern)
+    '($1 friends ?x ?y)
+    (dwp/RuleExpr. (dp/SrcVar. '$1) (dp/PlainSymbol. 'friends) [(dp/Variable. '?x) (dp/Variable. '?y)]))
+
+  (is (thrown-with-msg? ExceptionInfo #"rule-expr requieres at least one argument"
+        (dwp/parse-clause '(friends))))
   
-  (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule args"
-        (dwp/parse-clause '[friends ?x 1]))))
+  (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-expr arguments"
+        (dwp/parse-clause '(friends something)))))

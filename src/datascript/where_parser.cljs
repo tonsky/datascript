@@ -20,7 +20,7 @@
 ;; bind-coll         = [ binding '...' ]
 ;; bind-rel          = [ [ (binding | '_')+ ] ]
 
-;; rule-expr         = [ src-var? rule-name variable+ ]
+;; rule-expr         = [ src-var? rule-name (variable | constant | '_')+ ]
 
 ;; not-clause        = [ src-var? 'not' clause+ ]
 ;; not-join-clause   = [ src-var? 'not-join' [ variable+ ] clause+ ]
@@ -137,14 +137,14 @@
   (when-let [[source* next-form] (take-source form)]
     (let [[name & args] next-form
           name* (dp/parse-plain-symbol name)
-          args* (dp/parse-seq dp/parse-variable args)] ;; TODO allow for constants and placeholder
+          args* (dp/parse-seq parse-pattern-el args)]
       (when name*
         (cond
           (empty? args)
-            (raise "Rule requieres at least one variable"
+            (raise "rule-expr requieres at least one argument"
                    {:error :parser/where, :form form})
           (nil? args*)
-            (raise "Cannot parse rule args, expected [variable+]"
+            (raise "Cannot parse rule-expr arguments, expected [ (variable | constant | '_')+ ]"
                    {:error :parser/where, :form form})
           :else
             (RuleExpr. source* name* args*)
