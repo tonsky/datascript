@@ -6,17 +6,18 @@
   (and (sequential? form)
        (= (count form) size)))
 
-;; src-var                    = symbol starting with "$"
-;; variable                   = symbol starting with "?"
-;; plain-symbol               = symbol that does not begin with "$" or "?"
-;; constant                   = any non-variable data literal
-;; fn-arg                     = (variable | constant | src-var)
-;; rules-var                  = the symbol "%"
-;; rule-vars                  = [ variable+ | ([ variable+ ] variable*) ]
+;; src-var        = symbol starting with "$"
+;; variable       = symbol starting with "?"
+;; plain-symbol   = symbol that does not begin with "$" or "?"
+;; constant       = any non-variable data literal
+;; fn-arg         = (variable | constant | src-var)
+;; rules-var      = the symbol "%"
+;; rule-vars      = [ variable+ | ([ variable+ ] variable*) ]
 
 (defrecord Placeholder [])
 (defrecord Variable    [symbol])
 (defrecord SrcVar      [symbol])
+(defrecord RulesVar    [])
 (defrecord DefaultSrc  [])
 (defrecord Constant    [value])
 (defrecord PlainSymbol [symbol])
@@ -59,6 +60,8 @@
       (parse-constant form)
       (parse-src-var form)))
 
+;; rule-vars
+
 (defn parse-rule-vars [form]
   (if (sequential? form)
     (let [[required rest] (if (sequential? (first form))
@@ -75,3 +78,29 @@
       (RuleVars. required* free*))
     (raise "Cannot parse rule-vars, expected [ variable+ | ([ variable+ ] variable*) ]"
            {:error :parser/generic, :form form})))
+
+(defn flatten-rule-vars [rule-vars]
+  (concat
+    (when (.-required rule-vars)
+      [(mapv :symbol (.-required rule-vars))]
+      (mapv :symbol (.-free rule-vars)))))
+
+(defn rule-vars-arity [rule-vars]
+  [(count (.-required rule-vars)) (count (.-free rule-vars))])
+
+;; utils
+
+(defn collect [pred form & [acc]]
+  (let [acc (or acc [])]
+    (cond
+      (pred form)     (conj acc form)
+      (seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
+      :else acc)))
+
+(defn postwalk [f form]
+  (cond
+    ;; additional handling for maps and records that keeps structure type
+    (map? form)  (f (reduce (fn [form [k v]] (assoc form k (postwalk f v))) form form))
+    (seq? form)  (f (map #(postwalk f %) form))
+    (coll? form) (f (into (empty form) (map #(postwalk f %) form)))
+    :else        (f form)))
