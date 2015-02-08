@@ -39,44 +39,16 @@
 (deftest fn
   (are [clause pattern] (= (dwp/parse-clause clause) pattern)
     '[[fn ?a 1] ?x]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [(dp/Variable. '?a) (dp/Constant. 1)] (dwp/BindScalar. (dp/Variable. '?x)))
+    (dwp/Function. (dp/PlainSymbol. 'fn) [(dp/Variable. '?a) (dp/Constant. 1)] (dp/BindScalar. (dp/Variable. '?x)))
        
     '[[fn] ?x]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dwp/BindScalar. (dp/Variable. '?x)))
+    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dp/BindScalar. (dp/Variable. '?x)))
        
     '[[?custom-fn] ?x]
-    (dwp/Function. (dp/Variable. '?custom-fn) [] (dwp/BindScalar. (dp/Variable. '?x)))
+    (dwp/Function. (dp/Variable. '?custom-fn) [] (dp/BindScalar. (dp/Variable. '?x)))
 
     '[[?custom-fn ?arg] ?x]
-    (dwp/Function. (dp/Variable. '?custom-fn) [(dp/Variable. '?arg)] (dwp/BindScalar. (dp/Variable. '?x)))
-
-    '[[fn] [?x ...]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dwp/BindColl. (dwp/BindScalar. (dp/Variable. '?x))))
-       
-    '[[fn] [?x]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dwp/BindTuple. [(dwp/BindScalar. (dp/Variable. '?x))]))
-       
-    '[[fn] [?x ?y]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dwp/BindTuple. [(dwp/BindScalar. (dp/Variable. '?x)) (dwp/BindScalar. (dp/Variable. '?y))]))
-       
-    '[[fn] [_ ?y]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) [] (dwp/BindTuple. [(dwp/BindIgnore.) (dwp/BindScalar. (dp/Variable. '?y))]))
-       
-    '[[fn] [[_ [?x ...]] ...]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) []
-                   (dwp/BindColl. (dwp/BindTuple. [(dwp/BindIgnore.) (dwp/BindColl. (dwp/BindScalar. (dp/Variable. '?x)))])))
-       
-    '[[fn] [[?a ?b ?c]]]
-    (dwp/Function. (dp/PlainSymbol. 'fn) []
-                   (dwp/BindColl. (dwp/BindTuple. [(dwp/BindScalar. (dp/Variable. '?a))
-                                                   (dwp/BindScalar. (dp/Variable. '?b))
-                                                   (dwp/BindScalar. (dp/Variable. '?c))]))))
-    (is (thrown-with-msg? ExceptionInfo #"Cannot parse binding"
-          (dwp/parse-clause '[[fn] :key])))
-  
-    (is (thrown-with-msg? ExceptionInfo #"Cannot parse binding"
-          (dwp/parse-clause '[[fn] _])))
-)
+    (dwp/Function. (dp/Variable. '?custom-fn) [(dp/Variable. '?arg)] (dp/BindScalar. (dp/Variable. '?x)))))
 
 (deftest rule-expr
   (are [clause pattern] (= (dwp/parse-clause clause) pattern)

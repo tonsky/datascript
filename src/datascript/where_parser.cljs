@@ -14,11 +14,6 @@
 
 ;; fn-expr           = [ [ fn fn-arg+ ] binding ]
 ;; fn                = (plain-symbol | variable)
-;; binding           = (bind-scalar | bind-tuple | bind-coll | bind-rel)
-;; bind-scalar       = variable
-;; bind-tuple        = [ (binding | '_')+ ]
-;; bind-coll         = [ binding '...' ]
-;; bind-rel          = [ [ (binding | '_')+ ] ]
 
 ;; rule-expr         = [ src-var? rule-name (variable | constant | '_')+ ]
 
@@ -30,24 +25,13 @@
 ;; and-clause        = [ 'and' clause+ ]
 
 
-
-(defrecord Pattern    [source pattern])
-
-(defrecord Predicate  [fn args])
-
-(defrecord Function   [fn args binding])
-(defrecord BindIgnore [])
-(defrecord BindScalar [symbol])
-(defrecord BindTuple  [bindings])
-(defrecord BindColl   [binding])
-
-;; TODO rule with constant as argument
-(defrecord RuleExpr [source name args])
-
-;; TODO support for default source
-(defrecord Not [source join-vars clauses])
-(defrecord Or  [source required-join-vars join-vars clauses])
-(defrecord And [clauses])
+(defrecord Pattern   [source pattern])
+(defrecord Predicate [fn args])
+(defrecord Function  [fn args binding])
+(defrecord RuleExpr  [source name args])         ;; TODO rule with constant as argument
+(defrecord Not       [source join-vars clauses]) ;; TODO support for default source
+(defrecord Or        [source required-join-vars join-vars clauses])
+(defrecord And       [clauses])
 
 (defn parse-pattern-el [form]
   (or (dp/parse-placeholder form)
@@ -83,54 +67,11 @@
     (when-let [[fn* args*] (parse-call (first form))]
       (Predicate. fn* args*))))
 
-(declare parse-binding)
-
-(defn parse-bind-ignore [form]
-  (when (= '_ form)
-    (BindIgnore.)))
-
-(defn parse-bind-scalar [form]
-  (when-let [var (dp/parse-variable form)]
-    (BindScalar. var)))
-
-(defn parse-bind-coll [form]
-  (when (and (dp/of-size? form 2)
-             (= (second form) '...))
-    (if-let [sub-bind (parse-binding (first form))]
-      (BindColl. sub-bind)
-      (raise "Cannot parse collection binding"
-             {:error :parser/where, :form form}))))
-
-(defn parse-tuple-el [form]
-  (or (parse-bind-ignore form)
-      (parse-binding form)))
-
-(defn parse-bind-tuple [form]
-  (when-let [sub-bindings (dp/parse-seq parse-tuple-el form)]
-    (if-not (empty? sub-bindings)
-      (BindTuple. sub-bindings)
-      (raise "Tuple binding cannot be empty"
-             {:error :parser/where, :form form}))))
-
-(defn parse-bind-rel [form]
-  (when (and (dp/of-size? form 1)
-             (sequential? (first form)))
-    ;; relation is just a sequence of tuples
-    (BindColl. (parse-bind-tuple (first form)))))
-
-(defn parse-binding [form]
-  (or (parse-bind-coll form)
-      (parse-bind-rel form)
-      (parse-bind-tuple form)
-      (parse-bind-scalar form)
-      (raise "Cannot parse binding, expected (bind-scalar | bind-tuple | bind-coll | bind-rel)"
-             {:error :parser/where, :form form})))
-
 (defn parse-fn [form]
   (when (dp/of-size? form 2)
     (let [[call binding] form]
       (when-let [[fn* args*] (parse-call call)]
-        (when-let [binding* (parse-binding binding)]
+        (when-let [binding* (dp/parse-binding binding)]
           (Function. fn* args* binding*))))))
 
 (defn parse-rule-expr [form]

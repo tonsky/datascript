@@ -12,6 +12,7 @@
      datascript.test.index
      datascript.test.listen
      datascript.test.lookup-refs
+     datascript.test.parser
      datascript.test.pull-api
      datascript.test.pull-parser
      datascript.test.rule-parser
