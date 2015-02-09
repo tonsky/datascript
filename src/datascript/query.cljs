@@ -5,7 +5,6 @@
     [clojure.walk :as walk]
     [datascript.core :as dc]
     [datascript.parser :as dp]
-    [datascript.find-parser :as dfp]
     [datascript.pull-api :as dpa]
     [datascript.pull-parser :as dpp]
     [datascript.impl.entity :as de]))
@@ -603,7 +602,7 @@
 
 (defn -aggregate [find-elements context tuples]
   (mapv (fn [element fixed-value i]
-          (if (dfp/aggregate? element)
+          (if (dp/aggregate? element)
             (let [f    (-resolve (:fn element) context)
                   args (map #(-resolve % context) (butlast (:args element)))
                   vals (map #(nth % i) tuples)]
@@ -618,7 +617,7 @@
        (remove nil?)))
 
 (defn aggregate [find-elements context resultset]
-  (let [group-idxs (idxs-of (complement dfp/aggregate?) find-elements)
+  (let [group-idxs (idxs-of (complement dp/aggregate?) find-elements)
         group-fn   (fn [tuple]
                      (map #(nth tuple %) group-idxs))
         grouped    (group-by group-fn resultset)]
@@ -629,13 +628,13 @@
   (-post-process [find tuples]))
 
 (extend-protocol IPostProcess
-  dfp/FindRel
+  dp/FindRel
   (-post-process [_ tuples] tuples)
-  dfp/FindColl
+  dp/FindColl
   (-post-process [_ tuples] (into [] (map first) tuples))
-  dfp/FindScalar
+  dp/FindScalar
   (-post-process [_ tuples] (ffirst tuples))
-  dfp/FindTuple
+  dp/FindTuple
   (-post-process [_ tuples] (first tuples)))
 
 (defn query->map [query]
@@ -648,7 +647,7 @@
 
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
-                   (when (dfp/pull? find)
+                   (when (dp/pull? find)
                      [(-resolve (.-source find) context)
                       (dpp/parse-pull
                         (-resolve (.-pattern find) context))]))]
@@ -664,9 +663,9 @@
 (defn q [q & inputs]
   (let [q             (cond-> q
                         (sequential? q) query->map)
-        find          (dfp/parse-find (:find q))
-        find-elements (dfp/elements find)
-        find-vars     (dfp/vars find)
+        find          (dp/parse-find (:find q))
+        find-elements (dp/elements find)
+        find-vars     (dp/vars find)
         result-arity  (count find-vars)
         ins           (:in q '[$])
         wheres        (:where q)
@@ -678,9 +677,9 @@
     (cond->> resultset
       (:with q)
         (mapv #(vec (subvec % 0 result-arity)))
-      (some dfp/aggregate? find-elements)
+      (some dp/aggregate? find-elements)
         (aggregate find-elements context)
-      (some dfp/pull? find-elements)
+      (some dp/pull? find-elements)
         (pull find-elements context)
       true
         (-post-process find))))
