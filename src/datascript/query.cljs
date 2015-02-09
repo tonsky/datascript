@@ -637,14 +637,6 @@
   dp/FindTuple
   (-post-process [_ tuples] (first tuples)))
 
-(defn query->map [query]
-  (loop [parsed {}, key nil, qs query]
-    (if-let [q (first qs)]
-      (if (keyword? q)
-        (recur parsed q (next qs))
-        (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
-      parsed)))
-
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
                    (when (dp/pull? find)
@@ -661,12 +653,14 @@
             tuple))))
 
 (defn q [q & inputs]
-  (let [q             (cond-> q
-                        (sequential? q) query->map)
-        find          (dp/parse-find (:find q))
+  (let [parsed-q      (dp/parse-query q)
+        find          (:find parsed-q)
         find-elements (dp/elements find)
         find-vars     (dp/vars find)
         result-arity  (count find-vars)
+        ;; TODO utilize parser
+        q             (cond-> q
+                        (sequential? q) dp/query->map)
         ins           (:in q '[$])
         wheres        (:where q)
         context       (-> (Context. [] {} {})

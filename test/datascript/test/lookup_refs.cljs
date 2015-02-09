@@ -250,7 +250,7 @@
       
       (is (thrown-with-msg? ExceptionInfo #"Nothing found"
             (d/q '[:find ?e
-                   :where [[:name "Valery"] :friend _]]
+                   :where [[:name "Valery"] :friend ?e]]
                   db)))
 
       )

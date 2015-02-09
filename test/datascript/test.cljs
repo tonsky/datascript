@@ -14,6 +14,7 @@
      datascript.test.parser
      datascript.test.parser-find
      datascript.test.parser-rules
+     datascript.test.parser-query
      datascript.test.parser-where
      datascript.test.pull-api
      datascript.test.pull-parser

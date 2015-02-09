@@ -71,7 +71,7 @@
     
     (testing "retractEntity"
       (let [db (d/db-with db [[:db.fn/retractEntity 1]])]
-        (is (= (d/q '[:find ?a ?v :in $ [?e ....] :where [?e ?a ?v]] db [1 3 4])
+        (is (= (d/q '[:find ?a ?v :in $ [?e ...] :where [?e ?a ?v]] db [1 3 4])
                #{}))))
     
     (testing "retractAttribute"
