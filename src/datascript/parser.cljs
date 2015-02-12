@@ -191,44 +191,43 @@
 ;; aggregate-fn     = plain-symbol
 ;; custom-aggregate = [ 'aggregate' variable fn-arg+ ]
 
-(defprotocol IVars
-  (-vars [this]))
+(defprotocol IFindVars
+  (-find-vars [this]))
 
-(extend-protocol IVars
+(extend-protocol IFindVars
   Variable
-  (-vars [this] [(.-symbol this)])
-  SrcVar
-  (-vars [this] [])
-  Constant
-  (-vars [this] []))
+  (-find-vars [this] [(.-symbol this)]))
 
 (defrecord Aggregate [fn args]
-  IVars (-vars [_] (-vars (last args))))
+  IFindVars (-find-vars [_] (-find-vars (last args))))
+
+(defrecord Pull [source var pattern]
+  IFindVars (-find-vars [_] (-find-vars var)))
+
+(defprotocol IFindElements
+  (find-elements [this]))
+
+(defrecord FindRel [elements]
+  IFindElements (find-elements [_] elements))
+
+(defrecord FindColl [element]
+  IFindElements (find-elements [_] [element]))
+
+(defrecord FindScalar [element]
+  IFindElements (find-elements [_] [element]))
+
+(defrecord FindTuple [elements]
+  IFindElements (find-elements [_] elements))
+
+(defn find-vars [find]
+  (mapcat -find-vars (find-elements find)))
+
 (defn aggregate? [element]
   (instance? Aggregate element))
 
-(defrecord Pull [source var pattern]
-  IVars (-vars [_] (-vars var)))
 (defn pull? [element]
   (instance? Pull element))
 
-(defprotocol IElements
-  (-elements [this]))
-
-(defrecord FindRel    [elements]
-  IElements (-elements [_] elements))
-(defrecord FindColl   [element]
-  IElements (-elements [_] [element]))
-(defrecord FindScalar [element]
-  IElements (-elements [_] [element]))
-(defrecord FindTuple  [elements]
-  IElements (-elements [_] elements))
-
-(defn elements [find]
-  (-elements find))
-
-(defn vars [find]
-  (mapcat -vars (-elements find)))
 
 (defn parse-aggregate [form]
   (when (and (sequential? form)

@@ -583,28 +583,28 @@
        (map vec)
        set))
 
-(defprotocol IResolve
-  (-resolve [var context]))
+(defprotocol IContextResolve
+  (-context-resolve [var context]))
 
-(extend-protocol IResolve
+(extend-protocol IContextResolve
   dp/Variable
-  (-resolve [var context]
+  (-context-resolve [var context]
     (context-resolve-val context (.-symbol var)))
   dp/SrcVar
-  (-resolve [var context]
+  (-context-resolve [var context]
     (get-in context [:sources (.-symbol var)]))
   dp/PlainSymbol
-  (-resolve [var _]
+  (-context-resolve [var _]
     (get built-in-aggregates (.-symbol var)))
   dp/Constant
-  (-resolve [var _]
+  (-context-resolve [var _]
     (.-value var)))
 
 (defn -aggregate [find-elements context tuples]
   (mapv (fn [element fixed-value i]
           (if (dp/aggregate? element)
-            (let [f    (-resolve (:fn element) context)
-                  args (map #(-resolve % context) (butlast (:args element)))
+            (let [f    (-context-resolve (:fn element) context)
+                  args (map #(-context-resolve % context) (butlast (:args element)))
                   vals (map #(nth % i) tuples)]
               (apply f (concat args [vals])))
             fixed-value))
@@ -640,9 +640,9 @@
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
                    (when (dp/pull? find)
-                     [(-resolve (.-source find) context)
+                     [(-context-resolve (.-source find) context)
                       (dpp/parse-pull
-                        (-resolve (.-pattern find) context))]))]
+                        (-context-resolve (.-pattern find) context))]))]
     (for [tuple resultset]
       (mapv (fn [env el]
               (if env
@@ -655,10 +655,12 @@
 (defn q [q & inputs]
   (let [parsed-q      (dp/parse-query q)
         find          (:find parsed-q)
-        find-elements (dp/elements find)
-        find-vars     (dp/vars find)
-        result-arity  (count find-vars)
+        find-elements (dp/find-elements find)
+        find-vars     (dp/find-vars find)
+        result-arity  (count find-elements)
+        with          (:with parsed-q)
         ;; TODO utilize parser
+        all-vars      (concat find-vars (map :symbol with))
         q             (cond-> q
                         (sequential? q) dp/query->map)
         ins           (:in q '[$])
@@ -667,7 +669,7 @@
                         (parse-ins ins inputs))
         resultset     (-> context
                         (-q wheres)
-                        (collect (concat find-vars (:with q))))]
+                        (collect all-vars))]
     (cond->> resultset
       (:with q)
         (mapv #(vec (subvec % 0 result-arity)))
