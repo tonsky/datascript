@@ -6,7 +6,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-2727" :scope "provided"]
+    [org.clojure/clojurescript "0.0-2816" :scope "provided"]
   ]
   
   :global-vars {
@@ -46,6 +46,9 @@
               :output-dir    "web/target-cljs"
               :optimizations :none
               :source-map    true
+              :warnings     {:single-segment-namespace false}
+              :verbose       true
+              :recompile-dependents false
             }}
           { :id "testable"
             :source-paths ["src" "test"]
@@ -53,6 +56,7 @@
               :output-to     "web/datascript.testable.js"
               :optimizations :advanced
               :pretty-print  true
+              :warnings     {:single-segment-namespace false}
             }}
         ]
         :test-commands {
