@@ -8,11 +8,6 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-query-fns
-  (testing "ground"
-    (is (= (d/q '[:find ?vowel
-                  :where [(ground [:a :e :i :o :u]) [?vowel ...]]])
-           #{[:a] [:e] [:i] [:o] [:u]})))
-  
   (testing "predicate without free variables"
     (is (= (d/q '[:find ?x
                   :in [?x ...]
@@ -23,6 +18,11 @@
                (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
                             { :db/id 2, :name  "Petr",  :age   22, :height 240, :parent 1}
                             { :db/id 3, :name  "Slava", :age   37, :parent 2}]))]
+
+    (testing "ground"
+      (is (= (d/q '[:find ?vowel
+                    :where [(ground [:a :e :i :o :u]) [?vowel ...]]])
+             #{[:a] [:e] [:i] [:o] [:u]})))
 
     (testing "get-else"
       (is (= (d/q '[:find ?e ?age ?height
@@ -84,4 +84,28 @@
                            [(+ ?x 100) ?y]]
                   [[0 :age 15] [1 :age 35]])
              #{})))
-    ))
+
+    (testing "Result bindings"
+      (is (= (d/q '[:find ?a ?c
+                    :in ?in
+                    :where [(ground ?in) [?a _ ?c]]]
+                  [:a :b :c])
+             #{[:a :c]}))
+      
+      (is (= (d/q '[:find ?in
+                    :in ?in
+                    :where [(ground ?in) _]]
+                  :a)
+             #{[:a]}))
+      
+      (is (= (d/q '[:find ?x ?z
+                    :in ?in
+                    :where [(ground ?in) [[?x _ ?z]...]]]
+                  [[:a :b :c] [:d :e :f]])
+             #{[:a :c] [:d :f]}))
+      (is (= (d/q '[:find ?in
+                    :in [?in ...]
+                    :where [(ground ?in) _]]
+                  [])
+             #{})))
+))

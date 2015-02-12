@@ -47,7 +47,6 @@
               :optimizations :none
               :source-map    true
               :warnings     {:single-segment-namespace false}
-              :verbose       true
               :recompile-dependents false
             }}
           { :id "testable"

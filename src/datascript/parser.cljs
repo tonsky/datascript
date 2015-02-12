@@ -38,6 +38,11 @@
     (coll? form) (f (into (empty form) (map #(postwalk f %) form)))
     :else        (f form)))
 
+(defn with-source [obj source]
+  (with-meta obj {:source source}))
+
+(defn source [obj]
+  (or (:source (meta obj)) obj))
 
 ;; placeholder    = the symbol '_'
 ;; variable       = symbol starting with "?"
@@ -130,7 +135,7 @@
 ;; bind-rel       = [ [ (binding | '_')+ ] ]
 
 (defrecord BindIgnore [])
-(defrecord BindScalar [symbol])
+(defrecord BindScalar [variable])
 (defrecord BindTuple  [bindings])
 (defrecord BindColl   [binding])
 
@@ -138,17 +143,17 @@
 
 (defn parse-bind-ignore [form]
   (when (= '_ form)
-    (BindIgnore.)))
+    (with-source (BindIgnore.) form)))
 
 (defn parse-bind-scalar [form]
   (when-let [var (parse-variable form)]
-    (BindScalar. var)))
+    (with-source (BindScalar. var) form)))
 
 (defn parse-bind-coll [form]
   (when (and (of-size? form 2)
              (= (second form) '...))
     (if-let [sub-bind (parse-binding (first form))]
-      (BindColl. sub-bind)
+      (with-source (BindColl. sub-bind) form)
       (raise "Cannot parse collection binding"
              {:error :parser/binding, :form form}))))
 
@@ -159,7 +164,7 @@
 (defn parse-bind-tuple [form]
   (when-let [sub-bindings (parse-seq parse-tuple-el form)]
     (if-not (empty? sub-bindings)
-      (BindTuple. sub-bindings)
+      (with-source (BindTuple. sub-bindings) form)
       (raise "Tuple binding cannot be empty"
              {:error :parser/binding, :form form}))))
 
@@ -167,7 +172,7 @@
   (when (and (of-size? form 1)
              (sequential? (first form)))
     ;; relation is just a sequence of tuples
-    (BindColl. (parse-bind-tuple (first form)))))
+    (with-source (BindColl. (parse-bind-tuple (first form))) form)))
 
 (defn parse-binding [form]
   (or (parse-bind-coll form)
@@ -201,8 +206,8 @@
 (defrecord Aggregate [fn args]
   IFindVars (-find-vars [_] (-find-vars (last args))))
 
-(defrecord Pull [source var pattern]
-  IFindVars (-find-vars [_] (-find-vars var)))
+(defrecord Pull [source variable pattern]
+  IFindVars (-find-vars [_] (-find-vars variable)))
 
 (defprotocol IFindElements
   (find-elements [this]))
@@ -421,7 +426,7 @@
           )))))
 
 (defn- collect-vars
-  ([form](collect-vars [] form))
+  ([form] (collect-vars [] form))
   ([acc form]
     (cond
       (instance? Not form)      (into acc (.-vars form))

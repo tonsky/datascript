@@ -7,7 +7,10 @@
     [datascript.parser :as dp]
     [datascript.pull-api :as dpa]
     [datascript.pull-parser :as dpp]
-    [datascript.impl.entity :as de]))
+    [datascript.impl.entity :as de])
+  (:require-macros
+    [datascript :refer [raise]]))
+
 
 (declare built-ins)
 
@@ -195,43 +198,68 @@
 
 ;;
 
-(defn in->rel
-  ([form]
-    (let [attrs (as-> form form
-                  (flatten form)
-                  (filter #(and (symbol? %) (not= '... %) (not= '_ %)) form)
-                  (zipmap form (range)))]
-      (Relation. attrs [])))
-  ([form value]
-    (condp looks-like? form
-      '[_ ...] ;; collection binding [?x ...]
-        (if (empty? value)
-          (in->rel form)
-          (reduce sum-rel
-            (map #(in->rel (first form) %) value)))
-      '[[*]]   ;; relation binding [[?a ?b]]
-        (in->rel [(first form) '...] value)
-      '[*]     ;; tuple binding [?a ?b]
-        (reduce prod-rel
-          (map #(in->rel %1 %2) form value))
-      '_       ;; regular binding ?x
-        (Relation. {form 0} [#js [value]]))))
-
 (defn parse-rules [rules]
   (let [rules (if (string? rules) (cljs.reader/read-string rules) rules)] ;; for datascript.js interop
     (group-by ffirst rules)))
 
-(defn parse-in [context [in value]]
+(defn bindable-to-seq? [x]
+  (or (seqable? x) (array? x)))
+
+(defn empty-rel [binding]
+  (let [vars (->> (dp/collect-vars-distinct binding)
+                        (map :symbol))]
+    (Relation. (zipmap vars (range)) [])))
+
+(defprotocol IBinding
+  (in->rel [binding value]))
+
+(extend-protocol IBinding
+  dp/BindIgnore
+  (in->rel [_ _]
+    (prod-rel))
+  
+  dp/BindScalar
+  (in->rel [binding value]
+    (Relation. {(.. binding -variable -symbol) 0} [#js [value]]))
+  
+  dp/BindColl
+  (in->rel [binding coll]
+    (cond
+      (not (bindable-to-seq? coll))
+        (raise "Cannot bind value " coll " to collection " (dp/source binding)
+               {:error :query/binding, :value coll, :binding (dp/source binding)})
+      (empty? coll)
+        (empty-rel binding)
+      :else
+        (reduce sum-rel
+          (map #(in->rel (.-binding binding) %) coll))))
+  
+  dp/BindTuple
+  (in->rel [binding coll]
+    (cond
+      (not (bindable-to-seq? coll))
+        (raise "Cannot bind value " coll " to tuple " (dp/source binding)
+               {:error :query/binding, :value coll, :binding (dp/source binding)})
+      (< (count coll) (count (.-bindings binding)))
+        (raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
+               {:error :query/binding, :value coll, :binding (dp/source binding)})
+      :else
+        (reduce prod-rel
+          (map #(in->rel %1 %2) (.-bindings binding) coll)))))
+
+(defn resolve-in [context [binding value]]
   (cond
-    (source? in)
-      (update-in context [:sources] assoc in value)
-    (= '% in)
+    (and (instance? dp/BindScalar binding)
+         (instance? dp/SrcVar (.-variable binding)))
+      (update-in context [:sources] assoc (.. binding -variable -symbol) value)
+    (and (instance? dp/BindScalar binding)
+         (instance? dp/RulesVar (.-variable binding)))
       (assoc context :rules (parse-rules value))
     :else
-      (update-in context [:rels] conj (in->rel in value))))
+      (update-in context [:rels] conj (in->rel binding value))))
 
-(defn parse-ins [context ins values]
-  (reduce parse-in context (map vector ins values)))
+(defn resolve-ins [context bindings values]
+  (reduce resolve-in context (zipmap bindings values)))
 
 ;;
 
@@ -381,6 +409,7 @@
 
 (defn bind-by-fn [context clause]
   (let [[[f & args] out] clause
+        binding  (dp/parse-binding out)
         fun      (or (get built-ins f)
                      (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
@@ -389,11 +418,11 @@
                     (if-let [tuples (not-empty (:tuples production))]
                       (->> tuples
                            (map #(let [val (tuple-fn %)
-                                       rel (in->rel out val)]
+                                       rel (in->rel binding val)]
                                    (prod-rel (Relation. (:attrs production) [%]) rel)))
                            (reduce sum-rel))
-                      (prod-rel production (in->rel out))))
-                  (prod-rel (assoc production [:tuples] []) (in->rel out)))]
+                      (prod-rel production (empty-rel binding))))
+                  (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
     (update-in context [:rels] conj new-rel)))
 
 ;;; RULES
@@ -663,10 +692,9 @@
         all-vars      (concat find-vars (map :symbol with))
         q             (cond-> q
                         (sequential? q) dp/query->map)
-        ins           (:in q '[$])
         wheres        (:where q)
         context       (-> (Context. [] {} {})
-                        (parse-ins ins inputs))
+                        (resolve-ins (:in parsed-q) inputs))
         resultset     (-> context
                         (-q wheres)
                         (collect all-vars))]

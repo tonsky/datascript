@@ -1,3 +1,9 @@
+# WIP
+
+- New parser for query and rules
+- Added a lot of meaningful error messages and validations to query parser and query runner
+- Support for _ (ignore binding) in `:in` and `fn-clause` bindings
+
 # 0.9.0
 
 - Lookup refs can be inlined in query `:where` patterns (issue #53)

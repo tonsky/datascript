@@ -106,7 +106,18 @@
              #{[1 "ivan@mail.ru"]
                [2 "petr@gmail.com"]
                [3 "ivan@mail.ru"]})))
+    
+    (testing "Query without DB"
+      (is (= (d/q '[:find ?a ?b
+                    :in   ?a ?b]
+                  10 20)
+             #{[10 20]})))))
 
+(deftest test-bindings
+  (let [db (-> (d/empty-db)
+             (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
+                          { :db/id 2, :name  "Petr", :age   37 }
+                          { :db/id 3, :name  "Ivan", :age   37 }]))]
     (testing "Relation binding"
       (is (= (d/q '[:find  ?e ?email
                     :in    $ [[?n ?email]]
@@ -132,7 +143,7 @@
                     :where [?e ?attr ?value]]
                   db 1 [:name :age])
              #{[:name "Ivan"] [:age 15]})))
-    
+
     (testing "Empty coll handling"
       (is (= (d/q '[:find ?id
                     :in $ [?id ...]
@@ -145,15 +156,28 @@
                     :where [?id :age _]]
                [[1 :name "Ivan"]
                 [2 :name "Petr"]])
-             #{}))))
+             #{})))
+    
+    (testing "Placeholders"
+      (is (= (d/q '[:find ?x ?z
+                    :in [?x _ ?z]]
+                  [:x :y :z])
+             #{[:x :z]}))
+      (is (= (d/q '[:find ?x ?z
+                    :in [[?x _ ?z]]]
+                  [[:x :y :z] [:a :b :c]])
+             #{[:x :z] [:a :c]})))
+    
+    (testing "Error reporting"
+      (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to tuple \[\?a \?b\]"
+            (d/q '[:find ?a ?b :in [?a ?b]] :a)))
+      (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to collection \[\?a \.\.\.\]"
+            (d/q '[:find ?a :in [?a ...]] :a)))
+      (is (thrown-with-msg? ExceptionInfo #"Not enough elements in a collection \[:a\] to bind tuple \[\?a \?b\]"
+            (d/q '[:find ?a ?b :in [?a ?b]] [:a]))))
 
-  (testing "Query without DB"
-    (is (= (d/q '[:find ?a ?b
-                  :in   ?a ?b]
-                10 20)
-           #{[10 20]}))))
-
-
+))
+        
 (deftest test-nested-bindings
   (is (= (d/q '[:find  ?k ?v
                 :in    [[?k ?v] ...]
@@ -180,4 +204,3 @@
               range)
          #{[:a 2] [:a 4] [:a 6]
            [:b 2]})))
-
