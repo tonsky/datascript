@@ -65,6 +65,9 @@
       [ {:name "Ivan" :profile {:email "@2"}} ]
       #{ [1 :name "Ivan"] [1 :profile 2] [2 :email "@2"] }
          
+      [ {:profile {:email "@2"}} ] ;; issue #59
+      #{ [1 :profile 2] [2 :email "@2"] }
+         
       [ {:email "@2" :_profile {:name "Ivan"}} ]
       #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] }
     ))

@@ -507,9 +507,10 @@
               upserted     (resolve-upsert db (assoc entity :db/id known-eid))
               new-eid      (or (:db/id upserted) (next-eid db))
               new-entity   (assoc upserted :db/id new-eid)
-              new-report   (if (neg? old-eid)
-                             (allocate-eid report old-eid new-eid)
-                             report)]
+              new-report   (cond
+                             (neg? old-eid) (allocate-eid report old-eid new-eid)
+                             (nil? old-eid) (allocate-eid report new-eid)
+                             :else report)]
           (recur new-report (concat (explode db new-entity) entities)))
 
       (sequential? entity)
