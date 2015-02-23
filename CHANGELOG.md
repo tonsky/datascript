@@ -4,6 +4,7 @@
 - Added a lot of meaningful error messages and validations to query parser and query runner
 - Support for _ (ignore binding) in `:in` and `fn-clause` bindings
 - Fixed id allocation bug when nested maps are used for referenced entities (issue #59)
+- Fixed squuids omitting leading zeros (issue #60)
 
 # 0.9.0
 
