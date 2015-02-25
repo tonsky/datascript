@@ -19,7 +19,7 @@
    :kvps      (transient {})
    :eids      eids
    :multi?    multi?
-   :recursion {}})
+   :recursion {:depth {} :seen #{}}})
 
 (defn- subpattern-frame
   [pattern eids multi? attr]
@@ -36,16 +36,12 @@
            :results   (cond-> (:results frame)
                         (seq kvps) (conj! kvps)))))
 
-(def ^:private ^:const empty-recursion-context
-  {:depth 0 :seen #{}})
-
-(def ^:private push-recursion
-  (fnil
-   (fn [rec eid]
-     (-> rec
-         (update :depth inc)
-         (update :seen conj eid)))
-   empty-recursion-context))
+(defn- push-recursion
+  [rec attr eid]
+  (let [{:keys [depth seen]} rec]
+    (assoc rec
+           :depth (update depth attr (fnil inc 0))
+           :seen (conj seen eid))))
 
 (defn- recursion-result
   [frame]
@@ -53,15 +49,17 @@
 
 (defn- recursion-frame
   [parent eid]
-  (assoc (subpattern-frame (:pattern parent) [eid] false ::recursion)
-         :recursion (:recursion parent)))
+  (let [attr (:attr parent)
+        rec  (push-recursion (:recursion parent) attr eid)]
+    (assoc (subpattern-frame (:pattern parent) [eid] false ::recursion)
+           :recursion rec)))
 
 (defn- pull-recursion-frame
   [db [frame & frames]]
   (if-let [eids (seq (:eids frame))]
     (let [frame  (reset-frame frame (rest eids) (recursion-result frame))
           eid    (first eids)]
-      (if (get-in frame [:recursion (:attr frame) :seen eid])
+      (if (get-in frame [:recursion :seen eid])
         (conj frames (update frame :results conj! {:db/id eid}))
         (conj frames frame (recursion-frame frame eid))))
     (let [kvps    (recursion-result frame)
@@ -72,7 +70,7 @@
 (defn- recurse-attr
   [db attr multi? eids eid parent frames]
   (let [{:keys [recursion pattern]} parent
-        depth  (-> recursion (get attr) (get :depth 0))]
+        depth  (-> recursion (get :depth) (get attr 0))]
     (if (-> pattern :attrs (get attr) :recursion (= depth))
       (conj frames parent)
       (pull-recursion-frame
@@ -80,14 +78,13 @@
        (conj frames parent
              {:state :recursion :pattern pattern
               :attr attr :multi? multi? :eids eids
-              :recursion (update recursion attr push-recursion eid)
+              :recursion recursion
               :results (transient [])})))))
 
 (let [pattern  (dpp/PullSpec. true {})]
   (defn- expand-frame
     [parent eid attr-key multi? eids]
-    (let [rec (-> (:recursion parent)
-                  (update attr-key push-recursion eid))]
+    (let [rec (push-recursion (:recursion parent) attr-key eid)]
       (-> pattern
           (subpattern-frame eids multi? attr-key)
           (assoc :recursion rec)))))
@@ -169,8 +166,8 @@
   [db frame frames eid pattern]
   (let [datoms (group-by #(.-a %) (dc/-datoms db :eavt [eid]))
         {:keys [attr recursion]} frame
-        rec (if (nil? attr) recursion
-                (update recursion attr push-recursion eid))]
+        rec (cond-> recursion
+              (some? attr) (push-recursion attr eid))]
     (->> {:state :expand :kvps (transient {:db/id eid})
           :eid eid :pattern pattern :datoms (seq datoms)
           :recursion rec}
@@ -180,7 +177,7 @@
 (defn- pull-wildcard
   [db frame frames]
   (let [{:keys [eid pattern]} frame]
-    (if (get-in frame [:recursion (:attr frame) :seen eid])
+    (if (get-in frame [:recursion :seen eid])
       (conj frames (update frame :results conj! {:db/id eid}))
       (pull-wildcard-expand db frame frames eid pattern))))
 

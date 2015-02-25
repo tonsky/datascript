@@ -235,14 +235,15 @@
                      [{:db/id 8 :name "Kerri"}]
                      :enemy
                      [{:db/id 4 :name "Lucy"
-                       :friend [{:db/id 5 :name "Elizabeth"}]}]}]}]
+                       :friend [{:db/id 5}]}]}]}]
                  :enemy
                  [{:db/id 6 :name "Matthew"
                    :friend
                    [{:db/id 7 :name "Eunan"
                      :friend
                      [{:db/id 8 :name "Kerri"}]
-                     :enemy [{:db/id 4}]}]
+                     :enemy [{:db/id 4 :name "Lucy"
+                              :friend [{:db/id 5 :name "Elizabeth"}]}]}]
                    :enemy
                    [{:db/id 8 :name "Kerri"}]}]}]
 
@@ -255,8 +256,32 @@
     (let [db (d/db-with db [[:db/add 8 :friend 4]])]
       (testing "Cycles are handled by returning only the :db/id of entities which have been seen before"
         (is (= (update-in friends (take 8 (cycle [:friend 0]))
-                          assoc :friend [{:db/id 4}])
+                          assoc :friend [{:db/id 4 :name "Lucy" :friend [{:db/id 5}]}])
                (d/pull db '[:db/id :name {:friend ...}] 4)))))))
+
+(deftest test-dual-recursion
+  (let [empty (d/empty-db {:part { :db/valueType :db.type/ref }
+                           :spec { :db/valueType :db.type/ref }})]
+    (let [db (d/db-with empty [[:db/add 1 :part 2]
+                               [:db/add 2 :part 3]
+                               [:db/add 3 :part 1]
+                               [:db/add 1 :spec 2]
+                               [:db/add 2 :spec 1]])]
+      (is (= (d/pull db '[:db/id {:part ...} {:spec ...}] 1)
+             {:db/id 1,
+              :spec {:db/id 2
+                     :spec {:db/id 1,
+                            :spec {:db/id 2}, :part {:db/id 2}}
+                     :part {:db/id 3,
+                            :part {:db/id 1,
+                                   :spec {:db/id 2},
+                                   :part {:db/id 2}}}}
+              :part {:db/id 2
+                     :spec {:db/id 1, :spec {:db/id 2}, :part {:db/id 2}}
+                     :part {:db/id 3,
+                            :part {:db/id 1,
+                                   :spec {:db/id 2},
+                                   :part {:db/id 2}}}}})))))
 
 (deftest test-deep-recursion
   (let [start 100
