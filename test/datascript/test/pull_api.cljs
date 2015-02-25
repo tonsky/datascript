@@ -115,20 +115,9 @@
     (testing "Reverse component references yield a single result"
       (is (= {:name "Part A.A" :_part {:db/id 10}}
              (d/pull test-db [:name :_part] 11))))
-
-    (testing "Reverse component references yield a single result"
-      (is (= {:name "Part A.A" :_part {:db/id 10}}
-             (d/pull test-db [:name :_part] 11))))
     
     (testing "Like explicit recursion, expansion will not allow loops"
-      (is (= rpart (d/pull recdb '[:name :part] 10))))
-
-    (testing "We don't expect this to actually pass to be honest, since
-to be honest I'm really not sure what constitutes sensible behaviour in
-this situation - this test will at least print out the result we currently
-get."
-      ;;(is (= :??? (d/pull mutdb '[:name :part :spec] 10)))
-      )))
+      (is (= rpart (d/pull recdb '[:name :part] 10))))))
 
 (deftest test-pull-wildcard
   (is (= {:db/id 1 :name "Petr" :aka ["Devil" "Tupen"]
