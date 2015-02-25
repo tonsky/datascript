@@ -43,6 +43,17 @@
            :depth (update depth attr (fnil inc 0))
            :seen (conj seen eid))))
 
+(defn- seen-eid?
+  [frame eid]
+  (-> frame
+      (get-in [:recursion :seen] #{})
+      (contains? eid)))
+
+(defn- pull-seen-eid
+  [frame frames eid]
+  (when (seen-eid? frame eid)
+    (conj frames (update frame :results conj! {:db/id eid}))))
+
 (defn- recursion-result
   [frame]
   (some-> (:kvps frame) persistent! (get ::recursion)))
@@ -59,9 +70,8 @@
   (if-let [eids (seq (:eids frame))]
     (let [frame  (reset-frame frame (rest eids) (recursion-result frame))
           eid    (first eids)]
-      (if (get-in frame [:recursion :seen eid])
-        (conj frames (update frame :results conj! {:db/id eid}))
-        (conj frames frame (recursion-frame frame eid))))
+      (or (pull-seen-eid frame frames eid)
+          (conj frames frame (recursion-frame frame eid))))
     (let [kvps    (recursion-result frame)
           results (cond-> (:results frame)
                     (seq kvps) (conj! kvps))]
@@ -177,9 +187,8 @@
 (defn- pull-wildcard
   [db frame frames]
   (let [{:keys [eid pattern]} frame]
-    (if (get-in frame [:recursion :seen eid])
-      (conj frames (update frame :results conj! {:db/id eid}))
-      (pull-wildcard-expand db frame frames eid pattern))))
+    (or (pull-seen-eid frame frames eid)
+        (pull-wildcard-expand db frame frames eid pattern))))
 
 (defn- pull-pattern-frame
   [db [frame & frames]]
