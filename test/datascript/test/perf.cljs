@@ -4,6 +4,7 @@
     [datascript :as d]
     [datascript.core :as dc]
     [datascript.perf :as perf]
+    [datascript.parser :as dp]
     [goog.array :as garray]))
 
 (enable-console-print!)
@@ -112,7 +113,7 @@
 ;;                                             '[[?e :last-name ?ln]
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
-     "d/q1"              (fn [opts] (d/q '[ :find  ?e ?a
+     "d/q1"              (fn [opts] (d/q '[ :find  ?e
                                            :where [?e :name "Ivan"]]
                                          (:db opts)))
 
@@ -169,7 +170,7 @@
     ;                               (= (:sex %) :male)) }
   ; }
                     
-  :size [500 2000] ;; [100 500 2000 20000]
+  :size [2000] ;; [100 500 2000 20000]
 ])
 
 
@@ -257,62 +258,26 @@
           (println "perftest-db-equiv" dt "ms")
           dt)))))
 
-(defn ^:export perftest-db-equiv []
-  (let [datoms (gen-long-db 30 10)]
-    (loop [time  0
-           iters 0]
-      (if (< iters 100)
-        (let [db1    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
-              db2    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
-              t0     (now)]
-          (= db1 db2)
-          (recur (+ time (- (now) t0)) (inc iters)))
-        (let [dt (/ (* 1000 time) iters)]
-          (println "perftest-db-equiv" dt "ms")
-          dt)))))
+(def cached-parse-q (memoize (fn [q] (dp/parse-query q))))
 
-(def letters  (seq "abcdefghijklmnopqrstuvwxyz"))
-(def alphabet (concat letters (seq "-------_1234567890")))
-(defn rand-str [n]
-  (apply str (rand-nth letters) (repeatedly (rand-int n) #(rand-nth alphabet))))
-(defn rand-keyword []
-  (if (> (rand) 0.5)
-    (keyword (rand-str 10) (rand-str 20))
-    (keyword (rand-str 20))))
-
-(defn compare-keywords-1 [a b]
-  (cond
-   (= a b) 0
-   (and (not (.-ns a)) (.-ns b)) -1
-   (.-ns a) (if-not (.-ns b)
-              1
-              (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
-                (if (zero? nsc)
-                  (garray/defaultCompare (.-name a) (.-name b))
-                  nsc)))
-   :default (garray/defaultCompare (.-name a) (.-name b))))
-
-(defn compare-keywords-quick [a b]
-  (cond
-   (identical? (.-fqn a) (.-fqn b)) 0
-   (and (not (.-ns a)) (.-ns b)) -1
-   (.-ns a) (if-not (.-ns b)
-              1
-              (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
-                (if (zero? nsc)
-                  (garray/defaultCompare (.-name a) (.-name b))
-                  nsc)))
-   :default (garray/defaultCompare (.-name a) (.-name b))))
-
-(defn ^:export perftest-keywords-compare []
-  (perf/suite (fn [opts] (.sort (:set opts) (:fn opts)))
-    :duration 1000
-    :matrix   [:fn {"compare-symbols" compare-symbols
-                    "compare-keywords-1" compare-keywords-1
-                    "compare-keywords-quick" compare-keywords-quick
-                    }
-               :size [5000]]
-    :setup-fn (fn [opts]
-                (let [seed (vec (repeatedly 50 rand-keyword))
-                      set  (repeatedly (:size opts) #(rand-nth seed))]
-                  (assoc opts :set (into-array set))))))
+(defn ^:export perftest-query-parse []
+  (let [q '[:find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
+            :in    $ ?tid ?week ?list
+            :where [?lid :lesson/teacherid ?tid]
+                   [?lid :lesson/week ?week]
+                   [?lid :lesson/lessongroupid ?lgid]
+                   [?eid :enrollment/lessongroup_id ?lgid]
+                   [?eid :enrollment/student_id ?sid]
+                   [?iid :invoice/enrollment_id ?eid]
+                   [?sid :student/firstname ?fname]
+                   [?sid :student/lastname ?lname]
+                   [?iid :invoice/paid ?paid]
+                   [?lid :lesson/status ?status]
+                   [?lid :lesson/starttime ?starttime]
+                   [?lid :lesson/endtime ?endtime]
+                   [(?list ?sid ?fname ?lname) ?studentinfo]]]
+    (let [iters 1000
+          t0 (now)]
+      (dotimes [_ iters]
+        (cached-parse-q q))
+      (println (/ (- (now) t0) iters) "ms"))))

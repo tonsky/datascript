@@ -24,6 +24,7 @@
      datascript.test.query-fns
      datascript.test.query-pull
      datascript.test.query-rules
+     datascript.test.query-v3
      datascript.test.serialization
      datascript.test.transact
      datascript.test.validation

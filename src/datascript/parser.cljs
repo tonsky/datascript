@@ -2,11 +2,19 @@
   (:refer-clojure
     :exclude [distinct?])
   (:require-macros
-    [datascript :refer [raise]])
+    [datascript :refer [raise ]]
+    [datascript.parser :refer [deftrecord]])
   (:require
     [clojure.set :as set]))
 
 ;; utils
+
+(declare collect-vars-acc)
+
+(defprotocol ITraversable
+  (-collect      [_ pred acc])
+  (-collect-vars [_ acc])
+  (-postwalk     [_ f]))
 
 (defn of-size? [form size]
   (and (sequential? form)
@@ -23,6 +31,7 @@
   (let [acc (or acc [])]
     (cond
       (pred form)     (conj acc form)
+      (satisfies? ITraversable form) (-collect form pred acc)
       (seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
       :else acc)))
 
@@ -30,12 +39,14 @@
   (or (empty? coll)
       (apply clojure.core/distinct? coll)))
 
-(defn postwalk [f form]
+(defn postwalk [form f]
   (cond
     ;; additional handling for maps and records that keeps structure type
-    (map? form)  (f (reduce (fn [form [k v]] (assoc form k (postwalk f v))) form form))
-    (seq? form)  (f (map #(postwalk f %) form))
-    (coll? form) (f (into (empty form) (map #(postwalk f %) form)))
+    (satisfies? ITraversable form) (f (-postwalk form f))
+    (map? form)  (f (reduce (fn [form [k v]] (assoc form k (postwalk v f))) form form))
+    ;; rest comes from clojure.core
+    (seq? form)  (f (map #(postwalk % f) form))
+    (coll? form) (f (into (empty form) (map #(postwalk % f) form)))
     :else        (f form)))
 
 (defn with-source [obj source]
@@ -51,13 +62,14 @@
 ;; constant       = any non-variable data literal
 ;; plain-symbol   = symbol that does not begin with "$" or "?"
 
-(defrecord Placeholder [])
-(defrecord Variable    [symbol])
-(defrecord SrcVar      [symbol])
-(defrecord DefaultSrc  [])
-(defrecord RulesVar    [])
-(defrecord Constant    [value])
-(defrecord PlainSymbol [symbol])
+(deftrecord Placeholder [])
+(deftrecord Variable    [symbol])
+(deftrecord SrcVar      [symbol])
+(deftrecord DefaultSrc  [])
+(deftrecord RulesVar    [])
+(deftrecord Constant    [value])
+(deftrecord PlainSymbol [symbol])
+
 
 (defn parse-placeholder [form]
   (when (= '_ form)
@@ -99,7 +111,7 @@
 
 ;; rule-vars = [ variable+ | ([ variable+ ] variable*) ]
 
-(defrecord RuleVars [required free])
+(deftrecord RuleVars [required free])
 
 (defn parse-rule-vars [form]
   (if (sequential? form)
@@ -134,10 +146,10 @@
 ;; bind-coll      = [ binding '...' ]
 ;; bind-rel       = [ [ (binding | '_')+ ] ]
 
-(defrecord BindIgnore [])
-(defrecord BindScalar [variable])
-(defrecord BindTuple  [bindings])
-(defrecord BindColl   [binding])
+(deftrecord BindIgnore [])
+(deftrecord BindScalar [variable])
+(deftrecord BindTuple  [bindings])
+(deftrecord BindColl   [binding])
 
 (declare parse-binding)
 
@@ -203,25 +215,25 @@
   Variable
   (-find-vars [this] [(.-symbol this)]))
 
-(defrecord Aggregate [fn args]
+(deftrecord Aggregate [fn args]
   IFindVars (-find-vars [_] (-find-vars (last args))))
 
-(defrecord Pull [source variable pattern]
+(deftrecord Pull [source variable pattern]
   IFindVars (-find-vars [_] (-find-vars variable)))
 
 (defprotocol IFindElements
   (find-elements [this]))
 
-(defrecord FindRel [elements]
+(deftrecord FindRel [elements]
   IFindElements (find-elements [_] elements))
 
-(defrecord FindColl [element]
+(deftrecord FindColl [element]
   IFindElements (find-elements [_] [element]))
 
-(defrecord FindScalar [element]
+(deftrecord FindScalar [element]
   IFindElements (find-elements [_] [element]))
 
-(defrecord FindTuple [elements]
+(deftrecord FindTuple [elements]
   IFindElements (find-elements [_] elements))
 
 (defn find-vars [find]
@@ -334,7 +346,7 @@
 (defn- parse-in-binding [form]
   (if-let [var (or (parse-src-var form)
                    (parse-rules-var form))]
-    (BindScalar. var)
+    (with-source (BindScalar. var) form)
     (parse-binding form)))
 
 (defn parse-in [form]
@@ -357,13 +369,13 @@
 ;; or-join-clause  = [ src-var? 'or-join' rule-vars (clause | and-clause)+ ]
 ;; and-clause      = [ 'and' clause+ ]
 
-(defrecord Pattern   [source pattern])
-(defrecord Predicate [fn args])
-(defrecord Function  [fn args binding])
-(defrecord RuleExpr  [source name args]) ;; TODO rule with constant or '_' as argument
-(defrecord Not       [source vars clauses])
-(defrecord Or        [source rule-vars clauses])
-(defrecord And       [clauses])
+(deftrecord Pattern   [source pattern])
+(deftrecord Predicate [fn args])
+(deftrecord Function  [fn args binding])
+(deftrecord RuleExpr  [source name args]) ;; TODO rule with constant or '_' as argument
+(deftrecord Not       [source vars clauses])
+(deftrecord Or        [source rule-vars clauses])
+(deftrecord And       [clauses])
 
 (declare parse-clause)
 
@@ -382,7 +394,7 @@
   (when-let [[source* next-form] (take-source form)]
     (when-let [pattern* (parse-seq parse-pattern-el next-form)]
       (if-not (empty? pattern*)
-        (Pattern. source* pattern*)
+        (with-source (Pattern. source* pattern*) form)
         (raise "Pattern could not be empty"
                {:error :parser/where, :form form})))))
 
@@ -425,17 +437,23 @@
             (RuleExpr. source* name* args*)
           )))))
 
-(defn- collect-vars
-  ([form] (collect-vars [] form))
-  ([acc form]
-    (cond
-      (instance? Not form)      (into acc (.-vars form))
-      (instance? Or form)       (collect-vars acc (.-rule-vars form))
-      (instance? Variable form) (conj acc form)
-      (seqable? form)           (reduce collect-vars acc form)
-      :else acc)))
+(defn- collect-vars-acc [acc form]
+  (cond
+    (satisfies? ITraversable form)
+      (-collect-vars form acc)
+    (sequential? form)
+      (reduce collect-vars-acc acc form)
+    :else acc))
 
+;; Some overrides
+(extend-protocol ITraversable
+  Variable (-collect-vars [form acc] (conj acc form))
+  Not      (-collect-vars [form acc] (into acc (.-vars form)))
+  Or       (-collect-vars [form acc] (collect-vars-acc acc (.-rule-vars form))))
 
+(defn- collect-vars [form]
+  (collect-vars-acc [] form))
+    
 (defn- collect-vars-distinct [form]
   (vec (distinct (collect-vars form))))
 
@@ -538,8 +556,8 @@
 ;; rule-head   = [rule-name rule-vars]
 ;; rule-name   = plain-symbol
 
-(defrecord RuleBranch [vars clauses])
-(defrecord Rule [name branches])
+(deftrecord RuleBranch [vars clauses])
+(deftrecord Rule [name branches])
 
 (defn validate-vars [vars clauses form]
   (let [declared-vars   (collect #(instance? Variable %) vars #{})
@@ -592,7 +610,7 @@
 
 ;; query
 
-(defrecord Query [find with in where])
+(deftrecord Query [find with in where])
 
 (defn query->map [query]
   (loop [parsed {}, key nil, qs query]

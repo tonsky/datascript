@@ -93,9 +93,14 @@
           idxs2  (to-array (map (:attrs rel2) attrs2))]
       (Relation.
         (zipmap (concat attrs1 attrs2) (range))
-        (for [t1 (:tuples rel1)
-              t2 (:tuples rel2)]
-          (join-tuples t1 idxs1 t2 idxs2))))))
+        (persistent!
+          (reduce
+            (fn [acc t1]
+              (reduce (fn [acc t2]
+                        (conj! acc (join-tuples t1 idxs1 t2 idxs2)))
+                      acc (:tuples rel2)))
+            (transient []) (:tuples rel1)))
+        ))))
 
 ;; built-ins
 
@@ -681,8 +686,11 @@
             resolved
             tuple))))
 
+;; TODO limit cache size
+(def parse-query (memoize dp/parse-query))
+
 (defn q [q & inputs]
-  (let [parsed-q      (dp/parse-query q)
+  (let [parsed-q      (parse-query q)
         find          (:find parsed-q)
         find-elements (dp/find-elements find)
         find-vars     (dp/find-vars find)

@@ -12,8 +12,7 @@
 (defn round [x]
   (-> x (* 1000) fix (/ 1000)))
 
-;; (defn now [] (.getTime (js/Date.)))
-(defn now [] (.now (.-performance js/window)))
+(defn now [] (js/window.performance.now))
 
 (defn -measure [f {:keys [duration repeats setup-fn] :as opts}]
   (into []

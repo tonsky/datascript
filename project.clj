@@ -6,7 +6,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-2816" :scope "provided"]
+    [org.clojure/clojurescript "0.0-2913" :scope "provided"]
   ]
   
   :global-vars {
@@ -27,6 +27,7 @@
           :pretty-print  false
           :elide-asserts true
           :output-wrapper false 
+          :warnings      {:single-segment-namespace false}
         }
         :notify-command ["release-js/wrap_bare.sh"]}
   ]}
@@ -34,7 +35,7 @@
   :profiles {
     :dev {
       :plugins [
-        [lein-cljsbuild "1.0.3"]
+        [lein-cljsbuild "1.0.5"]
         [com.cemerick/clojurescript.test "0.3.1"]
       ]
       :cljsbuild { 
@@ -56,6 +57,7 @@
               :optimizations :advanced
               :pretty-print  true
               :warnings     {:single-segment-namespace false}
+              :recompile-dependents false
             }}
         ]
         :test-commands {
