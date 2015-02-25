@@ -85,8 +85,12 @@
 
 (let [pattern  (dpp/PullSpec. true {})]
   (defn- expand-frame
-    [attr-key multi? eids]
-    (subpattern-frame pattern eids multi? attr-key)))
+    [parent eid attr-key multi? eids]
+    (let [rec (-> (:recursion parent)
+                  (update attr-key push-recursion eid))]
+      (-> pattern
+          (subpattern-frame eids multi? attr-key)
+          (assoc :recursion rec)))))
 
 (defn- pull-attr-datoms
   [db attr-key attr eid forward? datoms opts [parent & frames]]
@@ -111,10 +115,10 @@
                         (mapv datom-val found)
                         eid parent frames)
 
-          (and forward? component?)
+          (and component? forward?)
           (->> found
                (mapv datom-val)
-               (expand-frame attr-key multi?)
+               (expand-frame parent eid attr-key multi?)
                (conj frames parent))
           
           :else 
@@ -156,16 +160,29 @@
       (pull-attr-datoms db attr attr (:eid frame) true datoms opts
                         (conj frames (update frame :datoms rest))))
     (let [[parent & frames] frames]
-      (conj frames (update parent :kvps into! (persistent! (:kvps frame)))))))
+      (->> (:kvps frame)
+           (persistent!)
+           (update parent :kvps into!)
+           (conj frames)))))
+
+(defn- pull-wildcard-expand
+  [db frame frames eid pattern]
+  (let [datoms (group-by #(.-a %) (dc/-datoms db :eavt [eid]))
+        {:keys [attr recursion]} frame
+        rec (if (nil? attr) recursion
+                (update recursion attr push-recursion eid))]
+    (->> {:state :expand :kvps (transient {:db/id eid})
+          :eid eid :pattern pattern :datoms (seq datoms)
+          :recursion rec}
+         (conj frames frame)
+         (pull-expand-frame db))))
 
 (defn- pull-wildcard
   [db frame frames]
-  (let [{:keys [eid pattern]} frame
-        datoms (group-by #(.-a %) (dc/-datoms db :eavt [eid]))]
-    (->> {:state :expand :kvps (transient {:db/id eid})
-          :eid eid :pattern pattern :datoms (seq datoms)}
-         (conj frames frame)
-         (pull-expand-frame db))))
+  (let [{:keys [eid pattern]} frame]
+    (if (get-in frame [:recursion (:attr frame) :seen eid])
+      (conj frames (update frame :results conj! {:db/id eid}))
+      (pull-wildcard-expand db frame frames eid pattern))))
 
 (defn- pull-pattern-frame
   [db [frame & frames]]
