@@ -5,6 +5,8 @@
 - Support for _ (ignore binding) in `:in` and `fn-clause` bindings
 - Fixed id allocation bug when nested maps are used for referenced entities (issue #59)
 - Fixed squuids omitting leading zeros (issue #60)
+- Fixed a bug when cross-referencing components caused infinite loop in Pull API (isuue #58, pull request #61)
+- Pull API handles recursion more like Datomic does (issue #62)
 
 # 0.9.0
 
