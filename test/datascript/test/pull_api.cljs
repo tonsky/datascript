@@ -17,7 +17,10 @@
 
    :part   { :db/valueType :db.type/ref
              :db/isComponent true
-             :db/cardinality :db.cardinality/many }})
+             :db/cardinality :db.cardinality/many }
+   :spec   { :db/valueType :db.type/ref
+             :db/isComponent true
+             :db/cardinality :db.cardinality/one }})
 
 (def test-datoms
   (->>
@@ -92,13 +95,29 @@
                    :name "Part A.B.A",
                    :part
                    [{:db/id 17 :name "Part A.B.A.A"}
-                    {:db/id 18 :name "Part A.B.A.B"}]}]}]}]
+                    {:db/id 18 :name "Part A.B.A.B"}]}]}]}
+        rpart (update-in parts [:part 0 :part 0 :part]
+                         (partial into [{:db/id 10}]))
+        recdb (d/init-db
+               (concat test-datoms [(d/datom 12 :part 10)])
+               test-schema)
+
+        mutdb (d/init-db
+               (concat test-datoms [(d/datom 12 :part 10)
+                                    (d/datom 12 :spec 10)
+                                    (d/datom 10 :spec 13)
+                                    (d/datom 13 :spec 12)])
+               test-schema)]
+    
     (testing "Component entities are expanded recursively"
       (is (= parts (d/pull test-db '[:name :part] 10))))
 
     (testing "Reverse component references yield a single result"
       (is (= {:name "Part A.A" :_part {:db/id 10}}
-             (d/pull test-db [:name :_part] 11))))))
+             (d/pull test-db [:name :_part] 11))))
+    
+    (testing "Like explicit recursion, expansion will not allow loops"
+      (is (= rpart (d/pull recdb '[:name :part] 10))))))
 
 (deftest test-pull-wildcard
   (is (= {:db/id 1 :name "Petr" :aka ["Devil" "Tupen"]
