@@ -38,7 +38,7 @@
     :dev {
       :plugins [
         [lein-cljsbuild "1.0.5"]
-        [com.cemerick/clojurescript.test "0.3.2"]
+        [com.cemerick/clojurescript.test "0.3.3"]
       ]
       :cljsbuild { 
         :builds [

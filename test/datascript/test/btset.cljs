@@ -82,6 +82,7 @@
             set-range (slice set from to)]
         (testing xs
           (testing (str "from " from " to " to)
+            (is (= (vec set-range) (vec (seq set-range)))) ;; checking IReduce on BTSetIter
             (is (= (vec set-range) expected))
             (is (= (vec (reverse set-range)) (reverse expected)))
             (is (= (vec (reverse (reverse set-range))) expected))

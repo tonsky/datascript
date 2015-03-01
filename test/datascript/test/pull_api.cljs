@@ -137,28 +137,16 @@
               test-schema)]
 
     (testing "Without an explicit limit, the default is 1000"
-      (is (->> (d/pull db '[:aka] 8)
-               :aka
-               count
-               (= 1000))))
+      (is (= 1000 (->> (d/pull db '[:aka] 8) :aka count))))
 
     (testing "Explicit limit can reduce the default"
-      (is (->> (d/pull db '[(limit :aka 500)] 8)
-               :aka
-               count
-               (= 500))))
+      (is (= 500 (->> (d/pull db '[(limit :aka 500)] 8) :aka count))))
 
     (testing "Explicit limit can increase the default"
-      (is (->> (d/pull db '[(limit :aka 1500)] 8)
-               :aka
-               count
-               (= 1500))))
+      (is (= 1500 (->> (d/pull db '[(limit :aka 1500)] 8) :aka count))))
 
     (testing "A nil limit produces unlimited results"
-      (is (->> (d/pull db '[(limit :aka nil)] 8)
-               :aka
-               count
-               (= 2000))))
+      (is (= 2000 (->> (d/pull db '[(limit :aka nil)] 8) :aka count))))
 
     (testing "Limits can be used as map specification keys"
       (is (= {:name "Lucy"

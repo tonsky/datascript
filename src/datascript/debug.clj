@@ -31,6 +31,6 @@
         t#  (now)
         _#  (dotimes [_# *minibench-iterations*] (f#))
         dt# (/ (- (now) t#) *minibench-iterations*)]
-    (js/console.log (format-time dt#) ~msg "avg time")
+    (js/console.log "\n" (format-time dt#) ~msg "avg time")
     (binding [debug? true]
       (f#))))

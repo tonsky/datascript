@@ -34,8 +34,12 @@
 
 (declare BTSet Node LeafNode)
 
+(defn half [x]
+  (unsigned-bit-shift-right x 1))
+
 (def ^:const min-len 64)
 (def ^:const max-len 128)
+(def ^:const avg-len (half (+ max-len min-len)))
 (def ^:const level-shift (->> (range 31 -1 -1)
                               (filter #(bit-test max-len %))
                               first
@@ -54,9 +58,6 @@
 
 (defn eq [a b]
   (== 0 (*cmp* a b)))
-
-(defn half [x]
-  (unsigned-bit-shift-right x 1))
 
 (defn binary-search-l [arr l r k]
   (if (<= l r)
@@ -171,7 +172,7 @@
   "Splits `arr` into arrays of size between min-len and max-len,
    trying to stick to (min+max)/2"
   [min-len max-len arr]
-  (let [chunk-len (half (+ max-len min-len))
+  (let [chunk-len avg-len
         len       (alength arr)
         acc       #js []]
     (when (pos? len)
@@ -467,6 +468,27 @@
   [set path]
   (-prev-path (.-root set) path (.-shift set)))
 
+(defn -distance [node left right level]
+  (let [idx-l (path-get left level)
+        idx-r (path-get right level)]
+    (if (pos? level)
+      ;; inner node
+      (if (== idx-l idx-r)
+        (-distance (aget (.-pointers node) idx-l) left right (- level level-shift))
+        (loop [level level
+               res   (- idx-r idx-l)]
+          (if (== 0 level)
+            res
+            (* res avg-len))))
+      (- idx-r idx-l))))
+
+(defn distance [set path-l path-r]
+  (cond
+    (== path-l path-r) 0
+    (== (inc path-l) path-r) 1
+    (== (next-path set path-l) path-r) 1
+    :else (-distance (.-root set) path-l path-r (.-shift set))))
+
 (declare BTSetBackwardsIter -btset-iter -btset-backwards-iter)
 
 (deftype BTSetIter [set left right keys idx]
@@ -493,6 +515,39 @@
         (let [left (next-path set left)]
           (when (and (not= -1 left) (< left right))
             (-btset-iter set left right))))))
+  
+  IReduce
+  (-reduce [this f]
+    (if (nil? keys)
+      (f)
+      (let [first (aget keys idx)]
+        (if-let [next (-next this)]
+          (-reduce next f first)
+          first))))
+        
+  (-reduce [_ f start]
+    (loop [left left
+           keys keys
+           idx  idx
+           acc  start]
+      (cond
+        (reduced? acc) @acc
+        (nil? keys)    acc
+        :else
+          (let [new-acc (f acc (aget keys idx))]
+            (if (< (inc idx) (alength keys))
+              ;; can use cached array to move forward
+              (if (< (inc left) right)
+                (recur (inc left) keys (inc idx) new-acc)
+                new-acc)
+              (let [new-left (next-path set left)]
+                (if (and (not= -1 new-left) (< new-left right))
+                  (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
+                  new-acc)))))))
+  
+  ICounted
+  (-count [_]
+    (distance set left right))
   
   IReversible
   (-rseq [_]
@@ -690,4 +745,3 @@
   ([] (btset-by compare))
   ([& keys]
     (-btset-from-seq keys compare)))
-
