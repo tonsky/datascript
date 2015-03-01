@@ -8,5 +8,5 @@ dependencies:
 
 test:
   override:
-    - lein cljsbuild test:
+    - lein test:
         timeout: 300

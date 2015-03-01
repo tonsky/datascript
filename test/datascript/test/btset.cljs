@@ -88,8 +88,6 @@
             )))))
   (println "[ OK ] btset slice checked"))
 
-;; (t/test-ns 'datascript.test.btset)
-
 ;;;; PERFORMANCE
 
 (def test-matrix [:target    { "sorted-set" (sorted-set)

@@ -9,6 +9,8 @@
     [org.clojure/clojurescript "0.0-2913" :scope "provided"]
   ]
   
+  :hooks [leiningen.cljsbuild]
+  
   :global-vars {
     *warn-on-reflection* true
     *unchecked-math* :warn-on-boxed
@@ -36,32 +38,36 @@
     :dev {
       :plugins [
         [lein-cljsbuild "1.0.5"]
-        [com.cemerick/clojurescript.test "0.3.1"]
+        [com.cemerick/clojurescript.test "0.3.2"]
       ]
       :cljsbuild { 
         :builds [
-          { :id "dev"
+          { :id "advanced"
             :source-paths ["src" "test"]
             :compiler {
-              :output-to     "web/datascript.js"
-              :output-dir    "web/target-cljs"
+              :main          datascript.test
+              :output-to     "target/datascript.js"
+;;               :output-dir    "target/advanced"
+              :optimizations :advanced
+              :source-map    "target/datascript.js.map"
+              :pretty-print  true
+              :warnings     {:single-segment-namespace false}
+              :recompile-dependents false
+            }}
+          { :id "none"
+            :source-paths ["src" "test"]
+            :compiler {
+              :main          datascript.test
+              :output-to     "target/datascript.js"
+              :output-dir    "target/none"
               :optimizations :none
               :source-map    true
               :warnings     {:single-segment-namespace false}
               :recompile-dependents false
             }}
-          { :id "testable"
-            :source-paths ["src" "test"]
-            :compiler {
-              :output-to     "web/datascript.testable.js"
-              :optimizations :advanced
-              :pretty-print  true
-              :warnings     {:single-segment-namespace false}
-              :recompile-dependents false
-            }}
         ]
         :test-commands {
-          "datascript.test"    [ "phantomjs" :runner "web/datascript.testable.js" ]
+          "datascript.test"    [ "phantomjs" :runner "target/datascript.js" ]
           "datascript.test.js" [ "phantomjs" "test/js/runner.js" ]
         }
       }
@@ -70,9 +76,6 @@
   
   :clean-targets ^{:protect false} [
     "target"
-    "web/target-cljs"
-    "web/datascript.js"
-    "web/datascript.testable.js"
     "release-js/datascript.bare.js"
     "release-js/datascript.js"
   ]

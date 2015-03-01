@@ -3,7 +3,7 @@
     [cemerick.cljs.test :as t]
      datascript.test.core
    
-;;      datascript.test.btset
+     datascript.test.btset
      datascript.test.components
      datascript.test.entity
      datascript.test.explode
@@ -16,6 +16,7 @@
      datascript.test.parser-rules
      datascript.test.parser-query
      datascript.test.parser-where
+     datascript.test.perf
      datascript.test.pull-api
      datascript.test.pull-parser
      datascript.test.query
@@ -31,7 +32,8 @@
      datascript.test.upsert
    ))
 
-#_(t/run-all-tests)
-
 (defn ^:export test-all []
-  (t/run-all-tests))
+  (t/run-all-tests #"datascript\.test\.(?!btset).*"))
+
+(defn ^:export test-btset []
+  (t/test-ns 'datascript.test.btset))
