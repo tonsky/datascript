@@ -7,11 +7,11 @@
    `(when debug?
       ~@body)))
 
-(defmacro debug [& msg]
+(defmacro debug [& msgs]
   (when enabled?
    `(when debug?
       (start-frame false)
-      (end-frame ~@msg))))
+      (end-frame ~@msgs))))
 
 (defmacro measure [body & msgs]
   (let [sym   (gensym)
