@@ -1,4 +1,5 @@
 (ns datascript.js
+  (:refer-clojure :exclude [filter])
   (:require
     [datascript :as d]
     [datascript.core :as dc]
@@ -87,6 +88,7 @@
 (def ^:export entity    d/entity)
 (def ^:export touch     d/touch)
 (def ^:export entity_db d/entity-db)
+(def ^:export filter d/filter)
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
@@ -108,7 +110,7 @@
 
 (defn ^:export resolve_tempid [tempids tempid]
   (aget tempids (str tempid)))
-  
+
 (defn ^:export datoms [db index & components]
   (->> (apply d/datoms db (keywordize index) components)
        into-array))
