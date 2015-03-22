@@ -7,6 +7,7 @@
 - Fixed squuids omitting leading zeros (issue #60)
 - Fixed a bug when cross-referencing components caused infinite loop in Pull API (isuue #58, pull request #61)
 - Pull API handles recursion more like Datomic does (issue #62)
+- Exposed filtered API to js (pull request #65)
 
 # 0.9.0
 

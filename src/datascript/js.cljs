@@ -85,10 +85,11 @@
 (defn ^:export db_with [db entities]
   (d/db-with db (entities->clj entities)))
 
-(def ^:export entity    d/entity)
-(def ^:export touch     d/touch)
-(def ^:export entity_db d/entity-db)
-(def ^:export filter d/filter)
+(def ^:export entity      d/entity)
+(def ^:export touch       d/touch)
+(def ^:export entity_db   d/entity-db)
+(def ^:export filter      d/filter)
+(def ^:export is_filtered d/is-filtered)
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))

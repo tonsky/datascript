@@ -103,11 +103,6 @@
       }
     </script>
     
-
-<!--     <script src="../../web/out/goog/base.js" type="text/javascript"></script>
-    <script src="../../web/datascript.js" type="text/javascript"></script>
-    <script type="text/javascript">goog.require("datascript.js");</script> -->
-
     <script src="../../release-js/datascript.js" type="text/javascript"></script>
 
     <script type="text/javascript">
@@ -395,6 +390,24 @@
                           [2, "name", "Petr", tx0+1]],
                          d.seek_datoms(people_db, ":avet", "age", 20));
       }
+      
+      function test_filter() {
+        assert_eq_set([[1, "name", "Ivan"],
+                       [2, "name", "Petr"],
+                       [3, "name", "Ivan"]],
+                      d.q("[:find ?e ?a ?v :where [?e ?a ?v]]",
+                          d.filter(people_db,
+                                   function(db,datom) { return datom.a == "name"; })));
+        
+        assert_eq_set([[1, "name", "Ivan"],
+                       [1, "age", 15]],
+                      d.q("[:find ?e ?a ?v :where [?e ?a ?v]]",
+                          d.filter(people_db,
+                                   function(db,datom) { 
+                                     var entity = d.entity(db, datom.e);
+                                     return entity.get("age") <= 18;
+                                   })));
+      }
 
       function run_tests() {
         return test_fns([ test_db_with,
@@ -411,9 +424,12 @@
                           test_q_rules,
                           test_q_fns,
                           test_find_specs,
-                          test_datoms
+                          test_datoms,
+                          test_filter
                         ]);
       }
+      
+      run_tests();
     </script>
   </body>
 </html>
