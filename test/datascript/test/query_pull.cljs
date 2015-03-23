@@ -120,5 +120,3 @@
                      db [[:name "Ivan"] [:name "Oleg"] [:name "Petr"]]))
            #{[[:name "Petr"] 44 {:db/id 1 :name "Petr"}]
              [[:name "Ivan"] 25 {:db/id 2 :name "Ivan"}]}))))
-  
-(d/q '[:find ?e (pull ?e []) :where [?e :name]] test-db)
