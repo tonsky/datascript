@@ -191,9 +191,8 @@
 (defn db-from-reader [{:keys [schema datoms]}]
   (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
 
-(swap! cljs.reader/*tag-table*
-       assoc "datascript/Datom" datom-from-reader
-             "datascript/DB"    db-from-reader)
+(cljs.reader/register-tag-parser! "datascript/Datom" datom-from-reader)
+(cljs.reader/register-tag-parser! "datascript/DB"    db-from-reader)
 
 ;; Datomic compatibility layer
 

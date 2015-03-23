@@ -1,13 +1,13 @@
-# WIP
+# 0.10.0
 
 - New parser for query and rules
-- Added a lot of meaningful error messages and validations to query parser and query runner
+- Added a lot of meaningful error messages and validations to query parser
 - Support for _ (ignore binding) in `:in` and `fn-clause` bindings
 - Fixed id allocation bug when nested maps are used for referenced entities (issue #59)
 - Fixed squuids omitting leading zeros (issue #60)
 - Fixed a bug when cross-referencing components caused infinite loop in Pull API (isuue #58, pull request #61)
 - Pull API handles recursion more like Datomic does (issue #62)
-- Exposed filtered API to js (pull request #65)
+- Exposed DB filter API to js (pull request #65)
 - Added ICounted, ISequable, IEmptyableCollection to `datascript.core/DB`
 - Force put `Datom` and `DB` tag readers to `cljs.reader/*tag-table*`, do not rely on `data_readers.clj`
 

@@ -23,7 +23,7 @@
                           (dp/parse-clause '[])))
 )
 
-(deftest pred
+(deftest test-pred
   (are [clause res] (= (dp/parse-clause clause) res)
     '[(pred ?a 1)]
     (dp/Predicate. (dp/PlainSymbol. 'pred) [(dp/Variable. '?a) (dp/Constant. 1)])
@@ -35,7 +35,7 @@
     (dp/Predicate. (dp/Variable. '?custom-pred) [(dp/Variable. '?a)])
 ))
 
-(deftest fn
+(deftest test-fn
   (are [clause res] (= (dp/parse-clause clause) res)
     '[(fn ?a 1) ?x]
     (dp/Function. (dp/PlainSymbol. 'fn) [(dp/Variable. '?a) (dp/Constant. 1)] (dp/BindScalar. (dp/Variable. '?x)))

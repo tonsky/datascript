@@ -1,4 +1,4 @@
-(defproject datascript "0.9.0"
+(defproject datascript "0.10.0"
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -6,10 +6,8 @@
   
   :dependencies [
     [org.clojure/clojure "1.6.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-2913" :scope "provided"]
+    [org.clojure/clojurescript "0.0-2985" :scope "provided"]
   ]
-  
-  :hooks [leiningen.cljsbuild]
   
   :global-vars {
     *warn-on-reflection* true
