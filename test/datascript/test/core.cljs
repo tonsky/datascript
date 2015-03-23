@@ -1,6 +1,6 @@
 (ns datascript.test.core
   (:require-macros
-    [cemerick.cljs.test :refer [with-test-out]])
+    [cemerick.cljs.test :refer [deftest is are testing with-test-out]])
   (:require
     [cemerick.cljs.test :as t]
     [datascript :as d]))
@@ -34,3 +34,21 @@
          (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
                                      {:db/id (:db/id %)}
                                      %)))))
+
+;; Core tests
+
+(deftest test-protocols
+  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+        db (d/db-with (d/empty-db schema)
+                      [{:db/id 1 :name "Ivan" :aka ["IV" "Terrible"]}
+                       {:db/id 2 :name "Petr" :age 37}])]
+    (is (= (d/empty-db schema)
+           (empty db)))
+    (is (= 5 (count db)))
+    (is (= (vec (seq db))
+           [(d/datom 1 :aka "IV")
+            (d/datom 1 :aka "Terrible")
+            (d/datom 1 :name "Ivan")
+            (d/datom 2 :age 37)
+            (d/datom 2 :name "Petr")]))
+    ))

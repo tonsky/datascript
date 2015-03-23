@@ -489,6 +489,9 @@
     (== (next-path set path-l) path-r) 1
     :else (-distance (.-root set) path-l path-r (.-shift set))))
 
+(defn est-count [iter]
+  (distance (.-set iter) (.-left iter) (.-right iter)))
+
 (declare BTSetBackwardsIter -btset-iter -btset-backwards-iter)
 
 (deftype BTSetIter [set left right keys idx]
@@ -544,10 +547,6 @@
                 (if (and (not= -1 new-left) (< new-left right))
                   (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
                   new-acc)))))))
-  
-  ICounted
-  (-count [_]
-    (distance set left right))
   
   IReversible
   (-rseq [_]

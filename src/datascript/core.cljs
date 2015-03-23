@@ -243,12 +243,27 @@
        (-equiv-index (-datoms this :eavt []) (-datoms other :eavt []))))
 
 (extend-type DB
-  IHash (-hash [this] (-hash-db this))
-  IEquiv (-equiv [this other] (-equiv-db this other)))
+  IHash       (-hash  [this] (-hash-db this))
+  IEquiv      (-equiv [this other] (-equiv-db this other))
+  
+  ISeqable    (-seq   [this] (-seq  (.-eavt this)))
+  IReversible (-rseq  [this] (-rseq (.-eavt this)))
+  ICounted    (-count [this] (count (.-eavt this)))
+  IEmptyableCollection
+  (-empty [this]
+    (map->DB {:schema  (.-schema this)
+              :eavt    (-empty (.-eavt this))
+              :aevt    (-empty (.-aevt this))
+              :avet    (-empty (.-avet this))
+              :max-eid 0
+              :max-tx  tx0
+              :rschema (.-rschema this)})))
 
 (extend-type FilteredDB
-  IHash (-hash [this] (-hash-db this))
-  IEquiv (-equiv [this other] (-equiv-db this other)))
+  IHash    (-hash  [this]       (-hash-db this))
+  IEquiv   (-equiv [this other] (-equiv-db this other))
+  ISeqable (-seq   [this]       (-datoms this :eavt []))
+  ICounted (-count [this]       (count (-datoms this :eavt []))))
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
