@@ -1,9 +1,19 @@
 (ns datascript.test.parser-where
+  #+clj
+  (:refer-clojure :exclude [fn])
+  #+cljs
   (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
+   [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript.parser :as dp]))
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+   #+cljs [cemerick.cljs.test :as t]
+   [datascript.parser :as dp]
+   [datascript.test.util :as tdu])
+  #+clj
+  (:import [clojure.lang ExceptionInfo]
+           [datascript.parser And BindScalar Constant DefaultSrc Function Not Or Pattern Placeholder PlainSymbol Predicate RuleExpr RuleVars SrcVar Variable]))
 
 (deftest pattern
   (are [clause pattern] (= (dp/parse-clause clause) pattern)

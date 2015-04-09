@@ -1,11 +1,13 @@
 (ns datascript.test.query-fns
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+    #+cljs [cemerick.cljs.test :as t]
+    [datascript :as d]))
 
 (deftest test-query-fns
   (testing "ground"

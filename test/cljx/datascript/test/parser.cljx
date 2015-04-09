@@ -1,9 +1,17 @@
 (ns datascript.test.parser
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript.parser :as dp]))
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+    #+cljs [cemerick.cljs.test :as t]
+    [datascript.parser :as dp]
+    [datascript.test.util :as tdu])
+  #+clj
+  (:import [datascript.parser BindColl BindIgnore BindScalar BindTuple RulesVar SrcVar Variable]
+           [clojure.lang ExceptionInfo]))
 
 (deftest bindings
   (are [form res] (= (dp/parse-binding form) res)

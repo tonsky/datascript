@@ -1,8 +1,11 @@
 (ns datascript.pull-parser
   (:require
-   [datascript.core :as dc])
+   [datascript.core :as dc]
+   #+clj
+   [datascript.macros :refer [raise, update]])
+  #+cljs
   (:require-macros
-    [datascript :refer [raise]]))
+    [datascript.macros :refer [raise]]))
 
 (defrecord PullSpec [wildcard? attrs])
 
@@ -156,7 +159,7 @@
 
 (defn- expand-map-clause
   [clause]
-  (into [] (map #(conj {} %)) clause))
+  (map #(conj {} %) clause))
 
 (defn- simplify-pattern-clauses
   [pattern]
@@ -165,7 +168,7 @@
                  ['*] [])]
     (-> base
         (into (get groups :other))
-        (into (mapcat expand-map-clause) (get groups :map)))))
+        (into (mapcat expand-map-clause (get groups :map))))))
 
 (defn parse-pattern
   "Parse an EDN pull pattern into a tree of records using the following
@@ -186,7 +189,7 @@ recursion-limit    = positive-number | '...'
   (when (sequential? pattern)
     (->> pattern
          simplify-pattern-clauses
-         (into [] (map parse-attr-spec))
+         (map parse-attr-spec)
          (PullPattern.))))
 
 (defn pattern->spec

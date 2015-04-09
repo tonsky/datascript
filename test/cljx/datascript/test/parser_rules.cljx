@@ -1,9 +1,17 @@
 (ns datascript.test.parser-rules
+  #+cljs
   (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
+   [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript.parser :as dp]))
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+   #+cljs [cemerick.cljs.test :as t]
+   [datascript.parser :as dp]
+   [datascript.test.util :as tdu])
+  #+clj
+  (:import [clojure.lang ExceptionInfo]
+           [datascript.parser Constant DefaultSrc Pattern Placeholder PlainSymbol Rule RuleBranch RuleVars Variable]))
 
 (deftest clauses
   (are [form res] (= (set (dp/parse-rules form)) res)

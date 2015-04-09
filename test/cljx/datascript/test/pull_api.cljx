@@ -1,9 +1,14 @@
 (ns datascript.test.pull-api
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
+   #+cljs
    [cemerick.cljs.test :as t]
-   [datascript :as d]))
+   #+clj
+   [clojure.test :as t :refer [is are deftest testing]]
+   [datascript :as d]
+   [datascript.test.util :as tdu]))
 
 (def ^:private test-schema
   {:aka    { :db/cardinality :db.cardinality/many }
@@ -255,7 +260,7 @@
         pulled (d/pull db '[:name {:friend ...}] start)
         path   (->> [:friend 0]
                     (repeat (dec (- depth start)))
-                    (into [] cat))]
+                    (mapcat identity))]
     (is (= (str "Person-" (dec depth))
            (:name (get-in pulled path))))))
 

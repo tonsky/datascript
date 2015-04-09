@@ -1,11 +1,14 @@
 (ns datascript.test.filter
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
-  (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+  #+cljs
+  (:require-macros [cemerick.cljs.test :refer [is are deftest testing]])
+  #+cljs
+  (:require [cemerick.cljs.test :as t]
+            [cljs.reader :refer [read-string]])
+  #+clj
+  (:require [clojure.test :as t :refer [is are deftest testing]])
+  (:require [datascript :as d]
+            [datascript.core :as dc]
+            [datascript.test.util :as tdu]))
 
 (deftest test-filter-db
   (let [db (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})

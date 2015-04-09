@@ -2,18 +2,21 @@
   (:require
     [clojure.string :as str]))
 
+#+cljs
 (enable-console-print!)
 
 (defn percentile [xs n]
   (-> (sort xs)
     (nth (min (dec (count xs))
-              (fix (* n (count xs)))))))
+              (unchecked-int (* n (count xs)))))))
 
 (defn round [x]
-  (-> x (* 1000) fix (/ 1000)))
+  (-> x (* 1000) unchecked-int (/ 1000)))
 
 ;; (defn now [] (.getTime (js/Date.)))
-(defn now [] (.now (.-performance js/window)))
+(defn now []
+  #+cljs (.now (.-performance js/window))
+  #+clj   (System/currentTimeMillis))
 
 (defn -measure [f {:keys [duration repeats setup-fn] :as opts}]
   (into []

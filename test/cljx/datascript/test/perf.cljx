@@ -4,8 +4,10 @@
     [datascript :as d]
     [datascript.core :as dc]
     [datascript.perf :as perf]
+    #+cljs
     [goog.array :as garray]))
 
+#+cljs
 (enable-console-print!)
 
 ;; Performance
@@ -41,7 +43,7 @@
         people (map #(assoc %1 :db/id %2) people (range))
         datoms (mapcat (fn [person]
                          (map (fn [[k v]]
-                                (dc/Datom. (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
+                                (dc/->Datom (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
                               (dissoc person :db/id)))
                        people)]
     (assoc opts :datoms (vec datoms))))
@@ -59,8 +61,8 @@
 (defn sort-merge-join [db eis a]
   (let [min-e nil ;;(first eis)
         max-e nil ;;(nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
-                                       (dc/Datom. max-e a nil nil nil))]
+        datoms (btset/slice (:aevt db) (dc/->Datom min-e a nil nil nil)
+                                       (dc/->Datom max-e a nil nil nil))]
     (loop [_res []
            _ds  datoms
            _es  eis]
@@ -78,8 +80,8 @@
 ;;   (.log js/console (str "eis: " (count eis)))
   (let [min-e nil ;; (first eis)
         max-e nil ;; (nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
-                                       (dc/Datom. max-e a nil nil nil))
+        datoms (btset/slice (:aevt db) (dc/->Datom min-e a nil nil nil)
+                                       (dc/->Datom max-e a nil nil nil))
 ;;        _ (.time js/console "hash")
         hashmap (reduce (fn [m d] (assoc m (.-e d) (conj (get m (.-e d) '()) (.-v d)))) {} datoms)
 ;;        _ (.timeEnd js/console "hash")
@@ -87,7 +89,8 @@
 ;;        _ (.time js/console "join")
         res     (reduce (fn [acc e] (if-let [vs (get hashmap e)]
                                       (reduce (fn [acc v]
-                                                (conj acc #js [e v]))
+                                                (conj acc #+cljs #js [e v]
+                                                          #+clj [e v]))
                                                 acc vs)
                                       acc))
                                       [] eis)
@@ -112,7 +115,7 @@
 ;;                                             '[[?e :last-name ?ln]
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
-     "d/q1"              (fn [opts] (d/q '[ :find  ?e ?a
+     "d/q1"              (fn [opts] (d/q '[ :find  ?e
                                            :where [?e :name "Ivan"]]
                                          (:db opts)))
 
@@ -169,7 +172,7 @@
     ;                               (= (:sex %) :male)) }
   ; }
                     
-  :size [500 2000] ;; [100 500 2000 20000]
+  :size [10] #_ [500 2000] ;; [100 500 2000 20000]
 ])
 
 
@@ -224,7 +227,7 @@
                       datoms (case form
                                :wide (gen-wide-db 1 depth width)
                                :long (gen-long-db depth width))
-                      db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)]
+                      db (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)]
                   (assoc opts :db db)))))
 
 (def now datascript.perf/now)
@@ -280,6 +283,7 @@
     (keyword (rand-str 10) (rand-str 20))
     (keyword (rand-str 20))))
 
+#+cljs
 (defn compare-keywords-1 [a b]
   (cond
    (= a b) 0
@@ -292,6 +296,7 @@
                   nsc)))
    :default (garray/defaultCompare (.-name a) (.-name b))))
 
+#+cljs
 (defn compare-keywords-quick [a b]
   (cond
    (identical? (.-fqn a) (.-fqn b)) 0
@@ -304,6 +309,7 @@
                   nsc)))
    :default (garray/defaultCompare (.-name a) (.-name b))))
 
+#+cljs
 (defn ^:export perftest-keywords-compare []
   (perf/suite (fn [opts] (.sort (:set opts) (:fn opts)))
     :duration 1000

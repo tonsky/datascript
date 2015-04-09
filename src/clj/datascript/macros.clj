@@ -1,4 +1,11 @@
-(ns datascript)
+(ns datascript.macros)
+
+;; doesn't exist in 1.6, not worrying about 1.7 yet
+(defn update
+  ([m k f] (assoc m k (f (get m k))))
+  ([m k f x1] (assoc m k (f (get m k) x1)))
+  ([m k f x1 x2] (assoc m k (f (get m k) x1 x2)))
+  ([m k f x1 x2 & xs] (assoc m k (apply f (get m k) x1 x2 xs))))
 
 (defmacro combine-cmp [& comps]
   (loop [comps (reverse comps)

@@ -1,6 +1,7 @@
 (ns datascript.pull-api
   (:require
    [datascript.core :as dc]
+   #+clj [datascript.macros :refer [update]]
    [datascript.pull-parser :as dpp]))
 
 (defn- into!
@@ -83,7 +84,7 @@
               :recursion (update recursion attr push-recursion eid)
               :results (transient [])})))))
 
-(let [pattern  (dpp/PullSpec. true {})]
+(let [pattern (dpp/->PullSpec true {})]
   (defn- expand-frame
     [attr-key multi? eids]
     (subpattern-frame pattern eids multi? attr-key)))
@@ -92,8 +93,8 @@
   [db attr-key attr eid forward? datoms opts [parent & frames]]
   (let [limit (get opts :limit +default-limit+)
         found (not-empty
-               (cond->> datoms
-                 limit (into [] (take limit))))]
+               (cond-> datoms
+                 limit (->> (take limit) (into []))))]
     (if found
       (let [multi?     (dc/multival? db attr)
             ref?       (dc/ref? db attr)
@@ -121,7 +122,7 @@
           (let [as-value  (cond->> datom-val
                             ref? (comp #(hash-map :db/id %)))
                 single?   (if forward? (not multi?) component?)]
-            (->> (cond-> (into [] (map as-value) found)
+            (->> (cond-> (into [] (map as-value found))
                    single? first)
                  (update parent :kvps assoc! attr-key)
                  (conj frames)))))
@@ -206,7 +207,7 @@
 
 (defn pull-spec
   [db pattern eids multi?]
-  (let [eids (into [] (map #(dc/entid-strict db %)) eids)]
+  (let [eids (into [] (map #(dc/entid-strict db %) eids))]
     (pull-pattern db (list (initial-frame pattern eids multi?)))))
 
 (defn pull

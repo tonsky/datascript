@@ -1,11 +1,21 @@
 (ns datascript.test.transact
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+cljs
+  (:require [cljs.reader :as edn]
+            [cemerick.cljs.test :as t])
+  #+clj
+  (:require [clojure.edn :as edn]
+            [clojure.test :as t :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [datascript :as d]
+   [datascript.test.util :as tdu])
+  #+clj
+  (:import [clojure.lang ExceptionInfo]))
+
+#+cljs
+(def Exception js/Error)
 
 (deftest test-with
   (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
@@ -98,22 +108,16 @@
     (d/transact! conn [[:db/add 1 :weight 200]])
     (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
     (is (= (:weight (d/entity @conn 1)) 300))
-    (try
-      (d/transact! conn [[:db.fn/cas 1 :weight 200 210]])
-      (throw (js/Error. "expected :db.fn/cas to throw"))
-      (catch js/Error e
-        (is (= (.-message e) ":db.fn/cas failed on datom [1 :weight 300], expected 200")))))
+    (is (thrown-with-msg? ExceptionInfo #":db.fn/cas failed on datom \[1 :weight 300\], expected 200"
+                          (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
   
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
     (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
     (is (= (:label (d/entity @conn 1)) #{:x :y :z}))
-    (try
-      (d/transact! conn [[:db.fn/cas 1 :label :s :t]])
-      (throw (js/Error. "expected :db.fn/cas to throw"))
-      (catch js/Error e
-        (is (= (.-message e) ":db.fn/cas failed on datom [1 :label (:x :y :z)], expected :s"))))))
+    (is (thrown-with-msg? ExceptionInfo #":db.fn/cas failed on datom \[1 :label \(:x :y :z\)\], expected :s"
+                          (d/transact! conn [[:db.fn/cas 1 :label :s :t]])))))
 
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
@@ -124,7 +128,7 @@
                                                            [?e :age ?age]]}
                                                   db name))]
                     [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]]
-                    (throw (js/Error. (str "No entity with name: " name)))))]
+                    (throw (Exception. (str "No entity with name: " name)))))]
     (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
     (d/transact! conn [[:db/add 1 :name "Petr"]])
     (d/transact! conn [[:db/add 1 :aka  "Devil"]])
@@ -136,7 +140,7 @@
     (is (= (d/q '[:find ?v
                   :where [?e :aka ?v]] @conn)
            #{["Devil"] ["Tupen"]}))
-    (is (thrown-with-msg? js/Error #"No entity with name: Bob"
+    (is (thrown-with-msg? Exception #"No entity with name: Bob"
                           (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
     (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
           e (d/entity db-after 1)]

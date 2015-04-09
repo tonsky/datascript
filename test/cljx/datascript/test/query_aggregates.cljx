@@ -1,11 +1,14 @@
 (ns datascript.test.query-aggregates
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [datascript.core :as dc]
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+    #+cljs [cemerick.cljs.test :as t]
     [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+    [datascript.test.util :as tdu]))
 
 (deftest test-aggregates
   (let [monsters [ ["Cerberus" 3]
@@ -51,7 +54,9 @@
              [[[:a/b :a/c] [:a/c :a-/b]]])))
 
     (testing "Min and max comparator order types reliably"
-      (let [date (js/Date.)]
+      ;; XXX a bit hackish, but using int-array gives a type name
+      ;; of [..., which sorts out before java.*
+      (let [date #+cljs (js/Date.) #+clj (int-array 0)]
         ;; Wrong: js '<' operator coerce everything to string
         ;; (apply min ["1" date 1]) => 1
         ;; (apply max ["1" date 1]) => 1

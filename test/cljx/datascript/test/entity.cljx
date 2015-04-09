@@ -1,11 +1,18 @@
 (ns datascript.test.entity
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [datascript.core :as dc]
+   [clojure.test :as t :refer [is are deftest testing]])
+  #+cljs
+  (:require
+   [cemerick.cljs.test :as t]
+   [cljs.reader :refer [read-string]])
+  (:require
     [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+    [datascript.core :as dc]
+    [datascript.test.util :as tdu]))
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
@@ -25,8 +32,10 @@
            {:name "Ivan", :sex "male", :aka #{"Z"}}))
 
     (is (= (pr-str (d/entity db 1) "{:db/id 1}")))
-    (is (= (pr-str (let [e (d/entity db 1)] (:name e) e)) "{:name \"Ivan\", :db/id 1}"))
-    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))))
+    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))
+    ;; read back in to account for unordered-ness
+    (is (= (read-string (pr-str (let [e (d/entity db 1)] (:name e) e)))
+           (read-string "{:name \"Ivan\", :db/id 1}")))))
 
 (deftest test-entity-refs
   (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref}
@@ -46,7 +55,7 @@
 
     (testing "nested navigation"
       (is (= (-> (e 1) :children first :children) #{(e 100) (e 101)}))
-      (is (= (-> (e 10) :children first :father) (e 10)))
+      (is (some #(= (e 10) (:father %)) (-> (e 10) :children)))
       (is (= (-> (e 10) :father :children) #{(e 10)}))
 
       (testing "after touch"
@@ -55,7 +64,7 @@
           (d/touch e1)
           (d/touch e10)
           (is (= (-> e1 :children first :children) #{(e 100) (e 101)}))
-          (is (= (-> e10 :children first :father) (e 10)))
+          (is (some #(= (e 10) (:father %)) (-> (e 10) :children)))
           (is (= (-> e10 :father :children) #{(e 10)})))))
 
     (testing "backward navigation"

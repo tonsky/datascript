@@ -1,11 +1,15 @@
 (ns datascript.test.index
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [datascript.core :as dc]
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+    #+cljs [cemerick.cljs.test :as t]
     [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+    [datascript.core :as dc]
+    [datascript.test.util :as tdu]))
 
 (deftest test-datoms
   (let [dvec #(vector (.-e %) (.-a %) (.-v %))

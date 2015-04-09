@@ -1,11 +1,15 @@
 (ns datascript.test.query-rules
+  #+cljs
   (:require-macros
     [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [datascript.core :as dc]
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+    #+cljs [cemerick.cljs.test :as t]
     [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+    [datascript.core :as dc]
+    [datascript.test.util :as tdu]))
 
 (deftest test-rules
   (let [db [                  [5 :follow 3]
@@ -135,6 +139,7 @@
                      [(even? ?e)]
                      [(even? ?e2)]]])
              #{[4 6] [2 4]})))
+
     (testing "Calling rule twice (#44)"
       (d/q '[:find ?p
              :in $ % ?fn

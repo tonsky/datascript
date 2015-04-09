@@ -1,11 +1,18 @@
 (ns datascript.test.lookup-refs
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
+  #+cljs
+  (:require
+   [cemerick.cljs.test :as t]
+   [cljs.reader :refer [read-string]])
+  #+clj
+  (:require
+   [clojure.test :as t :refer [is are deftest testing]])
   (:require
     [datascript.core :as dc]
+    [datascript.impl.entity :as de]
     [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+    [datascript.test.util :as tdu])
+  #+clj
+  (:import [clojure.lang ExceptionInfo]))
 
 (deftest test-lookup-refs
   (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
@@ -13,7 +20,7 @@
                       [{:db/id 1 :name "Ivan" :email "@1" :age 35}
                        {:db/id 2 :name "Petr" :email "@2" :age 22}])]
     
-    (are [eid res] (= (tdc/entity-map db eid) res)
+    (are [eid res] (= (tdu/entity-map db eid) res)
       [:name "Ivan"]   {:db/id 1 :name "Ivan" :email "@1" :age 35}
       [:email "@1"]    {:db/id 1 :name "Ivan" :email "@1" :age 35}
       [:name "Sergey"] nil)
@@ -29,7 +36,7 @@
                                    :friend  { :db/valueType :db.type/ref }})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}])]
-    (are [tx res] (= (tdc/entity-map (d/db-with db tx) 1) res)
+    (are [tx res] (= (tdu/entity-map (d/db-with db tx) 1) res)
       ;; Additions
       [[:db/add [:name "Ivan"] :age 35]]
       {:db/id 1 :name "Ivan" :age 35}
@@ -91,7 +98,7 @@
                        {:db/id 2 :name "Petr"}
                        {:db/id 3 :name "Oleg"}
                        {:db/id 4 :name "Sergey"}])]
-    (are [tx res] (= (tdc/entity-map (d/db-with db tx) 1) res)
+    (are [tx res] (= (tdu/entity-map (d/db-with db tx) 1) res)
       ;; Additions
       [[:db/add 1 :friends [:name "Petr"]]]
       {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}

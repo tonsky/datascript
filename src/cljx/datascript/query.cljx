@@ -1,13 +1,19 @@
 (ns datascript.query
   (:require
-    [cljs.reader]
+    #+cljs [cljs.reader :as edn]
+    #+clj  [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.walk :as walk]
     [datascript.core :as dc]
+    #+clj [datascript.macros :refer [update]]
     [datascript.parser :as dp]
     [datascript.pull-api :as dpa]
     [datascript.pull-parser :as dpp]
-    [datascript.impl.entity :as de]))
+    [datascript.impl.entity :as de])
+  (:import [datascript.core Datom]
+           [datascript.parser Constant PlainSymbol SrcVar Variable
+                              FindRel FindColl FindScalar FindTuple]))
+
 
 (declare built-ins)
 
@@ -15,12 +21,20 @@
 
 (defrecord Context [rels sources rules])
 
+;; XXX why wouldn't the RHS of an attr be :v instead of "v"? i'm
+;; assuming it "just works" in CLJS, but in CLJ it fails to access
+;; correctly, since the actual index is :v, not "v"
+;; to deal with this, Datom's will handle keys as
+;; symbol/keyword/string
+
 ;; attrs:
 ;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
 ;;    [ #js [1 "Ivan" 5 14] ... ]
-;; or [ (Datom. 2 "Oleg" 1 55) ... ]
-(defrecord Relation [attrs tuples])
+;; or [ (->Datom 2 "Oleg" 1 55) ... ]
+(defrecord Relation [attrs tuples]
+  Object
+  (toString [r] (str "#Relation [" (:attrs r) " " (->> r :tuples (mapv seq)) "]")))
 
 
 ;; Utilities
@@ -30,7 +44,8 @@
                     (set (keys attrs2))))
 
 (defn concatv [& xs]
-  (into [] cat xs))
+  #+cljs (into [] cat xs)
+  #+clj (mapcat identity xs))
 
 (defn- looks-like? [pattern form]
   (cond
@@ -71,24 +86,26 @@
 (defn join-tuples [t1 idxs1 t2 idxs2]
   (let [l1  (alength idxs1)
         l2  (alength idxs2)
-        res (js/Array. (+ l1 l2))]
+        ln  (+ l1 l2)
+        res #+cljs (js/Array. ln)
+            #+clj (make-array Object ln)]
     (dotimes [i l1]
-      (aset res i (aget t1 (aget idxs1 i)))) ;; FIXME aget
+      (aset res i (get t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
-      (aset res (+ l1 i) (aget t2 (aget idxs2 i)))) ;; FIXME aget
+      (aset res (+ l1 i) (get t2 (aget idxs2 i)))) ;; FIXME aget
     res))
 
 (defn sum-rel [a b]
-  (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
+  (->Relation (:attrs a) (concat (:tuples a) (:tuples b))))
 
 (defn prod-rel
-  ([] (Relation. {} [#js[]]))
+  ([] (->Relation {} [#+cljs #js[] #+clj (dc/array 0)]))
   ([rel1 rel2]
     (let [attrs1 (keys (:attrs rel1))
           attrs2 (keys (:attrs rel2))
           idxs1  (to-array (map (:attrs rel1) attrs1))
           idxs2  (to-array (map (:attrs rel2) attrs2))]
-      (Relation.
+      (->Relation
         (zipmap (concat attrs1 attrs2) (range))
         (for [t1 (:tuples rel1)
               t2 (:tuples rel2)]
@@ -147,7 +164,7 @@
              (/ sum (count coll))))
          (stddev 
            [coll] 
-           (js/Math.sqrt (variance coll)))]
+           (#+cljs js/Math.sqrt #+clj Math/sqrt (variance coll)))]
    {'avg      avg
     'median   median
     'variance variance
@@ -201,7 +218,7 @@
                   (flatten form)
                   (filter #(and (symbol? %) (not= '... %) (not= '_ %)) form)
                   (zipmap form (range)))]
-      (Relation. attrs [])))
+      (->Relation attrs [])))
   ([form value]
     (condp looks-like? form
       '[_ ...] ;; collection binding [?x ...]
@@ -215,10 +232,10 @@
         (reduce prod-rel
           (map #(in->rel %1 %2) form value))
       '_       ;; regular binding ?x
-        (Relation. {form 0} [#js [value]]))))
+        (->Relation {form 0} [#+cljs #js [value] #+clj [value]]))))
 
 (defn parse-rules [rules]
-  (let [rules (if (string? rules) (cljs.reader/read-string rules) rules)] ;; for datascript.js interop
+  (let [rules (if (string? rules) (edn/read-string rules) rules)] ;; for datascript.js interop
     (group-by ffirst rules)))
 
 (defn parse-in [context [in value]]
@@ -235,27 +252,27 @@
 
 ;;
 
-(def ^:dynamic *lookup-attrs*)
-(def ^:dynamic *lookup-source*)
+(def ^:dynamic *lookup-attrs* nil)
+(def ^:dynamic *lookup-source* nil)
 
 (defn getter-fn [attrs attr]
   (let [idx (attrs attr)]
     (if (and (not (nil? *lookup-attrs*))
              (contains? *lookup-attrs* attr))
       (fn [tuple]
-          (let [eid (aget tuple idx)]  ;; FIXME aget
+        (let [eid (get tuple idx)]  ;; FIXME aget
             (if (number? eid) ;; quick path to avoid fn call
               eid
               (dc/entid *lookup-source* eid))))
       (fn [tuple]
-        (aget tuple idx)))))  ;; FIXME aget
+        (get tuple idx)))))  ;; FIXME aget
 
 (defn tuple-key-fn [getters]
   (if (== (count getters) 1)
     (first getters)
     (let [getters (to-array getters)]
       (fn [tuple]
-        (list* (.map getters #(% tuple)))))))
+        (list* (map #(% tuple) getters))))))
 
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples
@@ -291,7 +308,7 @@
                                       acc)))
                           (transient []) tuples2)
                         (persistent!))]
-    (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
+    (->Relation (zipmap (concat keep-attrs1 keep-attrs2) (range))
                new-tuples)))
 
 (defn lookup-pattern-db [db pattern]
@@ -301,7 +318,7 @@
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (free-var? s)))
                             (into {}))]
-    (Relation. attr->prop datoms)))
+    (->Relation attr->prop datoms)))
 
 (defn matches-pattern? [pattern tuple]
   (loop [tuple   tuple
@@ -319,7 +336,7 @@
         attr->idx  (->> (map vector pattern (range))
                         (filter (fn [[s _]] (free-var? s)))
                         (into {}))]
-    (Relation. attr->idx (map to-array data)))) ;; FIXME to-array
+    (->Relation attr->idx (map to-array data)))) ;; FIXME to-array
 
 (defn normalize-pattern-clause [clause]
   (if (source? (first clause))
@@ -347,10 +364,24 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
-      (aget tuple ((:attrs rel) sym)))))
+      (get tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
+
+(defmethod print-method (Class/forName "[Ljava.lang.Object;") [a, ^java.io.Writer w]
+  (.write w (str "#Array["))
+  (if a
+    (dotimes [i (alength a)]
+      (let [e (aget a i)]
+        (when (pos? i) (.write w ", "))
+        (if e
+          (.write w (.toString (aget a i)))
+          (.write w "nil")))))
+  (.write w "]"))
+
+(defmethod print-method clojure.lang.LazySeq [ls, ^java.io.Writer w]
+  (print-method (seq ls) w))
 
 (defn- rel-prod-by-attrs [context attrs]
   (let [rels       (filter #(rel-contains-attrs? % attrs) (:rels context))
@@ -363,7 +394,7 @@
     (let [resolved-args (map #(if (symbol? %)
                                 (or
                                  (get (:sources context) %)
-                                 (aget tuple (get (:attrs rel) %)))
+                                 (get tuple (get (:attrs rel) %)))
                                 %)
                              args)]
       (apply f resolved-args))))
@@ -390,7 +421,7 @@
                       (->> tuples
                            (map #(let [val (tuple-fn %)
                                        rel (in->rel out val)]
-                                   (prod-rel (Relation. (:attrs production) [%]) rel)))
+                                   (prod-rel (->Relation (:attrs production) [%]) rel)))
                            (reduce sum-rel))
                       (prod-rel production (in->rel out))))
                   (prod-rel (assoc production [:tuples] []) (in->rel out)))]
@@ -461,15 +492,14 @@
                         :clauses        [clause]
                         :used-args      {}
                         :pending-guards {}})
-           rel   (Relation. final-attrs-map [])]
+           rel   (->Relation final-attrs-map [])]
       (if-let [frame (first stack)]
         (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) (:clauses frame))]
           (if (nil? rule-clause)
-
             ;; no rules -> expand, collect, sum
             (let [context (solve (:prefix-context frame) clauses)
                   tuples  (-collect context final-attrs)
-                  new-rel (Relation. final-attrs-map tuples)]
+                  new-rel (->Relation final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
 
             ;; has rule -> add guards -> check if dead -> expand rule -> push to stack, recur
@@ -559,7 +589,7 @@
 (defn -collect
   ([context symbols]
     (let [rels (:rels context)]
-      (-collect [(make-array (count symbols))] rels symbols)))
+      (-collect [(dc/array (count symbols))] rels symbols)))
   ([acc rels symbols]
     (if-let [rel (first rels)]
       (let [keep-attrs (select-keys (:attrs rel) symbols)]
@@ -572,7 +602,7 @@
                      (let [res (aclone t1)]
                        (dotimes [i len]
                          (when-let [idx (aget copy-map i)]
-                           (aset res i (aget t2 idx))))
+                           (aset res i (get t2 idx))))
                        res))
                    (next rels)
                    symbols))))
@@ -587,16 +617,16 @@
   (-resolve [var context]))
 
 (extend-protocol IResolve
-  dp/Variable
+  Variable
   (-resolve [var context]
     (context-resolve-val context (.-symbol var)))
-  dp/SrcVar
+  SrcVar
   (-resolve [var context]
     (get-in context [:sources (.-symbol var)]))
-  dp/PlainSymbol
+  PlainSymbol
   (-resolve [var _]
     (get built-in-aggregates (.-symbol var)))
-  dp/Constant
+  Constant
   (-resolve [var _]
     (.-value var)))
 
@@ -628,13 +658,13 @@
   (-post-process [find tuples]))
 
 (extend-protocol IPostProcess
-  dp/FindRel
+  FindRel
   (-post-process [_ tuples] tuples)
-  dp/FindColl
-  (-post-process [_ tuples] (into [] (map first) tuples))
-  dp/FindScalar
+  FindColl
+  (-post-process [_ tuples] (into [] (map first tuples)))
+  FindScalar
   (-post-process [_ tuples] (ffirst tuples))
-  dp/FindTuple
+  FindTuple
   (-post-process [_ tuples] (first tuples)))
 
 (defn- pull [find-elements context resultset]
@@ -663,7 +693,7 @@
                         (sequential? q) dp/query->map)
         ins           (:in q '[$])
         wheres        (:where q)
-        context       (-> (Context. [] {} {})
+        context       (-> (->Context [] {} {})
                         (parse-ins ins inputs))
         resultset     (-> context
                         (-q wheres)

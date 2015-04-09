@@ -1,10 +1,14 @@
 (ns datascript.parser
   (:refer-clojure
     :exclude [distinct?])
+  #+cljs
   (:require-macros
-    [datascript :refer [raise]])
+    [datascript.macros :refer [raise]])
   (:require
-    [clojure.set :as set]))
+   [clojure.core.incubator :refer [seqable?]]
+   [clojure.set :as set]
+   #+clj
+   [datascript.macros :refer [raise]]))
 
 ;; utils
 
@@ -56,32 +60,32 @@
 
 (defn parse-placeholder [form]
   (when (= '_ form)
-    (Placeholder.)))
+    (->Placeholder)))
 
 (defn parse-variable [form]
   (when (and (symbol? form)
-             (= (first (name form)) "?"))
-    (Variable. form)))
+             (= (first (name form)) \?))
+    (->Variable form)))
 
 (defn parse-src-var [form]
   (when (and (symbol? form)
-             (= (first (name form)) "$"))
-    (SrcVar. form)))
+             (= (first (name form)) \$))
+    (->SrcVar form)))
 
 (defn parse-rules-var [form]
   (when (= '% form)
-    (RulesVar.)))
+    (->RulesVar)))
 
 (defn parse-constant [form]
   (when (not (symbol? form))
-    (Constant. form)))
+    (->Constant form)))
 
 (defn parse-plain-symbol [form]
   (when (and (symbol? form)
              (not (parse-variable form))
              (not (parse-src-var form))
              (not (parse-placeholder form)))
-    (PlainSymbol. form)))
+    (->PlainSymbol form)))
 
 
 ;; fn-arg = (variable | constant | src-var)
@@ -109,7 +113,7 @@
       (when-not (distinct? (concat required* free*))
         (raise "Rule variables should be distinct"
                {:error :parser/rule-vars, :form form}))
-      (RuleVars. required* free*))
+      (->RuleVars required* free*))
     (raise "Cannot parse rule-vars, expected [ variable+ | ([ variable+ ] variable*) ]"
            {:error :parser/rule-vars, :form form})))
 
@@ -138,17 +142,17 @@
 
 (defn parse-bind-ignore [form]
   (when (= '_ form)
-    (BindIgnore.)))
+    (->BindIgnore)))
 
 (defn parse-bind-scalar [form]
   (when-let [var (parse-variable form)]
-    (BindScalar. var)))
+    (->BindScalar var)))
 
 (defn parse-bind-coll [form]
   (when (and (of-size? form 2)
              (= (second form) '...))
     (if-let [sub-bind (parse-binding (first form))]
-      (BindColl. sub-bind)
+      (->BindColl sub-bind)
       (raise "Cannot parse collection binding"
              {:error :parser/binding, :form form}))))
 
@@ -159,7 +163,7 @@
 (defn parse-bind-tuple [form]
   (when-let [sub-bindings (parse-seq parse-tuple-el form)]
     (if-not (empty? sub-bindings)
-      (BindTuple. sub-bindings)
+      (->BindTuple sub-bindings)
       (raise "Tuple binding cannot be empty"
              {:error :parser/binding, :form form}))))
 
@@ -167,7 +171,7 @@
   (when (and (of-size? form 1)
              (sequential? (first form)))
     ;; relation is just a sequence of tuples
-    (BindColl. (parse-bind-tuple (first form)))))
+    (->BindColl (parse-bind-tuple (first form)))))
 
 (defn parse-binding [form]
   (or (parse-bind-coll form)
@@ -237,7 +241,7 @@
           fn*   (parse-plain-symbol fn)
           args* (parse-seq parse-fn-arg args)]
       (when (and fn* args*)
-        (Aggregate. fn* args*)))))
+        (->Aggregate fn* args*)))))
 
 (defn parse-aggregate-custom [form]
   (when (and (sequential? form)
@@ -247,7 +251,7 @@
             fn*   (parse-variable fn)
             args* (parse-seq parse-fn-arg args)]
         (if (and fn* args*)
-          (Aggregate. fn* args*)
+          (->Aggregate fn* args*)
           (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
                  {:error :parser/find, :fragment form})))
       (raise "Cannot parse custom aggregate call, expect ['aggregate' variable fn-arg+]"
@@ -265,7 +269,7 @@
             pattern*      (or (parse-variable pattern)
                               (parse-constant pattern))]
         (if (and src* var* pattern*)
-          (Pull. src* var* pattern*)
+          (->Pull src* var* pattern*)
           (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
              {:error :parser/find, :fragment form})))
       (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
@@ -280,7 +284,7 @@
 (defn parse-find-rel [form]
   (some->
     (parse-seq parse-find-elem form)
-    (FindRel.)))
+    (->FindRel)))
 
 (defn parse-find-coll [form]
   (when (and (sequential? form)
@@ -290,14 +294,14 @@
                  (= (count inner) 2)
                  (= (second inner) '...))
         (some-> (parse-find-elem (first inner))
-                (FindColl.))))))
+                (->FindColl))))))
 
 (defn parse-find-scalar [form]
   (when (and (sequential? form)
              (= (count form) 2)
              (= (second form) '.))
     (some-> (parse-find-elem (first form))
-            (FindScalar.))))
+            (->FindScalar))))
 
 (defn parse-find-tuple [form]
   (when (and (sequential? form)
@@ -305,7 +309,7 @@
     (let [inner (first form)]
       (some->
         (parse-seq parse-find-elem inner)
-        (FindTuple.)))))
+        (->FindTuple)))))
 
 (defn parse-find [form]
   (or (parse-find-rel form)
@@ -330,7 +334,7 @@
 (defn- parse-in-binding [form]
   (if-let [var (or (parse-src-var form)
                    (parse-rules-var form))]
-    (BindScalar. var)
+    (->BindScalar var)
     (parse-binding form)))
 
 (defn parse-in [form]
@@ -372,13 +376,13 @@
   (when (sequential? form)
     (if-let [source* (parse-src-var (first form))]
       [source* (next form)]
-      [(DefaultSrc.) form])))
+      [(->DefaultSrc) form])))
       
 (defn parse-pattern [form]
   (when-let [[source* next-form] (take-source form)]
     (when-let [pattern* (parse-seq parse-pattern-el next-form)]
       (if-not (empty? pattern*)
-        (Pattern. source* pattern*)
+        (->Pattern source* pattern*)
         (raise "Pattern could not be empty"
                {:error :parser/where, :form form})))))
 
@@ -395,14 +399,14 @@
 (defn parse-pred [form]
   (when (of-size? form 1)
     (when-let [[fn* args*] (parse-call (first form))]
-      (Predicate. fn* args*))))
+      (->Predicate fn* args*))))
 
 (defn parse-fn [form]
   (when (of-size? form 2)
     (let [[call binding] form]
       (when-let [[fn* args*] (parse-call call)]
         (when-let [binding* (parse-binding binding)]
-          (Function. fn* args* binding*))))))
+          (->Function fn* args* binding*))))))
 
 (defn parse-rule-expr [form]
   (when-let [[source* next-form] (take-source form)]
@@ -418,7 +422,7 @@
             (raise "Cannot parse rule-expr arguments, expected [ (variable | constant | '_')+ ]"
                    {:error :parser/where, :form form})
           :else
-            (RuleExpr. source* name* args*)
+            (->RuleExpr source* name* args*)
           )))))
 
 (defn- collect-vars
@@ -453,7 +457,7 @@
     (let [[sym & clauses] next-form]
       (when (= 'not sym)
         (if-let [clauses* (parse-seq parse-clause clauses)]
-          (-> (Not. source* (collect-vars-distinct clauses*) clauses*)
+          (-> (->Not source* (collect-vars-distinct clauses*) clauses*)
               (validate-not form))
           (raise "Cannot parse 'not' clause, expected [ src-var? 'not' clause+ ]"
                  {:error :parser/where, :form form}))))))
@@ -465,7 +469,7 @@
         (let [vars*    (parse-seq parse-variable vars)
               clauses* (parse-seq parse-clause clauses)]
           (if (and vars* clauses*)
-            (-> (Not. source* vars* clauses*)
+            (-> (->Not source* vars* clauses*)
                 (validate-not form))
             (raise "Cannot parse 'not-join' clause, expected [ src-var? 'not-join' [variable+] clause+ ]"
                    {:error :parser/where, :form form})))))))
@@ -484,7 +488,7 @@
              (= 'and (first form)))
     (let [clauses* (parse-seq parse-clause (next form))]
       (if (not-empty clauses*)
-        (And. clauses*)
+        (->And clauses*)
         (raise "Cannot parse 'and' clause, expected [ 'and' clause+ ]"
                {:error :parser/where, :form form})))))
 
@@ -493,7 +497,7 @@
     (let [[sym & clauses] next-form]
       (when (= 'or sym)
         (if-let [clauses* (parse-seq (some-fn parse-and parse-clause) clauses)]
-          (-> (Or. source* (RuleVars. nil (collect-vars-distinct clauses*)) clauses*)
+          (-> (->Or source* (->RuleVars nil (collect-vars-distinct clauses*)) clauses*)
               (validate-or form))
           (raise "Cannot parse 'or' clause, expected [ src-var? 'or' clause+ ]"
                  {:error :parser/where, :form form}))))))
@@ -505,7 +509,7 @@
         (let [vars*    (parse-rule-vars vars)
               clauses* (parse-seq parse-clause clauses)]
           (if (and vars* clauses*)
-            (-> (Or. source* vars* clauses*)
+            (-> (->Or source* vars* clauses*)
                 (validate-or form))
             (raise "Cannot parse 'or-join' clause, expected [ src-var? 'or-join' [variable+] clause+ ]"
                    {:error :parser/where, :form form})))))))
@@ -541,7 +545,7 @@
   (let [declared-vars   (collect #(instance? Variable %) vars #{})
         used-vars       (collect #(instance? Variable %) clauses #{})
         undeclared-vars (set/difference used-vars declared-vars)]
-    (when-not (empty? undeclared-vars)
+    (when (seq undeclared-vars)
       (raise "Reference to the unknown variables: " (map :symbol undeclared-vars)
              {:error :parser/rule, :form form, :vars undeclared-vars}))))
 
@@ -580,10 +584,10 @@
   (vec
     ;; group rule branches by name
     (for [[name branches] (group-by :name (parse-seq parse-rule form))
-          :let [branches (mapv #(RuleBranch. (:vars %) (:clauses %)) branches)]]
+          :let [branches (mapv #(->RuleBranch (:vars %) (:clauses %)) branches)]]
       (do
         (validate-arity name branches)
-        (Rule. name branches)))))
+        (->Rule name branches)))))
 
 
 ;; query

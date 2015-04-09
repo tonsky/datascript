@@ -1,36 +1,57 @@
 (ns datascript.test.core
+  #+cljs
   (:require-macros
-    [cemerick.cljs.test :refer [with-test-out]])
+    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript :as d]))
+    #+cljs [cemerick.cljs.test :as t]
+    #+clj [clojure.test :as t :refer [is are deftest testing]]
+    [datascript :as d]
+    [datascript.core :as dc]
+    )
+  (:import [clojure.lang ExceptionInfo])
+ )
 
+#+cljs
 (enable-console-print!)
 
-;; Added special case for printing ex-data of ExceptionInfo
-(defmethod t/report :error [{:keys [test-env] :as m}]
-  (with-test-out test-env
-   (t/inc-report-counter test-env :error)
-   (println "\nERROR in" (t/testing-vars-str m))
-   (when (seq (::test-contexts @test-env))
-      (println (t/testing-contexts-str test-env)))
-   (when-let [message (:message m)] (println message))
-   (println "expected:" (pr-str (:expected m)))
-   (print "  actual: ")
-   (let [actual (:actual m)]
-     (cond
-       (instance? ExceptionInfo actual)
-         (println (.-stack actual) "\n" (ex-data actual))
-       (instance? js/Error actual)
-         (println (.-stack actual))
-       :else
-         (prn actual)))))
+;; test Datom basics
+(deftest datom-collection-api
+  (let [base (dc/->Datom 1 :2 3 4 5)
+        base-hash (hash base)]
+    ;; equivalence
+    (is    (= base (dc/->Datom 1 :2 3 nil nil)))
+    (is (not= base (dc/->Datom 1 :2 nil 4 5)))
+    (is (not= base (dc/->Datom 1 nil 3 4 5)))
+    (is (not= base (dc/->Datom nil :2 3 4 5)))
 
-;; utils
+    ;; hash equivalence
+    (is    (= base-hash (hash (dc/->Datom 1 :2 3 nil nil))))
+    (is (not= base-hash (hash (dc/->Datom 1 :2 nil 4 5))))
+    (is (not= base-hash (hash (dc/->Datom 1 nil 3 4 5))))
+    (is (not= base-hash (hash (dc/->Datom nil :2 3 4 5))))
 
-(defn entity-map [db e]
-  (when-let [entity (d/entity db e)]
-    (->> (assoc (into {} entity) :db/id (:db/id entity))
-         (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
-                                     {:db/id (:db/id %)}
-                                     %)))))
+    ;; lookups
+    (is (= (:e base) 1))
+    (is (= (:a base) :2))
+    (is (= (:v base) 3))
+    (is (= (:tx base) 4))
+    (is (= (:added base) 5))
+    (is (= (:foo base) nil))
+    (is (= (:foo base :bar) :bar))
+
+    ;; seq
+    (is (= (seq base) '(1 :2 3 4 5)))))
+
+
+(deftest db-api
+  (let [datom0 (dc/->Datom 1 :2 3 4 5)
+        datom1 (dc/->Datom 6 :7 8 9 0)
+        empty0 (dc/empty-db)
+        empty1 (dc/empty-db)]
+    (is (   = empty0 empty0))
+    (is (   = empty0 empty1))
+    (is (not= empty0 nil))
+    (is (   = (#'dc/with-datom empty0 datom0) (#'dc/with-datom empty1 datom0)))
+    (is (not= (#'dc/with-datom empty0 datom0) (#'dc/with-datom empty0 datom1)))
+    (is (not= (#'dc/with-datom empty0 datom0) (#'dc/with-datom empty1 datom1)))
+    ))

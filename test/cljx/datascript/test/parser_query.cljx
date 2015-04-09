@@ -1,9 +1,16 @@
 (ns datascript.test.parser-query
+  #+cljs
   (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
+   [cemerick.cljs.test :refer [is are deftest testing]])
+  #+clj
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript.parser :as dp]))
+   [clojure.test :as t :refer [is are deftest testing]])
+  (:require
+   #+cljs [cemerick.cljs.test :as t]
+   [datascript.parser :as dp]
+   [datascript.test.util :as tdu])
+  #+clj
+  (:import [clojure.lang ExceptionInfo]))
 
 (deftest validation
   (are [q msg] (thrown-with-msg? ExceptionInfo msg (dp/parse-query q))
