@@ -20,6 +20,8 @@
   }
   
   :jvm-opts ["-Xmx2g"]
+
+  :auto-clean false
   
   :cljsbuild { 
     :builds [
