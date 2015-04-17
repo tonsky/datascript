@@ -9,6 +9,7 @@
                  [datascript.btset :as btset :refer [btset slice]])]))
 
 #?@(:cljs [
+
 (enable-console-print!)
 
 ;; helpers
@@ -43,6 +44,7 @@
         (recur
           (unsigned-bit-shift-right path 8)
           (conj acc (bit-and path 0xFF)))))))
+
 ])
 
 (deftest stresstest-btset
@@ -94,8 +96,12 @@
   (println "[ OK ] btset slice checked"))
 
 
+#?@(:clj [
+
+;; confirm that clj's use of sorted set works as intended.
 ;; allow for [:foo nil] to glob [:foo *]; data will never be inserted
 ;; w/ nil, but slice/subseq elements will.
+
 (defn cmp [x y] (if (and x y) (compare x y) 0))
 
 (defn cmp-s [[x0 x1] [y0 y1]]
@@ -125,6 +131,8 @@
     (is (= [] (slice e1 [:c nil])))                          ; totally out of range
     ))
 
+])
+
 ;; (t/test-ns 'datascript.test.btset)
 
 ;;;; PERFORMANCE
@@ -149,6 +157,7 @@
         (assoc :set (into (:target opts) xs)))))
 
 #?@(:cljs [
+
 (defn ^:export perftest []
   (perf/suite (fn [opts] ((:method opts) opts))
     :duration 1000
@@ -165,6 +174,7 @@
                :fn   (hash-map "bulk"        (fn [seq _] (apply btset seq))
                                ;; "bulk-sorted" (fn [_ sorted-arr] (btset-from-sorted-arr sorted-arr compare))
                                "conj"        (fn [seq _] (into (btset) seq)))]))
+
 ])
 
 ;; (perftest)

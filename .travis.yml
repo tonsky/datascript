@@ -1,5 +1,5 @@
 language: clojure
-script: lein cljsbuild test
+script: lein do clean, cljsbuild test, test-clj
 
 notifications:
   webhooks:
