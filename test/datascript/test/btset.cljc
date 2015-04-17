@@ -1,11 +1,14 @@
 (ns datascript.test.btset
-  (:require-macros
-    [cemerick.cljs.test :refer [is deftest testing]])
-  (:require
-    [datascript.btset :as btset :refer [btset btset-iter -btset-from-sorted-arr slice LeafNode]]
-    [cemerick.cljs.test :as t]
-    [datascript.perf :as perf]))
+  #?@(:cljs
+      [(:require-macros [cemerick.cljs.test :refer [is deftest testing]])
+       (:require [cemerick.cljs.test :as t]
+                 [datascript.btset :as btset :refer [btset slice LeafNode]]
+                 [datascript.perf :as perf])]
+      :clj
+      [(:require [clojure.test :as t :refer [is deftest testing]]
+                 [datascript.btset :as btset :refer [btset slice]])]))
 
+#?@(:cljs [
 (enable-console-print!)
 
 ;; helpers
@@ -40,6 +43,7 @@
         (recur
           (unsigned-bit-shift-right path 8)
           (conj acc (bit-and path 0xFF)))))))
+])
 
 (deftest stresstest-btset
   (let [iters 5]
@@ -89,6 +93,40 @@
             )))))
   (println "[ OK ] btset slice checked"))
 
+
+;; allow for [:foo nil] to glob [:foo *]; data will never be inserted
+;; w/ nil, but slice/subseq elements will.
+(defn cmp [x y] (if (and x y) (compare x y) 0))
+
+(defn cmp-s [[x0 x1] [y0 y1]]
+  (let [c0 (cmp x0 y0)
+        c1 (cmp x1 y1)]
+    (cond
+      (= c0 0) c1
+      (< c0 0) -1
+      (> c0 0)  1)))
+
+(deftest semantic-test-slice
+  (let [e0 (sorted-set-by cmp-s)
+        ds [[:a :b] [:b :x] [:b :q] [:a :d]]
+        e1 (loop [e e0, [d & ds] ds]
+             (if d
+               (let [c (count e)
+                     e (conj e d)]
+                 (assert (= (count e)) (inc c))
+                 (recur e ds))
+               e))]
+    (is (= (seq e1) (slice e1 [nil nil])))                   ; * *
+    (is (= [[:a :b] [:a :d]] (slice e1 [:a nil])))           ; :a *
+    (is (= [[:b :q]] (slice e1 [:b :q])))                    ; :b :q (specific)
+    (is (= [[:a :d] [:b :q]] (slice e1 [:a :d] [:b :q])))    ; matching subrange
+    (is (= [[:a :d] [:b :q]] (slice e1 [:a :c] [:b :r])))    ; non-matching subrange
+    (is (= [[:b :x]] (slice e1 [:b :r] [:c nil])))           ; non-matching -> out of range
+    (is (= [] (slice e1 [:c nil])))                          ; totally out of range
+    ))
+
+;; (t/test-ns 'datascript.test.btset)
+
 ;;;; PERFORMANCE
 
 (def test-matrix [:target    { "sorted-set" (sorted-set)
@@ -103,13 +141,14 @@
                              }])
 
 (defn test-setup [opts]
-  (let [xs (if (:disticnt? opts true)
+  (let [xs (if (:distinct? opts true)
              (shuffle (range (:size opts)))
              (repeatedly (:size opts) #(rand-int (:size opts))))]
     (-> opts
         (assoc :range xs)
         (assoc :set (into (:target opts) xs)))))
 
+#?@(:cljs [
 (defn ^:export perftest []
   (perf/suite (fn [opts] ((:method opts) opts))
     :duration 1000
@@ -123,12 +162,11 @@
                   (f s (-> s into-array (.sort)))))
     :duration 1000
     :matrix   [:size [100 500 5000 20000]
-               :fn   {"bulk"        (fn [seq _] (apply btset seq))
-;;                       "bulk-sorted" (fn [_ sorted-arr] (btset-from-sorted-arr sorted-arr compare))
-                      "conj"        (fn [seq _] (into (btset) seq))
-                      
-                      }]))
-       
+               :fn   (hash-map "bulk"        (fn [seq _] (apply btset seq))
+                               ;; "bulk-sorted" (fn [_ sorted-arr] (btset-from-sorted-arr sorted-arr compare))
+                               "conj"        (fn [seq _] (into (btset) seq)))]))
+])
+
 ;; (perftest)
 ;; (perftest-bulk)
 
