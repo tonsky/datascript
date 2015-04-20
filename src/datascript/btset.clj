@@ -22,5 +22,5 @@
        (distinct-consecutive))))
 
 ;; constrain these versions to a single key, since protocol uses 2nd arg, and we ignore it.
-(defn btset-conj [set key] (conj set key))
-(defn btset-disj [set key] (disj set key))
+(defn btset-conj [set key _] (conj set key))
+(defn btset-disj [set key _] (disj set key))

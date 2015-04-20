@@ -2,50 +2,45 @@
   #?@(:cljs
       [(:require-macros [cemerick.cljs.test :refer [is deftest testing]])
        (:require [cemerick.cljs.test :as t]
-                 [datascript.btset :as btset :refer [btset slice LeafNode]]
+                 [datascript.btset :as btset :refer [btset btset-by slice]]
                  [datascript.perf :as perf])]
       :clj
       [(:require [clojure.test :as t :refer [is deftest testing]]
-                 [datascript.btset :as btset :refer [btset slice]])]))
+                 [datascript.btset :as btset :refer [btset btset-by slice]])]))
 
-#?@(:cljs [
+#?(:cljs (enable-console-print!))
 
-(enable-console-print!)
+;; confirm that clj's use of sorted set works as intended.
+;; allow for [:foo nil] to glob [:foo *]; data will never be inserted
+;; w/ nil, but slice/subseq elements will.
 
-;; helpers
+(defn cmp [x y]
+  (if (and x y)
+    (compare x y)
+    0))
 
+(defn cmp-s [[x0 x1] [y0 y1]]
+  (let [c0 (cmp x0 y0)
+        c1 (cmp x1 y1)]
+    (cond
+      (= c0 0) c1
+      (< c0 0) -1
+      (> c0 0)  1)))
 
-(defn dump [node writer offset]
-  (if (instance? LeafNode node)
-    (do
-      (-write writer offset)
-      (-write writer (vec (.-keys node)))
-      (-write writer "\n"))
-    (dotimes [i (alength (.-keys node))]
-      (-write writer offset)
-      (-write writer (aget (.-keys node) i))
-      (-write writer "\n")
-      (dump (aget (.-pointers node) i) writer (str "  " offset)))))
+(deftest semantic-test-btset-by
+  (let [e0 (btset-by cmp-s)
+        ds [[:a :b] [:b :x] [:b :q] [:a :d]]
+        e1 (reduce conj e0 ds)]
+    (is (= (count ds)        (count (seq e1))))
+    (is (= (vec (seq e1))    (vec (slice e1 [nil nil]))))        ; * *
+    (is (= [[:a :b] [:a :d]] (vec (slice e1 [:a nil]))))         ; :a *
+    (is (= [[:b :q]]         (vec (slice e1 [:b :q]))))          ; :b :q (specific)
+    (is (= [[:a :d] [:b :q]] (vec (slice e1 [:a :d] [:b :q]))))  ; matching subrange
+    (is (= [[:a :d] [:b :q]] (vec (slice e1 [:a :c] [:b :r]))))  ; non-matching subrange
+    (is (= [[:b :x]]         (vec (slice e1 [:b :r] [:c nil])))) ; non-matching -> out of range
+    (is (= []                (vec (slice e1 [:c nil]))))         ; totally out of range
+    ))
 
-;; (extend-type BTSet
-;;   IPrintWithWriter
-;;   (-pr-writer [o writer _]
-;;     (dump (.-root o) writer "")))
-
-(defn decode-path [path]
-  (cond
-    (== path -1) -1
-    (== path 0)  [0]
-    :else
-    (loop [path path
-           acc  ()]
-      (if (== 0 path)
-        (vec acc)
-        (recur
-          (unsigned-bit-shift-right path 8)
-          (conj acc (bit-and path 0xFF)))))))
-
-])
 
 (deftest stresstest-btset
   (let [iters 5]
@@ -95,43 +90,6 @@
             )))))
   (println "[ OK ] btset slice checked"))
 
-
-#?@(:clj [
-
-;; confirm that clj's use of sorted set works as intended.
-;; allow for [:foo nil] to glob [:foo *]; data will never be inserted
-;; w/ nil, but slice/subseq elements will.
-
-(defn cmp [x y] (if (and x y) (compare x y) 0))
-
-(defn cmp-s [[x0 x1] [y0 y1]]
-  (let [c0 (cmp x0 y0)
-        c1 (cmp x1 y1)]
-    (cond
-      (= c0 0) c1
-      (< c0 0) -1
-      (> c0 0)  1)))
-
-(deftest semantic-test-slice
-  (let [e0 (sorted-set-by cmp-s)
-        ds [[:a :b] [:b :x] [:b :q] [:a :d]]
-        e1 (loop [e e0, [d & ds] ds]
-             (if d
-               (let [c (count e)
-                     e (conj e d)]
-                 (assert (= (count e)) (inc c))
-                 (recur e ds))
-               e))]
-    (is (= (seq e1) (slice e1 [nil nil])))                   ; * *
-    (is (= [[:a :b] [:a :d]] (slice e1 [:a nil])))           ; :a *
-    (is (= [[:b :q]] (slice e1 [:b :q])))                    ; :b :q (specific)
-    (is (= [[:a :d] [:b :q]] (slice e1 [:a :d] [:b :q])))    ; matching subrange
-    (is (= [[:a :d] [:b :q]] (slice e1 [:a :c] [:b :r])))    ; non-matching subrange
-    (is (= [[:b :x]] (slice e1 [:b :r] [:c nil])))           ; non-matching -> out of range
-    (is (= [] (slice e1 [:c nil])))                          ; totally out of range
-    ))
-
-])
 
 ;; (t/test-ns 'datascript.test.btset)
 
