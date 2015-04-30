@@ -65,7 +65,7 @@
   (d/empty-db (schema->clj schema)))
 
 (defn ^:export init_db [datoms & [schema]]
-  (d/init-db (map js->Datom datoms) schema))
+  (d/init-db (map js->Datom datoms) (schema->clj schema)))
 
 (defn ^:export q [query & sources]
   (let [query   (cljs.reader/read-string query)

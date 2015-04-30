@@ -154,6 +154,10 @@
                          {e: 1, a: "age", v: 17},
                          {e: 2, a: "name", v: "Igor", tx: tx0+1},
                          {e: 2, a: "age", v: 35, tx: tx0+1}]));
+        var db = d.init_db([[1, "aka", "X"],
+                            [1, "aka", "Y"]],
+                           {"aka": {":db/cardinality": ":db.cardinality/many"}});
+        assert_eq_set(["X", "Y"], d.q('[:find [?aka ...] :where [_ "aka" ?aka]]', db));
       }
       
       function test_dbfn_call() {

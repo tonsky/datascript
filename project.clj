@@ -5,8 +5,8 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure "1.7.0-beta1" :scope "provided"]
-    [org.clojure/clojurescript "0.0-3196" :scope "provided"]
+    [org.clojure/clojure "1.7.0-beta2" :scope "provided"]
+    [org.clojure/clojurescript "0.0-3211" :scope "provided"]
   ]
   
   :global-vars {
