@@ -1,3 +1,9 @@
+# 0.11.0
+
+- Fixed `init_db` in js (issue #73)
+- Preliminary work for Clojure port (PR #70, #71)
+- [ BREAKING ] DS now requires CLJS 0.0-3196 or later
+
 # 0.10.0
 
 - New parser for query and rules

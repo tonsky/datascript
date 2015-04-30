@@ -90,23 +90,10 @@
 
 ;; fast versions without nil checks
 
-;; see http://dev.clojure.org/jira/browse/CLJS-892
-(defn- compare-keywords-quick [a b]
-  (cond
-    (identical? (.-fqn a) (.-fqn b)) 0
-    (and (not (.-ns a)) (.-ns b)) -1
-    (.-ns a) (if-not (.-ns b)
-               1
-               (let [nsc (garray/defaultCompare (.-ns a) (.-ns b))]
-                 (if (zero? nsc)
-                   (garray/defaultCompare (.-name a) (.-name b))
-                   nsc)))
-    :default (garray/defaultCompare (.-name a) (.-name b))))
-
 (defn- cmp-attr-quick [a1 a2]
   ;; either both are keywords or both are strings
   (if (keyword? a1)
-    (compare-keywords-quick a1 a2)
+    (-compare a1 a2)
     (garray/defaultCompare a1 a2)))
 
 (defn- cmp-val-quick [o1 o2]

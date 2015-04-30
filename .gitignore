@@ -13,3 +13,4 @@ perf
 release-js/datascript*.js
 release-js/npm-*
 web/target-cljs
+release.clj
