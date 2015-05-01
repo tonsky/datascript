@@ -16,11 +16,14 @@
   
   :jvm-opts ["-Xmx2g"]
 
+  ;; good to have a single acceptance command in the meanwhile; maybe throwaway after move-to-cljc?
   :aliases {
-    "test-clj" ["test" "datascript.test.btset"]
+    "test-clj"        ["test" "datascript.test.core" "datascript.test.btset" "datascript.test.entity"]
+    "test-cljs"       ["cljsbuild" "test"]
+    "clean-test-all"  ["do" "clean," "test-cljs," "test-clj"]
   }
   
-  :cljsbuild { 
+  :cljsbuild {
     :builds [
       { :id "release"
         :source-paths ["src"]
@@ -38,9 +41,11 @@
 
   :profiles {
     :dev {
+      :source-paths ["dev"] ; for user.clj
       :plugins [
         [lein-cljsbuild "1.0.5"]
         [com.cemerick/clojurescript.test "0.3.3"]
+        [com.cemerick/austin "0.1.6"]
       ]
       :cljsbuild { 
         :builds [
@@ -50,26 +55,27 @@
               :main          datascript.test
               :output-to     "target/datascript.js"
 ;;               :output-dir    "target/advanced"
-              :optimizations :advanced
+              :optimizations :whitespace #_ :advanced
               :source-map    "target/datascript.js.map"
               :pretty-print  true
               :warnings     {:single-segment-namespace false}
               :recompile-dependents false
             }}
-          { :id "none"
+          { :id "whitespace"
             :source-paths ["src" "test"]
             :compiler {
               :main          datascript.test
-              :output-to     "target/datascript.js"
-              :output-dir    "target/none"
-              :optimizations :none
-              :source-map    true
-              :warnings     {:single-segment-namespace false}
+              :optimizations :whitespace
+              :pretty-print  true
+              :output-dir    "target/whitespace"
+              :output-to     "target/whitespace/datascript.js"
+              :source-map    "target/whitespace/datascript.js.map"
+              :warnings      {:single-segment-namespace false}
               :recompile-dependents false
             }}
         ]
         :test-commands {
-          "datascript.test"    [ "phantomjs" :runner "target/datascript.js" ]
+          "datascript.test"    [ "phantomjs" :runner "target/whitespace/datascript.js" ]
           "datascript.test.js" [ "phantomjs" "test/js/runner.js" ]
         }
       }

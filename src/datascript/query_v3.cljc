@@ -4,11 +4,10 @@
     [cemerick.cljs.test :as t]
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.macro #?(:cljs :refer-macros :clj :refer) [raise]]
     [datascript.parser :as dp]
     [datascript.btset :as btset]
-    [datascript.debug :refer-macros [debug do-debug measure minibench]])
-  (:require-macros
-    [datascript :refer [raise]]))
+    [datascript.debug :refer-macros [debug do-debug measure minibench]]))
 
 (defn mapa [f coll]
   (let [res (js/Array.)]
@@ -354,7 +353,7 @@
 ;;; Bindings
 
 (defn- bindable-to-seq? [x]
-  (or (seqable? x) (array? x)))
+  (or (dc/seqable? x) (array? x)))
 
 (defn- binding-symbols [binding]
   (->> (dp/collect-vars-distinct binding)

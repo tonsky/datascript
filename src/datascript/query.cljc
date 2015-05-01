@@ -1,15 +1,23 @@
 (ns datascript.query
   (:require
-    [cljs.reader]
+    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
     [clojure.set :as set]
     [clojure.walk :as walk]
     [datascript.core :as dc]
+    [datascript.macro #?(:cljs :refer-macros :clj :refer) [raise]]
     [datascript.parser :as dp]
     [datascript.pull-api :as dpa]
     [datascript.pull-parser :as dpp]
-    [datascript.impl.entity :as de])
-  (:require-macros
-    [datascript :refer [raise]]))
+    [datascript.impl.entity :as de]
+    #?(:cljs [datascript.parser :refer [BindColl BindIgnore BindScalar BindTuple Constant
+                                        FindColl FindRel FindScalar FindTuple PlainSymbol
+                                        RulesVar SrcVar Variable]])
+    )
+  #?(:clj (:import [datascript.parser BindColl BindIgnore BindScalar BindTuple
+                    Constant FindColl FindRel FindScalar FindTuple PlainSymbol
+                    RulesVar SrcVar Variable])))
+
+
 
 (def ^:const lru-cache-size 100)
 (declare built-ins)
@@ -75,6 +83,9 @@
   (-cleanup [_]))
 
 (deftype LRU [key-value gen-key key-gen gen limit]
+  ;; XXX temporary for CLJ work
+  #?@(:cljs [
+
   Object
   (cleanup [coll]
     (if (> (count key-value) limit)
@@ -109,7 +120,7 @@
     (-lookup key-value k not-found))
   IPrintWithWriter
   (-pr-writer [_ writer opts]
-    (-pr-writer (persistent! key-value) writer opts)))
+    (-pr-writer (persistent! key-value) writer opts))]))
 
 (defn lru [limit]
   (LRU. (transient {}) (sorted-map) (transient {}) 0 limit))
@@ -119,7 +130,7 @@
 (defn join-tuples [t1 idxs1 t2 idxs2]
   (let [l1  (alength idxs1)
         l2  (alength idxs2)
-        res (js/Array. (+ l1 l2))]
+        res (make-array (+ l1 l2))]
     (dotimes [i l1]
       (aset res i (aget t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
@@ -130,7 +141,7 @@
   (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
 
 (defn prod-rel
-  ([] (Relation. {} [#js[]]))
+  ([] (Relation. {} [#?(:cljs #js [])]))
   ([rel1 rel2]
     (let [attrs1 (keys (:attrs rel1))
           attrs2 (keys (:attrs rel2))
@@ -200,7 +211,7 @@
              (/ sum (count coll))))
          (stddev 
            [coll] 
-           (js/Math.sqrt (variance coll)))]
+           (#?(:cljs js/Math.sqrt :clj Math/sqrt) (variance coll)))]
    {'avg      avg
     'median   median
     'variance variance
@@ -249,11 +260,11 @@
 ;;
 
 (defn parse-rules [rules]
-  (let [rules (if (string? rules) (cljs.reader/read-string rules) rules)] ;; for datascript.js interop
+  (let [rules (if (string? rules) (edn/read-string rules) rules)] ;; for datascript.js interop
     (group-by ffirst rules)))
 
 (defn bindable-to-seq? [x]
-  (or (seqable? x) (array? x)))
+  (or (dc/seqable? x) #?(:cljs (array? x))))
 
 (defn empty-rel [binding]
   (let [vars (->> (dp/collect-vars-distinct binding)
@@ -264,15 +275,15 @@
   (in->rel [binding value]))
 
 (extend-protocol IBinding
-  dp/BindIgnore
+  BindIgnore
   (in->rel [_ _]
     (prod-rel))
   
-  dp/BindScalar
+  BindScalar
   (in->rel [binding value]
-    (Relation. {(.. binding -variable -symbol) 0} [#js [value]]))
+    (Relation. {(.. binding -variable -symbol) 0} [#?(:cljs #js [value])])) ; XXX temp
   
-  dp/BindColl
+  BindColl
   (in->rel [binding coll]
     (cond
       (not (bindable-to-seq? coll))
@@ -284,7 +295,7 @@
         (reduce sum-rel
           (map #(in->rel (.-binding binding) %) coll))))
   
-  dp/BindTuple
+  BindTuple
   (in->rel [binding coll]
     (cond
       (not (bindable-to-seq? coll))
@@ -299,11 +310,11 @@
 
 (defn resolve-in [context [binding value]]
   (cond
-    (and (instance? dp/BindScalar binding)
-         (instance? dp/SrcVar (.-variable binding)))
+    (and (instance? BindScalar binding)
+         (instance? SrcVar (.-variable binding)))
       (update-in context [:sources] assoc (.. binding -variable -symbol) value)
-    (and (instance? dp/BindScalar binding)
-         (instance? dp/RulesVar (.-variable binding)))
+    (and (instance? BindScalar binding)
+         (instance? RulesVar (.-variable binding)))
       (assoc context :rules (parse-rules value))
     :else
       (update-in context [:rels] conj (in->rel binding value))))
@@ -666,16 +677,16 @@
   (-context-resolve [var context]))
 
 (extend-protocol IContextResolve
-  dp/Variable
+  Variable
   (-context-resolve [var context]
     (context-resolve-val context (.-symbol var)))
-  dp/SrcVar
+  SrcVar
   (-context-resolve [var context]
     (get-in context [:sources (.-symbol var)]))
-  dp/PlainSymbol
+  PlainSymbol
   (-context-resolve [var _]
     (get built-in-aggregates (.-symbol var)))
-  dp/Constant
+  Constant
   (-context-resolve [var _]
     (.-value var)))
 
@@ -707,13 +718,13 @@
   (-post-process [find tuples]))
 
 (extend-protocol IPostProcess
-  dp/FindRel
+  FindRel
   (-post-process [_ tuples] tuples)
-  dp/FindColl
+  FindColl
   (-post-process [_ tuples] (into [] (map first) tuples))
-  dp/FindScalar
+  FindScalar
   (-post-process [_ tuples] (ffirst tuples))
-  dp/FindTuple
+  FindTuple
   (-post-process [_ tuples] (first tuples)))
 
 (defn- pull [find-elements context resultset]
@@ -734,7 +745,7 @@
 (def ^:private query-cache (volatile! (lru lru-cache-size)))
 
 (defn memoized-parse-query [q]
-  (if-let [cached (-lookup @query-cache q nil)]
+  (if-let [cached (get @query-cache q nil)]
     cached
     (let [qp (dp/parse-query q)]
       (vswap! query-cache assoc query-cache q qp)

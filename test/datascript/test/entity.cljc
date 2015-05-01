@@ -1,11 +1,12 @@
 (ns datascript.test.entity
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
-  (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+  (:require #?(:cljs [cemerick.cljs.test :as t :refer-macros [is are deftest testing]]
+               :clj  [clojure.test :as t :refer [is are deftest testing]])
+            [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+            [datascript :as d]
+            [datascript.core :as dc]
+            [datascript.test.core :as tdc]))
+
+#?(:cljs (enable-console-print!))
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
@@ -25,8 +26,10 @@
            {:name "Ivan", :sex "male", :aka #{"Z"}}))
 
     (is (= (pr-str (d/entity db 1) "{:db/id 1}")))
-    (is (= (pr-str (let [e (d/entity db 1)] (:name e) e)) "{:name \"Ivan\", :db/id 1}"))
-    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))))
+    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))
+    ;; read back in to account for unordered-ness
+    (is (= (edn/read-string (pr-str (let [e (d/entity db 1)] (:name e) e)))
+           (edn/read-string "{:name \"Ivan\", :db/id 1}")))))
 
 (deftest test-entity-refs
   (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref}
@@ -46,7 +49,7 @@
 
     (testing "nested navigation"
       (is (= (-> (e 1) :children first :children) #{(e 100) (e 101)}))
-      (is (= (-> (e 10) :children first :father) (e 10)))
+      (is (some #(= (e 10) (:father %)) (-> (e 10) :children)))
       (is (= (-> (e 10) :father :children) #{(e 10)}))
 
       (testing "after touch"
@@ -55,7 +58,7 @@
           (d/touch e1)
           (d/touch e10)
           (is (= (-> e1 :children first :children) #{(e 100) (e 101)}))
-          (is (= (-> e10 :children first :father) (e 10)))
+          (is (some #(= (e 10) (:father %)) (-> (e 10) :children)))
           (is (= (-> e10 :father :children) #{(e 10)})))))
 
     (testing "backward navigation"

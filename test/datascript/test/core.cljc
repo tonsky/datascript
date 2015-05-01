@@ -1,37 +1,54 @@
 (ns datascript.test.core
-  (:require-macros
-    [cemerick.cljs.test :refer [deftest is are testing with-test-out]])
-  (:require
-    [cemerick.cljs.test :as t]
-    [datascript :as d]))
+  (:require #?(:cljs [cemerick.cljs.test :as t :refer-macros [is are deftest testing]]
+               :clj  [clojure.test :as t :refer [is are deftest testing]])
+            #?(:clj [clojure.stacktrace :refer [print-cause-trace]])
+            [datascript :as d]
+            [datascript.core :as dc]
+            [datascript.impl.entity :as de])
+  #?(:clj (:import [clojure.lang ExceptionInfo]
+                   [java.lang Throwable])))
 
+#?(:cljs (do
 (enable-console-print!)
+(def Throwable js/Error)))
 
 ;; Added special case for printing ex-data of ExceptionInfo
 (defmethod t/report :error [{:keys [test-env] :as m}]
-  (with-test-out test-env
-   (t/inc-report-counter test-env :error)
-   (println "\nERROR in" (t/testing-vars-str m))
-   (when (seq (::test-contexts @test-env))
-      (println (t/testing-contexts-str test-env)))
-   (when-let [message (:message m)] (println message))
-   (println "expected:" (pr-str (:expected m)))
-   (print "  actual: ")
-   (let [actual (:actual m)]
-     (cond
-       (instance? ExceptionInfo actual)
-         (println (.-stack actual) "\n" (ex-data actual))
-       (instance? js/Error actual)
-         (println (.-stack actual))
-       :else
-         (prn actual)))))
-
+  #?(:cljs
+     (t/with-test-out test-env
+       (t/inc-report-counter test-env :error)
+       (println "\nERROR in" (t/testing-vars-str m))
+       (when (seq (::test-contexts @test-env))
+         (println (t/testing-contexts-str test-env)))
+       (when-let [message (:message m)]
+         (println message))
+       (println "expected:" (pr-str (:expected m)))
+       (print "  actual: ")
+       (let [actual (:actual m)]
+         (cond
+           (instance? ExceptionInfo actual) (println (.-stack actual) "\n" (ex-data actual))
+           (instance? Throwable actual)     (println (.-stack actual))
+           :else                            (prn actual))))
+     :clj
+     (t/with-test-out
+       (t/inc-report-counter :error)
+       (println "\nERROR in" (t/testing-vars-str m))
+       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
+       (when-let [message (:message m)] (println message))
+       (println "expected:" (pr-str (:expected m)))
+       (print "  actual: ")
+       (let [actual (:actual m)]
+         (cond
+           (instance? ExceptionInfo actual) (do (print-cause-trace actual t/*stack-trace-depth*)
+                                                (println (str "\n" (ex-data actual))))
+           (instance? Throwable actual)     (print-cause-trace actual t/*stack-trace-depth*)
+           :else                            (prn actual))))))
 ;; utils
 
 (defn entity-map [db e]
   (when-let [entity (d/entity db e)]
     (->> (assoc (into {} entity) :db/id (:db/id entity))
-         (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
+         (clojure.walk/postwalk #(if (de/entity? %)
                                      {:db/id (:db/id %)}
                                      %)))))
 
