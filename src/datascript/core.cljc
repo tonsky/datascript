@@ -232,13 +232,6 @@
      :clj
      (compare a1 a2)))
 
-(defn- cmp-val-quick [o1 o2]
-  (let [t1 (type o1)
-        t2 (type o2)]
-    (if (identical? t1 t2)
-      (compare o1 o2)
-      (garray/defaultCompare t1 t2))))
-
 (defn cmp-datoms-eavt-quick [d1 d2]
   (combine-cmp
    (- (.-e d1) (.-e d2))
