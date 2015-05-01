@@ -1,8 +1,6 @@
 (ns datascript.pull-parser
-  (:require
-   [datascript.core :as dc])
-  (:require-macros
-    [datascript :refer [raise]]))
+  (:require [datascript.core :as dc]
+            [datascript.macro #?(:cljs :refer-macros :clj :refer) [raise]]))
 
 (defrecord PullSpec [wildcard? attrs])
 
