@@ -26,7 +26,8 @@
 
     (is (= (pr-str (d/entity db 1) "{:db/id 1}")))
     (is (= (pr-str (let [e (d/entity db 1)] (:name e) e)) "{:name \"Ivan\", :db/id 1}"))
-    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))))
+    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))
+    (is (nil? (d/entity db nil)))))
 
 (deftest test-entity-refs
   (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref}

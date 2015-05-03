@@ -8,8 +8,9 @@
   {:pre [(satisfies? dc/IDB db)
          (satisfies? dc/ISearch db)
          (satisfies? dc/IIndexAccess db)]}
-  (when-let [e (dc/entid db eid)]
-    (Entity. db e false {})))
+  (when-not (nil? eid)
+    (when-let [e (dc/entid db eid)]
+      (Entity. db e false {}))))
 
 (defn- entity-attr [db a datoms]
   (if (dc/multival? db a)
