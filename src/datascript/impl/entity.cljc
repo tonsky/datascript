@@ -4,11 +4,16 @@
 
 (declare Entity touch)
 
+(defn- entid [db eid]
+  (when (or (number? eid)
+            (sequential? eid))
+    (dc/entid db eid)))
+
 (defn entity [db eid]
   {:pre [(satisfies? dc/IDB db)
          (satisfies? dc/ISearch db)
          (satisfies? dc/IIndexAccess db)]}
-  (when-let [e (dc/entid db eid)]
+  (when-let [e (entid db eid)]
     (Entity. db e false {})))
 
 (defn- entity-attr [db a datoms]

@@ -48,10 +48,10 @@
       (let [xs        (vec (repeatedly (rand-int 10000) #(rand-int 10000)))
             xs-sorted (distinct (sort xs))
             rm        (repeatedly (rand-int 50000) #(rand-nth xs))
-            xs-rm     (reduce disj (into (sorted-set) xs) rm)
-            _         (println "Checking btset" (str (inc i)  "/" iters ":")
-                               (count xs) "adds" (str "(" (count xs-sorted) " distinct),")
-                               (count rm) "removals" (str "(down to " (count xs-rm) ")"))]
+            xs-rm     (reduce disj (into (sorted-set) xs) rm)]
+        #_(println "Checking btset" (str (inc i)  "/" iters ":")
+                 (count xs) "adds" (str "(" (count xs-sorted) " distinct),")
+                 (count rm) "removals" (str "(down to " (count xs-rm) ")"))
         (doseq [[method set0] [["conj" (into (btset) xs)]
                                ["bulk" (apply btset xs)]]
                 :let [set1 (reduce disj set0 rm)]]
@@ -68,7 +68,7 @@
                 (is (= (count set1) (count xs-rm)))
                 (is (= set1 xs-rm)))))
           ))))
-    (println "[ OK ] btset checked"))
+    #_(println "[ OK ] btset checked"))
 
 (deftest stresstest-slice
   (let [iters 5]
@@ -77,8 +77,8 @@
             xs-sorted (distinct (sort xs))
             [from to] (sort [(- 10000 (rand-int 20000)) (+ 10000 (rand-int 20000))])
             expected  (filter #(<= from % to) xs-sorted)
-            _         (println "Checking btset/slice" (str (inc i)  "/" iters)
-                               "from" (count xs-sorted) "elements down to" (count expected))
+;;             _         (println "Checking btset/slice" (str (inc i)  "/" iters)
+;;                                "from" (count xs-sorted) "elements down to" (count expected))
             set       (into (btset) xs)
             set-range (slice set from to)]
         (testing xs
@@ -88,7 +88,8 @@
             (is (= (vec (reverse set-range)) (reverse expected)))
             (is (= (vec (reverse (reverse set-range))) expected))
             )))))
-  (println "[ OK ] btset slice checked"))
+;;   (println "[ OK ] btset slice checked")
+  )
 
 
 ;; (t/test-ns 'datascript.test.btset)

@@ -1,3 +1,7 @@
+# WIP
+
+- Return nil from entity when passed nil eid (issue #75)
+
 # 0.11.0
 
 - Fixed `init_db` in js (issue #73)

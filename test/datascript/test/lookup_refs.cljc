@@ -21,8 +21,7 @@
     (are [eid msg] (thrown-with-msg? ExceptionInfo msg (d/entity db eid))
       [:name]     #"Lookup ref should contain 2 elements"
       [:name 1 2] #"Lookup ref should contain 2 elements"
-      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity"
-      :abc        #"Expected number or lookup ref for entity id")))
+      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity")))
 
 (deftest test-lookup-refs-transact
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }

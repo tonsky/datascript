@@ -65,3 +65,15 @@
       (is (= (:_father   (e 10)) #{(e 100)}))
       (is (= (-> (e 100) :_children first :_children) #{(e 1)}))
     )))
+
+(deftest test-entity-misses
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+             (d/db-with [{:db/id 1, :name "Ivan"}
+                         {:db/id 2, :name "Oleg"}]))]
+    (is (nil? (d/entity db nil)))
+    (is (nil? (d/entity db "abc")))
+    (is (nil? (d/entity db :keyword)))
+    (is (nil? (d/entity db [:name "Petr"])))
+    (is (= 777 (:db/id (d/entity db 777))))
+    (is (thrown-with-msg? ExceptionInfo #"Lookup ref attribute should be marked as :db.unique/identity"
+          (d/entity db [:not-an-attr 777])))))
