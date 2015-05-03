@@ -1,4 +1,4 @@
-# WIP
+# 0.11.1
 
 - Return nil from entity when passed nil eid (issue #75)
 
