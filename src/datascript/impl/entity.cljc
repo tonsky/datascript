@@ -1,8 +1,9 @@
 (ns datascript.impl.entity
-  (:require
-    [datascript.core :as dc]))
+  (:refer-clojure :exclude [keys get])
+  (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
+            [datascript.core :as dc]))
 
-(declare Entity touch)
+(declare entity ->Entity equiv-entity lookup-entity touch)
 
 (defn- entid [db eid]
   (when (or (number? eid)
@@ -14,7 +15,7 @@
          (satisfies? dc/ISearch db)
          (satisfies? dc/IIndexAccess db)]}
   (when-let [e (entid db eid)]
-    (Entity. db e false {})))
+    (->Entity db e (volatile! false) (volatile! {}))))
 
 (defn- entity-attr [db a datoms]
   (if (dc/multival? db a)
@@ -25,11 +26,147 @@
       (entity db (.-v (first datoms)))
       (.-v (first datoms)))))
 
-(defn- datoms->cache [db datoms]
-  (reduce (fn [acc part]
-    (let [a (.-a (first part))]
-      (assoc acc a (entity-attr db a part))))
-    {} (partition-by :a datoms)))
+(defn- -lookup-backwards [db eid attr not-found]
+  (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
+    (if (dc/component? db attr)
+      (entity db (.-e (first datoms)))
+      (reduce #(conj %1 (entity db (.-e %2))) #{} datoms))
+    not-found))
+
+#?(:cljs
+   (defn- multival->js [val]
+     (when val (to-array val))))
+
+#?(:cljs
+   (defn- js-seq [e]
+     (touch e)
+     (for [[a v] @(.-cache e)]
+       (if (dc/multival? (.-db e) a)
+         [a (multival->js v)]
+         [a v]))))
+
+(deftype Entity [db eid touched cache]
+  #?@(:cljs
+      [Object
+       (toString [this]
+                 (pr-str* this))
+       (equiv [this other]
+              (equiv-entity this other))
+
+       ;; js/map interface
+       (keys [this]
+             (es6-iterator (c/keys this)))
+       (entries [this]
+                (es6-entries-iterator (js-seq this)))
+       (values [this]
+               (es6-iterator (map second (js-seq this))))
+       (has [this attr]
+            (not (nil? (.get this attr))))
+       (get [this attr]
+            (if (= attr ":db/id")
+              eid
+              (if (dc/reverse-ref? attr)
+                (-> (-lookup-backwards db eid (dc/reverse-ref attr) nil)
+                    multival->js)
+                (cond-> (-lookup this attr)
+                  (dc/multival? db attr) multival->js))))
+       (forEach [this f]
+                (doseq [[a v] (js-seq this)]
+                  (f v a this)))
+       (forEach [this f use-as-this]
+                (doseq [[a v] (js-seq this)]
+                  (.call f use-as-this v a this)))
+
+       ;; js fallbacks
+       (key_set   [this] (to-array (c/keys this)))
+       (entry_set [this] (to-array (map to-array (js-seq this))))
+       (value_set [this] (to-array (map second (js-seq this))))
+
+       IEquiv
+       (-equiv [this o] (equiv-entity this o))
+
+       IHash
+       (-hash [_]
+              (hash eid)) ;; db?
+
+       ISeqable
+       (-seq [this]
+             (touch this)
+             (seq @cache))
+
+       ICounted
+       (-count [this]
+               (touch this)
+               (count @cache))
+
+       ILookup
+       (-lookup [this attr]           (lookup-entity this attr nil))
+       (-lookup [this attr not-found] (lookup-entity this attr not-found))
+
+       IAssociative
+       (-contains-key? [this k]
+                       (not= ::nf (-lookup this k ::nf)))
+
+       IFn
+       (-invoke [this k]
+                (-lookup this k))
+       (-invoke [this k not-found]
+                (-lookup this k not-found))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-pr-writer (assoc @cache :db/id eid) writer opts))]
+
+      :clj
+      [Object
+       (toString [e]      (pr-str (assoc @cache :db/id eid)))
+       (hashCode [e]      (hash eid)) ; db?
+
+       clojure.lang.Seqable
+       (seq [e]           (touch e) (seq @cache))
+
+       clojure.lang.Associative
+       (equiv [e o]       (equiv-entity e o))
+       (containsKey [e k] (lookup-entity e k))
+       (entryAt [e k]     (some->> (lookup-entity e k) (clojure.lang.MapEntry. k)))
+
+       (empty [e]         (entity (.-db e) (.-eid e)))
+       (assoc [e k v]     (throw (UnsupportedOperationException.)))
+       (cons  [e [k v]]   (throw (UnsupportedOperationException.)))
+       (count [e]         (touch e) (count @(.-cache e)))
+
+       clojure.lang.ILookup
+       (valAt [e k]       (lookup-entity e k))
+       (valAt [e k not-found] (lookup-entity e k not-found))
+       ]))
+
+(defn entity? [x] (instance? Entity x))
+
+#?(:clj
+   (defmethod print-method Entity [e, ^java.io.Writer w]
+     (.write w (str e))))
+
+(defn- equiv-entity [^Entity this that]
+  (and
+   (instance? Entity that)
+   ;; (= db  (.-db ^Entity that))
+   (= (.-eid this) (.-eid ^Entity that))))
+
+(defn- lookup-entity
+  ([this attr] (lookup-entity this attr nil))
+  ([^Entity this attr not-found]
+   (if (= attr :db/id)
+     (.-eid this)
+     (if (dc/reverse-ref? attr)
+       (-lookup-backwards (.-db this) (.-eid this) (dc/reverse-ref attr) not-found)
+       (or (@(.-cache this) attr)
+           (if @(.-touched this)
+             not-found
+             (if-let [datoms (not-empty (dc/-search (.-db this) [(.-eid this) attr]))]
+               (let [value (entity-attr (.-db this) attr datoms)]
+                 (vreset! (.-cache this) (assoc @(.-cache this) attr value))
+                 value)
+               not-found)))))))
 
 (defn touch-components [db a->v]
   (reduce-kv (fn [acc a v]
@@ -41,130 +178,32 @@
                    v)))
              {} a->v))
 
+(defn- datoms->cache [db datoms]
+  (reduce (fn [acc part]
+    (let [a (:a (first part))]
+      (assoc acc a (entity-attr db a part))))
+    {} (partition-by :a datoms)))
+
 (defn touch [e]
-  (when-not (.-touched e)
+  (when-not @(.-touched e)
     (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
-      (set! (.-touched e) true)
-      (set! (.-cache e) (->> datoms
-                          (datoms->cache (.-db e))
-                          (touch-components (.-db e))))))
+      (vreset! (.-cache e) (->> datoms
+                                (datoms->cache (.-db e))
+                                (touch-components (.-db e))))
+      (vreset! (.-touched e) true)))
   e)
 
-(defn- -lookup-backwards [db eid attr not-found]
-  (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
-    (if (dc/component? db attr)
-      (entity db (.-e (first datoms)))
-      (reduce #(conj %1 (entity db (.-e %2))) #{} datoms)-)
-    not-found))
+#?(:cljs (do
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.get"       (.-get       (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.has"       (.-has       (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.forEach"   (.-forEach   (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.key_set"   (.-key_set   (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.value_set" (.-value_set (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.entry_set" (.-entry_set (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.keys"      (.-keys      (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.values"    (.-values    (.-prototype Entity)))
+           (goog/exportSymbol "datascript.impl.entity.Entity.prototype.entries"   (.-entries   (.-prototype Entity)))
 
-(defn- multival->js [val]
-  (when val (to-array val)))
-
-(defn- js-seq [e]
-  (touch e)
-  (for [[a v] (.-cache e)]
-    (if (dc/multival? (.-db e) a)
-      [a (multival->js v)]
-      [a v])))
-
-(deftype Entity [db eid ^:mutable touched ^:mutable cache]
-  Object
-  (toString [this]
-    (pr-str* this))
-  (equiv [this other]
-    (-equiv this other))
-  
-  ;; js/map interface
-  (keys [this]
-    (es6-iterator (keys this)))
-  (entries [this]
-    (es6-entries-iterator (js-seq this)))
-  (values [this]
-    (es6-iterator (map second (js-seq this))))
-  (has [this attr]
-    (not (nil? (.get this attr))))
-  (get [this attr]
-    (if (= attr ":db/id")
-      eid
-      (if (dc/reverse-ref? attr)
-        (-> (-lookup-backwards db eid (dc/reverse-ref attr) nil)
-            multival->js)
-        (cond-> (-lookup this attr)
-          (dc/multival? db attr) multival->js))))
-  (forEach [this f]
-    (doseq [[a v] (js-seq this)]
-      (f v a this)))
-  (forEach [this f use-as-this]
-    (doseq [[a v] (js-seq this)]
-      (.call f use-as-this v a this)))
-  
-  ;; js fallbacks
-  (key_set   [this] (to-array (keys this)))
-  (entry_set [this] (to-array (map to-array (js-seq this))))
-  (value_set [this] (to-array (map second (js-seq this))))
-
-  IEquiv
-  (-equiv [_ o]
-    (and
-      (instance? Entity o)
-      ;; (= db  (.-db o))
-      (= eid (.-eid o))))
-  
-  IHash
-  (-hash [_]
-    (hash eid)) ;; db?
-  
-  ISeqable
-  (-seq [this]
-    (touch this)
-    (seq cache))
-  
-  ICounted
-  (-count [this]
-    (touch this)
-    (count cache))
- 
-  ILookup
-  (-lookup [this attr]
-    (-lookup this attr nil))
-  (-lookup [_ attr not-found]
-    (if (= attr :db/id)
-      eid
-      (if (dc/reverse-ref? attr)
-        (-lookup-backwards db eid (dc/reverse-ref attr) not-found)
-        (or (cache attr)
-            (if touched
-              not-found
-              (if-let [datoms (not-empty (dc/-search db [eid attr]))]
-                (do
-                  (set! cache (assoc cache attr (entity-attr db attr datoms)))
-                  (cache attr))
-                not-found))))))
-
-  IAssociative
-  (-contains-key? [this k]
-    (not= ::nf (-lookup this k ::nf)))
-
-  IFn
-  (-invoke [this k]
-    (-lookup this k))
-  (-invoke [this k not-found]
-    (-lookup this k not-found))
-
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-pr-writer (assoc cache :db/id eid) writer opts)))
-
-
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.get"       (.-get       (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.has"       (.-has       (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.forEach"   (.-forEach   (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.key_set"   (.-key_set   (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.value_set" (.-value_set (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.entry_set" (.-entry_set (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.keys"      (.-keys      (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.values"    (.-values    (.-prototype Entity)))
-(goog/exportSymbol "datascript.impl.entity.Entity.prototype.entries"   (.-entries   (.-prototype Entity)))
-
-(goog/exportSymbol "cljs.core.ES6Iterator.prototype.next"        (.-next (.-prototype cljs.core/ES6Iterator)))
-(goog/exportSymbol "cljs.core.ES6EntriesIterator.prototype.next" (.-next (.-prototype cljs.core/ES6EntriesIterator)))
+           (goog/exportSymbol "cljs.core.ES6Iterator.prototype.next"        (.-next (.-prototype cljs.core/ES6Iterator)))
+           (goog/exportSymbol "cljs.core.ES6EntriesIterator.prototype.next" (.-next (.-prototype cljs.core/ES6EntriesIterator)))
+           ))
