@@ -130,7 +130,7 @@
        (containsKey [e k] (lookup-entity e k))
        (entryAt [e k]     (some->> (lookup-entity e k) (clojure.lang.MapEntry. k)))
 
-       (empty [e]         (entity (.-db e) (.-eid e)))
+       (empty [e]         (throw (UnsupportedOperationException.)))
        (assoc [e k v]     (throw (UnsupportedOperationException.)))
        (cons  [e [k v]]   (throw (UnsupportedOperationException.)))
        (count [e]         (touch e) (count @(.-cache e)))
@@ -138,6 +138,9 @@
        clojure.lang.ILookup
        (valAt [e k]       (lookup-entity e k))
        (valAt [e k not-found] (lookup-entity e k not-found))
+
+       clojure.lang.IFn
+       (invoke [e k]      (c/get e k))
        ]))
 
 (defn entity? [x] (instance? Entity x))
