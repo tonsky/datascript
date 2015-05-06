@@ -22,7 +22,7 @@
 ;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
 ;;    [ #js [1 "Ivan" 5 14] ... ]
-;; or [ (Datom. 2 "Oleg" 1 55) ... ]
+;; or [ (->Datom 2 "Oleg" 1 55) ... ]
 (defrecord Relation [attrs tuples])
 
 

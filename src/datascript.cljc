@@ -13,6 +13,8 @@
 (def  entity de/entity)
 (defn entity-db [entity] (.-db entity))
 
+(def  datom dc/datom)
+
 (def  pull dp/pull)
 (def  pull-many dp/pull-many)
 (def  touch de/touch)
@@ -154,20 +156,6 @@
   (swap! (:listeners (meta conn)) dissoc key))
 
 
-;; printing and reading
-;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
-
-(extend-type dc/Datom
-  IPrintWithWriter
-  (-pr-writer [d w opts]
-    (pr-sequential-writer w pr-writer "#datascript/Datom [" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)])))
-
-(defn datom [e a v & [tx added]]
-  (dc/Datom. e a v (or tx tx0) (if (nil? added) true added)))
-
-(defn datom-from-reader [[e a v tx added]]
-  (datom e a v tx added))
-
 (defn pr-db [db w opts]
   (-write w "#datascript/DB {")
   (-write w ":schema ")
@@ -189,10 +177,10 @@
     (pr-db db w opts)))
 
 (defn db-from-reader [{:keys [schema datoms]}]
-  (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
+  (init-db (map (fn [[e a v tx]] (dc/->Datom e a v tx true)) datoms) schema))
 
-(cljs.reader/register-tag-parser! "datascript/Datom" datom-from-reader)
-(cljs.reader/register-tag-parser! "datascript/DB"    db-from-reader)
+(cljs.reader/register-tag-parser! "datascript.core/Datom" dc/datom-from-reader)
+(cljs.reader/register-tag-parser! "datascript/DB"         db-from-reader)
 
 ;; Datomic compatibility layer
 

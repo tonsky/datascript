@@ -24,16 +24,16 @@
     (d/transact! conn [[:db/add -1 :name "Geogry"]])
     
     (is (= (:tx-data (first @reports))
-           [(dc/Datom. 3 :name "Dima"   (+ d/tx0 2) true)
-            (dc/Datom. 3 :age 19        (+ d/tx0 2) true)
-            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 2) true)]))
+           [(dc/->Datom 3 :name "Dima"   (+ d/tx0 2) true)
+            (dc/->Datom 3 :age 19        (+ d/tx0 2) true)
+            (dc/->Datom 4 :name "Evgeny" (+ d/tx0 2) true)]))
     (is (= (:tx-meta (first @reports))
            {:some-metadata 1}))
     (is (= (:tx-data (second @reports))
-           [(dc/Datom. 5 :name "Fedor"  (+ d/tx0 3) true)
-            (dc/Datom. 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
-            (dc/Datom. 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
-            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 3) false)]))
+           [(dc/->Datom 5 :name "Fedor"  (+ d/tx0 3) true)
+            (dc/->Datom 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
+            (dc/->Datom 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
+            (dc/->Datom 4 :name "Evgeny" (+ d/tx0 3) false)]))
     (is (= (:tx-meta (second @reports))
            nil))
     ))
