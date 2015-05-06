@@ -68,7 +68,7 @@
               (if (dc/reverse-ref? attr)
                 (-> (-lookup-backwards db eid (dc/reverse-ref attr) nil)
                     multival->js)
-                (cond-> (-lookup this attr)
+                (cond-> (lookup-entity this attr)
                   (dc/multival? db attr) multival->js))))
        (forEach [this f]
                 (doseq [[a v] (js-seq this)]
@@ -105,13 +105,13 @@
 
        IAssociative
        (-contains-key? [this k]
-                       (not= ::nf (-lookup this k ::nf)))
+                       (not= ::nf (lookup-entity this k ::nf)))
 
        IFn
        (-invoke [this k]
-                (-lookup this k))
+                (lookup-entity this k))
        (-invoke [this k not-found]
-                (-lookup this k not-found))
+                (lookup-entity this k not-found))
 
        IPrintWithWriter
        (-pr-writer [_ writer opts]
@@ -140,7 +140,8 @@
        (valAt [e k not-found] (lookup-entity e k not-found))
 
        clojure.lang.IFn
-       (invoke [e k]      (c/get e k))
+       (invoke [e k]      (lookup-entity e k))
+       (invoke [e k not-found] (lookup-entity e k not-found))
        ]))
 
 (defn entity? [x] (instance? Entity x))
