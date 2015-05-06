@@ -1,11 +1,11 @@
 (ns datascript.core
   #?(:cljs (:refer-clojure :exclude [array? seqable?]))
+  #?(:cljs (:require-macros [datascript :refer [case-tree combine-cmp raise]]))
   (:require
    #?@(:cljs [[cljs.core :as c]
               [goog.array :as garray]]
        :clj  [[clojure.core :as c]])
-   [datascript.btset :as btset]
-   [datascript.macro #?(:cljs :refer-macros :clj :refer) [case-tree combine-cmp raise]]))
+   [datascript.btset :as btset]))
 
 (def array?
   #?(:cljs c/array?
