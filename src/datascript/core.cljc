@@ -57,7 +57,7 @@
         IPrintWithWriter
         (-pr-writer [d writer opts]
                     (pr-sequential-writer writer pr-writer
-                                          "#datascript.core/Datom [" " " "]"
+                                          "#datascript/Datom [" " " "]"
                                           opts [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)]))
         ]
        :clj
@@ -68,7 +68,7 @@
         (seq [d] (seq-datom d))
 
         clojure.lang.IPersistentCollection
-        (entryAt [d k] (some->> (val-at-datom d k) (clojure.lang.MapEntry k)))
+        (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
         (empty [d] (throw (UnsupportedOperationException.)))
         (count [d] 5)
         (cons [d [k v]] (assoc-datom k v))
@@ -78,7 +78,7 @@
         (valAt [d k nf] (val-at-datom d k nf))
 
         clojure.lang.Associative
-        (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
+        (entryAt [d k] (some->> (val-at-datom d k) (clojure.lang.MapEntry k)))
         (containsKey [e k] (#{:e :a :v :tx :added} k))
         (assoc [d k v] (assoc-datom k v))
         ]))
@@ -137,7 +137,7 @@
       d
       (Datom. (.-e d) (.-a d) (.-v d) (.-tx d) v))
 
-    (throw (IllegalArgumentException. (str "invalid key for #datascript.core/Datom: " k)))))
+    (throw (IllegalArgumentException. (str "invalid key for #datascript/Datom: " k)))))
 
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
@@ -147,7 +147,7 @@
 
 #?(:clj
    (defmethod print-method Datom [d, ^java.io.Writer w]
-     (.write w (str "#datascript.core/Datom ["))
+     (.write w (str "#datascript/Datom ["))
      (binding [*out* w]
        (pr [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)]))
      (.write w "]")))
@@ -170,14 +170,10 @@
   (if (and (some? o1) (some? o2))
     (let [t1 (type o1)
           t2 (type o2)]
-      #?(:cljs
-         (if (identical? t1 t2)
-           (compare o1 o2)
-           (garray/defaultCompare t1 t2))
-         :clj
-         (if (identical? t1 t2)
-           (compare o1 o2)
-           (compare (.getName ^Class t1) (.geName ^Class t2)))))
+      (if (identical? t1 t2)
+        (compare o1 o2)
+        #?(:cljs (garray/defaultCompare t1 t2)
+           :clj  (compare (.getName ^Class t1) (.geName ^Class t2)))))
     0))
 
 ;; Slower cmp-* fns allows for datom fields to be nil.
