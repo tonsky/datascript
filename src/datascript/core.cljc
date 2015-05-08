@@ -4,7 +4,8 @@
   (:require
    #?@(:cljs [[cljs.core :as c]
               [goog.array :as garray]]
-       :clj  [[clojure.core :as c]])
+       :clj  [[clojure.core :as c]
+              [datascript :refer [case-tree combine-cmp raise]]])
    [datascript.btset :as btset]))
 
 (def array?
@@ -25,7 +26,9 @@
 (def neg-number? (every-pred number? neg?))
 
 #?(:cljs
-   (def Exception js/Error))
+   (do
+     (def Exception js/Error)
+     (def IllegalArgumentException js/Error)))
 
 (def ^:const tx0 0x20000000)
 
@@ -39,7 +42,7 @@
         (-hash [d] (or (.-__hash d)
                        (set! (.-__hash d) (hash-datom d))))
         IEquiv
-        (-equiv [d o] (equiv-datom d o))
+        (-equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
 
         ISeqable
         (-seq [d] (seq-datom d))
@@ -65,23 +68,23 @@
         (seq [d] (seq-datom d))
 
         clojure.lang.IPersistentCollection
-        (entryAt [d k] (some->> (val-at-datom d k) (clojure.lang.APersistentMap k)))
-        (empty [d] (throw (UnsupportedClassVersionError.)))
+        (entryAt [d k] (some->> (val-at-datom d k) (clojure.lang.MapEntry k)))
+        (empty [d] (throw (UnsupportedOperationException.)))
         (count [d] 5)
-        (cons [d e] (throw (UnsupportedClassVersionError.)))
+        (cons [d [k v]] (assoc-datom k v))
 
         clojure.lang.ILookup
         (valAt [d k] (val-at-datom d k nil))
         (valAt [d k nf] (val-at-datom d k nf))
 
         clojure.lang.Associative
-        (equiv [d o] (equiv-datom d o))
+        (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
         (containsKey [e k] (#{:e :a :v :tx :added} k))
-        (assoc [d k v] (throw (UnsupportedClassVersionError.)))
+        (assoc [d k v] (assoc-datom k v))
         ]))
 
 (defn datom [e a v & [tx added]]
-  (->Datom e a v (or tx tx0) (if (nil? added) true added)))
+  (Datom. e a v (or tx tx0) (if (nil? added) true added)))
 
 (defn datom? [x] (instance? Datom x))
 
@@ -90,7 +93,7 @@
       (hash-combine (hash (.-a d)))
       (hash-combine (hash (.-v d)))))
 
-(defn- equiv-datom [^Datom d o]
+(defn- equiv-datom [^Datom d ^Datom o]
   (and (= (.-e d) (.-e o))
        (= (.-a d) (.-a o))
        (= (.-v d) (.-v o))))
@@ -107,6 +110,35 @@
     "added" (.-added d)
     not-found))
 
+(defn- assoc-datom [^Datom d k v]
+  (condp = k
+    :e
+    (if (identical? (.-e d) v)
+      d
+      (Datom. v (.-a d) (.-v d) (.-tx d) (.-added d)))
+
+    :a
+    (if (identical? (.-a d) v)
+      d
+      (Datom. (.-e d) v (.-v d) (.-tx d) (.-added d)))
+
+    :v
+    (if (identical? (.-v d) v)
+      d
+      (Datom. (.-e d) (.-a d) v (.-tx d) (.-added d)))
+
+    :tx
+    (if (identical? (.-tx d) v)
+      d
+      (Datom. (.-e d) (.-a d) (.-v d) v (.-added d)))
+
+    :added
+    (if (identical? (.-added d) v)
+      d
+      (Datom. (.-e d) (.-a d) (.-v d) (.-tx d) v))
+
+    (throw (IllegalArgumentException. (str "invalid key for #datascript.core/Datom: " k)))))
+
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
 
@@ -117,7 +149,7 @@
    (defmethod print-method Datom [d, ^java.io.Writer w]
      (.write w (str "#datascript.core/Datom ["))
      (binding [*out* w]
-       (apply pr (map (partial get d) [:e :a :v :tx :added])))
+       (pr [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)]))
      (.write w "]")))
 
 ;; ----------------------------------------------------------------------------
@@ -143,9 +175,9 @@
            (compare o1 o2)
            (garray/defaultCompare t1 t2))
          :clj
-         (combine-cmp
-          (compare (str t1) (str t2))
-          (compare o1 o2))))
+         (if (identical? t1 t2)
+           (compare o1 o2)
+           (compare (.getName ^Class t1) (.geName ^Class t2)))))
     0))
 
 ;; Slower cmp-* fns allows for datom fields to be nil.
@@ -236,7 +268,7 @@
 
 (defn- resolve-datom [db e a v t]
   (when a (validate-attr a))
-  (->Datom
+  (Datom.
     (entid-some db e)         ;; e
     a                               ;; a
     (if (and (some? v) (ref? db a)) ;; v
@@ -263,24 +295,24 @@
   ISearch
   (-search [_ [e a v tx]]
     (case-tree [e a (some? v) tx] [
-      (btset/slice eavt (->Datom e a v tx nil))                 ;; e a v tx
-      (btset/slice eavt (->Datom e a v nil nil))                ;; e a v _
-      (->> (btset/slice eavt (->Datom e a nil nil nil))         ;; e a _ tx
+      (btset/slice eavt (Datom. e a v tx nil))                 ;; e a v tx
+      (btset/slice eavt (Datom. e a v nil nil))                ;; e a v _
+      (->> (btset/slice eavt (Datom. e a nil nil nil))         ;; e a _ tx
            (filter #(= tx (.-tx %))))
-      (btset/slice eavt (->Datom e a nil nil nil))              ;; e a _ _
-      (->> (btset/slice eavt (->Datom e nil nil nil nil))       ;; e _ v tx
+      (btset/slice eavt (Datom. e a nil nil nil))              ;; e a _ _
+      (->> (btset/slice eavt (Datom. e nil nil nil nil))       ;; e _ v tx
            (filter #(and (= v (.-v %)) (= tx (.-tx %)))))
-      (->> (btset/slice eavt (->Datom e nil nil nil nil))       ;; e _ v _
+      (->> (btset/slice eavt (Datom. e nil nil nil nil))       ;; e _ v _
            (filter #(= v (.-v %))))
-      (->> (btset/slice eavt (->Datom e nil nil nil nil))       ;; e _ _ tx
+      (->> (btset/slice eavt (Datom. e nil nil nil nil))       ;; e _ _ tx
            (filter #(= tx (.-tx %))))
-      (btset/slice eavt (->Datom e nil nil nil nil))            ;; e _ _ _
-      (->> (btset/slice avet (->Datom nil a v nil nil))         ;; _ a v tx
+      (btset/slice eavt (Datom. e nil nil nil nil))            ;; e _ _ _
+      (->> (btset/slice avet (Datom. nil a v nil nil))         ;; _ a v tx
            (filter #(= tx (.-tx %))))
-      (btset/slice avet (->Datom nil a v nil nil))              ;; _ a v _
-      (->> (btset/slice avet (->Datom nil a nil nil nil))       ;; _ a _ tx
+      (btset/slice avet (Datom. nil a v nil nil))              ;; _ a v _
+      (->> (btset/slice avet (Datom. nil a nil nil nil))       ;; _ a _ tx
            (filter #(= tx (.-tx %))))
-      (btset/slice avet (->Datom nil a nil nil nil))            ;; _ a _ _
+      (btset/slice avet (Datom. nil a nil nil nil))            ;; _ a _ _
       (filter #(and (= v (.-v %)) (= tx (.-tx %))) eavt) ;; _ _ v tx
       (filter #(= v (.-v %)) eavt)                       ;; _ _ v _
       (filter #(= tx (.-tx %)) eavt)                     ;; _ _ _ tx
@@ -291,7 +323,7 @@
     (btset/slice (get this index) (components->pattern this index cs)))
 
   (-seek-datoms [this index cs]
-    (btset/slice (get this index) (components->pattern this index cs) (->Datom nil nil nil nil nil)))
+    (btset/slice (get this index) (components->pattern this index cs) (Datom. nil nil nil nil nil)))
 
   (-index-range [this attr start end]
     (validate-attr attr)
@@ -574,7 +606,7 @@
         db    (:db-after report)
         e     (entid-strict db e)
         v     (if (ref? db a) (entid-strict db v) v)
-        datom (->Datom e a v tx true)]
+        datom (Datom. e a v tx true)]
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
         (transact-report report datom)
@@ -583,13 +615,13 @@
         (if (= (.-v old-datom) v)
           report
           (-> report
-            (transact-report (->Datom e a (.-v old-datom) tx false))
+            (transact-report (Datom. e a (.-v old-datom) tx false))
             (transact-report datom)))
         (transact-report report datom)))))
 
 (defn- transact-retract-datom [report d]
   (let [tx (current-tx report)]
-    (transact-report report (->Datom (.-e d) (.-a d) (.-v d) tx false))))
+    (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
 (defn- retract-components [db datoms]
   (into #{} (comp

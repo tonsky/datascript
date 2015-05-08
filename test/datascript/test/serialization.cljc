@@ -8,9 +8,9 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-pr-read
-  (let [d (dc/->Datom 1 :name 3 17 true)]
+  (let [d (dc/Datom. 1 :name 3 17 true)]
     (is (= d (cljs.reader/read-string (pr-str d)))))
-  (let [d (dc/->Datom 1 :name 3 nil nil)]
+  (let [d (dc/Datom. 1 :name 3 nil nil)]
     (is (= d (cljs.reader/read-string (pr-str d)))))
 
   (let [db (-> (d/empty-db)

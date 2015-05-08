@@ -50,8 +50,8 @@
 
 (defn js->Datom [d]
   (if (array? d)
-    (dc/->Datom (aget d 0) (aget d 1) (aget d 2) (or (aget d 3) d/tx0) (or (aget d 4) true))
-    (dc/->Datom (.-e d) (.-a d) (.-v d) (or (.-tx d) d/tx0) (or (.-added d) true))))
+    (dc/Datom. (aget d 0) (aget d 1) (aget d 2) (or (aget d 3) d/tx0) (or (aget d 4) true))
+    (dc/Datom. (.-e d) (.-a d) (.-v d) (or (.-tx d) d/tx0) (or (.-added d) true))))
 
 (defn- pull-result->js
   [result]
