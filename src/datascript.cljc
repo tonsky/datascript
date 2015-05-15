@@ -19,6 +19,10 @@
 (def  pull-many dp/pull-many)
 (def  touch de/touch)
 
+(def  datom? dc/datom?)
+(def  db? dc/db?)
+(def  filtered-db? dc/filtered-db?)
+
 (def ^:const tx0 dc/tx0)
 
 (defn attr->properties [k v]
@@ -155,32 +159,11 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
-
-(defn pr-db [db w opts]
-  (-write w "#datascript/DB {")
-  (-write w ":schema ")
-  (pr-writer (dc/-schema db) w opts)
-  (-write w ", :datoms ")
-  (pr-sequential-writer w
-    (fn [d w opts]
-      (pr-sequential-writer w pr-writer "[" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d)]))
-    "[" " " "]" opts (dc/-datoms db :eavt []))
-  (-write w "}"))
-
-(extend-protocol IPrintWithWriter
-  dc/DB
-  (-pr-writer [db w opts]
-    (pr-db db w opts))
-
-  dc/FilteredDB
-  (-pr-writer [db w opts]
-    (pr-db db w opts)))
-
 (defn db-from-reader [{:keys [schema datoms]}]
   (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
 
 (cljs.reader/register-tag-parser! "datascript/Datom" dc/datom-from-reader)
-(cljs.reader/register-tag-parser! "datascript/DB"         db-from-reader)
+(cljs.reader/register-tag-parser! "datascript/DB"    db-from-reader)
 
 ;; Datomic compatibility layer
 

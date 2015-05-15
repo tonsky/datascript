@@ -3,7 +3,10 @@
     [cemerick.cljs.test :refer [deftest is are testing with-test-out]])
   (:require
     [cemerick.cljs.test :as t]
-    [datascript :as d]))
+    [datascript :as d]
+    [datascript.core
+     #?@(:cljs [:refer-macros [defrecord-extendable-cljs]]
+         :clj  [:refer [defrecord-extendable-clj]])]))
 
 (enable-console-print!)
 
@@ -52,3 +55,17 @@
             (d/datom 2 :age 37)
             (d/datom 2 :name "Petr")]))
     ))
+
+
+;;
+;; verify that defrecord-extendable works with compiler/core macro configuration
+;; define dummy class which redefines hash, could produce either
+;; compiler or runtime error
+;;
+(#?(:cljs defrecord-extendable-cljs :clj defrecord-extendable-clj)
+   HashBeef [x]
+  #?@(:cljs [IHash   (-hash  [hb] 0xBEEF)]
+      :clj  [IHashEq (hasheq [hb] 0xBEEF)]))
+
+(deftest test-defrecord-extendable
+  (is (= 0xBEEF (-> (map->HashBeef {:x :ignored}) hash))))
