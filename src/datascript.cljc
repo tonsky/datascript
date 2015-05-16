@@ -19,84 +19,14 @@
 (def  pull-many dp/pull-many)
 (def  touch de/touch)
 
+(def  empty-db dc/empty-db)
+(def  init-db dc/init-db)
+
 (def  datom? dc/datom?)
 (def  db? dc/db?)
 (def  filtered-db? dc/filtered-db?)
 
 (def ^:const tx0 dc/tx0)
-
-(defn attr->properties [k v]
-  (cond
-    (= [k v] [:db/isComponent true]) [:db/isComponent]
-    (= v :db.type/ref)               [:db.type/ref]
-    (= v :db.cardinality/many)       [:db.cardinality/many]
-    (= v :db.unique/identity)        [:db/unique :db.unique/identity]
-    (= v :db.unique/value)           [:db/unique :db.unique/value]))
-   
-(defn- multimap [e m]
-  (reduce
-    (fn [acc [k v]]
-      (update-in acc [k] (fnil conj e) v))
-    {} m))
-   
-(defn- rschema [schema]
-  (->>
-    (for [[a kv] schema
-          [k v]  kv
-          prop   (attr->properties k v)]
-      [prop a])
-    (multimap #{})))
- 
-(defn- validate-schema-key [a k v expected]
-  (when-not (or (nil? v)
-                (contains? expected v))
-    (throw (ex-info (str "Bad attribute specification for " (pr-str {a {k v}}) ", expected one of " expected)
-                    {:error :schema/validation
-                     :attribute a
-                     :key k
-                     :value v}))))
-
-(defn- validate-schema [schema]
-  (doseq [[a kv] schema]
-    (let [comp? (:db/isComponent kv false)]
-      (validate-schema-key a :db/isComponent (:db/isComponent kv) #{true false})
-      (when (and comp? (not= (:db/valueType kv) :db.type/ref))
-        (throw (ex-info (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")
-                        {:error     :schema/validation
-                         :attribute a
-                         :key       :db/isComponent}))))
-    (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
-    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
-    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})
-  )
-  schema)
-
-(defn empty-db [& [schema]]
-  (dc/map->DB {
-    :schema  (validate-schema schema)
-    :eavt    (btset/btset-by dc/cmp-datoms-eavt) 
-    :aevt    (btset/btset-by dc/cmp-datoms-aevt)
-    :avet    (btset/btset-by dc/cmp-datoms-avet)
-    :max-eid 0
-    :max-tx  tx0
-    :rschema (rschema schema)}))
-
-(defn init-db [datoms & [schema]]
-  (let [datoms  (into-array datoms)
-        len     (alength datoms)
-        eavt    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-eavt-quick) dc/cmp-datoms-eavt)
-        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0)
-        aevt    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-aevt-quick) dc/cmp-datoms-aevt)
-        avet    (btset/-btset-from-sorted-arr (.sort datoms dc/cmp-datoms-avet-quick) dc/cmp-datoms-avet)
-        max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
-    (dc/map->DB {
-      :schema  (validate-schema schema)
-      :eavt    eavt
-      :aevt    aevt
-      :avet    avet
-      :max-eid max-eid
-      :max-tx  max-tx
-      :rschema (rschema schema)})))
 
 (defn is-filtered [db]
   (instance? dc/FilteredDB db))
@@ -159,11 +89,8 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
-(defn db-from-reader [{:keys [schema datoms]}]
-  (init-db (map (fn [[e a v tx]] (dc/Datom. e a v tx true)) datoms) schema))
-
 (cljs.reader/register-tag-parser! "datascript/Datom" dc/datom-from-reader)
-(cljs.reader/register-tag-parser! "datascript/DB"    db-from-reader)
+(cljs.reader/register-tag-parser! "datascript/DB"    dc/db-from-reader)
 
 ;; Datomic compatibility layer
 

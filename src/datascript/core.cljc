@@ -1,7 +1,7 @@
 (ns datascript.core
   #?(:cljs (:refer-clojure :exclude [array? seqable?]))
   #?(:cljs (:require-macros [datascript :refer [case-tree combine-cmp raise]]
-                            [datascript.core :refer [defrecord-extendable-cljs]]))
+                            [datascript.core :refer [defrecord-updatable-cljs]]))
   (:require
    #?@(:cljs [[cljs.core :as c]
               [goog.array :as garray]]
@@ -59,7 +59,7 @@
        (list* deftype* tagname classname fields implements (vec (distinct interfaces)) rest))))
 
 #?(:clj
-   (defmacro defrecord-extendable-clj [name fields & impls]
+   (defmacro defrecord-updatable-clj [name fields & impls]
      (let [impl-map (->> impls (map (juxt get-sig identity)) (filter first) (into {}))
            body     (macroexpand-1 (list* 'defrecord name fields impls))]
        (clojure.walk/postwalk
@@ -74,7 +74,7 @@
         body))))
 
 #?(:clj
-   (defmacro defrecord-extendable-cljs [name fields & impls]
+   (defmacro defrecord-updatable-cljs [name fields & impls]
      `(do
         (defrecord ~name ~fields)
         (extend-type ~name ~@impls))))
@@ -293,9 +293,9 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-db equiv-db assoc-db val-at-db empty-db-from-db pr-db resolve-datom validate-attr components->pattern)
+(declare hash-db equiv-db empty-db pr-db resolve-datom validate-attr components->pattern)
 
-(#?(:cljs defrecord-extendable-cljs :clj defrecord-extendable-clj)
+(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
   DB [schema eavt aevt avet max-eid max-tx rschema]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
@@ -303,7 +303,7 @@
        ISeqable             (-seq   [db]        (-seq  (.-eavt db)))
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
-       IEmptyableCollection (-empty [db]        (empty-db-from-db db))
+       IEmptyableCollection (-empty [db]        (empty-db (.-schema db)))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))]
 
       :clj
@@ -311,12 +311,12 @@
 
        clojure.lang.IHashEq (hasheq [db]        (hash-db db))
 
-       clojure.lang.Seqable (seq [db]           (seq (.-eavt db)))
+       clojure.lang.Seqable (seq [db]           (seq eavt))
 
        clojure.lang.IPersistentCollection
-                            (count [db]         (count (.-eavt db)))
+                            (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
-                            (empty [db]         (empty-db-from-db db))])
+                            (empty [db]         (empty-db schema))])
 
   IDB
   (-schema [db] (.-schema db))
@@ -366,7 +366,7 @@
 (defn db? [x] (instance? DB x))
 
 ;; ----------------------------------------------------------------------------
-(#?(:cljs defrecord-extendable-cljs :clj defrecord-extendable-clj)
+(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
   FilteredDB [unfiltered-db pred]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
@@ -427,15 +427,82 @@
 
 ;; ----------------------------------------------------------------------------
 
-;; use existing db as template for new
-(defn- empty-db-from-db [db]
-  (map->DB {:schema  (.-schema db)
-            :eavt    (empty (.-eavt db))
-            :aevt    (empty (.-aevt db))
-            :avet    (empty (.-avet db))
-            :max-eid 0
-            :max-tx  tx0
-            :rschema (.-rschema db)}))
+(defn attr->properties [k v]
+  (cond
+    (= [k v] [:db/isComponent true]) [:db/isComponent]
+    (= v :db.type/ref)               [:db.type/ref]
+    (= v :db.cardinality/many)       [:db.cardinality/many]
+    (= v :db.unique/identity)        [:db/unique :db.unique/identity]
+    (= v :db.unique/value)           [:db/unique :db.unique/value]))
+
+(defn- multimap [e m]
+  (reduce
+   (fn [acc [k v]]
+     (update-in acc [k] (fnil conj e) v))
+   {} m))
+
+(defn- rschema [schema]
+  (->>
+   (for [[a kv] schema
+         [k v]  kv
+         prop   (attr->properties k v)]
+     [prop a])
+   (multimap #{})))
+
+(defn- validate-schema-key [a k v expected]
+  (when-not (or (nil? v)
+                (contains? expected v))
+    (throw (ex-info (str "Bad attribute specification for " (pr-str {a {k v}}) ", expected one of " expected)
+                    {:error :schema/validation
+                     :attribute a
+                     :key k
+                     :value v}))))
+
+(defn- validate-schema [schema]
+  (doseq [[a kv] schema]
+    (let [comp? (:db/isComponent kv false)]
+      (validate-schema-key a :db/isComponent (:db/isComponent kv) #{true false})
+      (when (and comp? (not= (:db/valueType kv) :db.type/ref))
+        (throw (ex-info (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")
+                        {:error     :schema/validation
+                         :attribute a
+                         :key       :db/isComponent}))))
+    (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
+    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
+    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
+  schema)
+
+(defn empty-db [& [schema]]
+  (map->DB {
+    :schema  (validate-schema schema)
+    :eavt    (btset/btset-by cmp-datoms-eavt)
+    :aevt    (btset/btset-by cmp-datoms-aevt)
+    :avet    (btset/btset-by cmp-datoms-avet)
+    :max-eid 0
+    :max-tx  tx0
+    :rschema (rschema schema)}))
+
+(defn init-db [datoms & [schema]]
+  (let [datoms  (into-array datoms)
+        len     (alength datoms)
+        #?@(:cljs
+            [eavt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-eavt-quick) cmp-datoms-eavt)
+             aevt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-aevt-quick) cmp-datoms-aevt)
+             avet    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-avet-quick) cmp-datoms-avet)]
+            :clj
+            [eavt    (btset/btset-by datoms cmp-datoms-eavt)
+             aevt    (btset/btset-by datoms cmp-datoms-aevt)
+             avet    (btset/btset-by datoms cmp-datoms-avet)])
+        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0)
+        max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
+    (map->DB {
+      :schema  (validate-schema schema)
+      :eavt    eavt
+      :aevt    aevt
+      :avet    avet
+      :max-eid max-eid
+      :max-tx  max-tx
+      :rschema (rschema schema)})))
 
 (defn- equiv-db-index [x y]
   (and (= (count x) (count y))
@@ -446,34 +513,12 @@
         (= (first xs) (first ys)) (recur (next xs) (next ys))
         :else false))))
 
-(defn- hash-db [^DB db]
+(defn- hash-db [db]
   #?(:cljs
      (or (.-__hash db)
-         (set! (.-__hash db) (hash-coll (-datoms db :eavt []))))
+         (set! (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
      :clj
      (hash-ordered-coll (-datoms db :eavt []))))
-
-(defn- val-at-db [^DB db k & [not-found]]
-  (case k
-    :schema (.-schema db)
-    :eavt (.-eavt db)
-    :aevt (.-aevt db)
-    :avet (.-avet db)
-    :max-eid (.-max-eid db)
-    :max-tx (.-max-tx db)
-    :rschema (.-rschema db)
-    not-found))
-
-(defn- assoc-db [^DB db k v]
-  (condp = k
-    :schema  (DB. v             (.-eavt db) (.-aevt db) (.-avet db) (.-max-eid db) (.-max-tx db) (.-rschema db))
-    :eavt    (DB. (.-schema db) v           (.-aevt db) (.-avet db) (.-max-eid db) (.-max-tx db) (.-rschema db))
-    :aevt    (DB. (.-schema db) (.-eavt db) v           (.-avet db) (.-max-eid db) (.-max-tx db) (.-rschema db))
-    :avet    (DB. (.-schema db) (.-eavt db) (.-aevt db) v           (.-max-eid db) (.-max-tx db) (.-rschema db))
-    :max-eid (DB. (.-schema db) (.-eavt db) (.-aevt db) (.-avet db) v              (.-max-tx db) (.-rschema db))
-    :max-tx  (DB. (.-schema db) (.-eavt db) (.-aevt db) (.-avet db) (.-max-eid db) v             (.-rschema db))
-    :rschema (DB. (.-schema db) (.-eavt db) (.-aevt db) (.-avet db) (.-max-eid db) (.-max-tx db) v             )
-    (throw (Exception. (str "Invalid key for #datascript/DB: " k)))))
 
 (defn- equiv-db [db other]
   (and (or (instance? DB other) (instance? FilteredDB other))
@@ -508,6 +553,9 @@
 
      (defmethod print-method FilteredDB [db, ^java.io.Writer w]
        (pr-db db w))))
+
+(defn db-from-reader [{:keys [schema datoms]}]
+  (init-db (map (fn [[e a v tx]] (Datom. e a v tx true)) datoms) schema))
 
 ;; ----------------------------------------------------------------------------
 

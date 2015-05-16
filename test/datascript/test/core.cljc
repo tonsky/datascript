@@ -5,8 +5,8 @@
     [cemerick.cljs.test :as t]
     [datascript :as d]
     [datascript.core
-     #?@(:cljs [:refer-macros [defrecord-extendable-cljs]]
-         :clj  [:refer [defrecord-extendable-clj]])]))
+     #?@(:cljs [:refer-macros [defrecord-updatable-cljs]]
+         :clj  [:refer [defrecord-updatable-clj]])]))
 
 (enable-console-print!)
 
@@ -62,7 +62,7 @@
 ;; define dummy class which redefines hash, could produce either
 ;; compiler or runtime error
 ;;
-(#?(:cljs defrecord-extendable-cljs :clj defrecord-extendable-clj)
+(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
    HashBeef [x]
   #?@(:cljs [IHash   (-hash  [hb] 0xBEEF)]
       :clj  [IHashEq (hasheq [hb] 0xBEEF)]))
