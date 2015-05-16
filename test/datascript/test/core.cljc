@@ -4,7 +4,7 @@
   (:require
     [cemerick.cljs.test :as t]
     [datascript :as d]
-    [datascript.core
+    [datascript.core :as dc
      #?@(:cljs [:refer-macros [defrecord-updatable-cljs]]
          :clj  [:refer [defrecord-updatable-clj]])]))
 
@@ -69,3 +69,10 @@
 
 (deftest test-defrecord-extendable
   (is (= 0xBEEF (-> (map->HashBeef {:x :ignored}) hash))))
+
+;; whitebox
+(deftest test-db-hash-cache
+  (let [db (dc/empty-db)]
+    (is (= nil (-> (.-__hash db) #?(:clj (deref)))))
+    (let [h (hash db)]
+      (is (= h (-> (.-__hash db) #?(:clj (deref))))))))

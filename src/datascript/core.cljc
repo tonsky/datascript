@@ -296,7 +296,7 @@
 (declare hash-db equiv-db empty-db pr-db resolve-datom validate-attr components->pattern)
 
 (#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
-  DB [schema eavt aevt avet max-eid max-tx rschema]
+  DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -308,11 +308,8 @@
 
       :clj
       [Object               (hashCode [db]      (hash-db db))
-
        clojure.lang.IHashEq (hasheq [db]        (hash-db db))
-
        clojure.lang.Seqable (seq [db]           (seq eavt))
-
        clojure.lang.IPersistentCollection
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
@@ -480,11 +477,13 @@
     :avet    (btset/btset-by cmp-datoms-avet)
     :max-eid 0
     :max-tx  tx0
-    :rschema (rschema schema)}))
+    :rschema (rschema schema)
+    :__hash  (atom nil)}))
 
 (defn init-db [datoms & [schema]]
   (let [datoms  (into-array datoms)
         len     (alength datoms)
+        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0) ; assign before mutable sorts below
         #?@(:cljs
             [eavt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-eavt-quick) cmp-datoms-eavt)
              aevt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-aevt-quick) cmp-datoms-aevt)
@@ -493,7 +492,6 @@
             [eavt    (btset/btset-by datoms cmp-datoms-eavt)
              aevt    (btset/btset-by datoms cmp-datoms-aevt)
              avet    (btset/btset-by datoms cmp-datoms-avet)])
-        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0)
         max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
     (map->DB {
       :schema  (validate-schema schema)
@@ -502,7 +500,8 @@
       :avet    avet
       :max-eid max-eid
       :max-tx  max-tx
-      :rschema (rschema schema)})))
+      :rschema (rschema schema)
+      :__hash  (atom nil)})))
 
 (defn- equiv-db-index [x y]
   (and (= (count x) (count y))
@@ -516,9 +515,10 @@
 (defn- hash-db [db]
   #?(:cljs
      (or (.-__hash db)
-         (set! (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
+         (set!   (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
      :clj
-     (hash-ordered-coll (-datoms db :eavt []))))
+     (or @(.-__hash db)
+         (reset! (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))))
 
 (defn- equiv-db [db other]
   (and (or (instance? DB other) (instance? FilteredDB other))
