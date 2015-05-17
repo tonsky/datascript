@@ -122,7 +122,10 @@
 (deftest test-pull-wildcard
   (is (= {:db/id 1 :name "Petr" :aka ["Devil" "Tupen"]
           :child [{:db/id 2} {:db/id 3}]}
-         (d/pull test-db '[*] 1))))
+         (d/pull test-db '[*] 1)))
+
+  (is (= {:db/id 2 :name "David" :_child [{:db/id 1}]}
+         (d/pull test-db '[* :_child] 2))))
 
 (deftest test-pull-limit
   (let [db (d/init-db

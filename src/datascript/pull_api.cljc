@@ -54,9 +54,12 @@
   (when (seen-eid? frame eid)
     (conj frames (update frame :results conj! {:db/id eid}))))
 
-(defn- recursion-result
-  [frame]
-  (some-> (:kvps frame) persistent! (get ::recursion)))
+(defn- single-frame-result
+  [key frame]
+  (some-> (:kvps frame) persistent! (get key)))
+
+(def ^:private recursion-result
+  (partial single-frame-result ::recursion))
 
 (defn- recursion-frame
   [parent eid]
@@ -157,6 +160,28 @@
         (pull-attr-datoms db attr-key attr eid forward?
                           results opts frames)))))
 
+(def ^:private filter-reverse-attrs
+  (filter (fn [[k v]] (not= k (:attr v)))))
+
+(defn- expand-reverse-subpattern-frame
+  [parent eid rattrs]
+  (-> (:pattern parent)
+      (assoc :attrs rattrs :wildcard? false)
+      (subpattern-frame [eid] false ::expand-rev)))
+
+(defn- expand-result
+  [frames kvps]
+  (->> kvps
+       (persistent!)
+       (update (first frames) :kvps into!)
+       (conj (rest frames))))
+
+(defn- pull-expand-reverse-frame
+  [db [frame & frames]]
+  (->> (or (single-frame-result ::expand-rev frame) {})
+       (into! (:expand-kvps frame))
+       (expand-result frames)))
+
 (defn- pull-expand-frame
   [db [frame & frames]]
   (if-let [datoms-by-attr (seq (:datoms frame))]
@@ -166,11 +191,17 @@
                             (get attr {}))]
       (pull-attr-datoms db attr attr (:eid frame) true datoms opts
                         (conj frames (update frame :datoms rest))))
-    (let [[parent & frames] frames]
-      (->> (:kvps frame)
-           (persistent!)
-           (update parent :kvps into!)
-           (conj frames)))))
+    (if-let [rattrs (->> (get-in frame [:pattern :attrs])
+                         (into {} filter-reverse-attrs)
+                         not-empty)]
+      (let [frame  (assoc frame
+                          :state       :expand-rev
+                          :expand-kvps (:kvps frame)
+                          :kvps        (transient {}))]
+        (->> rattrs
+             (expand-reverse-subpattern-frame frame (:eid frame))
+             (conj frames frame)))
+      (expand-result frames (:kvps frame)))))
 
 (defn- pull-wildcard-expand
   [db frame frames eid pattern]
@@ -215,6 +246,7 @@
   [db frames]
   (case (:state (first frames))
     :expand     (recur db (pull-expand-frame db frames))
+    :expand-rev (recur db (pull-expand-reverse-frame db frames))
     :pattern    (recur db (pull-pattern-frame db frames))
     :recursion  (recur db (pull-recursion-frame db frames))
     :done       (let [[f & remaining] frames
