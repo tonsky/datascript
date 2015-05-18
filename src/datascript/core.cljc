@@ -1,13 +1,13 @@
 (ns datascript.core
   #?(:cljs (:refer-clojure :exclude [array? seqable?]))
-  #?(:cljs (:require-macros [datascript :refer [case-tree combine-cmp raise]]
-                            [datascript.core :refer [defrecord-updatable-cljs]]))
+  #?(:cljs (:require-macros [datascript.core :refer [case-tree combine-cmp raise defrecord-updatable-cljs]]))
   (:require
    #?@(:cljs [[cljs.core :as c]
               [goog.array :as garray]]
-       :clj  [[clojure.core :as c]
-              [datascript :refer [case-tree combine-cmp raise]]])
+       :clj  [[clojure.core :as c]])
    [datascript.btset :as btset]))
+
+;; ----------------------------------------------------------------------------
 
 (def array?
   #?(:cljs c/array?
@@ -33,6 +33,14 @@
      (def UnsupportedOperationException js/Error)))
 
 (def ^:const tx0 0x20000000)
+
+;; ----------------------------------------------------------------------------
+
+#?(:clj
+  (defmacro raise [& fragments]
+    (let [msgs (butlast fragments)
+          data (last fragments)]
+      `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
 
 ;; ----------------------------------------------------------------------------
 
@@ -104,7 +112,7 @@
         (-pr-writer [d writer opts]
                     (pr-sequential-writer writer pr-writer
                                           "#datascript/Datom [" " " "]"
-                                          opts [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)]))
+                                          opts [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)]))
         ]
        :clj
        [Object
@@ -132,7 +140,7 @@
         (assoc [d k v] (assoc-datom k v))
         ]))
 
-(defn datom [e a v & [tx added]]
+(defn ^Datom datom [e a v & [tx added]]
   (Datom. e a v (or tx tx0) (if (nil? added) true added)))
 
 (defn datom? [x] (instance? Datom x))
@@ -159,7 +167,7 @@
     :added (.-added d)
     not-found))
 
-(defn- assoc-datom [^Datom d k v]
+(defn- ^Datom assoc-datom [^Datom d k v]
   (case k
     :e     (Datom. v       (.-a d) (.-v d) (.-tx d) (.-added d))
     :a     (Datom. (.-e d) v       (.-v d) (.-tx d) (.-added d))
@@ -171,19 +179,45 @@
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
 
-(defn datom-from-reader [[e a v tx added]]
+(defn ^Datom datom-from-reader [[e a v tx added]]
   (datom e a v tx added))
 
 #?(:clj
    (defmethod print-method Datom [d, ^java.io.Writer w]
-     (.write w (str "#datascript/Datom ["))
+     (.write w (str "#datascript/Datom "))
      (binding [*out* w]
-       (pr [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)]))
-     (.write w "]")))
+       (pr [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)]))))
 
 ;; ----------------------------------------------------------------------------
-;; datom cmp funcs
+;; datom cmp macros/funcs
 ;;
+
+#?(:clj
+   (defmacro combine-cmp [& comps]
+     (loop [comps (reverse comps)
+            res   0]
+       (if (not-empty comps)
+         (recur
+          (next comps)
+          `(let [c# ~(first comps)]
+             (if (== 0 c#)
+               ~res
+               c#)))
+         res))))
+
+#?(:clj
+   (defn- -case-tree [queries variants]
+     (if queries
+       (let [v1 (take (/ (count variants) 2) variants)
+             v2 (drop (/ (count variants) 2) variants)]
+         (list 'if (first queries)
+               (-case-tree (next queries) v1)
+               (-case-tree (next queries) v2)))
+       (first variants))))
+
+#?(:clj
+   (defmacro case-tree [qs vs]
+     (-case-tree qs vs)))
 
 (defn- cmp [o1 o2]
   (if (and o1 o2)
@@ -319,8 +353,9 @@
   (-attrs-by [db property] ((.-rschema db) property))
 
   ISearch
-  (-search [db [e a v tx]]
-           (let [eavt (.-eavt db)
+  (-search [db pattern]
+           (let [[e a v tx] pattern
+                 eavt (.-eavt db)
                  aevt (.-aevt db)
                  avet (.-avet db)]
              (case-tree [e a (some? v) tx]
@@ -355,7 +390,7 @@
                 (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
   (-index-range [db attr start end]
-                (validate-attr attr)
+                (validate-attr attr {attr [start end]})
                 (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
                              (resolve-datom db nil attr end nil))))
 
@@ -468,7 +503,7 @@
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
   schema)
 
-(defn empty-db [& [schema]]
+(defn ^DB empty-db [& [schema]]
   (map->DB {
     :schema  (validate-schema schema)
     :eavt    (btset/btset-by cmp-datoms-eavt)
@@ -479,7 +514,7 @@
     :rschema (rschema schema)
     #?@(:clj [:__hash (atom nil)])}))
 
-(defn init-db [datoms & [schema]]
+(defn ^DB init-db [datoms & [schema]]
   (if (empty? datoms)
     (empty-db schema)
     (let [_ (validate-schema schema)
@@ -490,9 +525,9 @@
                avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
                max-eid (.-e (first (-rseq eavt)))]
               :clj
-              [eavt    (btset/btset-by datoms cmp-datoms-eavt)
-               aevt    (btset/btset-by datoms cmp-datoms-aevt)
-               avet    (btset/btset-by datoms cmp-datoms-avet)
+              [eavt    (apply btset/btset-by cmp-datoms-eavt datoms)
+               aevt    (apply btset/btset-by cmp-datoms-aevt datoms)
+               avet    (apply btset/btset-by cmp-datoms-avet datoms)
                max-eid (.-e (first (rseq eavt)))])
           max-tx (transduce (map #(.-tx %)) max tx0 eavt)]
       (map->DB {
@@ -544,10 +579,12 @@
      (defn pr-db [db, ^java.io.Writer w]
        (.write w (str "#datascript/DB {"))
        (.write w ":schema ")
-       (.write w (-schema db))
-       (.write w ", :datoms [")
        (binding [*out* w]
-         (apply print (interpose " " (map (fn [d] [(.-e d) (.-a d) (.-v d) (.-t d) (.-added d)])))))
+         (pr (-schema db))
+         (.write w ", :datoms [")
+         (apply pr (interpose " "
+                              (map (fn [d] [(.-e d) (.-a d) (.-v d) (.-tx d)])
+                                   (-datoms db :eavt [])))))
        (.write w "]}"))
 
      (defmethod print-method DB [db, ^java.io.Writer w]
@@ -564,7 +601,7 @@
 (declare entid-strict entid-some ref?)
 
 (defn- resolve-datom [db e a v t]
-  (when a (validate-attr a))
+  (when a (validate-attr a [e a v t]))
   (Datom.
     (entid-some db e)         ;; e
     a                               ;; a
@@ -706,7 +743,7 @@
           :cljs [^boolean reverse-ref?]) [attr]
   (cond
     (keyword? attr)
-    (= "_" (nth (name attr) 0))
+    (= \_ (nth (name attr) 0))
     
     (string? attr)
     (boolean (re-matches #"(?:([^/]+)/)?_([^/]+)" attr))
@@ -724,7 +761,7 @@
 
    (string? attr)
    (let [[_ ns name] (re-matches #"(?:([^/]+)/)?([^/]+)" attr)]
-     (if (= "_" (nth name 0))
+     (if (= \_ (nth name 0))
        (if ns (str ns "/" (subs name 1)) (subs name 1))
        (if ns (str ns "/_" name) (str "_" name))))
    
@@ -822,7 +859,7 @@
               (filter #(component? db (.-a %)))
               (map #(vector :db.fn/retractEntity (.-v %)))) datoms))
 
-(defn- transact-tx-data [report es]
+(defn transact-tx-data [report es]
   (when-not (or (nil? es) (sequential? es))
     (raise "Bad transaction data " es ", expected sequential collection"
            {:error :transact/syntax, :tx-data es}))
@@ -838,16 +875,16 @@
         (let [old-eid      (:db/id entity)
               known-eid    (->> 
                              (cond
-                               (neg? old-eid)   (get-in report [:tempids old-eid])
-                               (tx-id? old-eid) (current-tx report)
-                               :else            old-eid)
+                               (neg-number? old-eid) (get-in report [:tempids old-eid])
+                               (tx-id? old-eid)      (current-tx report)
+                               :else                 old-eid)
                              (entid-some db))
               upserted     (resolve-upsert db (assoc entity :db/id known-eid))
               new-eid      (or (:db/id upserted) (next-eid db))
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (cond
-                             (neg? old-eid) (allocate-eid report old-eid new-eid)
                              (nil? old-eid) (allocate-eid report new-eid)
+                             (neg? old-eid) (allocate-eid report old-eid new-eid)
                              :else report)]
           (recur new-report (concat (explode db new-entity) entities)))
 
@@ -884,12 +921,12 @@
             (and (ref? db a) (tx-id? v))
               (recur report (concat [[op e a (current-tx report)]] entities))
 
-            (neg? e)
+            (neg-number? e)
               (if-let [eid (get-in report [:tempids e])]
                 (recur report (concat [[op eid a v]] entities))
                 (recur (allocate-eid report e (next-eid db)) es))
 
-            (and (ref? db a) (neg? v))
+            (and (ref? db a) (neg-number? v))
               (if-let [vid (get-in report [:tempids v])]
                 (recur report (concat [[op e a vid]] entities))
                 (recur (allocate-eid report v (next-eid db)) es))

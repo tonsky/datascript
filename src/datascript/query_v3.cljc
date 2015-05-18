@@ -3,18 +3,13 @@
     [clojure.set :as set]
     [cemerick.cljs.test :as t]
     [datascript :as d]
-    [datascript.core :as dc]
+    [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]
     [datascript.parser :as dp]
     [datascript.btset :as btset]
-    [datascript.debug :refer-macros [debug do-debug measure minibench]])
-  (:require-macros
-    [datascript :refer [raise]]))
+    [datascript.debug :refer-macros [debug do-debug measure minibench]]))
 
 (defn mapa [f coll]
-  (let [res (js/Array.)]
-    (doseq [el coll]
-      (.push res (f el)))
-    res))
+  (into-array (map f coll)))
 
 (defn concatv [& xs]
   (into [] cat xs))
@@ -264,7 +259,7 @@
 (defn- join-tuples [rel1 t1 idxs1
                    rel2 t2 idxs2
                    arity offset]
-  (let [arr (js/Array. arity)]
+  (let [arr (make-array arity)]
     (-copy-tuple rel1 t1 idxs1 arr 0)
     (-copy-tuple rel2 t2 idxs2 arr offset)
     arr))
@@ -298,7 +293,7 @@
       (-getter rel (first syms))
       (let [idxs (-indexes rel syms)]
         (fn [t]
-          (let [arr (js/Array. arity)]
+          (let [arr (make-array arity)]
             (-copy-tuple rel t idxs arr 0)
             (tuple arr)))))))
 

@@ -1,11 +1,13 @@
 (ns datascript.test.entity
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [deftest is are testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc])
+  #?(:clj (:import [clojure.lang ExceptionInfo])))
+
+
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
@@ -15,6 +17,7 @@
     (is (= (:db/id e) 1))
     (is (identical? (d/entity-db e) db))
     (is (= (:name e) "Ivan"))
+    (is (= (e :name) "Ivan")) ; IFn form
     (is (= (:age  e) 19))
     (is (= (:aka  e) #{"X" "Y"}))
     (is (= (into {} e)
@@ -25,8 +28,10 @@
            {:name "Ivan", :sex "male", :aka #{"Z"}}))
 
     (is (= (pr-str (d/entity db 1) "{:db/id 1}")))
-    (is (= (pr-str (let [e (d/entity db 1)] (:name e) e)) "{:name \"Ivan\", :db/id 1}"))
-    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))))
+    (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))
+    ;; read back in to account for unordered-ness
+    (is (= (edn/read-string (pr-str (let [e (d/entity db 1)] (:name e) e)))
+           (edn/read-string "{:name \"Ivan\", :db/id 1}")))))
 
 (deftest test-entity-refs
   (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref}
@@ -35,7 +40,8 @@
                (d/db-with
                  [{:db/id 1, :children [10]}
                   {:db/id 10, :father 1, :children [100 101]}
-                  {:db/id 100, :father 10}]))
+                  {:db/id 100, :father 10}
+                  {:db/id 101, :father 10}]))
         e  #(d/entity db %)]
 
     (is (= (:children (e 1))   #{(e 10)}))
@@ -62,7 +68,7 @@
       (is (= (:_children (e 1))  nil))
       (is (= (:_father   (e 1))  #{(e 10)}))
       (is (= (:_children (e 10)) #{(e 1)}))
-      (is (= (:_father   (e 10)) #{(e 100)}))
+      (is (= (:_father   (e 10)) #{(e 100) (e 101)}))
       (is (= (-> (e 100) :_children first :_children) #{(e 1)}))
     )))
 

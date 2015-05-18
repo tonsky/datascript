@@ -5,7 +5,7 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure "1.7.0-beta2" :scope "provided"]
+    [org.clojure/clojure "1.7.0-beta3" :scope "provided"]
     [org.clojure/clojurescript "0.0-3211" :scope "provided"]
   ]
   
@@ -17,7 +17,7 @@
   :jvm-opts ["-Xmx2g"]
 
   :aliases {
-    "test-clj" ["test" "datascript.test.btset"]
+    "test-clj" ["test" "datascript.test.btset" "datascript.test.entity"]
   }
   
   :cljsbuild { 

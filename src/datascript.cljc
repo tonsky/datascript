@@ -1,11 +1,12 @@
 (ns datascript
   (:refer-clojure :exclude [filter])
   (:require
-    [datascript.core :as dc]
-    [datascript.pull-api :as dp]
-    [datascript.query :as dq]
-    [datascript.impl.entity :as de]
-    [datascript.btset :as btset]))
+   [datascript.core :as dc #?@(:cljs [:refer [FilteredDB]])]
+   [datascript.pull-api :as dp]
+   [datascript.query :as dq]
+   [datascript.impl.entity :as de]
+   [datascript.btset :as btset])
+  #?(:clj (:import [datascript.core FilteredDB])))
 
 ;; SUMMING UP
 
@@ -28,17 +29,16 @@
 
 (def ^:const tx0 dc/tx0)
 
-(defn is-filtered [db]
-  (instance? dc/FilteredDB db))
+(def  is-filtered dc/filtered-db?)
 
 (defn filter [db pred]
   (if (is-filtered db)
     (let [u (.-unfiltered-db db)]
-      (dc/FilteredDB. u #(and (pred u %) ((.-pred db) %))))
-    (dc/FilteredDB. db #(pred db %))))
+      (FilteredDB. u #(and (pred u %) ((.-pred db) %))))
+    (FilteredDB. db #(pred db %))))
 
 (defn with [db tx-data & [tx-meta]]
-  (if (is-filtered db)
+  (if (filtered-db? db)
     (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
     (dc/transact-tx-data (dc/map->TxReport
                            { :db-before db
@@ -89,8 +89,13 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
-(cljs.reader/register-tag-parser! "datascript/Datom" dc/datom-from-reader)
-(cljs.reader/register-tag-parser! "datascript/DB"    dc/db-from-reader)
+#?(:cljs
+   (do
+     (cljs.reader/register-tag-parser! "datascript/Datom" dc/datom-from-reader)
+     (cljs.reader/register-tag-parser! "datascript/DB"    dc/db-from-reader))
+   :clj
+   (set! *data-readers* (merge *data-readers* '{datascript.core/Datom datom-from-reader
+                                                datascript.core/DB    db-from-reader})))
 
 ;; Datomic compatibility layer
 
@@ -113,26 +118,36 @@
 
 (defn transact [conn tx-data & [tx-meta]]
   (let [res (transact! conn tx-data tx-meta)]
-    (reify
-      IDeref
-      (-deref [_] res)
-      IDerefWithTimeout
-      (-deref-with-timeout [_ _ _] res)
-      IPending
-      (-realized? [_] true))))
+    #?(:cljs
+       (reify
+         IDeref
+         (-deref [_] res)
+         IDerefWithTimeout
+         (-deref-with-timeout [_ _ _] res)
+         IPending
+         (-realized? [_] true))
+       :clj
+       (reify
+         clojure.lang.IDeref
+         (deref [_] res)
+         clojure.lang.IBlockingDeref
+         (deref [_ _ _] res)
+         clojure.lang.IPending
+         (isRealized [_] true)))))
 
 ;; ersatz future without proper blocking
-(defn- future-call [f]
-  (let [res      (atom nil)
-        realized (atom false)]
-    (js/setTimeout #(do (reset! res (f)) (reset! realized true)) 0)
-    (reify
-      IDeref
-      (-deref [_] @res)
-      IDerefWithTimeout
-      (-deref-with-timeout [_ _ timeout-val] (if @realized @res timeout-val))
-      IPending
-      (-realized? [_] @realized))))
+#?(:cljs
+   (defn- future-call [f]
+     (let [res      (atom nil)
+           realized (atom false)]
+       (js/setTimeout #(do (reset! res (f)) (reset! realized true)) 0)
+       (reify
+         IDeref
+         (-deref [_] @res)
+         IDerefWithTimeout
+         (-deref-with-timeout [_ _ timeout-val] (if @realized @res timeout-val))
+         IPending
+         (-realized? [_] @realized)))))
 
 (defn transact-async [conn tx-data & [tx-meta]]
   (future-call #(transact! conn tx-data tx-meta)))
@@ -169,6 +184,7 @@
                (-> (rand-bits 16) (to-hex-string 4))))))
 
 (defn squuid-time-millis [uuid]
-  (-> (subs (.-uuid uuid) 0 8)
-      (js/parseInt 16)
+  (-> (subs (:uuid uuid) 0 8)
+      #?(:clj  (Integer/parseInt 16)
+         :cljs (js/parseInt 16))
       (* 1000)))

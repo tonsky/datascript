@@ -1,11 +1,9 @@
 (ns datascript.parser
-  (:refer-clojure
-    :exclude [distinct?])
-  (:require-macros
-    [datascript :refer [raise ]]
-    [datascript.parser :refer [deftrecord]])
+  (:refer-clojure :exclude [distinct?])
+  #?(:cljs (:require-macros [datascript.parser :refer [deftrecord]]))
   (:require
-    [clojure.set :as set]))
+   [clojure.set :as set]
+   [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]))
 
 ;; utils
 
@@ -15,6 +13,27 @@
   (-collect      [_ pred acc])
   (-collect-vars [_ acc])
   (-postwalk     [_ f]))
+
+#?(:clj
+   (defmacro deftrecord
+     "Augment all datascript.parser/ records with default implementation of ITraversable"
+     [tagname fields & rest]
+     (let [f    (gensym "f")
+           pred (gensym "pred")
+           acc  (gensym "acc")]
+       `(defrecord ~tagname ~fields
+          ITraversable
+          (~'-postwalk [this# ~f]
+            (let [new# (new ~tagname ~@(map #(list 'datascript.parser/postwalk % f) fields))]
+              (set! (.-__meta new#) (meta this#))
+              new#))
+          (~'-collect [_# ~pred ~acc]
+            ;; [x y z] -> (collect pred z (collect pred y (collect pred x acc)))
+            ~(reduce #(list 'datascript.parser/collect pred %2 %1) acc fields))
+          (~'-collect-vars [_# ~acc]
+            ;; [x y z] -> (collect-vars-acc (collect-vars-acc (collect-vars-acc acc x) y) z)
+            ~(reduce #(list 'datascript.parser/collect-vars-acc %1 %2) acc fields))
+          ~@rest))))
 
 (defn of-size? [form size]
   (and (sequential? form)
@@ -32,7 +51,7 @@
     (cond
       (pred form)     (conj acc form)
       (satisfies? ITraversable form) (-collect form pred acc)
-      (seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
+      (dc/seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
       :else acc)))
 
 (defn distinct? [coll]
@@ -77,12 +96,12 @@
 
 (defn parse-variable [form]
   (when (and (symbol? form)
-             (= (first (name form)) "?"))
+             (= (first (name form)) \?))
     (Variable. form)))
 
 (defn parse-src-var [form]
   (when (and (symbol? form)
-             (= (first (name form)) "$"))
+             (= (first (name form)) \$))
     (SrcVar. form)))
 
 (defn parse-rules-var [form]
@@ -439,22 +458,22 @@
 
 (defn- collect-vars-acc [acc form]
   (cond
+    (instance? Variable form)
+      (conj acc form)
+    (instance? Not form)
+      (into acc (.-vars form))
+    (instance? Or form)
+      (collect-vars-acc acc (.-rule-vars form))
     (satisfies? ITraversable form)
       (-collect-vars form acc)
     (sequential? form)
       (reduce collect-vars-acc acc form)
     :else acc))
 
-;; Some overrides
-(extend-protocol ITraversable
-  Variable (-collect-vars [form acc] (conj acc form))
-  Not      (-collect-vars [form acc] (into acc (.-vars form)))
-  Or       (-collect-vars [form acc] (collect-vars-acc acc (.-rule-vars form))))
-
 (defn- collect-vars [form]
   (collect-vars-acc [] form))
     
-(defn- collect-vars-distinct [form]
+(defn collect-vars-distinct [form]
   (vec (distinct (collect-vars form))))
 
 (defn- validate-join-vars [vars clauses form]

@@ -1,40 +1,41 @@
 (ns datascript.test.core
-  (:require-macros
-    [cemerick.cljs.test :refer [deftest is are testing with-test-out]])
   (:require
-    [cemerick.cljs.test :as t]
-    [datascript :as d]
-    [datascript.core :as dc
-     #?@(:cljs [:refer-macros [defrecord-updatable-cljs]]
-         :clj  [:refer [defrecord-updatable-clj]])]))
+   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [deftest is are testing with-test-out]]
+   [datascript :as d]
+   [datascript.impl.entity :as de]
+   [datascript.core :as dc #?@(:cljs [:refer-macros [defrecord-updatable-cljs]]
+                                     :clj  [:refer [defrecord-updatable-clj]])]))
 
-(enable-console-print!)
+#?(:cljs
+   (enable-console-print!))
 
 ;; Added special case for printing ex-data of ExceptionInfo
-(defmethod t/report :error [{:keys [test-env] :as m}]
-  (with-test-out test-env
-   (t/inc-report-counter test-env :error)
-   (println "\nERROR in" (t/testing-vars-str m))
-   (when (seq (::test-contexts @test-env))
-      (println (t/testing-contexts-str test-env)))
-   (when-let [message (:message m)] (println message))
-   (println "expected:" (pr-str (:expected m)))
-   (print "  actual: ")
-   (let [actual (:actual m)]
-     (cond
-       (instance? ExceptionInfo actual)
-         (println (.-stack actual) "\n" (ex-data actual))
-       (instance? js/Error actual)
-         (println (.-stack actual))
-       :else
-         (prn actual)))))
+#?(:cljs
+   (defmethod t/report :error [{:keys [test-env] :as m}]
+     (with-test-out test-env
+       (t/inc-report-counter test-env :error)
+       (println "\nERROR in" (t/testing-vars-str m))
+       (when (seq (::test-contexts @test-env))
+         (println (t/testing-contexts-str test-env)))
+       (when-let [message (:message m)] (println message))
+       (println "expected:" (pr-str (:expected m)))
+       (print "  actual: ")
+       (let [actual (:actual m)]
+         (cond
+           (instance? ExceptionInfo actual)
+           (println (.-stack actual) "\n" (ex-data actual))
+           (instance? js/Error actual)
+           (println (.-stack actual))
+           :else
+           (prn actual))))))
 
 ;; utils
 
 (defn entity-map [db e]
   (when-let [entity (d/entity db e)]
     (->> (assoc (into {} entity) :db/id (:db/id entity))
-         (clojure.walk/postwalk #(if (instance? datascript.impl.entity/Entity %)
+         (clojure.walk/postwalk #(if (de/entity? %)
                                      {:db/id (:db/id %)}
                                      %)))))
 
@@ -58,21 +59,37 @@
 
 
 ;;
-;; verify that defrecord-extendable works with compiler/core macro configuration
+;; verify that defrecord-updatable works with compiler/core macro configuration
 ;; define dummy class which redefines hash, could produce either
 ;; compiler or runtime error
 ;;
 (#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
    HashBeef [x]
-  #?@(:cljs [IHash   (-hash  [hb] 0xBEEF)]
-      :clj  [IHashEq (hasheq [hb] 0xBEEF)]))
+  #?@(:cljs [IHash                (-hash  [hb] 0xBEEF)]
+      :clj  [clojure.lang.IHashEq (hasheq [hb] 0xBEEF)]))
 
-(deftest test-defrecord-extendable
+(deftest test-defrecord-updatable
   (is (= 0xBEEF (-> (map->HashBeef {:x :ignored}) hash))))
 
-;; whitebox
+
+
+;; whitebox test to confirm that hash cache caches
 (deftest test-db-hash-cache
   (let [db (dc/empty-db)]
     (is (= nil (-> (.-__hash db) #?(:clj (deref)))))
     (let [h (hash db)]
       (is (= h (-> (.-__hash db) #?(:clj (deref))))))))
+
+
+
+;; confirm (de)-serialization
+(deftest test-serialization
+  (let [d  (dc/datom 1 :foo "bar" 25 true)
+        db (dc/init-db [d] nil)]
+    (testing "datom"
+      (is (= (pr-str d) "#datascript/Datom [1 :foo \"bar\" 25 true]"))
+      (is (= d (dc/datom-from-reader [1 :foo "bar" 25 true]))))
+    (testing "db"
+      (is (= (pr-str db) "#datascript/DB {:schema nil, :datoms [[1 :foo \"bar\" 25]]}"))
+      (is (= db (dc/db-from-reader {:schema nil, :datoms [[1 :foo "bar" 25]]})))
+      )))

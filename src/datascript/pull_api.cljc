@@ -1,7 +1,8 @@
 (ns datascript.pull-api
   (:require
    [datascript.core :as dc]
-   [datascript.pull-parser :as dpp]))
+   [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])
+  #?(:clj (:import [datascript.pull_parser PullSpec])))
 
 (defn- into!
   [transient-coll items]
@@ -94,7 +95,7 @@
               :recursion recursion
               :results (transient [])})))))
 
-(let [pattern  (dpp/PullSpec. true {})]
+(let [pattern (PullSpec. true {})]
   (defn- expand-frame
     [parent eid attr-key multi? eids]
     (let [rec (push-recursion (:recursion parent) attr-key eid)]
