@@ -30,8 +30,7 @@
    (do
      (def Exception js/Error)
      (def IllegalArgumentException js/Error)
-     (def UnsupportedOperationException js/Error)
-     (def Boolean boolean)))
+     (def UnsupportedOperationException js/Error)))
 
 (def ^:const tx0 0x20000000)
 
@@ -582,16 +581,20 @@
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
-(defn ^Boolean is-attr? [db attr property]
+(defn #?@(:clj  [^Boolean is-attr?]
+          :cljs [^boolean is-attr?]) [db attr property]
   (contains? (-attrs-by db property) attr))
 
-(defn ^Boolean multival? [db attr]
+(defn #?@(:clj  [^Boolean multival?]
+          :cljs [^boolean multival?]) [db attr]
   (is-attr? db attr :db.cardinality/many))
 
-(defn ^Boolean ref? [db attr]
+(defn #?@(:clj  [^Boolean ref?]
+          :cljs [^boolean ref?]) [db attr]
   (is-attr? db attr :db.type/ref))
 
-(defn ^Boolean component? [db attr]
+(defn #?@(:clj  [^Boolean component?]
+          :cljs [^boolean component?]) [db attr]
   (is-attr? db attr :db/isComponent))
 
 (defn entid [db eid]
@@ -669,7 +672,8 @@
       (assoc-in [:tempids e] eid)
       (update-in [:db-after] advance-max-eid eid))))
 
-(defn- ^Boolean tx-id? [e]
+(defn- #?@(:clj  [^Boolean tx-id?]
+           :cljs [^boolean tx-id?]) [e]
   (or (= e :db/current-tx)
       (= e ":db/current-tx"))) ;; for datascript.js interop
 
@@ -695,7 +699,8 @@
       (update-in [:db-after] with-datom datom)
       (update-in [:tx-data] conj datom)))
 
-(defn ^Boolean reverse-ref? [attr]
+(defn #?@(:clj  [^Boolean reverse-ref?]
+          :cljs [^boolean reverse-ref?]) [attr]
   (cond
     (keyword? attr)
     (= "_" (nth (name attr) 0))
