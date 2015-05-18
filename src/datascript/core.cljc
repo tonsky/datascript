@@ -477,30 +477,33 @@
     :max-eid 0
     :max-tx  tx0
     :rschema (rschema schema)
-    :__hash  (atom nil)}))
+    #?@(:clj [:__hash (atom nil)])}))
 
 (defn init-db [datoms & [schema]]
-  (let [datoms  (into-array datoms)
-        len     (alength datoms)
-        max-eid (if (pos? len) (.-e (aget datoms (dec len))) 0) ; assign before mutable sorts below
-        #?@(:cljs
-            [eavt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-eavt-quick) cmp-datoms-eavt)
-             aevt    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-aevt-quick) cmp-datoms-aevt)
-             avet    (btset/-btset-from-sorted-arr (.sort datoms cmp-datoms-avet-quick) cmp-datoms-avet)]
-            :clj
-            [eavt    (btset/btset-by datoms cmp-datoms-eavt)
-             aevt    (btset/btset-by datoms cmp-datoms-aevt)
-             avet    (btset/btset-by datoms cmp-datoms-avet)])
-        max-tx  (transduce (map #(.-tx %)) max tx0 datoms)]
-    (map->DB {
-      :schema  (validate-schema schema)
-      :eavt    eavt
-      :aevt    aevt
-      :avet    avet
-      :max-eid max-eid
-      :max-tx  max-tx
-      :rschema (rschema schema)
-      :__hash  (atom nil)})))
+  (if (empty? datoms)
+    (empty-db schema)
+    (let [_ (validate-schema schema)
+          #?@(:cljs
+              [ds-arr  (into-array datoms)
+               eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
+               aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
+               avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
+               max-eid (.-e (first (-rseq eavt)))]
+              :clj
+              [eavt    (btset/btset-by datoms cmp-datoms-eavt)
+               aevt    (btset/btset-by datoms cmp-datoms-aevt)
+               avet    (btset/btset-by datoms cmp-datoms-avet)
+               max-eid (.-e (first (rseq eavt)))])
+          max-tx (transduce (map #(.-tx %)) max tx0 eavt)]
+      (map->DB {
+        :schema  schema
+        :eavt    eavt
+        :aevt    aevt
+        :avet    avet
+        :max-eid max-eid
+        :max-tx  max-tx
+        :rschema (rschema schema)
+        #?@(:clj [:__hash (atom nil)])}))))
 
 (defn- equiv-db-index [x y]
   (and (= (count x) (count y))
