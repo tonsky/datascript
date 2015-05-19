@@ -79,17 +79,3 @@
     (is (= nil (-> (.-__hash db) #?(:clj (deref)))))
     (let [h (hash db)]
       (is (= h (-> (.-__hash db) #?(:clj (deref))))))))
-
-
-
-;; confirm (de)-serialization
-(deftest test-serialization
-  (let [d  (dc/datom 1 :foo "bar" 25 true)
-        db (dc/init-db [d] nil)]
-    (testing "datom"
-      (is (= (pr-str d) "#datascript/Datom [1 :foo \"bar\" 25 true]"))
-      (is (= d (dc/datom-from-reader [1 :foo "bar" 25 true]))))
-    (testing "db"
-      (is (= (pr-str db) "#datascript/DB {:schema nil, :datoms [[1 :foo \"bar\" 25]]}"))
-      (is (= db (dc/db-from-reader {:schema nil, :datoms [[1 :foo "bar" 25]]})))
-      )))

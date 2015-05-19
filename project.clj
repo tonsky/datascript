@@ -17,7 +17,7 @@
   :jvm-opts ["-Xmx2g"]
 
   :aliases {
-    "test-clj" ["test" "datascript.test.btset" "datascript.test.entity"]
+    "test-clj" ["test" "datascript.test.btset" "datascript.test.entity" "datascript.test.serialization"]
   }
   
   :cljsbuild { 

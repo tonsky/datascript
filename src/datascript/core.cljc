@@ -9,6 +9,10 @@
 
 ;; ----------------------------------------------------------------------------
 
+(defn arr [size]
+  #?(:cljs (make-array size)
+     :clj  (make-array java.lang.Object size)))
+
 (def array?
   #?(:cljs c/array?
      :clj  (fn array? [x] (-> x .getClass .isArray))))
@@ -394,7 +398,7 @@
                 (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
                              (resolve-datom db nil attr end nil))))
 
-(defn db? [x] (instance? DB x))
+(defn db? [x] (and (instance? ISearch x) (instance? IIndexAccess x) (instance? IDB x)))
 
 ;; ----------------------------------------------------------------------------
 (#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
@@ -582,9 +586,7 @@
        (binding [*out* w]
          (pr (-schema db))
          (.write w ", :datoms [")
-         (apply pr (interpose " "
-                              (map (fn [d] [(.-e d) (.-a d) (.-v d) (.-tx d)])
-                                   (-datoms db :eavt [])))))
+         (apply pr (map (fn [d] [(.-e d) (.-a d) (.-v d) (.-tx d)]) (-datoms db :eavt []))))
        (.write w "]}"))
 
      (defmethod print-method DB [db, ^java.io.Writer w]
@@ -601,7 +603,7 @@
 (declare entid-strict entid-some ref?)
 
 (defn- resolve-datom [db e a v t]
-  (when a (validate-attr a [e a v t]))
+  (when a (validate-attr a (list 'resolve-datom 'db e a v t)))
   (Datom.
     (entid-some db e)         ;; e
     a                               ;; a

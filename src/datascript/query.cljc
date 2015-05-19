@@ -14,10 +14,6 @@
                     Constant FindColl FindRel FindScalar FindTuple PlainSymbol
                     RulesVar SrcVar Variable])))
 
-(defn make-obj-array [size]
-  #?(:cljs (make-array size)
-     :clj  (make-array java.lang.Object size)))
-
 (def ^:const lru-cache-size 100)
 (declare built-ins)
 
@@ -78,12 +74,6 @@
 
 ;; LRU cache
 
-;; XXX intentionally unused?  ICache/-cleanup vs. Object/cleanup
-;; core.cache?
-#?(:cljs
-   (defprotocol ICache
-     (-cleanup [_])))
-
 #?(:cljs
    (deftype LRU [key-value gen-key key-gen gen limit]
      Object
@@ -131,7 +121,7 @@
 (defn join-tuples [t1 idxs1 t2 idxs2]
   (let [l1  (alength idxs1)
         l2  (alength idxs2)
-        res (make-obj-array (+ l1 l2))]
+        res (dc/arr (+ l1 l2))]
     (dotimes [i l1]
       (aset res i (aget t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
@@ -142,7 +132,7 @@
   (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
 
 (defn prod-rel
-  ([] (Relation. {} [(make-obj-array 0)]))
+  ([] (Relation. {} [(dc/arr 0)]))
   ([rel1 rel2]
     (let [attrs1 (keys (:attrs rel1))
           attrs2 (keys (:attrs rel2))
@@ -650,7 +640,7 @@
 (defn -collect
   ([context symbols]
     (let [rels (:rels context)]
-      (-collect [(make-obj-array (count symbols))] rels symbols)))
+      (-collect [(dc/arr (count symbols))] rels symbols)))
   ([acc rels symbols]
     (if-let [rel (first rels)]
       (let [keep-attrs (select-keys (:attrs rel) symbols)]

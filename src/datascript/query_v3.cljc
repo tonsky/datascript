@@ -9,7 +9,14 @@
     [datascript.debug :refer-macros [debug do-debug measure minibench]]))
 
 (defn mapa [f coll]
-  (into-array (map f coll)))
+  #?(:cljs
+     ;; perf optimization, instead of using into-array as in CLJ
+     (let [res (js/Array.)]
+       (doseq [el coll]
+         (.push res (f el)))
+       res)
+     :clj
+     (into-array (map f coll))))
 
 (defn concatv [& xs]
   (into [] cat xs))

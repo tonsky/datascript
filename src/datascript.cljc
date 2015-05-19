@@ -89,13 +89,21 @@
 (defn unlisten! [conn key]
   (swap! (:listeners (meta conn)) dissoc key))
 
+
+;; ----------------------------------------------------------------------------
+;; define data-readers to be made available to EDN readers. in CLJS
+;; they're magically available. in CLJ, data_readers.clj may or may
+;; not work, but you can always simply do
+;;
+;;  (clojure.edn/read-string {:readers datascript/data-readers} "...")
+;;
+
+(def data-readers {'datascript/Datom dc/datom-from-reader
+                   'datascript/DB    dc/db-from-reader})
+
 #?(:cljs
-   (do
-     (cljs.reader/register-tag-parser! "datascript/Datom" dc/datom-from-reader)
-     (cljs.reader/register-tag-parser! "datascript/DB"    dc/db-from-reader))
-   :clj
-   (set! *data-readers* (merge *data-readers* '{datascript.core/Datom datom-from-reader
-                                                datascript.core/DB    db-from-reader})))
+   (doseq [[tag cb] data-readers] (cljs.reader/register-tag-parser! tag cb)))
+
 
 ;; Datomic compatibility layer
 
