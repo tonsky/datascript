@@ -7,37 +7,47 @@
    [datascript.test.core :as tdc])
   #?(:clj (:import [clojure.lang ExceptionInfo])))
 
-(defn- read-string* [in]
-  #?(:cljs (cljs.reader/read-string in)
-     :clj  (let [outs [(clojure.edn/read-string {:readers d/data-readers} in)
-                       (binding [*data-readers* d/data-readers] (read-string in))
-                       (read-string in)]]
-             (assert (apply = outs))
-             (first outs))))
+(def readers
+  { #?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
+        :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
+               "clojure.core/read-string" read-string]) })
 
 (deftest test-pr-read
-  (let [d (dc/datom 1 :name 3 17 true)]
-    (is (= d (read-string* (pr-str d)))))
-  (let [d (dc/datom 1 :name 3 nil nil)]
-    (is (= d (read-string* (pr-str d)))))
+  (doseq [[r read-fn] readers]
+    (testing r
+      (let [d (dc/datom 1 :name "Oleg" 17 true)]
+        (is (= (pr-str d) "#datascript/Datom [1 :name \"Oleg\" 17 true]"))
+        (is (= d (read-fn (pr-str d)))))
+      
+      (let [d (dc/datom 1 :name 3)]
+        (is (= (pr-str d) "#datascript/Datom [1 :name 3 536870912 true]"))
+        (is (= d (read-fn (pr-str d)))))
+      
+      (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+                   (d/db-with [ [:db/add 1 :name "Petr"]
+                                [:db/add 1 :age 44] ])
+                   (d/db-with [ [:db/add 2 :name "Ivan"] ]))]
+        (is (= (pr-str db)
+               (str "#datascript/DB {"
+                    ":schema {:name {:db/unique :db.unique/identity}}, "
+                    ":datoms ["
+                      "[1 :age 44 536870913] "
+                      "[1 :name \"Petr\" 536870913] "
+                      "[2 :name \"Ivan\" 536870914]"
+                    "]}")))
+        (is (= db (read-fn (pr-str db))))))))
 
-  (let [db (-> (d/empty-db)
-               (d/db-with [ [:db/add 1 :name "Petr"]
-                            [:db/add 1 :age 44]
-                            [:db/add 2 :name "Ivan"]
-                            [:db/add 2 :age 25]
-                            [:db/add 3 :name "Sergey"]
-                            [:db/add 3 :age 11]]))]
-    (is (= db (read-string* (pr-str db))))))
-
-;; confirm (de)-serialization
-(deftest test-serialization
-  (let [d  (dc/datom 1 :foo "bar" 25 true)
-        db (dc/init-db [d] nil)]
-    (testing "datom"
-      (is (= (pr-str d) "#datascript/Datom [1 :foo \"bar\" 25 true]"))
-      (is (= d (dc/datom-from-reader [1 :foo "bar" 25 true]))))
-    (testing "db"
-      (is (= (pr-str db) "#datascript/DB {:schema nil, :datoms [[1 :foo \"bar\" 25]]}"))
-      (is (= db (dc/db-from-reader {:schema nil, :datoms [[1 :foo "bar" 25]]})))
-      )))
+#?(:clj
+  (deftest test-reader-literals
+    (is (= #datascript/Datom [1 :name "Oleg"]
+                    (dc/datom 1 :name "Oleg")))
+    (is (= #datascript/Datom [1 :name "Oleg" 100 false]
+                    (dc/datom 1 :name "Oleg" 100 false)))
+    ;; FIXME doesn’t work for some reason
+    #_(is (= #datascript/DB {:schema {:name {:db/unique :db.unique/identity}}
+                           :datoms [[1 :name "Oleg" 100] [1 :age 14 100] [2 :name "Petr" 101]]}
+           (d/init-db 
+             [ (dc/datom 1 :name "Oleg" 100)
+               (dc/datom 1 :age 14 100)
+               (dc/datom 2 :name "Petr" 101) ]
+             {:name {:db/unique :db.unique/identity}})))))

@@ -1,5 +1,6 @@
 language: clojure
 script: lein do clean, cljsbuild test, test-clj
+sudo: false
 
 notifications:
   webhooks:
