@@ -394,7 +394,7 @@
                 (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
   (-index-range [db attr start end]
-                (validate-attr attr {attr [start end]})
+                (validate-attr attr (list '-index-range 'db attr start end))
                 (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
                              (resolve-datom db nil attr end nil))))
 
@@ -457,8 +457,6 @@
 
   (-index-range [db attr start end]
                 (filter (.-pred db) (-index-range (.-unfiltered-db db) attr start end))))
-
-(defn filtered-db? [x] (instance? FilteredDB x))
 
 ;; ----------------------------------------------------------------------------
 

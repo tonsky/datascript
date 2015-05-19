@@ -25,11 +25,11 @@
 
 (def  datom? dc/datom?)
 (def  db? dc/db?)
-(def  filtered-db? dc/filtered-db?)
 
 (def ^:const tx0 dc/tx0)
 
-(def  is-filtered dc/filtered-db?)
+(defn is-filtered [x]
+  (instance? FilteredDB x))
 
 (defn filter [db pred]
   (if (is-filtered db)
@@ -38,7 +38,7 @@
     (FilteredDB. db #(pred db %))))
 
 (defn with [db tx-data & [tx-meta]]
-  (if (filtered-db? db)
+  (if (is-filtered db)
     (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
     (dc/transact-tx-data (dc/map->TxReport
                            { :db-before db

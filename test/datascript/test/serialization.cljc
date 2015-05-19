@@ -7,9 +7,13 @@
    [datascript.test.core :as tdc])
   #?(:clj (:import [clojure.lang ExceptionInfo])))
 
-(defn- read-string* [x]
-  #?(:cljs (cljs.reader/read-string x)
-     :clj  (clojure.edn/read-string {:readers d/data-readers} x)))
+(defn- read-string* [in]
+  #?(:cljs (cljs.reader/read-string in)
+     :clj  (let [outs [(clojure.edn/read-string {:readers d/data-readers} in)
+                       (binding [*data-readers* d/data-readers] (read-string in))
+                       (read-string in)]]
+             (assert (apply = outs))
+             (first outs))))
 
 (deftest test-pr-read
   (let [d (dc/datom 1 :name 3 17 true)]
@@ -37,12 +41,3 @@
       (is (= (pr-str db) "#datascript/DB {:schema nil, :datoms [[1 :foo \"bar\" 25]]}"))
       (is (= db (dc/db-from-reader {:schema nil, :datoms [[1 :foo "bar" 25]]})))
       )))
-
-#_(deftest test-automatic-data-readers
-  ;; failing miserably in CLJ, not sure why. REPL half works, test-clj
-  ;; can't find the tag; data_readers may be constrainted for unit
-  ;; tests?
-  ;; comment out since the reader still fails to parse if only in #_
-  ;;(is (= (dc/datom 1 :foo "bar" 1) #datascript/Datom [1 :foo "bar" 1]))
-  ;;(is (= (dc/empty-db)             #datascript/DB {:schema nil, :datoms nil}))
-  )
