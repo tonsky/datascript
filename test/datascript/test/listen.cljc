@@ -1,11 +1,9 @@
 (ns datascript.test.listen
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc]))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)
@@ -24,16 +22,16 @@
     (d/transact! conn [[:db/add -1 :name "Geogry"]])
     
     (is (= (:tx-data (first @reports))
-           [(dc/Datom. 3 :name "Dima"   (+ d/tx0 2) true)
-            (dc/Datom. 3 :age 19        (+ d/tx0 2) true)
-            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 2) true)]))
+           [(dc/datom 3 :name "Dima"   (+ d/tx0 2) true)
+            (dc/datom 3 :age 19        (+ d/tx0 2) true)
+            (dc/datom 4 :name "Evgeny" (+ d/tx0 2) true)]))
     (is (= (:tx-meta (first @reports))
            {:some-metadata 1}))
     (is (= (:tx-data (second @reports))
-           [(dc/Datom. 5 :name "Fedor"  (+ d/tx0 3) true)
-            (dc/Datom. 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
-            (dc/Datom. 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
-            (dc/Datom. 4 :name "Evgeny" (+ d/tx0 3) false)]))
+           [(dc/datom 5 :name "Fedor"  (+ d/tx0 3) true)
+            (dc/datom 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
+            (dc/datom 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
+            (dc/datom 4 :name "Evgeny" (+ d/tx0 3) false)]))
     (is (= (:tx-meta (second @reports))
            nil))
     ))

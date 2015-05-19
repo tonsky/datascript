@@ -1,17 +1,18 @@
 (ns datascript.test.explode
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc]))
+
+#?(:cljs
+   (def Throwable js/Error))
 
 (deftest test-explode
   (doseq [coll [["Devil" "Tupen"]
                 #{"Devil" "Tupen"}
                 '("Devil" "Tupen")
-                #js ["Devil" "Tupen"]]]
+                (dc/into-arr ["Devil" "Tupen"])]]
     (testing coll
       (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
                                  :also { :db/cardinality :db.cardinality/many} })]
@@ -50,7 +51,7 @@
                            [?e :name ?n]] db)
              #{["Petr"] ["Evgeny"]})))
     
-    (is (thrown-with-msg? js/Error #"Bad attribute :_parent"
+    (is (thrown-with-msg? Throwable #"Bad attribute :_parent"
       (d/db-with db0 [{:name "Sergey" :_parent 1}])))))
 
 (deftest test-explode-nested-maps

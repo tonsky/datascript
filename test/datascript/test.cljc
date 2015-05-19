@@ -1,6 +1,6 @@
 (ns datascript.test
   (:require
-    [cemerick.cljs.test :as t]
+    [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
      datascript.test.core
    
      datascript.test.btset

@@ -1,13 +1,13 @@
 (ns datascript.test.perf
   (:require
-    [datascript.btset :as btset]
-    [datascript :as d]
-    [datascript.core :as dc]
-    [datascript.perf :as perf]
-    [datascript.parser :as dp]
-    [goog.array :as garray]))
+   [datascript :as d]
+   [datascript.btset :as btset]
+   [datascript.core :as dc]
+   [datascript.parser :as dp]
+   [datascript.perf :as perf]))
 
-(enable-console-print!)
+#?(:cljs
+   (enable-console-print!))
 
 ;; Performance
 
@@ -42,7 +42,7 @@
         people (map #(assoc %1 :db/id %2) people (range))
         datoms (mapcat (fn [person]
                          (map (fn [[k v]]
-                                (dc/Datom. (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
+                                (dc/datom (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
                               (dissoc person :db/id)))
                        people)]
     (assoc opts :datoms (vec datoms))))
@@ -60,8 +60,8 @@
 (defn sort-merge-join [db eis a]
   (let [min-e nil ;;(first eis)
         max-e nil ;;(nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
-                                       (dc/Datom. max-e a nil nil nil))]
+        datoms (btset/slice (:aevt db) (dc/datom min-e a nil nil nil)
+                                       (dc/datom max-e a nil nil nil))]
     (loop [_res []
            _ds  datoms
            _es  eis]
@@ -79,8 +79,8 @@
 ;;   (.log js/console (str "eis: " (count eis)))
   (let [min-e nil ;; (first eis)
         max-e nil ;; (nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/Datom. min-e a nil nil nil)
-                                       (dc/Datom. max-e a nil nil nil))
+        datoms (btset/slice (:aevt db) (dc/datom min-e a nil nil nil)
+                                       (dc/datom max-e a nil nil nil))
 ;;        _ (.time js/console "hash")
         hashmap (reduce (fn [m d] (assoc m (.-e d) (conj (get m (.-e d) '()) (.-v d)))) {} datoms)
 ;;        _ (.timeEnd js/console "hash")
@@ -88,7 +88,7 @@
 ;;        _ (.time js/console "join")
         res     (reduce (fn [acc e] (if-let [vs (get hashmap e)]
                                       (reduce (fn [acc v]
-                                                (conj acc #js [e v]))
+                                                (conj acc (dc/into-arr [e v])))
                                                 acc vs)
                                       acc))
                                       [] eis)

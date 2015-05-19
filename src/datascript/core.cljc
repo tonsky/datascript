@@ -13,6 +13,10 @@
   #?(:cljs (make-array size)
      :clj  (make-array java.lang.Object size)))
 
+(defn into-arr [aseq]
+  #?(:cljs (into-array aseq)
+     :clj  (into-array java.lang.Object aseq)))
+
 (def array?
   #?(:cljs c/array?
      :clj  (fn array? [x] (-> x .getClass .isArray))))

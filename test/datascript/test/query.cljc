@@ -1,11 +1,12 @@
 (ns datascript.test.query
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc]))
+
+#?(:clj
+   (import '[clojure.lang ExceptionInfo]))
 
 (deftest test-joins
   (let [db (-> (d/empty-db)

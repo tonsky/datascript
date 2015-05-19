@@ -7,6 +7,7 @@ pom.xml.asc
 *.class
 /.lein-*
 /.nrepl-port
+/.repl
 web/out
 web/*.js
 perf

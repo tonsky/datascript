@@ -1,16 +1,18 @@
 (ns datascript.test.components
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc]))
+
+#?(:cljs
+   (def Throwable js/Error))
 
 (deftest test-components
-  (is (thrown-with-msg? js/Error #"Bad attribute specification for :profile"
+  (is (thrown-with-msg? Throwable #"Bad attribute specification for :profile"
         (d/empty-db {:profile {:db/isComponent true}})))
-  (is (thrown-with-msg? js/Error #"Bad attribute specification for [{]:profile [{]:db/isComponent \"aaa\"}}"
+  (is (thrown-with-msg? Throwable #"Bad attribute specification for [{]:profile [{]:db/isComponent \"aaa\"}}"
         (d/empty-db {:profile {:db/isComponent "aaa" :db/valueType :db.type/ref}})))
   
   (let [db (d/db-with
@@ -19,7 +21,7 @@
              [{:db/id 1 :name "Ivan" :profile 3}
               {:db/id 3 :email "@3"}
               {:db/id 4 :email "@4"}])
-        visible #(cljs.reader/read-string (pr-str %))
+        visible #(edn/read-string (pr-str %))
         touched #(visible (d/touch %))]
     
     (testing "touch"
@@ -59,7 +61,7 @@
              [{:db/id 1 :name "Ivan" :profile [3 4]}
               {:db/id 3 :email "@3"}
               {:db/id 4 :email "@4"}])
-        visible #(cljs.reader/read-string (pr-str %))
+        visible #(edn/read-string (pr-str %))
         touched #(visible (d/touch %))]
     
     (testing "touch"

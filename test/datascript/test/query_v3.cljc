@@ -1,8 +1,13 @@
 (ns datascript.test.query-v3
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.query-v3 :as dq]))
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.query-v3 :as dq]
+   [datascript.test.core :as tdc]))
+
+#?(:clj
+   (import '[clojure.lang ExceptionInfo]))
 
 (deftest test-validation
   (are [q ins msg] (thrown-with-msg? ExceptionInfo msg (apply dq/q q ins))

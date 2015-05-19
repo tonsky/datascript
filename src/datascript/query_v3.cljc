@@ -1,12 +1,16 @@
 (ns datascript.query-v3
+  #?(:cljs (:require-macros [datascript.debug :refer [do-debug debug measure minibench]]))
   (:require
     [clojure.set :as set]
-    [cemerick.cljs.test :as t]
+    ;;[cemerick.cljs.test :as t]
     [datascript :as d]
     [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]
-    [datascript.parser :as dp]
+    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
+                                                 Constant DefaultSrc Pattern RulesVar SrcVar Variable]])]
     [datascript.btset :as btset]
-    [datascript.debug :refer-macros [debug do-debug measure minibench]]))
+    [datascript.debug #?@(:clj [:refer [do-debug debug measure minibench]])])
+  #?(:clj (:import [datascript.parser BindColl BindIgnore BindScalar BindTuple
+                                      Constant DefaultSrc Pattern RulesVar SrcVar Variable])))
 
 (defn mapa [f coll]
   #?(:cljs
@@ -32,32 +36,34 @@
 (defn- first-tuple [rel]
   (reduce (fn [_ tuple] (reduced tuple)) nil rel))
 
-(defn- ^number hash-arr [arr]
+(defn- #?@(:clj  [^Number hash-arr]
+           :cljs [^number hash-arr]) [arr]
   (loop [n 0
          hash-code 1]
     (if (< n (alength arr))
-      (recur (inc n) (bit-or (+ (imul 31 hash-code) (hash (aget arr n))) 0))
+      (recur (inc n) (bit-or (+ (#?(:cljs imul :clj unchecked-multiply) 31 hash-code) (hash (aget arr n))) 0))
       (mix-collection-hash hash-code n))))
 
 (deftype Tuple [arr _hash]
-  Object
-  (equiv [this other]
-    (-equiv this other))
+  #?@(:cljs
+       [Object
+        (equiv [this other]
+               (-equiv this other))
 
-  IHash
-  (-hash [_] _hash)
-    
-  IEquiv
-  (-equiv [_ other]
-    (boolean
-      (and
-        (== (alength arr)
-            (alength (.-arr other)))
-        (loop [i 0]
-          (cond
-            (== i (alength arr)) true
-            (not= (aget arr i) (aget (.-arr other) i)) false
-            :else (recur (inc i))))))))
+        IHash
+        (-hash [_] _hash)
+
+        IEquiv
+        (-equiv [_ other]
+                (boolean
+                 (and
+                  (== (alength arr)
+                      (alength (.-arr other)))
+                  (loop [i 0]
+                    (cond
+                      (== i (alength arr)) true
+                      (not= (aget arr i) (aget (.-arr other) i)) false
+                      :else (recur (inc i)))))))]))
 
 (defn tuple [arr]
   (Tuple. arr (hash-arr arr)))
@@ -65,33 +71,36 @@
 ;;; ArrayRelation
 
 (deftype ArrayRelation [symbols arity coll]
-  Object
-  (toString [this] (pr-str* this))
-  
-  IReduce
-  (-reduce [_ f init]
-    (reduce f init coll))
-  
-  ICounted
-  (-count [_] (count coll))
-  
-  IRelation
-  (-getter [_ symbol]
-    (let [idx (get (zipmap symbols (range)) symbol)]
-      (fn [tuple]
-        (aget tuple idx))))
-  (-indexes [_ syms]
-    (mapa (zipmap symbols (range)) syms))
-  (-copy-tuple [_ tuple idxs target offset]
-    (dotimes [i (alength idxs)]
-      (aset target (+ i offset) (aget tuple (aget idxs i)))))
-  (-union [_ rel]
-    (ArrayRelation. symbols arity (into coll (.-coll rel))))
+  #?@(:cljs
+      [Object
+       (toString [this] (pr-str* this))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#ArrayRelation")
-    (pr-writer {:symbols symbols, :arity arity, :coll coll} writer opts)))
+
+
+       IReduce
+       (-reduce [_ f init]
+                (reduce f init coll))
+
+       ICounted
+       (-count [_] (count coll))
+
+       IRelation
+       (-getter [_ symbol]
+                (let [idx (get (zipmap symbols (range)) symbol)]
+                  (fn [tuple]
+                    (aget tuple idx))))
+       (-indexes [_ syms]
+                 (mapa (zipmap symbols (range)) syms))
+       (-copy-tuple [_ tuple idxs target offset]
+                    (dotimes [i (alength idxs)]
+                      (aset target (+ i offset) (aget tuple (aget idxs i)))))
+       (-union [_ rel]
+               (ArrayRelation. symbols arity (into coll (.-coll rel))))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-write writer "#ArrayRelation")
+                   (pr-writer {:symbols symbols, :arity arity, :coll coll} writer opts))]))
 
 (defn array-rel [symbols coll]
   (ArrayRelation. symbols (count symbols) coll))
@@ -99,29 +108,30 @@
 ;;; Coll1Relation
 
 (deftype Coll1Relation [symbols arity coll]
-  IReduce
-  (-reduce [_ f init]
-    (reduce f init coll))
+  #?@(:cljs
+      [IReduce
+       (-reduce [_ f init]
+                (reduce f init coll))
 
-  ICounted
-  (-count [_] (count coll))
+       ICounted
+       (-count [_] (count coll))
 
-  IRelation
-  (-getter [_ _]
-    (fn [el] el))
-  (-indexes [_ syms] 0)
-  (-copy-tuple [_ el _ target offset]
-    (aset target offset el))
-  (-union [_ rel]
-    (Coll1Relation. symbols arity (into coll (.-coll rel))))
-  
-  Object
-  (toString [this] (pr-str* this))
+       IRelation
+       (-getter [_ _]
+                (fn [el] el))
+       (-indexes [_ syms] 0)
+       (-copy-tuple [_ el _ target offset]
+                    (aset target offset el))
+       (-union [_ rel]
+               (Coll1Relation. symbols arity (into coll (.-coll rel))))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#Coll1Relation")
-    (pr-writer {:symbols symbols, :arity arity, :coll coll} writer opts)))
+       Object
+       (toString [this] (pr-str* this))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-write writer "#Coll1Relation")
+                   (pr-writer {:symbols symbols, :arity arity, :coll coll} writer opts))]))
 
 (defn coll1-rel [symbol coll]
   (Coll1Relation. [symbol] 1 coll))
@@ -129,33 +139,34 @@
 ;;; CollRelation
 
 (deftype CollRelation [symbols offset-map arity coll]
-  IReduce
-  (-reduce [_ f init]
-    (reduce f init coll))
+  #?@(:cljs
+      [IReduce
+       (-reduce [_ f init]
+                (reduce f init coll))
 
-  ICounted
-  (-count [_] (count coll))
+       ICounted
+       (-count [_] (count coll))
 
-  IRelation
-  (-getter [_ symbol]
-    (let [idx (offset-map symbol)]
-      (fn [tuple]
-        (nth tuple idx))))
-  (-indexes [_ syms]
-    (mapa offset-map syms))
-  (-copy-tuple [_ tuple idxs target offset]
-    (dotimes [i (alength idxs)]
-      (aset target (+ i offset) (nth tuple (aget idxs i)))))
-  (-union [_ rel]
-    (CollRelation. symbols offset-map arity (into coll (.-coll rel))))
-  
-  Object
-  (toString [this] (pr-str* this))
+       IRelation
+       (-getter [_ symbol]
+                (let [idx (offset-map symbol)]
+                  (fn [tuple]
+                    (nth tuple idx))))
+       (-indexes [_ syms]
+                 (mapa offset-map syms))
+       (-copy-tuple [_ tuple idxs target offset]
+                    (dotimes [i (alength idxs)]
+                      (aset target (+ i offset) (nth tuple (aget idxs i)))))
+       (-union [_ rel]
+               (CollRelation. symbols offset-map arity (into coll (.-coll rel))))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#CollRelation")
-    (pr-writer {:symbols symbols, :offset-map offset-map, :arity arity, :coll coll} writer opts)))
+       Object
+       (toString [this] (pr-str* this))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-write writer "#CollRelation")
+                   (pr-writer {:symbols symbols, :offset-map offset-map, :arity arity, :coll coll} writer opts))]))
 
 (defn coll-rel [symbols coll]
   (let [offset-map (reduce-kv
@@ -171,38 +182,39 @@
 ;;; ProdRelation
 
 (deftype ProdRelation [symbols arity rel1 rel2]  
-  IReduce
-  (-reduce [_ f init]
-    (reduce (fn [acc t1]
-              (reduce (fn [acc t2]
-                        (f acc #js [t1 t2]))
-                      acc rel2))
-            init rel1))
+  #?@(:cljs
+      [IReduce
+       (-reduce [_ f init]
+                (reduce (fn [acc t1]
+                          (reduce (fn [acc t2]
+                                    (f acc (dc/into-arr [t1 t2])))
+                                  acc rel2))
+                        init rel1))
 
-  ICounted
-  (-count [_] (* (-count rel1) (-count rel2)))
+       ICounted
+       (-count [_] (* (-count rel1) (-count rel2)))
 
-  IRelation
-  (-getter [_ symbol]
-    (if (some #{symbol} (.-symbols rel1))
-      (-getter rel1 symbol)
-      (-getter rel2 symbol)))
-  (-indexes [_ syms]
-    (let [[syms1 syms2] (split-with (set (.-symbols rel1)) syms)]
-      #js [(-indexes rel1 syms1) (-indexes rel2 syms2)]))
-  (-copy-tuple [_ tuple idxs target offset]
-    (let [idxs1 (aget idxs 0)
-          idxs2 (aget idxs 1)]
-      (-copy-tuple rel1 (aget tuple 0) idxs1 target offset)
-      (-copy-tuple rel2 (aget tuple 1) idxs2 target (+ offset (.-arity rel1)))))
-  
-  Object
-  (toString [this] (pr-str* this))
+       IRelation
+       (-getter [_ symbol]
+                (if (some #{symbol} (.-symbols rel1))
+                  (-getter rel1 symbol)
+                  (-getter rel2 symbol)))
+       (-indexes [_ syms]
+                 (let [[syms1 syms2] (split-with (set (.-symbols rel1)) syms)]
+                   (dc/into-arr [(-indexes rel1 syms1) (-indexes rel2 syms2)])))
+       (-copy-tuple [_ tuple idxs target offset]
+                    (let [idxs1 (aget idxs 0)
+                          idxs2 (aget idxs 1)]
+                      (-copy-tuple rel1 (aget tuple 0) idxs1 target offset)
+                      (-copy-tuple rel2 (aget tuple 1) idxs2 target (+ offset (.-arity rel1)))))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#ProdRelation")
-    (pr-writer {:rel1 rel1, :rel2 rel2} writer opts)))
+       Object
+       (toString [this] (pr-str* this))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-write writer "#ProdRelation")
+                   (pr-writer {:rel1 rel1, :rel2 rel2} writer opts))]))
 
 (defn prod-rel [rel1 rel2]
   (ProdRelation.
@@ -215,23 +227,24 @@
 ;;; EmptyRelation
 
 (deftype EmptyRelation [symbols arity]
-  IReduce
-  (-reduce [_ f init] init)
-  
-  ICounted
-  (-count [_] 0)
-  
-  IRelation
-  (-indexes [_ syms]
-    (mapa (zipmap symbols (range)) syms))
+  #?@(:cljs
+       [IReduce
+        (-reduce [_ f init] init)
 
-  Object
-  (toString [this] (pr-str* this))
+        ICounted
+        (-count [_] 0)
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#EmptyRelation")
-    (pr-writer {:symbols symbols, :arity arity} writer opts)))
+        IRelation
+        (-indexes [_ syms]
+                  (mapa (zipmap symbols (range)) syms))
+
+        Object
+        (toString [this] (pr-str* this))
+
+        IPrintWithWriter
+        (-pr-writer [_ writer opts]
+                    (-write writer "#EmptyRelation")
+                    (pr-writer {:symbols symbols, :arity arity} writer opts))]))
 
 (defn- empty-rel [symbols]
   (EmptyRelation. symbols (count symbols)))
@@ -239,24 +252,25 @@
 ;;; SingletonRelation
 
 (deftype SingletonRelation [symbols arity]
-  IReduce
-  (-reduce [_ f init]
-    (f init #js []))
-  
-  ICounted
-  (-count [_] 1)
-  
-  IRelation
-  (-indexes [_ _] #js [])
-  (-copy-tuple [_ _ _ _ _])
-  
-  Object
-  (toString [this] (pr-str* this))
+  #?@(:cljs
+       [IReduce
+        (-reduce [_ f init]
+                 (f init (dc/into-arr [])))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#SingletonRelation")
-    (pr-writer {:symbols symbols, :arity arity} writer opts)))
+        ICounted
+        (-count [_] 1)
+
+        IRelation
+        (-indexes [_ _] (dc/into-arr []))
+        (-copy-tuple [_ _ _ _ _])
+
+        Object
+        (toString [this] (pr-str* this))
+
+        IPrintWithWriter
+        (-pr-writer [_ writer opts]
+                    (-write writer "#SingletonRelation")
+                    (pr-writer {:symbols symbols, :arity arity} writer opts))]))
 
 (defn singleton-rel []
   (SingletonRelation. [] 0))
@@ -312,9 +326,9 @@
     (reduce
       (fn [hash t]
         (let [key (key-fn t)
-              old (-lookup hash key nil)]
+              old (get hash key nil)]
           (if (nil? old)
-            (assoc! hash key #js [t])
+            (assoc! hash key (dc/into-arr [t]))
             (do (.push old t) hash))))
       (transient {})
       rel)))
@@ -332,10 +346,10 @@
         
         coll        (reduce ;; iterate over rel2
                       (fn [acc t2]
-                        (let [tuples1 (-lookup hash1 (key-fn2 t2) nil)]
+                        (let [tuples1 (get hash1 (key-fn2 t2) nil)]
                           (if (nil? tuples1)
                             acc
-                            (array-reduce ;; iterate over corresponding rel1 tuples
+                            (#?(:cljs array-reduce :clj reduce) ;; iterate over corresponding rel1 tuples
                               tuples1
                               (fn [acc t1]
                                 (conj! acc (join-tuples rel1 t1 idxs1
@@ -356,20 +370,20 @@
 ;;; Bindings
 
 (defn- bindable-to-seq? [x]
-  (or (seqable? x) (array? x)))
+  (or (dc/seqable? x) (dc/array? x)))
 
 (defn- binding-symbols [binding]
   (->> (dp/collect-vars-distinct binding)
        (map :symbol)))
 
 (defn- plain-tuple-binding? [binding]
-  (and (instance? dp/BindTuple binding)
-       (every? #(or (instance? dp/BindScalar %)
-                    (instance? dp/BindIgnore %))
+  (and (instance? BindTuple binding)
+       (every? #(or (instance? BindScalar %)
+                    (instance? BindIgnore %))
                (.-bindings binding))))
 
 (defn- bind-tuples [bindings coll]
-  (coll-rel (mapv #(if (instance? dp/BindScalar %)
+  (coll-rel (mapv #(if (instance? BindScalar %)
                      (.. % -variable -symbol)
                      '_)
               bindings)
@@ -379,15 +393,15 @@
   (in->rel [binding value]))
 
 (extend-protocol IBinding
-  dp/BindIgnore
+  BindIgnore
   (in->rel [_ _]
     (singleton-rel))
   
-  dp/BindScalar
+  BindScalar
   (in->rel [binding value]
-    (array-rel [(.. binding -variable -symbol)] [#js [value]]))
+    (array-rel [(.. binding -variable -symbol)] [(dc/into-arr [value])]))
   
-  dp/BindColl
+  BindColl
   (in->rel [binding coll]
     (let [inner-binding (.-binding binding)]
       (cond
@@ -399,7 +413,7 @@
           (empty-rel (binding-symbols binding))
        
         ;; [?x ...] type of binding
-        (instance? dp/BindScalar inner-binding)
+        (instance? BindScalar inner-binding)
           (coll1-rel (.. inner-binding -variable -symbol) coll)
        
         ;; [[?x ?y] ...] type of binding
@@ -411,7 +425,7 @@
           (reduce union
             (map #(in->rel inner-binding %) coll)))))
   
-  dp/BindTuple
+  BindTuple
   (in->rel [binding coll]
     (cond
       (not (bindable-to-seq? coll))
@@ -434,11 +448,11 @@
 
 (defn- resolve-in [context [binding value]]
   (cond
-    (and (instance? dp/BindScalar binding)
-         (instance? dp/SrcVar (.-variable binding)))
+    (and (instance? BindScalar binding)
+         (instance? SrcVar (.-variable binding)))
       (update-in context [:sources] assoc (.. binding -variable -symbol) value)
-;;     (and (instance? dp/BindScalar binding)
-;;          (instance? dp/RulesVar (.-variable binding)))
+;;     (and (instance? BindScalar binding)
+;;          (instance? RulesVar (.-variable binding)))
 ;;       (assoc context :rules (parse-rules value))
     :else
       (let [rel (in->rel binding value)]
@@ -460,12 +474,12 @@
     (dp/postwalk
       clause
       (fn [form]
-        (if (instance? dp/Variable form)
+        (if (instance? Variable form)
           (let [sym (.-symbol form)]
             (if-let [subs ((:consts context) (.-symbol form))]
               (do
                 (debug "substituted" sym "with" subs)
-                (dp/Constant. subs)
+                (Constant. subs)
               )
               form))
           form)))
@@ -476,8 +490,8 @@
 
 (defn get-source [context source]
   (let [symbol (cond
-                 (instance? dp/SrcVar source)     (.-symbol source)
-                 (instance? dp/DefaultSrc source) (:default-source-symbol context)
+                 (instance? SrcVar source)     (.-symbol source)
+                 (instance? DefaultSrc source) (:default-source-symbol context)
                  :else (raise "Source expected, got " source))]
     (or (get (:sources context) symbol)
         (raise "Source " symbol " is not defined"
@@ -487,38 +501,39 @@
 ;; Patterns
 
 (deftype DatomsRelation [symbols props-map arity iter]
-  IReduce
-  (-reduce [_ f init]
-    (reduce f init iter))
+  #?@(:cljs
+      [IReduce
+       (-reduce [_ f init]
+                (reduce f init iter))
 
-  ICounted
-  (-count [_] (btset/est-count iter))
+       ICounted
+       (-count [_] (btset/est-count iter))
 
-  IRelation
-  (-getter [_ symbol]
-    (let [prop (props-map symbol)]
-      (fn [tuple]
-        (aget tuple prop))))
-  (-indexes [_ syms]
-    (mapa props-map syms))
-  (-copy-tuple [_ tuple props target offset]
-    (dotimes [i (alength props)]
-      (aset target (+ i offset) (aget tuple (aget props i)))))
-;;   (-union [_ rel]
-;;     (CollRelation. symbols offsets arity (into coll (.-coll rel))))
-  
-  Object
-  (toString [this] (pr-str* this))
+       IRelation
+       (-getter [_ symbol]
+                (let [prop (props-map symbol)]
+                  (fn [tuple]
+                    (aget tuple prop))))
+       (-indexes [_ syms]
+                 (mapa props-map syms))
+       (-copy-tuple [_ tuple props target offset]
+                    (dotimes [i (alength props)]
+                      (aset target (+ i offset) (aget tuple (aget props i)))))
+       ;;   (-union [_ rel]
+       ;;     (CollRelation. symbols offsets arity (into coll (.-coll rel))))
 
-  IPrintWithWriter
-  (-pr-writer [_ writer opts]
-    (-write writer "#IndexRelation")
-    (pr-writer {:symbols symbols, :props-map props-map, :arity arity, :iter iter} writer opts)))
+       Object
+       (toString [this] (pr-str* this))
+
+       IPrintWithWriter
+       (-pr-writer [_ writer opts]
+                   (-write writer "#IndexRelation")
+                   (pr-writer {:symbols symbols, :props-map props-map, :arity arity, :iter iter} writer opts))]))
 
 (defn- pattern->props-map [pattern]
   (reduce-kv
     (fn [acc var prop]
-      (if (instance? dp/Variable var)
+      (if (instance? Variable var)
         (assoc acc (.-symbol var) prop)
         acc))
     {}
@@ -527,7 +542,7 @@
 (defn -resolve-pattern-db [db clause join-syms hash]
   ;; TODO optimize with bound attrs min/max values here
   (let [pattern        (.-pattern clause)
-        search-pattern (mapv #(when (instance? dp/Constant %) (.-value %)) pattern)
+        search-pattern (mapv #(when (instance? Constant %) (.-value %)) pattern)
         datoms         (dc/-search db search-pattern)
         props-map      (pattern->props-map (.-pattern clause))]
     (DatomsRelation. (keys props-map) props-map (count props-map) datoms)))
@@ -549,7 +564,7 @@
 
 (defn- bind-pattern [pattern coll]
   ;; TODO handle repeated vars
-  (coll-rel (mapv #(if (instance? dp/Variable %)
+  (coll-rel (mapv #(if (instance? Variable %)
                      (.-symbol %)
                      '_)
               pattern)
@@ -560,14 +575,14 @@
     (raise "Cannot match by pattern " (dp/source clause) " because source is not a collection: " coll
        {:error :query/where, :value coll, :binding (dp/source clause)}))
   (let [pattern (.-pattern clause)
-        idxs    (->> (map #(when (instance? dp/Constant %1) [%2 (.-value %1)]) pattern (range))
+        idxs    (->> (map #(when (instance? Constant %1) [%2 (.-value %1)]) pattern (range))
                      (remove nil?)
                      (into {}))
         data    (filter #(matches-pattern? idxs %) coll)]
     (bind-pattern pattern data)))
 
 (extend-protocol IClause
-  dp/Pattern
+  Pattern
   (-resolve-clause [clause context join-syms hash]
     (let [source (get-source context (.-source clause))]
       (if (satisfies? dc/ISearch source)
@@ -597,7 +612,7 @@
 
 (defn resolve-clause [context clause]
   (measure
-    (let [clause-syms  (measure (into #{} (map :symbol) (dp/collect #(instance? dp/Variable %) clause #{})) "clause-syms")
+    (let [clause-syms  (measure (into #{} (map :symbol) (dp/collect #(instance? Variable %) clause #{})) "clause-syms")
           consts       (into #{} (filter (:consts context)) clause-syms)
           old-rels     (:rels context)
           related?     #(some clause-syms (.-symbols %))

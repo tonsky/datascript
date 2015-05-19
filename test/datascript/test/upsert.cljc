@@ -1,11 +1,12 @@
 (ns datascript.test.upsert
-  (:require-macros
-    [cemerick.cljs.test :refer [is are deftest testing]])
   (:require
-    [datascript.core :as dc]
-    [datascript :as d]
-    [cemerick.cljs.test :as t]
-    [datascript.test.core :as tdc]))
+   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
+   [datascript :as d]
+   [datascript.core :as dc]
+   [datascript.test.core :as tdc]))
+
+#?(:cljs
+   (def Throwable js/Error))
 
 (deftest test-upsert
   (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
@@ -59,7 +60,7 @@
                {-1 1, -2 1}))))
 
     (testing "tempids already resolved to new id"
-      (is (thrown-with-msg? js/Error #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
         (d/with db [{:db/id -1 :age 35}
                     {:db/id -1 :name "Ivan" :age 36}]))))
 
@@ -78,11 +79,11 @@
                {}))))
 
     (testing "upsert conficts with existing id"
-      (is (thrown-with-msg? js/Error #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
         (d/with db [{:db/id 2 :name "Ivan" :age 36}]))))
 
     (testing "upsert conficts with non-existing id"
-      (is (thrown-with-msg? js/Error #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
         (d/with db [{:db/id 3 :name "Ivan" :age 36}]))))
     
     (testing "upsert by non-existing value resolves as update"
@@ -93,7 +94,7 @@
                {}))))
 
     (testing "upsert by 2 conflicting fields"
-      (is (thrown-with-msg? js/Error #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
         (d/with db [{:name "Ivan" :email "@2" :age 35}]))))
 
     (testing "upsert over intermediate db"
@@ -121,6 +122,6 @@
                {-1 3, -2 3}))))
 
     (testing "upsert and :current-tx conflict"
-      (is (thrown-with-msg? js/Error #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
         (d/with db [{:db/id :db/current-tx :name "Ivan" :age 35}]))))
 ))

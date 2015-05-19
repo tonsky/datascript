@@ -2,7 +2,14 @@
   (:require
     [clojure.string :as str]))
 
-(enable-console-print!)
+#?(:cljs
+   (enable-console-print!))
+
+#?(:clj
+   (defn- ^Number fix [q]
+     (if (>= q 0)
+       (Math/floor q)
+       (Math/ceil q))))
 
 (defn percentile [xs n]
   (-> (sort xs)
@@ -12,7 +19,7 @@
 (defn round [x]
   (-> x (* 1000) fix (/ 1000)))
 
-(defn now [] (js/window.performance.now))
+(defn now [] #?(:cljs (js/window.performance.now) :clj (System/currentTimeMillis)))
 
 (defn -measure [f {:keys [duration repeats setup-fn] :as opts}]
   (into []
