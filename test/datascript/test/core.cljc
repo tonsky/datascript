@@ -4,8 +4,8 @@
    [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [deftest is are testing with-test-out]]
    [datascript :as d]
    [datascript.impl.entity :as de]
-   [datascript.core :as dc #?@(:cljs [:refer-macros [defrecord-updatable-cljs]]
-                                     :clj  [:refer [defrecord-updatable-clj]])]))
+   [datascript.core :as dc #?@(:cljs [:refer-macros [defrecord-updatable]]
+                                     :clj  [:refer [defrecord-updatable]])]))
 
 #?(:cljs
    (enable-console-print!))
@@ -63,8 +63,7 @@
 ;; define dummy class which redefines hash, could produce either
 ;; compiler or runtime error
 ;;
-(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
-   HashBeef [x]
+(defrecord-updatable HashBeef [x]
   #?@(:cljs [IHash                (-hash  [hb] 0xBEEF)]
       :clj  [clojure.lang.IHashEq (hasheq [hb] 0xBEEF)]))
 

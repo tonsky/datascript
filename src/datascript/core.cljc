@@ -1,6 +1,6 @@
 (ns datascript.core
   #?(:cljs (:refer-clojure :exclude [array? seqable?]))
-  #?(:cljs (:require-macros [datascript.core :refer [case-tree combine-cmp raise defrecord-updatable-cljs]]))
+  #?(:cljs (:require-macros [datascript.core :refer [case-tree combine-cmp raise defrecord-updatable]]))
   (:require
    #?@(:cljs [[cljs.core :as c]
               [goog.array :as garray]]
@@ -51,6 +51,23 @@
       `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
 
 ;; ----------------------------------------------------------------------------
+;; macros and funcs to support writing defrecords and updating
+;; (replacing) builtins, i.e., Object/hashCode, IHashEq hasheq, etc.
+;; code taken from prismatic:
+;;  https://github.com/Prismatic/schema/commit/e31c419c56555c83ef9ee834801e13ef3c112597
+;;
+
+(defn- cljs-env?
+  "Take the &env from a macro, and tell whether we are expanding into cljs."
+  [env]
+  (boolean (:ns env)))
+
+#?(:clj
+   (defmacro if-cljs
+     "Return then if we are generating cljs code and else for Clojure code.
+     https://groups.google.com/d/msg/clojurescript/iBY5HaQda4A/w1lAQi9_AwsJ"
+     [then else]
+     (if (cljs-env? &env) then else)))
 
 #?(:clj
    (defn- get-sig [method]
@@ -74,7 +91,7 @@
        (list* deftype* tagname classname fields implements (vec (distinct interfaces)) rest))))
 
 #?(:clj
-   (defmacro defrecord-updatable-clj [name fields & impls]
+   (defn- make-record-updatable-clj [name fields & impls]
      (let [impl-map (->> impls (map (juxt get-sig identity)) (filter first) (into {}))
            body     (macroexpand-1 (list* 'defrecord name fields impls))]
        (clojure.walk/postwalk
@@ -89,10 +106,16 @@
         body))))
 
 #?(:clj
-   (defmacro defrecord-updatable-cljs [name fields & impls]
+   (defn- make-record-updatable-cljs [name fields & impls]
      `(do
         (defrecord ~name ~fields)
         (extend-type ~name ~@impls))))
+
+#?(:clj
+   (defmacro defrecord-updatable [name fields & impls]
+     `(if-cljs
+       ~(apply make-record-updatable-cljs name fields impls)
+       ~(apply make-record-updatable-clj  name fields impls))))
 
 ;; ----------------------------------------------------------------------------
 
@@ -338,8 +361,7 @@
 
 (declare hash-db equiv-db empty-db pr-db resolve-datom validate-attr components->pattern)
 
-(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
-  DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
+(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -407,8 +429,7 @@
 (defn db? [x] (and (instance? ISearch x) (instance? IIndexAccess x) (instance? IDB x)))
 
 ;; ----------------------------------------------------------------------------
-(#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
-  FilteredDB [unfiltered-db pred #?(:clj __hash)]
+(defrecord-updatable FilteredDB [unfiltered-db pred #?(:clj __hash)]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
