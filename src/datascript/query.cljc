@@ -338,7 +338,7 @@
     (let [getters (to-array getters)]
       (fn [tuple]
         (list* #?(:cljs (.map getters #(% tuple))
-                  :clj  (map #(% tuple) getters)))))))
+                  :clj  (dc/into-arr (map #(% tuple) getters))))))))
 
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples
@@ -430,7 +430,7 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
-      (#?(:cljs aget :clj get) tuple ((:attrs rel) sym)))))
+      (aget tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -655,7 +655,7 @@
                          t2 (:tuples rel)]
                      (let [res (aclone t1)]
                        (dotimes [i len]
-                         (when-let [idx (#?(:cljs aget :clj get) copy-map i)]
+                         (when-let [idx (aget copy-map i)]
                            (aset res i (#?(:cljs aget :clj get) t2 idx))))
                        res))
                    (next rels)
