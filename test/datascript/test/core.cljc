@@ -35,9 +35,9 @@
 (defn entity-map [db e]
   (when-let [entity (d/entity db e)]
     (->> (assoc (into {} entity) :db/id (:db/id entity))
-         (clojure.walk/postwalk #(if (de/entity? %)
-                                     {:db/id (:db/id %)}
-                                     %)))))
+         (clojure.walk/prewalk #(if (de/entity? %)
+                                  {:db/id (:db/id %)}
+                                  %)))))
 
 ;; Core tests
 

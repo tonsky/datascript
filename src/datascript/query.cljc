@@ -14,6 +14,12 @@
                     Constant FindColl FindRel FindScalar FindTuple PlainSymbol
                     RulesVar SrcVar Variable])))
 
+;; ----------------------------------------------------------------------------
+
+;; use aget in cljs, get in clj
+(def get-compat #?(:cljs aget :clj get))
+
+
 (def ^:const lru-cache-size 100)
 (declare built-ins)
 
@@ -123,9 +129,9 @@
         l2  (alength idxs2)
         res (dc/arr (+ l1 l2))]
     (dotimes [i l1]
-      (aset res i (aget t1 (aget idxs1 i)))) ;; FIXME aget
+      (aset res i (get-compat t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
-      (aset res (+ l1 i) (aget t2 (aget idxs2 i)))) ;; FIXME aget
+      (aset res (+ l1 i) (get-compat t2 (aget idxs2 i)))) ;; FIXME aget
     res))
 
 (defn sum-rel [a b]
@@ -315,27 +321,27 @@
 
 ;;
 
-(def ^:dynamic *lookup-attrs*)
-(def ^:dynamic *lookup-source*)
+(def ^:dynamic *lookup-attrs* nil)
+(def ^:dynamic *lookup-source* nil)
 
 (defn getter-fn [attrs attr]
   (let [idx (attrs attr)]
     (if (and (not (nil? *lookup-attrs*))
              (contains? *lookup-attrs* attr))
       (fn [tuple]
-          (let [eid (aget tuple idx)]  ;; FIXME aget
+          (let [eid (get-compat tuple idx)]
             (if (number? eid) ;; quick path to avoid fn call
               eid
               (dc/entid *lookup-source* eid))))
       (fn [tuple]
-        (aget tuple idx)))))  ;; FIXME aget
+        (get-compat tuple idx)))))
 
 (defn tuple-key-fn [getters]
   (if (== (count getters) 1)
     (first getters)
     (let [getters (to-array getters)]
       (fn [tuple]
-        (list* (.map getters #(% tuple)))))))
+        (list* (map #(% tuple) getters))))))
 
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples
@@ -427,7 +433,7 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
-      (aget tuple ((:attrs rel) sym)))))
+      (get-compat tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -443,7 +449,7 @@
     (let [resolved-args (map #(if (symbol? %)
                                 (or
                                  (get (:sources context) %)
-                                 (aget tuple (get (:attrs rel) %)))
+                                 (get-compat tuple (get (:attrs rel) %)))
                                 %)
                              args)]
       (apply f resolved-args))))
@@ -652,8 +658,8 @@
                          t2 (:tuples rel)]
                      (let [res (aclone t1)]
                        (dotimes [i len]
-                         (when-let [idx (aget copy-map i)]
-                           (aset res i (aget t2 idx))))
+                         (when-let [idx (get-compat copy-map i)]
+                           (aset res i (get-compat t2 idx))))
                        res))
                    (next rels)
                    symbols))))
@@ -739,7 +745,7 @@
   (if-let [cached (get @query-cache q nil)]
     cached
     (let [qp (dp/parse-query q)]
-      (vswap! query-cache assoc query-cache q qp)
+      (vswap! query-cache assoc q qp)
       qp)))
 
 (defn q [q & inputs]

@@ -164,15 +164,17 @@
        (= (.-v d) (.-v o))))
 
 (defn- seq-datom [^Datom d]
-  (vector (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)))
+  (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)))
 
+;; keep it fast by duplicating for both keyword and string cases
+;; instead of using sets or some other matching func
 (defn- val-at-datom [^Datom d k & [not-found]]
   (case k
-    :e     (.-e d)
-    :a     (.-a d)
-    :v     (.-v d)
-    :tx    (.-tx d)
-    :added (.-added d)
+    :e     (.-e d)        "e"     (.-e d)
+    :a     (.-a d)        "a"     (.-a d)
+    :v     (.-v d)        "v"     (.-v d)
+    :tx    (.-tx d)       "tx"    (.-tx d)
+    :added (.-added d)    "added" (.-added d)
     not-found))
 
 (defn- ^Datom assoc-datom [^Datom d k v]
@@ -406,7 +408,7 @@
 
 ;; ----------------------------------------------------------------------------
 (#?(:cljs defrecord-updatable-cljs :clj defrecord-updatable-clj)
-  FilteredDB [unfiltered-db pred]
+  FilteredDB [unfiltered-db pred #?(:clj __hash)]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -804,7 +806,7 @@
              (multival? db a)))
     [vs]
 
-    ;; not a collection at all, so definetely a single value
+    ;; not a collection at all, so definitely a single value
     (not (or (array? vs)
              (and (coll? vs) (not (map? vs)))))
     [vs]
@@ -859,9 +861,10 @@
     (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
 (defn- retract-components [db datoms]
-  (into #{} (comp
-              (filter #(component? db (.-a %)))
-              (map #(vector :db.fn/retractEntity (.-v %)))) datoms))
+  (->> datoms
+       (filter #(component? db (.-a %)))
+       (map #(vector :db.fn/retractEntity (.-v %)))
+       (into #{})))
 
 (defn transact-tx-data [report es]
   (when-not (or (nil? es) (sequential? es))
@@ -888,7 +891,7 @@
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (cond
                              (nil? old-eid) (allocate-eid report new-eid)
-                             (neg? old-eid) (allocate-eid report old-eid new-eid)
+                             (neg-number? old-eid) (allocate-eid report old-eid new-eid)
                              :else report)]
           (recur new-report (concat (explode db new-entity) entities)))
 

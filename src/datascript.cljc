@@ -34,8 +34,8 @@
 (defn filter [db pred]
   (if (is-filtered db)
     (let [u (.-unfiltered-db db)]
-      (FilteredDB. u #(and (pred u %) ((.-pred db) %))))
-    (FilteredDB. db #(pred db %))))
+      (FilteredDB. u #(and (pred u %) ((.-pred db) %)) #?(:clj (atom nil))))
+    (FilteredDB. db #(pred db %) #?(:clj (atom nil)))))
 
 (defn with [db tx-data & [tx-meta]]
   (if (is-filtered db)

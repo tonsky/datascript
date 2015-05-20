@@ -99,22 +99,16 @@
     (d/transact! conn [[:db/add 1 :weight 200]])
     (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
     (is (= (:weight (d/entity @conn 1)) 300))
-    (try
-      (d/transact! conn [[:db.fn/cas 1 :weight 200 210]])
-      (throw (new Throwable "expected :db.fn/cas to throw"))
-      (catch Throwable e
-        (is (= (.-message e) ":db.fn/cas failed on datom [1 :weight 300], expected 200")))))
+    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :weight 300\], expected 200"
+                          (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
   
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
     (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
     (is (= (:label (d/entity @conn 1)) #{:x :y :z}))
-    (try
-      (d/transact! conn [[:db.fn/cas 1 :label :s :t]])
-      (throw (new Throwable "expected :db.fn/cas to throw"))
-      (catch Throwable e
-        (is (= (.-message e) ":db.fn/cas failed on datom [1 :label (:x :y :z)], expected :s"))))))
+    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :label \(:x :y :z\)\], expected :s"
+                          (d/transact! conn [[:db.fn/cas 1 :label :s :t]])))))
 
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
