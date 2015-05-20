@@ -4,10 +4,10 @@
    [datascript :as d]
    [datascript.core :as dc]
    [datascript.query-v3 :as dq]
-   [datascript.test.core :as tdc]))
+   [datascript.test.core :as tdc])
+  #?(:clj (:import [clojure.lang ExceptionInfo])))
 
-#?(:clj
-   (import '[clojure.lang ExceptionInfo]))
+
 
 (deftest test-validation
   (are [q ins msg] (thrown-with-msg? ExceptionInfo msg (apply dq/q q ins))

@@ -16,10 +16,6 @@
 
 ;; ----------------------------------------------------------------------------
 
-;; use aget in cljs, get in clj
-(def get-compat #?(:cljs aget :clj get))
-
-
 (def ^:const lru-cache-size 100)
 (declare built-ins)
 
@@ -129,9 +125,9 @@
         l2  (alength idxs2)
         res (dc/arr (+ l1 l2))]
     (dotimes [i l1]
-      (aset res i (get-compat t1 (aget idxs1 i)))) ;; FIXME aget
+      (aset res i (#?(:cljs aget :clj get) t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
-      (aset res (+ l1 i) (get-compat t2 (aget idxs2 i)))) ;; FIXME aget
+      (aset res (+ l1 i) (#?(:cljs aget :clj get) t2 (aget idxs2 i)))) ;; FIXME aget
     res))
 
 (defn sum-rel [a b]
@@ -329,19 +325,20 @@
     (if (and (not (nil? *lookup-attrs*))
              (contains? *lookup-attrs* attr))
       (fn [tuple]
-          (let [eid (get-compat tuple idx)]
+          (let [eid (#?(:cljs aget :clj get) tuple idx)]
             (if (number? eid) ;; quick path to avoid fn call
               eid
               (dc/entid *lookup-source* eid))))
       (fn [tuple]
-        (get-compat tuple idx)))))
+        (#?(:cljs aget :clj get) tuple idx)))))
 
 (defn tuple-key-fn [getters]
   (if (== (count getters) 1)
     (first getters)
     (let [getters (to-array getters)]
       (fn [tuple]
-        (list* (map #(% tuple) getters))))))
+        (list* #?(:cljs (.map getters #(% tuple))
+                  :clj  (map #(% tuple) getters)))))))
 
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples
@@ -433,7 +430,7 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
-      (get-compat tuple ((:attrs rel) sym)))))
+      (#?(:cljs aget :clj get) tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -449,7 +446,7 @@
     (let [resolved-args (map #(if (symbol? %)
                                 (or
                                  (get (:sources context) %)
-                                 (get-compat tuple (get (:attrs rel) %)))
+                                 (#?(:cljs aget :clj get) tuple (get (:attrs rel) %)))
                                 %)
                              args)]
       (apply f resolved-args))))
@@ -658,8 +655,8 @@
                          t2 (:tuples rel)]
                      (let [res (aclone t1)]
                        (dotimes [i len]
-                         (when-let [idx (get-compat copy-map i)]
-                           (aset res i (get-compat t2 idx))))
+                         (when-let [idx (#?(:cljs aget :clj get) copy-map i)]
+                           (aset res i (#?(:cljs aget :clj get) t2 idx))))
                        res))
                    (next rels)
                    symbols))))

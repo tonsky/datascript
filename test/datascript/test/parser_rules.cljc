@@ -4,10 +4,10 @@
    [datascript :as d]
    [datascript.core :as dc]
    [datascript.parser :as dp]
-   [datascript.test.core :as tdc]))
+   [datascript.test.core :as tdc])
+  #?(:clj (:import [clojure.lang ExceptionInfo])))
 
-#?(:clj
-   (import '[clojure.lang ExceptionInfo]))
+
 
 (deftest clauses
   (are [form res] (= (set (dp/parse-rules form)) res)

@@ -861,10 +861,9 @@
     (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
 
 (defn- retract-components [db datoms]
-  (->> datoms
-       (filter #(component? db (.-a %)))
-       (map #(vector :db.fn/retractEntity (.-v %)))
-       (into #{})))
+  (into #{} (comp
+              (filter #(component? db (.-a %)))
+              (map #(vector :db.fn/retractEntity (.-v %)))) datoms))
 
 (defn transact-tx-data [report es]
   (when-not (or (nil? es) (sequential? es))

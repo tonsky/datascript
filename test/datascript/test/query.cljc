@@ -3,10 +3,10 @@
    [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
    [datascript :as d]
    [datascript.core :as dc]
-   [datascript.test.core :as tdc]))
+   [datascript.test.core :as tdc])
+  #?(:clj (:import [clojure.lang ExceptionInfo])))
 
-#?(:clj
-   (import '[clojure.lang ExceptionInfo]))
+
 
 (deftest test-joins
   (let [db (-> (d/empty-db)

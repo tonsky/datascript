@@ -349,13 +349,11 @@
                         (let [tuples1 (get hash1 (key-fn2 t2) nil)]
                           (if (nil? tuples1)
                             acc
-                            (#?(:cljs array-reduce :clj reduce) ;; iterate over corresponding rel1 tuples
-                              tuples1
-                              (fn [acc t1]
-                                (conj! acc (join-tuples rel1 t1 idxs1
-                                                        rel2 t2 idxs2
-                                                        full-arity offset)))
-                              acc))))
+                            (areduce tuples1 i acc acc
+                                     (let [t1 (aget tuples1 i)]
+                                       (conj! acc (join-tuples rel1 t1 idxs1
+                                                               rel2 t2 idxs2
+                                                               full-arity offset)))))))
                       (transient [])
                       rel2)]
     (array-rel full-syms (persistent! coll))))
