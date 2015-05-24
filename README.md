@@ -47,11 +47,11 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ```clj
 :dependencies [
   [org.clojure/clojurescript "0.0-3211"]
-  [datascript "0.11.1"]
+  [datascript "0.11.2"]
 ]
 ```
 
-_Note:_ DataScript 0.11.1 and later will only work with CLJS 0.0-3196 and later
+_Note:_ DataScript 0.11.2 and later will only work with CLJS 0.0-3196 and later
 
 ```clj
 (require '[datascript :as d])
@@ -121,7 +121,7 @@ _Note:_ DataScript 0.11.1 and later will only work with CLJS 0.0-3196 and later
 DataScript can be used from any JS engine without additional dependencies:
 
 ```
-<script src="https://github.com/tonsky/datascript/releases/download/0.11.1/datascript-0.11.1.min.js"></script>
+<script src="https://github.com/tonsky/datascript/releases/download/0.11.2/datascript-0.11.2.min.js"></script>
 ```
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):

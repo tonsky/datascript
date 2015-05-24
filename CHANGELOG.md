@@ -1,3 +1,8 @@
+# 0.11.2
+
+- Support reverse attribute refs in combination with wildcards (issue #80)
+- `*.cljc` sources do not conflict with Clojure now. Code compiles under `[lein-cljsbuild "1.0.6"]`
+
 # 0.11.1
 
 - Return nil from entity when passed nil eid (issue #75)
