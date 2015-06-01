@@ -1,3 +1,7 @@
+# 0.11.3
+
+- Fixed UUID constructor warning under CLJS 0.0-3291 and later
+
 # 0.11.2
 
 - Support reverse attribute refs in combination with wildcards (issue #80)
