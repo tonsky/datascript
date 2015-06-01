@@ -124,7 +124,7 @@
   (into-array (d/index-range db attr start end)))
 
 (defn ^:export squuid []
-  (.-uuid (d/squuid)))
+  (str (d/squuid)))
 
 (defn ^:export squuid_time_millis [uuid]
-  (d/squuid-time-millis (UUID. uuid)))
+  (d/squuid-time-millis (cljs.core/uuid uuid)))

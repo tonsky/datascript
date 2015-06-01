@@ -78,3 +78,18 @@
     (is (= nil (-> (.-__hash db) #?(:clj (deref)))))
     (let [h (hash db)]
       (is (= h (-> (.-__hash db) #?(:clj (deref))))))))
+
+(defn- now []
+  #?(:clj  (System/currentTimeMillis)
+     :cljs (.getTime (js/Date.))))
+
+(deftest test-uuid
+  (loop []
+    (when (> (mod (now) 1000) 990) ;; sleeping over end of a second
+      (recur)))
+  (let [now-ms (now)
+        now    (int (/ now-ms 1000))]
+    (is (= (* 1000 now) (d/squuid-time-millis (d/squuid))))
+    (is (not= (d/squuid) (d/squuid)))
+    (is (= (subs (str (d/squuid)) 0 8)
+           (subs (str (d/squuid)) 0 8)))))

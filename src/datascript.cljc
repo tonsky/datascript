@@ -6,7 +6,7 @@
    [datascript.query :as dq]
    [datascript.impl.entity :as de]
    [datascript.btset :as btset])
-  #?(:clj (:import [datascript.core FilteredDB])))
+  #?(:clj (:import [datascript.core FilteredDB] [java.util UUID])))
 
 ;; SUMMING UP
 
@@ -173,17 +173,18 @@
 
 (defn squuid []
   #?(:clj
-      (let [uuid     (java.util.UUID/randomUUID)
+      (let [uuid     (UUID/randomUUID)
             time     (int (/ (System/currentTimeMillis) 1000))
             high     (.getMostSignificantBits uuid)
             low      (.getLeastSignificantBits uuid)
             new-high (bit-or (bit-and high 0x00000000FFFFFFFF)
                              (bit-shift-left time 32)) ]
-        (java.util.UUID. new-high low))
+        (UUID. new-high low))
      :cljs
-       (UUID.
+       (uuid
          (str
-               (-> (js/Date.) (.getTime) (/ 1000) (Math/round) (to-hex-string 8))
+               (-> (int (/ (.getTime (js/Date.)) 1000))
+                   (to-hex-string 8))
            "-" (-> (rand-bits 16) (to-hex-string 4))
            "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (to-hex-string 4))
            "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (to-hex-string 4))
@@ -192,7 +193,9 @@
                (-> (rand-bits 16) (to-hex-string 4))))))
 
 (defn squuid-time-millis [uuid]
-  (-> (subs (:uuid uuid) 0 8)
-      #?(:clj  (Integer/parseInt 16)
-         :cljs (js/parseInt 16))
-      (* 1000)))
+  #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
+              (bit-shift-right 32)
+              (* 1000))
+     :cljs (-> (subs (str uuid) 0 8)
+               (js/parseInt 16)
+               (* 1000))))

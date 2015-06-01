@@ -5,8 +5,8 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure "1.7.0-beta3" :scope "provided"]
-    [org.clojure/clojurescript "0.0-3211" :scope "provided"]
+    [org.clojure/clojure "1.7.0-RC1" :scope "provided"]
+    [org.clojure/clojurescript "0.0-3297" :scope "provided"]
   ]
   
   :global-vars {
@@ -16,36 +16,7 @@
   
   :jvm-opts ["-Xmx2g"]
 
-  :aliases {"test-clj"
-            ["test"
-             "datascript.test.core"
-             "datascript.test.btset"
-             "datascript.test.components"
-             "datascript.test.entity"
-             "datascript.test.explode"
-             "datascript.test.filter"
-             "datascript.test.index"
-             "datascript.test.listen"
-             "datascript.test.lookup-refs"
-             "datascript.test.parser"
-             "datascript.test.parser-find"
-             "datascript.test.parser-rules"
-             "datascript.test.parser-query"
-             "datascript.test.parser-where"
-             "datascript.test.perf"
-             "datascript.test.pull-api"
-             "datascript.test.pull-parser"
-             "datascript.test.query"
-             "datascript.test.query-aggregates"
-             "datascript.test.query-find-specs"
-             "datascript.test.query-fns"
-             "datascript.test.query-pull"
-             "datascript.test.query-rules"
-             "datascript.test.query-v3"
-             "datascript.test.serialization"
-             "datascript.test.transact"
-             "datascript.test.validation"
-             "datascript.test.upsert"]}
+  :aliases {"test-clj" ["run" "-m" "datascript.test/test-all"]}
   
   :cljsbuild { 
     :builds [

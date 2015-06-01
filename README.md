@@ -47,10 +47,12 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ```clj
 :dependencies [
   [org.clojure/clojure "1.7.0-beta2"]
-  [org.clojure/clojurescript "0.0-3211"]
-  [datascript "0.11.2"]
+  [org.clojure/clojurescript "0.0-3291"]
+  [datascript "0.11.3"]
 ]
 ```
+
+_Note:_ DataScript 0.11.3 and later requires CLJS 0.0-3291 or later
 
 _Note:_ DataScript 0.11.2 and later requires Clojure 1.7.0-beta2 or later
 
