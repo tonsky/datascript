@@ -19,7 +19,10 @@
 (defn round [x]
   (-> x (* 1000) fix (/ 1000)))
 
-(defn now [] #?(:cljs (js/window.performance.now) :clj (System/currentTimeMillis)))
+#?(:cljs (defn ^number now []
+           (js/window.performance.now))
+   :clj  (defn ^Long now []
+           (System/currentTimeMillis)))   
 
 (defn -measure [f {:keys [duration repeats setup-fn] :as opts}]
   (into []

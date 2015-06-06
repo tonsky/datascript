@@ -1,18 +1,22 @@
 (ns datascript
   (:refer-clojure :exclude [filter])
   (:require
-   [datascript.core :as dc #?@(:cljs [:refer [FilteredDB]])]
-   [datascript.pull-api :as dp]
-   [datascript.query :as dq]
-   [datascript.impl.entity :as de]
-   [datascript.btset :as btset])
-  #?(:clj (:import [datascript.core FilteredDB] [java.util UUID])))
+    [datascript.core :as dc #?@(:cljs [:refer [FilteredDB]])]
+    [datascript.pull-api :as dp]
+    [datascript.query :as dq]
+    [datascript.impl.entity :as de]
+    [datascript.btset :as btset])
+  #?(:clj
+    (:import
+      [datascript.core FilteredDB]
+      [datascript.impl.entity Entity]
+      [java.util UUID])))
 
 ;; SUMMING UP
 
 (def  q dq/q)
 (def  entity de/entity)
-(defn entity-db [entity] (.-db entity))
+(defn entity-db [^Entity entity] (.-db entity))
 
 (def  datom dc/datom)
 
@@ -33,8 +37,9 @@
 
 (defn filter [db pred]
   (if (is-filtered db)
-    (let [u (.-unfiltered-db db)]
-      (FilteredDB. u #(and (pred u %) ((.-pred db) %)) #?(:clj (atom nil))))
+    (let [^FilteredDB fdb db
+          u (.-unfiltered-db fdb)]
+      (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) #?(:clj (atom nil))))
     (FilteredDB. db #(pred db %) #?(:clj (atom nil)))))
 
 (defn with [db tx-data & [tx-meta]]
@@ -163,13 +168,14 @@
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
 
-(defn- to-hex-string [n l]
-  (let [s (.toString n 16)
-        c (count s)]
-    (cond
-      (> c l) (subs s 0 l)
-      (< c l) (str (apply str (repeat (- l c) "0")) s)
-      :else   s)))
+#?(:cljs
+  (defn- to-hex-string [n l]
+    (let [s (.toString n 16)
+          c (count s)]
+      (cond
+        (> c l) (subs s 0 l)
+        (< c l) (str (apply str (repeat (- l c) "0")) s)
+        :else   s))))
 
 (defn squuid []
   #?(:clj

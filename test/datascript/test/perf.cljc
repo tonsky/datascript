@@ -68,8 +68,8 @@
       (let [_fd (first _ds)
             _fe (first _es)]
         (if (and _fd _fe)
-          (case (compare (.-e _fd) _fe)
-            0 (recur (conj _res [(.-e _fd) (.-v _fd)]) (next _ds) (next _es))
+          (case (compare (:e _fd) _fe)
+            0 (recur (conj _res [(:e _fd) (:v _fd)]) (next _ds) (next _es))
            -1 (recur _res (next _ds) _es)
             1 (recur _res _ds (next _es)))
           _res)))))
@@ -82,7 +82,7 @@
         datoms (btset/slice (:aevt db) (dc/datom min-e a nil nil nil)
                                        (dc/datom max-e a nil nil nil))
 ;;        _ (.time js/console "hash")
-        hashmap (reduce (fn [m d] (assoc m (.-e d) (conj (get m (.-e d) '()) (.-v d)))) {} datoms)
+        hashmap (reduce (fn [m d] (assoc m (:e d) (conj (get m (:e d) '()) (:v d)))) {} datoms)
 ;;        _ (.timeEnd js/console "hash")
 ;;         _       (.log js/console (str "hashmap: " (count hashmap)))
 ;;        _ (.time js/console "join")
@@ -238,7 +238,7 @@
         (let [db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
               t0 (now)]
           (hash db)
-          (recur (+ time (- (now) t0)) (inc iters)))
+          (recur (long (+ time (- (now) t0))) (inc iters)))
         (let [dt (/ (* 1000 time) iters)]
           (println "perftest-db-hash:" dt "ms")
           dt)))))
@@ -253,7 +253,7 @@
               db2    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
               t0     (now)]
           (= db1 db2)
-          (recur (+ time (- (now) t0)) (inc iters)))
+          (recur (long (+ time (- (now) t0))) (inc iters)))
         (let [dt (/ (* 1000 time) iters)]
           (println "perftest-db-equiv" dt "ms")
           dt)))))

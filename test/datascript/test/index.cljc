@@ -6,7 +6,7 @@
    [datascript.test.core :as tdc]))
 
 (deftest test-datoms
-  (let [dvec #(vector (.-e %) (.-a %) (.-v %))
+  (let [dvec #(vector (:e %) (:a %) (:v %))
         db (-> (d/empty-db)
                (d/db-with [ [:db/add 1 :name "Petr"]
                             [:db/add 1 :age 44]
@@ -53,7 +53,7 @@
                [1 :age 44] ])))))
 
 (deftest test-seek-datoms
-  (let [dvec #(vector (.-e %) (.-a %) (.-v %))
+  (let [dvec #(vector (:e %) (:a %) (:v %))
         db (-> (d/empty-db)
                (d/db-with [[:db/add 1 :name "Petr"]
                            [:db/add 1 :age 44]
@@ -82,7 +82,7 @@
                [3 :name "Sergey"] ])))))
 
 (deftest test-index-range
-  (let [dvec #(vector (.-e %) (.-a %) (.-v %))
+  (let [dvec #(vector (:e %) (:a %) (:v %))
         db    (d/db-with
                 (d/empty-db)
                 [ { :db/id 1 :name "Ivan"   :age 15 }

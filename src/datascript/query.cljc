@@ -120,7 +120,10 @@
 
 ;; Relation algebra
 
-(defn join-tuples [t1 idxs1 t2 idxs2]
+(defn join-tuples [t1 #?(:cljs idxs1
+                         :clj  ^{:tag "[[Ljava.lang.Object;"} idxs1)
+                   t2 #?(:cljs idxs2
+                         :clj  ^{:tag "[[Ljava.lang.Object;"} idxs2)]
   (let [l1  (alength idxs1)
         l2  (alength idxs2)
         res (dc/arr (+ l1 l2))]
@@ -160,7 +163,7 @@
 (defn- -get-else
   [db e a else-val]
   (if-let [datom (first (dc/-search db [e a]))]
-    (.-v datom)
+    (:v datom)
     else-val))
 
 (defn- -get-some
@@ -168,7 +171,7 @@
   (reduce
    (fn [_ a]
      (when-let [datom (first (dc/-search db [e a]))]
-       (reduced (.-v datom))))
+       (reduced (:v datom))))
    nil
    as))
 
@@ -274,7 +277,7 @@
   
   BindScalar
   (in->rel [binding value]
-    (Relation. {(.. binding -variable -symbol) 0} [(into-array [value])]))
+    (Relation. {(get-in binding [:variable :symbol]) 0} [(into-array [value])]))
   
   BindColl
   (in->rel [binding coll]
@@ -286,7 +289,7 @@
         (empty-rel binding)
       :else
         (reduce sum-rel
-          (map #(in->rel (.-binding binding) %) coll))))
+          (map #(in->rel (:binding binding) %) coll))))
   
   BindTuple
   (in->rel [binding coll]
@@ -294,20 +297,20 @@
       (not (bindable-to-seq? coll))
         (raise "Cannot bind value " coll " to tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
-      (< (count coll) (count (.-bindings binding)))
+      (< (count coll) (count (:bindings binding)))
         (raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       :else
         (reduce prod-rel
-          (map #(in->rel %1 %2) (.-bindings binding) coll)))))
+          (map #(in->rel %1 %2) (:bindings binding) coll)))))
 
 (defn resolve-in [context [binding value]]
   (cond
     (and (instance? BindScalar binding)
-         (instance? SrcVar (.-variable binding)))
-      (update-in context [:sources] assoc (.. binding -variable -symbol) value)
+         (instance? SrcVar (:variable binding)))
+      (update-in context [:sources] assoc (get-in binding [:variable :symbol]) value)
     (and (instance? BindScalar binding)
-         (instance? RulesVar (.-variable binding)))
+         (instance? RulesVar (:variable binding)))
       (assoc context :rules (parse-rules value))
     :else
       (update-in context [:rels] conj (in->rel binding value))))
@@ -430,7 +433,7 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
     (when-let [tuple (first (:tuples rel))]
-      (aget tuple ((:attrs rel) sym)))))
+      (#?(:cljs aget :clj get) tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -651,7 +654,8 @@
           (recur acc (next rels) symbols)
           (let [copy-map (to-array (map #(get keep-attrs %) symbols))
                 len      (count symbols)]
-            (recur (for [t1 acc
+            (recur (for [#?(:cljs t1
+                            :clj ^{:tag "[[Ljava.lang.Object;"} t1) acc
                          t2 (:tuples rel)]
                      (let [res (aclone t1)]
                        (dotimes [i len]
@@ -724,9 +728,9 @@
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
                    (when (dp/pull? find)
-                     [(-context-resolve (.-source find) context)
+                     [(-context-resolve (:source find) context)
                       (dpp/parse-pull
-                        (-context-resolve (.-pattern find) context))]))]
+                        (-context-resolve (:pattern find) context))]))]
     (for [tuple resultset]
       (mapv (fn [env el]
               (if env

@@ -1,8 +1,11 @@
 (ns datascript.pull-api
   (:require
-   [datascript.core :as dc]
-   [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])
-  #?(:clj (:import [datascript.pull_parser PullSpec])))
+    [datascript.core :as dc]
+    [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])
+    #?(:clj
+      (:import
+        [datascript.core Datom]
+        [datascript.pull_parser PullSpec])))
 
 (defn- into!
   [transient-coll items]
@@ -113,7 +116,7 @@
       (let [multi?     (dc/multival? db attr)
             ref?       (dc/ref? db attr)
             component? (and ref? (dc/component? db attr))
-            datom-val  (if forward? #(.-v %) #(.-e %))]
+            datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
         (cond
           (contains? opts :subpattern)
           (->> (subpattern-frame (:subpattern opts)
@@ -206,7 +209,7 @@
 
 (defn- pull-wildcard-expand
   [db frame frames eid pattern]
-  (let [datoms (group-by #(.-a %) (dc/-datoms db :eavt [eid]))
+  (let [datoms (group-by (fn [^Datom d] (.-a d)) (dc/-datoms db :eavt [eid]))
         {:keys [attr recursion]} frame
         rec (cond-> recursion
               (some? attr) (push-recursion attr eid))]

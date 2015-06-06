@@ -20,17 +20,17 @@
 (defn- entity-attr [db a datoms]
   (if (dc/multival? db a)
     (if (dc/ref? db a)
-      (reduce #(conj %1 (entity db (.-v %2))) #{} datoms)
-      (reduce #(conj %1 (.-v %2)) #{} datoms))
+      (reduce #(conj %1 (entity db (:v %2))) #{} datoms)
+      (reduce #(conj %1 (:v %2)) #{} datoms))
     (if (dc/ref? db a)
-      (entity db (.-v (first datoms)))
-      (.-v (first datoms)))))
+      (entity db (:v (first datoms)))
+      (:v (first datoms)))))
 
 (defn- -lookup-backwards [db eid attr not-found]
   (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
     (if (dc/component? db attr)
-      (entity db (.-e (first datoms)))
-      (reduce #(conj %1 (entity db (.-e %2))) #{} datoms))
+      (entity db (:e (first datoms)))
+      (reduce #(conj %1 (entity db (:e %2))) #{} datoms))
     not-found))
 
 #?(:cljs
@@ -188,7 +188,7 @@
       (assoc acc a (entity-attr db a part))))
     {} (partition-by :a datoms)))
 
-(defn touch [e]
+(defn touch [^Entity e]
   (when-not @(.-touched e)
     (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
       (vreset! (.-cache e) (->> datoms

@@ -151,12 +151,12 @@
 
 (defn flatten-rule-vars [rule-vars]
   (concat
-    (when (.-required rule-vars)
-      [(mapv :symbol (.-required rule-vars))]
-      (mapv :symbol (.-free rule-vars)))))
+    (when (:required rule-vars)
+      [(mapv :symbol (:required rule-vars))]
+      (mapv :symbol (:free rule-vars)))))
 
 (defn rule-vars-arity [rule-vars]
-  [(count (.-required rule-vars)) (count (.-free rule-vars))])
+  [(count (:required rule-vars)) (count (:free rule-vars))])
 
 
 ;; binding        = (bind-scalar | bind-tuple | bind-coll | bind-rel)
@@ -461,9 +461,9 @@
     (instance? Variable form)
       (conj acc form)
     (instance? Not form)
-      (into acc (.-vars form))
+      (into acc (:vars form))
     (instance? Or form)
-      (collect-vars-acc acc (.-rule-vars form))
+      (collect-vars-acc acc (:rule-vars form))
     (satisfies? ITraversable form)
       (-collect-vars form acc)
     (sequential? form)
@@ -486,7 +486,7 @@
            {:error :parser/where, :form form})))
 
 (defn- validate-not [clause form]
-  (validate-join-vars (.-vars clause) (.-clauses clause) form)
+  (validate-join-vars (:vars clause) (:clauses clause) form)
   clause)
 
 (defn parse-not [form]
@@ -613,7 +613,7 @@
     (doseq [b    (next branches)
             :let [vars (:vars b)]]
       (when (not= arity0 (rule-vars-arity vars))
-        (raise "Arity mismatch for rule '" (.-symbol name) "': "
+        (raise "Arity mismatch for rule '" (:symbol name) "': "
                (flatten-rule-vars vars0) " vs. " (flatten-rule-vars vars)
          {:error :parser/rule, :rule name})))))
 

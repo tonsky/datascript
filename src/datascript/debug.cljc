@@ -1,15 +1,9 @@
 (ns datascript.debug)
 
-;; ----------------------------------------------------------------------------
-;; XXX almost certainly doesn't work in CLJ yet, but compiles.
-;;
-
 (def ^:dynamic debug? false)
 (def ^:dynamic *minibench-warmups* 50)
 (def ^:dynamic *minibench-iterations* 50)
 (def enabled? true)
-
-;; ----------------------------------------------------------------------------
 
 (defrecord Frame [parent start end message children])
 
@@ -32,7 +26,7 @@
 (defn pad [n l]
   (let [s (str n)]
     (if (<= (count s) l)
-      (.slice (str "                  " s) (- l))
+      (subs (str "                  " s) (- l))
       s)))
 
 (defn format-time [dt]
@@ -45,25 +39,26 @@
 (defn println-frame [frame depth]
   (let [msg (apply str
                    (apply str (repeat depth "  "))
-                   (interpose " " (.-message frame)))]
-    (if (.-start frame)
-      (emit* (format-time (- (.-end frame) (.-start frame))) msg)
+                   (interpose " " (:message frame)))]
+    (if (:start frame)
+      (emit* (format-time (- (:end frame) (:start frame))) msg)
       (emit* "[           ]" msg))
-    (doseq [ch (.-children frame)]
+    (doseq [ch (:children frame)]
       (println-frame ch (inc depth)))))
 
 (defn start-frame [time?]
-  (vreset! current-frame (Frame. @current-frame (when time? (now)) nil nil [])))
+  (vreset! current-frame (->Frame @current-frame (when time? (now)) nil nil [])))
 
 (defn end-frame [& msg]
-  (let [f @current-frame
-        p (.-parent f)]
-    (set! (.-end f) (now))
-    (set! (.-message f) msg)
-    (vreset! current-frame p)
-    (if (nil? p)
-      (println-frame f 0)
-      (set! (.-children p) (conj (.-children p) f)))))
+  (let [f ^Frame @current-frame
+        f (assoc f
+            :end (now)
+            :message msg)
+        p (some-> (:parent f)
+                  (update :children conj f))]
+    (when (nil? p)
+      (println-frame f 0))
+    (vreset! current-frame p)))
 
 ;; ----------------------------------------------------------------------------
 

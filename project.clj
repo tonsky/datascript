@@ -11,7 +11,7 @@
   
   :global-vars {
     *warn-on-reflection* true
-    *unchecked-math* :warn-on-boxed
+;;     *unchecked-math* :warn-on-boxed
   }
   
   :jvm-opts ["-Xmx2g"]
