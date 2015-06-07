@@ -43,7 +43,7 @@
                     (dc/datom 1 :name "Oleg")))
     (is (= #datascript/Datom [1 :name "Oleg" 100 false]
                     (dc/datom 1 :name "Oleg" 100 false)))
-    ;; FIXME doesn’t work for some reason
+    ;; not supported because IRecord print method is hard-coded into Compiler
     #_(is (= #datascript/DB {:schema {:name {:db/unique :db.unique/identity}}
                            :datoms [[1 :name "Oleg" 100] [1 :age 14 100] [2 :name "Petr" 101]]}
            (d/init-db 

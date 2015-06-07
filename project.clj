@@ -14,7 +14,7 @@
 ;;     *unchecked-math* :warn-on-boxed
   }
   
-  :jvm-opts ["-Xmx2g"]
+  :jvm-opts ["-Xmx2g" "-server"]
 
   :aliases {"test-clj" ["run" "-m" "datascript.test/test-all"]}
   

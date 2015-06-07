@@ -2,9 +2,10 @@
   (:require
    [datascript :as d]
    [datascript.btset :as btset]
-   [datascript.core :as dc]
+   [datascript.core :as dc #?@(:cljs [:refer [DB]])]
    [datascript.parser :as dp]
-   [datascript.perf :as perf]))
+   [datascript.perf :as perf])
+  #?(:clj (:import [datascript.core DB])))
 
 #?(:cljs
    (enable-console-print!))
@@ -114,19 +115,26 @@
 ;;                                               [?e :salary ?s]])
 ;;                                       (:db opts)))
      "d/q1"              (fn [opts] (d/q '[ :find  ?e
-                                           :where [?e :name "Ivan"]]
+                                            :where [?e :name "Ivan"] ]
                                          (:db opts)))
 
 
      "d/q2"              (fn [opts] (d/q '[ :find  ?e ?a
-                                           :where [?e :name "Ivan"]
-                                                  [?e :age ?a] ]
+                                            :where [?e :name "Ivan"]
+                                                   [?e :age ?a] ]
                                          (:db opts)))
 
      "d/q3"              (fn [opts] (d/q '[ :find  ?e ?a
-                                           :where [?e :name "Ivan"]
-                                                  [?e :age ?a]
-                                                  [?e :sex :male] ]
+                                            :where [?e :name "Ivan"]
+                                                   [?e :age ?a]
+                                                   [?e :sex :male] ]
+                                         (:db opts)))
+           
+     "d/q4"              (fn [opts] (d/q '[ :find  ?e ?ln ?a
+                                            :where [?e :name "Ivan"]
+                                                   [?e :last-name ?ln]
+                                                   [?e :age ?a]
+                                                   [?e :sex :male] ]
                                          (:db opts)))
 
      ; "hash-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
@@ -170,7 +178,7 @@
     ;                               (= (:sex %) :male)) }
   ; }
                     
-  :size [2000] ;; [100 500 2000 20000]
+  :size [100 500 2000 20000]
 ])
 
 
@@ -225,38 +233,32 @@
                       datoms (case form
                                :wide (gen-wide-db 1 depth width)
                                :long (gen-long-db depth width))
-                      db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)]
+                      db (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)]
                   (assoc opts :db db)))))
 
 (def now datascript.perf/now)
 
-(defn ^:export perftest-db-hash []
-  (let [datoms (gen-long-db 30 10)]
-    (loop [time  0
-           iters 0]
-      (if (< iters 100)
-        (let [db (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
-              t0 (now)]
-          (hash db)
-          (recur (long (+ time (- (now) t0))) (inc iters)))
-        (let [dt (/ (* 1000 time) iters)]
-          (println "perftest-db-hash:" dt "ms")
-          dt)))))
 
+(defn ^:export perftest-db-hash []
+  (perf/suite (fn [opts]
+                (let [^DB db (:db opts)]
+                  #?(:cljs (set! (.-__hash db) nil)
+                     :clj  (reset! (.-__hash db) nil))
+                  (hash (:db opts))))
+    :duration 1000
+    :setup-fn (fn [opts]
+                (let [db (reduce #(d/db-with %1 [%2]) (d/empty-db) (gen-long-db 30 10))]
+                  (assoc opts :db db)))))
 
 (defn ^:export perftest-db-equiv []
-  (let [datoms (gen-long-db 30 10)]
-    (loop [time  0
-           iters 0]
-      (if (< iters 100)
-        (let [db1    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
-              db2    (reduce #(d/with %1 [%2]) (d/empty-db) datoms)
-              t0     (now)]
-          (= db1 db2)
-          (recur (long (+ time (- (now) t0))) (inc iters)))
-        (let [dt (/ (* 1000 time) iters)]
-          (println "perftest-db-equiv" dt "ms")
-          dt)))))
+  (perf/suite (fn [opts]
+                (= (:db1 opts) (:db2 opts)))
+    :duration 1000
+    :setup-fn (fn [opts]
+                (let [datoms (gen-long-db 30 10)
+                      db1 (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)
+                      db2 (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)]
+                  (assoc opts :db1 db1 :db2 db2)))))
 
 (def cached-parse-q (memoize (fn [q] (dp/parse-query q))))
 
@@ -280,4 +282,4 @@
           t0 (now)]
       (dotimes [_ iters]
         (cached-parse-q q))
-      (println (/ (- (now) t0) iters) "ms"))))
+      (println (double (/ (- (now) t0) iters)) "ms"))))
