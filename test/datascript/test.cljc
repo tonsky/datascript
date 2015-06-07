@@ -11,6 +11,7 @@
      datascript.test.index
      datascript.test.listen
      datascript.test.lookup-refs
+     datascript.test.lru
      datascript.test.parser
      datascript.test.parser-find
      datascript.test.parser-rules

@@ -4,6 +4,7 @@
    [clojure.set :as set]
    [clojure.walk :as walk]
    [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]
+   [datascript.lru]
    [datascript.impl.entity :as de]
    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple Constant
                                                 FindColl FindRel FindScalar FindTuple PlainSymbol
@@ -73,50 +74,6 @@
 
 (defn lookup-ref? [form]
   (looks-like? [attr? '_] form))
-
-;; LRU cache
-
-#?(:cljs
-   (deftype LRU [key-value gen-key key-gen gen limit]
-     Object
-     (cleanup [coll]
-       (if (> (count key-value) limit)
-         (let [[g k] (first gen-key)]
-           (LRU. (-dissoc! key-value k)
-                 (dissoc   gen-key g)
-                 (-dissoc! key-gen k)
-                 gen
-                 limit))
-         coll))
-     IAssociative
-     (-assoc [_ k v]
-       (if-let [g (-lookup key-gen k nil)]
-         (LRU. key-value
-               (-> gen-key
-                   (dissoc g)
-                   (assoc gen k))
-               (-assoc! key-gen k gen)
-               (inc gen)
-               limit)
-         (.cleanup
-          (LRU. (-assoc! key-value k v)
-                (assoc   gen-key gen k)
-                (-assoc! key-gen k gen)
-                (inc gen)
-                limit))))
-     (-contains-key? [_ k] (-contains-key? key-value k))
-     ILookup
-     (-lookup [coll k]
-       (-lookup key-value k nil))
-     (-lookup [coll k not-found]
-       (-lookup key-value k not-found))
-     IPrintWithWriter
-     (-pr-writer [_ writer opts]
-       (-pr-writer (persistent! key-value) writer opts))))
-
-(defn lru [limit]
-  #?(:cljs (LRU. (transient {}) (sorted-map) (transient {}) 0 limit)
-     :clj  nil)) ; XXX broken for CLJ
 
 ;; Relation algebra
 
@@ -740,7 +697,7 @@
             resolved
             tuple))))
 
-(def ^:private query-cache (volatile! (lru lru-cache-size)))
+(def ^:private query-cache (volatile! (datascript.lru/lru lru-cache-size)))
 
 (defn memoized-parse-query [q]
   (if-let [cached (get @query-cache q nil)]
