@@ -42,6 +42,7 @@
      (def UnsupportedOperationException js/Error)))
 
 (def ^:const tx0 0x20000000)
+(def ^:const default-schema nil)
 
 ;; ----------------------------------------------------------------------------
 
@@ -167,14 +168,16 @@
         (valAt [d k nf] (val-at-datom d k nf))
 
         clojure.lang.Associative
-        (entryAt [d k] (some->> (val-at-datom d k) (clojure.lang.MapEntry k)))
+        (entryAt [d k] (some->> (val-at-datom d k nil) (clojure.lang.MapEntry k)))
         (containsKey [e k] (#{:e :a :v :tx :added} k))
         (assoc [d k v] (assoc-datom k v))
         ]))
 
-(defn ^Datom datom [e a v & [tx added]]
-  (Datom. e a v (or tx tx0) (if (nil? added) true added)))
-
+(defn ^Datom datom
+  ([e a v]          (Datom. e a v tx0 true))
+  ([e a v tx]       (Datom. e a v tx true))
+  ([e a v tx added] (Datom. e a v tx added)))
+  
 (defn datom? [x] (instance? Datom x))
 
 (defn- hash-datom [^Datom d]
@@ -192,7 +195,7 @@
 
 ;; keep it fast by duplicating for both keyword and string cases
 ;; instead of using sets or some other matching func
-(defn- val-at-datom [^Datom d k & [not-found]]
+(defn- val-at-datom [^Datom d k not-found]
   (case k
     :e     (.-e d)        "e"     (.-e d)
     :a     (.-a d)        "a"     (.-a d)
@@ -213,8 +216,8 @@
 ;; printing and reading
 ;; #datomic/DB {:schema <map>, :datoms <vector of [e a v tx]>}
 
-(defn ^Datom datom-from-reader [[e a v tx added]]
-  (datom e a v tx added))
+(defn ^Datom datom-from-reader [vec]
+  (apply datom vec))
 
 #?(:clj
    (defmethod print-method Datom [^Datom d, ^java.io.Writer w]
@@ -537,42 +540,46 @@
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
   schema)
 
-(defn ^DB empty-db [& [schema]]
-  (map->DB {
-    :schema  (validate-schema schema)
-    :eavt    (btset/btset-by cmp-datoms-eavt)
-    :aevt    (btset/btset-by cmp-datoms-aevt)
-    :avet    (btset/btset-by cmp-datoms-avet)
-    :max-eid 0
-    :max-tx  tx0
-    :rschema (rschema schema)
-    #?@(:clj [:__hash (atom nil)])}))
+(defn ^DB empty-db
+  ([] (empty-db default-schema))
+  ([schema]
+    (map->DB {
+      :schema  (validate-schema schema)
+      :eavt    (btset/btset-by cmp-datoms-eavt)
+      :aevt    (btset/btset-by cmp-datoms-aevt)
+      :avet    (btset/btset-by cmp-datoms-avet)
+      :max-eid 0
+      :max-tx  tx0
+      :rschema (rschema schema)
+      #?@(:clj [:__hash (atom nil)])})))
 
-(defn ^DB init-db [datoms & [schema]]
-  (if (empty? datoms)
-    (empty-db schema)
-    (let [_ (validate-schema schema)
-          #?@(:cljs
-              [ds-arr  (into-array datoms)
-               eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
-               aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
-               avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
-               max-eid (:e (first (-rseq eavt)))]
-              :clj
-              [eavt    (apply btset/btset-by cmp-datoms-eavt datoms)
-               aevt    (apply btset/btset-by cmp-datoms-aevt datoms)
-               avet    (apply btset/btset-by cmp-datoms-avet datoms)
-               max-eid (:e (first (rseq eavt)))])
-          max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
-      (map->DB {
-        :schema  schema
-        :eavt    eavt
-        :aevt    aevt
-        :avet    avet
-        :max-eid max-eid
-        :max-tx  max-tx
-        :rschema (rschema schema)
-        #?@(:clj [:__hash (atom nil)])}))))
+(defn ^DB init-db
+  ([datoms] (init-db datoms default-schema))
+  ([datoms schema]
+    (if (empty? datoms)
+      (empty-db schema)
+      (let [_ (validate-schema schema)
+            #?@(:cljs
+                [ds-arr  (into-array datoms)
+                 eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
+                 aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
+                 avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
+                 max-eid (:e (first (-rseq eavt)))]
+                :clj
+                [eavt    (apply btset/btset-by cmp-datoms-eavt datoms)
+                 aevt    (apply btset/btset-by cmp-datoms-aevt datoms)
+                 avet    (apply btset/btset-by cmp-datoms-avet datoms)
+                 max-eid (:e (first (rseq eavt)))])
+            max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
+        (map->DB {
+          :schema  schema
+          :eavt    eavt
+          :aevt    aevt
+          :avet    avet
+          :max-eid max-eid
+          :max-tx  max-tx
+          :rschema (rschema schema)
+          #?@(:clj [:__hash (atom nil)])})))))
 
 (defn- equiv-db-index [x y]
   (and (= (count x) (count y))

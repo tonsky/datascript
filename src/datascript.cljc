@@ -42,24 +42,34 @@
       (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) #?(:clj (atom nil))))
     (FilteredDB. db #(pred db %) #?(:clj (atom nil)))))
 
-(defn with [db tx-data & [tx-meta]]
-  (if (is-filtered db)
-    (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
-    (dc/transact-tx-data (dc/map->TxReport
-                           { :db-before db
-                             :db-after  db
-                             :tx-data   []
-                             :tempids   {}
-                             :tx-meta   tx-meta}) tx-data)))
+(defn with
+  ([db tx-data] (with db tx-data nil))
+  ([db tx-data tx-meta]
+    (if (is-filtered db)
+      (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
+      (dc/transact-tx-data (dc/map->TxReport
+                             { :db-before db
+                               :db-after  db
+                               :tx-data   []
+                               :tempids   {}
+                               :tx-meta   tx-meta}) tx-data))))
 
 (defn db-with [db tx-data]
   (:db-after (with db tx-data)))
 
-(defn datoms [db index & cs]
-  (dc/-datoms db index cs))
+(defn datoms
+  ([db index] (dc/-datoms db index []))
+  ([db index c1] (dc/-datoms db index [c1]))
+  ([db index c1 c2] (dc/-datoms db index [c1 c2]))
+  ([db index c1 c2 c3] (dc/-datoms db index [c1 c2 c3]))
+  ([db index c1 c2 c3 c4] (dc/-datoms db index [c1 c2 c3 c4])))
 
-(defn seek-datoms [db index & cs]
-  (dc/-seek-datoms db index cs))
+(defn seek-datoms
+  ([db index] (dc/-seek-datoms db index []))
+  ([db index c1] (dc/-seek-datoms db index [c1]))
+  ([db index c1 c2] (dc/-seek-datoms db index [c1 c2]))
+  ([db index c1 c2 c3] (dc/-seek-datoms db index [c1 c2 c3]))
+  ([db index c1 c2 c3 c4] (dc/-seek-datoms db index [c1 c2 c3 c4])))
 
 (def index-range dc/-index-range)
 
@@ -67,9 +77,11 @@
 
 ;; Conn
 
-(defn create-conn [& [schema]]
-  (atom (empty-db schema)
-        :meta { :listeners  (atom {}) }))
+(defn create-conn
+  ([] (create-conn dc/default-schema))
+  ([schema]
+    (atom (empty-db schema)
+          :meta { :listeners  (atom {}) })))
 
 (defn -transact! [conn tx-data tx-meta]
   (let [report (atom nil)]
@@ -79,11 +91,13 @@
                     (:db-after r))))
     @report))
 
-(defn transact! [conn tx-data & [tx-meta]]
-  (let [report (-transact! conn tx-data tx-meta)]
-    (doseq [[_ callback] @(:listeners (meta conn))]
-      (callback report))
-    report))
+(defn transact!
+  ([conn tx-data] (transact! conn tx-data nil))
+  ([conn tx-data tx-meta]
+    (let [report (-transact! conn tx-data tx-meta)]
+      (doseq [[_ callback] @(:listeners (meta conn))]
+        (callback report))
+      report)))
            
 (defn listen!
   ([conn callback] (listen! conn (rand) callback))
@@ -129,24 +143,26 @@
 
 (def db deref)
 
-(defn transact [conn tx-data & [tx-meta]]
-  (let [res (transact! conn tx-data tx-meta)]
-    #?(:cljs
-       (reify
-         IDeref
-         (-deref [_] res)
-         IDerefWithTimeout
-         (-deref-with-timeout [_ _ _] res)
-         IPending
-         (-realized? [_] true))
-       :clj
-       (reify
-         clojure.lang.IDeref
-         (deref [_] res)
-         clojure.lang.IBlockingDeref
-         (deref [_ _ _] res)
-         clojure.lang.IPending
-         (isRealized [_] true)))))
+(defn transact
+  ([conn tx-data] (transact conn tx-data nil))
+  ([conn tx-data tx-meta]
+    (let [res (transact! conn tx-data tx-meta)]
+      #?(:cljs
+         (reify
+           IDeref
+           (-deref [_] res)
+           IDerefWithTimeout
+           (-deref-with-timeout [_ _ _] res)
+           IPending
+           (-realized? [_] true))
+         :clj
+         (reify
+           clojure.lang.IDeref
+           (deref [_] res)
+           clojure.lang.IBlockingDeref
+           (deref [_ _ _] res)
+           clojure.lang.IPending
+           (isRealized [_] true))))))
 
 ;; ersatz future without proper blocking
 #?(:cljs
@@ -162,8 +178,10 @@
          IPending
          (-realized? [_] @realized)))))
 
-(defn transact-async [conn tx-data & [tx-meta]]
-  (future-call #(transact! conn tx-data tx-meta)))
+(defn transact-async
+  ([conn tx-data] (transact-async conn tx-data nil))
+  ([conn tx-data tx-meta]
+    (future-call #(transact! conn tx-data tx-meta))))
 
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
