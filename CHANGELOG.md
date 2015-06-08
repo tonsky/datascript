@@ -1,3 +1,21 @@
+# 0.11.4
+
+Experimental support for Clojure on JVM:
+
+  - `sorted-set` instead of BTSet
+  - polymorphic `get` lookup in query
+  - no sorting optimisation for `init-db`
+
+Performance numbers so far ([raw data](https://gist.github.com/tonsky/9da339f87113e1f1a395)):
+
+- queries with single clause, no join: 30–50% faster 
+- queries with joins: ~50% slower
+- `transact`: ~3.5–4 times faster
+- `init-db`: ~2–2.5 times slower
+- rules: ~2–5 times faster
+- db `equiv`: ~5 times slower
+- db `hash`: ~10 times slower
+
 # 0.11.3
 
 - Fixed UUID constructor warning under CLJS 0.0-3291 and later
