@@ -1,14 +1,13 @@
 (ns datascript.query-v3
-  #?(:cljs (:require-macros [datascript.debug :refer [do-debug debug measure minibench]]))
   (:require
     [clojure.set :as set]
     ;;[cemerick.cljs.test :as t]
     [datascript :as d]
-    [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]
+    [datascript.core :as dc]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable]])]
     [datascript.btset :as btset]
-    [datascript.debug #?@(:clj [:refer [do-debug debug measure minibench]])])
+    [datascript.perf :as perf])
   #?(:clj (:import [datascript.parser BindColl BindIgnore BindScalar BindTuple
                                       Constant DefaultSrc Pattern RulesVar SrcVar Variable])))
 
@@ -404,7 +403,7 @@
     (let [inner-binding (.-binding binding)]
       (cond
         (not (bindable-to-seq? coll))
-          (raise "Cannot bind value " coll " to collection " (dp/source binding)
+          (dc/raise "Cannot bind value " coll " to collection " (dp/source binding)
                  {:error :query/binding, :value coll, :binding (dp/source binding)})
        
         (empty? coll)
@@ -427,10 +426,10 @@
   (in->rel [binding coll]
     (cond
       (not (bindable-to-seq? coll))
-        (raise "Cannot bind value " coll " to tuple " (dp/source binding)
+        (dc/raise "Cannot bind value " coll " to tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       (< (count coll) (count (.-bindings binding)))
-        (raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
+        (dc/raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       ;; [?x ?y] type of binding
       (plain-tuple-binding? binding)
@@ -460,7 +459,7 @@
 
 (defn resolve-ins [context bindings values]
   (when (not= (count bindings) (count values))
-    (raise "Wrong number of arguments for bindings " (mapv dp/source bindings)
+    (dc/raise "Wrong number of arguments for bindings " (mapv dp/source bindings)
            ", " (count bindings) " required, " (count values) " provided"
            {:error :query/binding, :binding (mapv dp/source bindings)}))
   (reduce resolve-in context (map vector bindings values)))
@@ -468,7 +467,7 @@
 ;;; Resolution
 
 (defn substitute-constants [clause context]
-  (measure
+  (perf/measure
     (dp/postwalk
       clause
       (fn [form]
@@ -476,7 +475,7 @@
           (let [sym (.-symbol form)]
             (if-let [subs ((:consts context) (.-symbol form))]
               (do
-                (debug "substituted" sym "with" subs)
+                (perf/debug "substituted" sym "with" subs)
                 (Constant. subs)
               )
               form))
@@ -490,9 +489,9 @@
   (let [symbol (cond
                  (instance? SrcVar source)     (.-symbol source)
                  (instance? DefaultSrc source) (:default-source-symbol context)
-                 :else (raise "Source expected, got " source))]
+                 :else (dc/raise "Source expected, got " source))]
     (or (get (:sources context) symbol)
-        (raise "Source " symbol " is not defined"
+        (dc/raise "Source " symbol " is not defined"
                {:error :query/where, :symbol symbol}))))
     
 
@@ -547,10 +546,10 @@
 
 (defn- matches-pattern? [idxs tuple]
 ;;   (when-not (bindable-to-seq? tuple)
-;;     (raise "Cannot match pattern " (dp/source clause) " because tuple is not a collection: " tuple
+;;     (dc/raise "Cannot match pattern " (dp/source clause) " because tuple is not a collection: " tuple
 ;;            {:error :query/where, :value tuple, :binding (dp/source clause)}))
 ;;   (when (< (count tuple) (count (.-pattern clause)))
-;;     (raise "Not enough elements in a relation tuple " tuple " to match " (dp/source clause)
+;;     (dc/raise "Not enough elements in a relation tuple " tuple " to match " (dp/source clause)
 ;;            {:error :query/where, :value tuple, :binding (dp/source clause)}))
   (reduce-kv
     (fn [_ i v]
@@ -570,7 +569,7 @@
 
 (defn -resolve-pattern-coll [coll clause]
   (when-not (bindable-to-seq? coll)
-    (raise "Cannot match by pattern " (dp/source clause) " because source is not a collection: " coll
+    (dc/raise "Cannot match by pattern " (dp/source clause) " because source is not a collection: " coll
        {:error :query/where, :value coll, :binding (dp/source clause)}))
   (let [pattern (.-pattern clause)
         idxs    (->> (map #(when (instance? Constant %1) [%2 (.-value %1)]) pattern (range))
@@ -588,29 +587,29 @@
         (-resolve-pattern-coll source clause)))))
 
 (defn resolve-clause-new [context clause]
-  (measure (-resolve-clause clause context nil nil)
+  (perf/measure (-resolve-clause clause context nil nil)
      "resolve-clause-new to" (.-symbols %) "with" (count %) "tuples:" %))
 
 (defn resolve-clause-related [context clause clause-syms related-rels]
-  (measure
+  (perf/measure
     (let [related   (reduce product related-rels)
           join-syms (filter clause-syms (.-symbols related))
-          _         (debug "got" (count related-rels) "related rels over" join-syms)
-          _         (do-debug
+          _         (perf/debug "got" (count related-rels) "related rels over" join-syms)
+          _         (perf/when-debug
                       (doseq [rel related-rels]
-                        (debug "  " (.-symbols rel) "with" (count rel) "tuples")))
-          hash      (measure (hash-rel related join-syms)
+                        (perf/debug "  " (.-symbols rel) "with" (count rel) "tuples")))
+          hash      (perf/measure (hash-rel related join-syms)
                              "hash calculated with" (count %) "keys")
-          rel       (measure (-resolve-clause clause context join-syms hash) ;; TODO use hash
+          rel       (perf/measure (-resolve-clause clause context join-syms hash) ;; TODO use hash
                              "-resolve-clause to" (count %) "tuples")
-          joined    (measure (hash-join related hash join-syms rel) ;; TODO choose between hash-join and lookup-join
+          joined    (perf/measure (hash-join related hash join-syms rel) ;; TODO choose between hash-join and lookup-join
                              "hash-join to" (.-symbols %) "with" (count %) "tuples")]
       joined)
     "resolve-clause-related"))
 
 (defn resolve-clause [context clause]
-  (measure
-    (let [clause-syms  (measure (into #{} (map :symbol) (dp/collect #(instance? Variable %) clause #{})) "clause-syms")
+  (perf/measure
+    (let [clause-syms  (perf/measure (into #{} (map :symbol) (dp/collect #(instance? Variable %) clause #{})) "clause-syms")
           consts       (into #{} (filter (:consts context)) clause-syms)
           old-rels     (:rels context)
           related?     #(some clause-syms (.-symbols %))
@@ -630,13 +629,13 @@
       (cond
         (== 0 cardinality)
           (do
-            (debug "Promoting to :empties" (set/union clause-syms consts))
+            (perf/debug "Promoting to :empties" (set/union clause-syms consts))
             (-> context
               (update :consts #(apply dissoc % consts))
               (update :empties set/union clause-syms consts)))
         (== 1 cardinality)
           (do
-            (debug "Promoting to :consts" (rel->consts new-rel))
+            (perf/debug "Promoting to :consts" (rel->consts new-rel))
             (-> context
               (update :consts merge (rel->consts new-rel))
               (assoc :rels keep-rels)))
@@ -654,8 +653,8 @@
         parsed-q)))
 
 (defn q [q & inputs]
-  (measure
-    (let [parsed-q (measure (parse-query q)
+  (perf/measure
+    (let [parsed-q (perf/measure (parse-query q)
                             "parse-query")
           context  { :rels    []
                      :consts  {}
@@ -663,14 +662,14 @@
                      :sources {}
                      :rules   {}
                      :default-source-symbol '$ }
-          context  (measure (resolve-ins context (:in parsed-q) inputs)
+          context  (perf/measure (resolve-ins context (:in parsed-q) inputs)
                      "resolve-ins")
-          context  (measure (reduce resolve-clause context (:where parsed-q))
+          context  (perf/measure (reduce resolve-clause context (:where parsed-q))
                      "resolve-clauses")]
       context)
     "Query" q))
 
-#_(minibench "q coll"
+#_(perf/minibench "q coll"
   (q '[:find ?a
        :in $1 $2 ?n
        :where [$1 ?a ?n ?b]
@@ -693,14 +692,14 @@
        (d/db-with (d/empty-db) (repeatedly 10 rand-entity))
        1))
 
-#_(minibench "q2 const"
+#_(perf/minibench "q2 const"
   (d/q '[:find ?e
          :where [?e :name "ivan"]
                 [?e :age 1]]
      db))
 
 
-#_(minibench "q3 db"
+#_(perf/minibench "q3 db"
   (q '[:find ?e
        :in $ ?n
        :where [?e :name "ivan"]
@@ -708,7 +707,7 @@
      db
      1))
   
-#_(minibench "q2 db"
+#_(perf/minibench "q2 db"
   (d/q '[:find ?e
          :in $ ?n
          :where [?e :name "ivan"]
@@ -734,11 +733,11 @@
 ;;                         [?lid :lesson/endtime ?endtime]
 ;;                         [(?list ?sid ?fname ?lname) ?studentinfo]]
 ;;       parsed (dp/parse-query query)]
-;;   (minibench "postwalk"
+;;   (perf/minibench "postwalk"
 ;;     (dp/postwalk parsed identity))
-;;   (minibench "parse-query"
+;;   (perf/minibench "parse-query"
 ;;     (dp/parse-query query))
-;;   (minibench "substitute-constants"
+;;   (perf/minibench "substitute-constants"
 ;;     (substitute-constants (first (:where parsed)) {:consts {'?tid 7}})))
 
 ;; (t/test-ns 'datascript.test.query-v3)

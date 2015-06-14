@@ -12,274 +12,120 @@
 
 ;; Performance
 
+;; test-db
+
+(def next-eid (volatile! 0))
+
 (defn random-man []
-  {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-   :sex       (rand-nth [:male :female])
-   :age       (rand-int 10)
-   :salary    (rand-int 100000)})
+  (with-meta
+    {:db/id     (vswap! next-eid inc)
+     :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+     :sex       (rand-nth [:male :female])
+     :age       (rand-int 10)
+     :salary    (rand-int 100000)}
+    {:tx (+ d/tx0 (rand-int 1000))}))
 
-(def test-matrix-transact [ :test   ["transact"]
-                            :size   [100 500 2000]
-                            :batch  [1]])
+(def people (repeatedly random-man))
 
-(defn test-setup-people [opts]
-  (let [people (repeatedly (:size opts) random-man)
-        people (mapv #(assoc %1 :db/id (- -1 %2)) people (range))]
-    (assoc opts
-      :people people)))
+(def xf-ent->datom
+  (mapcat (fn [p]
+            (reduce-kv
+              (fn [acc k v]
+                (conj acc (d/datom (:db/id p) k v (:tx (meta p)))))
+              [] (dissoc p :db/id)))))
+
+(defn- wide-db
+  ([depth width] (d/db-with (d/empty-db) (wide-db 1 depth width)))
+  ([id depth width]
+    (if (pos? depth)
+      (let [children (map #(+ (* id width) %) (range width))]
+        (concat
+          (map #(vector :db/add id :follows %) children)
+          (mapcat #(wide-db % (dec depth) width) children)))
+      [])))
+
+(defn- long-db [depth width]
+  (d/db-with (d/empty-db)
+    (for [x (range width)
+          y (range depth)]
+      [:db/add (+ (* x (inc depth)) y) :follows (+ (* x (inc depth)) y 1)])))
+
+;; tests
 
 (defn ^:export perftest-transact []
-  (perf/suite (fn [opts]
-                (let [conn (d/create-conn)]
-                  (doseq [ps (partition-all (:batch opts 1) (:people opts))]
-                    (d/transact! conn ps))))
-    :duration 5000
-    :matrix   test-matrix-transact
-    :setup-fn test-setup-people))
+  (doseq [size  [100 500 2000]
+          batch [1]
+          :let [part (->> (take size people)
+                          (partition-all batch))]]
+    (perf/bench {:test "db-with" :size size :batch batch}
+      (reduce d/db-with (d/empty-db) part))))
 
-(defn- setup-datoms [opts]
-  (let [people (repeatedly (:size opts) random-man)
-        people (map #(assoc %1 :db/id %2) people (range))
-        datoms (mapcat (fn [person]
-                         (map (fn [[k v]]
-                                (dc/datom (:db/id person) k v (+ d/tx0 (rand-int 1000)) true))
-                              (dissoc person :db/id)))
-                       people)]
-    (assoc opts :datoms (vec datoms))))
+(defn ^:export perftest-init-db []
+  (doseq [size [100 500 2000 5000 20000]
+          :let [datoms (into [] (comp xf-ent->datom (take size)) people)]]
+    (perf/bench {:test "init-db" :size size}
+      (d/init-db datoms))))
 
-(defn ^:export perftest-from-reader []
-  (perf/suite (fn [opts]
-                ((:fn opts) (:datoms opts)))
-    :duration 5000
-    :matrix   [ :fn   {;; "old" d/db-from-reader
-                       "new" d/init-db}
-                :size [100 500 2000 5000 20000] ]
-    :setup-fn setup-datoms))
-      
-
-(defn sort-merge-join [db eis a]
-  (let [min-e nil ;;(first eis)
-        max-e nil ;;(nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/datom min-e a nil nil nil)
-                                       (dc/datom max-e a nil nil nil))]
-    (loop [_res []
-           _ds  datoms
-           _es  eis]
-      (let [_fd (first _ds)
-            _fe (first _es)]
-        (if (and _fd _fe)
-          (case (compare (:e _fd) _fe)
-            0 (recur (conj _res [(:e _fd) (:v _fd)]) (next _ds) (next _es))
-           -1 (recur _res (next _ds) _es)
-            1 (recur _res _ds (next _es)))
-          _res)))))
-
-(defn hash-join [db eis a]
-;;  (.time js/console "hash-join")
-;;   (.log js/console (str "eis: " (count eis)))
-  (let [min-e nil ;; (first eis)
-        max-e nil ;; (nth eis (dec (count eis)))
-        datoms (btset/slice (:aevt db) (dc/datom min-e a nil nil nil)
-                                       (dc/datom max-e a nil nil nil))
-;;        _ (.time js/console "hash")
-        hashmap (reduce (fn [m d] (assoc m (:e d) (conj (get m (:e d) '()) (:v d)))) {} datoms)
-;;        _ (.timeEnd js/console "hash")
-;;         _       (.log js/console (str "hashmap: " (count hashmap)))
-;;        _ (.time js/console "join")
-        res     (reduce (fn [acc e] (if-let [vs (get hashmap e)]
-                                      (reduce (fn [acc v]
-                                                (conj acc (dc/into-arr [e v])))
-                                                acc vs)
-                                      acc))
-                                      [] eis)
-;;        _ (.timeEnd js/console "join")
-        ]
-;;    (.timeEnd js/console "hash-join")
-    (into #{} (map vec res))))
-
-
-(def test-matrix-q [
-  :test   ["q"]
-  :method { 
-;;     "q-scan"        (fn [opts] (d/q (concat '[:find ?e :where]
-;;                                              (get-in opts [:lookup :q]))
-;;                                     (:db opts)))
-;;     "q-scan-join"   (fn [opts] (d/q (concat '[:find ?e ?ln :where]
-;;                                              (get-in opts [:lookup :q])
-;;                                             '[[?e :last-name ?ln]])
-;;                                       (:db opts)))
-;;     "q-scan-2joins" (fn [opts] (d/q (concat '[:find ?e ?ln ?s :where]
-;;                                              (get-in opts [:lookup :q])
-;;                                             '[[?e :last-name ?ln]
-;;                                               [?e :salary ?s]])
-;;                                       (:db opts)))
-     "d/q1"              (fn [opts] (d/q '[ :find  ?e
-                                            :where [?e :name "Ivan"] ]
-                                         (:db opts)))
-
-
-     "d/q2"              (fn [opts] (d/q '[ :find  ?e ?a
-                                            :where [?e :name "Ivan"]
-                                                   [?e :age ?a] ]
-                                         (:db opts)))
-
-     "d/q3"              (fn [opts] (d/q '[ :find  ?e ?a
-                                            :where [?e :name "Ivan"]
-                                                   [?e :age ?a]
-                                                   [?e :sex :male] ]
-                                         (:db opts)))
-           
-     "d/q4"              (fn [opts] (d/q '[ :find  ?e ?ln ?a
-                                            :where [?e :name "Ivan"]
-                                                   [?e :last-name ?ln]
-                                                   [?e :age ?a]
-                                                   [?e :sex :male] ]
-                                         (:db opts)))
-
-     ; "hash-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
-     ;                                             (mapv :e))]
-     ;                       (hash-join (:db opts) es :age)))
-
-     ; "sort-join"        (fn [opts] (let [es (->> (dc/-search (:db opts) [nil :name "Ivan"])
-     ;                                             (mapv :e))]
-     ;                       (sort-merge-join (:db opts) es :age)))
-
-
-                                 
-;;     "filter"        (fn [opts] (->> (:people opts)
-;;                                     (filterv (get-in opts [:lookup :filter]))))
-;;     "filter-set"    (fn [opts] (->> (:people opts)
-;;                                     (filter (get-in opts [:lookup :filter]))
-;;                                     (map (juxt :db/id :last-name :salary))
-;;                                     set))
-;;     "old-q"        (fn [opts] (d/q '[:find ?e ?v
-;;                                      :where [?e :name "Ivan"]
-;;                                             [?e :age ?v]]
-;;                                   (:db opts)))
-
-
-  }
-
-  ; :lookup {
-    ; "name"         {:q      '[[?e :name "Ivan"]]
-    ;                 :filter #(= (:name %) "Ivan") }
-
-;;     "name+age"     {:q      '[[?e :name "Ivan"]
-;;                               [?e :age 5]]
-;;                     :filter #(and (= (:name %) "Ivan")
-;;                               (= (:age %) 5))}
-
-    ; "name+age+sex" {:q      '[[?e :name "Ivan"]
-    ;                           [?e :age 5]
-    ;                           [?e :sex :male]]
-    ;                 :filter #(and (= (:name %) "Ivan")
-    ;                               (= (:age %) 5)
-    ;                               (= (:sex %) :male)) }
-  ; }
-                    
-  :size [100 500 2000 20000]
-])
-
-
-(defn test-setup-db [opts]
-  (let [db (reduce #(d/db-with %1 [%2]) (d/empty-db) (:people opts))]
-    (assoc opts :db db)))
-
-(defn ^:export perftest-q []
-  (perf/suite (fn [opts] ((:method opts) opts))
-    :duration 1000
-    :matrix   test-matrix-q
-    :setup-fn (comp test-setup-db test-setup-people)))
-
-(defn- gen-wide-db [id depth width]
-  (if (pos? depth)
-    (let [children (map #(+ (* id width) %) (range width))]
-      (concat
-        (map #(vector :db/add id :follows %) children)
-        (mapcat #(gen-wide-db % (dec depth) width) children)))
-    []))
-
-(defn- gen-long-db [depth width]
-  (for [x (range width)
-        y (range depth)]
-    [:db/add (+ (* x (inc depth)) y) :follows (+ (* x (inc depth)) y 1)]))
-
+(defn ^:export perftest-queries []
+  (doseq [[n q] [["q1" '[:find ?e       :where [?e :name "Ivan"]]]
+                 ["q2" '[:find ?e ?a    :where [?e :name "Ivan"]
+                                               [?e :age ?a]]]
+                 ["q3" '[:find ?e ?a    :where [?e :name "Ivan"]
+                                               [?e :age ?a]
+                                               [?e :sex :male]]]
+                 ["q4" '[:find ?e ?l ?a :where [?e :name "Ivan"]
+                                               [?e :last-name ?l]
+                                               [?e :age ?a]
+                                               [?e :sex :male]]]]
+          size [100 500 2000 20000]
+          :let [db (d/db-with (d/empty-db) (take size people))]]
+    (perf/bench {:test n :size size}
+      (d/q q db))))
+    
 (defn ^:export perftest-rules []
-  (perf/suite (fn [opts]
-                (d/q
-                   '[:find ?e ?e2
-                     :in $ %
-                     :where (follows ?e ?e2)]
-                  (:db opts)
-                  '[[(follows ?x ?y)
-                     [?x :follows ?y]]
-                    [(follows ?x ?y)
-                     [?x :follows ?t]
-                     (follows ?t ?y)]]))
-    :duration 1000
-    :matrix   ["form" [
-                       [:wide 3 3]
-                       [:wide 5 3]
-                       [:wide 7 3]
-                       [:wide 4 6]
-                       [:long 10 3]
-                       [:long 5 5]
-                       [:long 30 3]
-                       [:long 30 5]
-                       ]]
-    :setup-fn (fn [opts]
-                (let [[form depth width] (get opts "form")
-                      datoms (case form
-                               :wide (gen-wide-db 1 depth width)
-                               :long (gen-long-db depth width))
-                      db (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)]
-                  (assoc opts :db db)))))
+  (doseq [[id db] [["wide 3×3" (wide-db 3 3)]
+                   ["wide 5×3" (wide-db 5 3)]
+                   ["wide 7×3" (wide-db 7 3)]
+                   ["wide 4×6" (wide-db 4 6)]
+                   ["long 10×3" (long-db 10 3)]
+                   ["long 30×3" (long-db 30 3)]
+                   ["long 30×5" (long-db 30 5)]]]
+    (perf/bench {:test "rules" :form id}
+      (d/q '[:find ?e ?e2
+             :in   $ %
+             :where (follows ?e ?e2)]
+           db
+           '[[(follows ?x ?y)
+              [?x :follows ?y]]
+             [(follows ?x ?y)
+              [?x :follows ?t]
+              (follows ?t ?y)]]))))
 
-(def now datascript.perf/now)
+(defn ^:export perftest-btset []
+  (doseq [[tn target] [["sorted-set" (sorted-set)]
+                       ["btset"      (btset/btset)]]
+;;           distinct?   [true false]
+          size        [100 500 20000]
+          :let [range          (if true ;; distinct?
+                                 (shuffle (range size))
+                                 (repeatedly size #(rand-int size)))
+                shuffled-range (shuffle range)
+                set            (into target range)]]
+    (perf/bench {:target tn :test "set-conj" :size size}
+      (into target range))
+    (perf/bench {:target tn :test "set-disj" :size size}
+      (reduce disj set shuffled-range))
+    (perf/bench {:target tn :test "set-lookup" :size size}
+      (doseq [i shuffled-range]
+        (contains? set i)))
+    (perf/bench {:target tn :test "set-iterate" :size size}
+      (doseq [x set]
+        (+ 1 x)))))
 
-
-(defn ^:export perftest-db-hash []
-  (perf/suite (fn [opts]
-                (let [^DB db (:db opts)]
-                  #?(:cljs (set! (.-__hash db) nil)
-                     :clj  (reset! (.-__hash db) nil))
-                  (hash (:db opts))))
-    :duration 1000
-    :setup-fn (fn [opts]
-                (let [db (reduce #(d/db-with %1 [%2]) (d/empty-db) (gen-long-db 30 10))]
-                  (assoc opts :db db)))))
-
-(defn ^:export perftest-db-equiv []
-  (perf/suite (fn [opts]
-                (= (:db1 opts) (:db2 opts)))
-    :duration 1000
-    :setup-fn (fn [opts]
-                (let [datoms (gen-long-db 30 10)
-                      db1 (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)
-                      db2 (reduce #(d/db-with %1 [%2]) (d/empty-db) datoms)]
-                  (assoc opts :db1 db1 :db2 db2)))))
-
-(def cached-parse-q (memoize (fn [q] (dp/parse-query q))))
-
-(defn ^:export perftest-query-parse []
-  (let [q '[:find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
-            :in    $ ?tid ?week ?list
-            :where [?lid :lesson/teacherid ?tid]
-                   [?lid :lesson/week ?week]
-                   [?lid :lesson/lessongroupid ?lgid]
-                   [?eid :enrollment/lessongroup_id ?lgid]
-                   [?eid :enrollment/student_id ?sid]
-                   [?iid :invoice/enrollment_id ?eid]
-                   [?sid :student/firstname ?fname]
-                   [?sid :student/lastname ?lname]
-                   [?iid :invoice/paid ?paid]
-                   [?lid :lesson/status ?status]
-                   [?lid :lesson/starttime ?starttime]
-                   [?lid :lesson/endtime ?endtime]
-                   [(?list ?sid ?fname ?lname) ?studentinfo]]]
-    (let [iters 1000
-          t0 (now)]
-      (dotimes [_ iters]
-        (cached-parse-q q))
-      (println (double (/ (- (now) t0) iters)) "ms"))))
+(defn ^:export perftest-all []
+  (perftest-transact)
+  (perftest-init-db)
+  (perftest-queries)
+  (perftest-rules)
+  (perftest-btset))
