@@ -1,9 +1,13 @@
 (ns datascript.perf
+  (:require
+    [clojure.string :as str]
+    #?(:clj clojure.java.shell))
   #?(:cljs (:require-macros datascript.perf)))
 
 (def ^:const   enabled? false)
 (def ^:dynamic debug?   false)
 
+(def ^:dynamic *context*  nil)
 (def ^:dynamic *warmup-t* 500)
 (def ^:dynamic *bench-t*  1000)
 (def ^:dynamic *step*     10)
@@ -43,14 +47,14 @@
 (defn format-time [dt]
   (str "[ " (format-number dt) " ms ]"))
 
-#?(:cljs
-    (defn ^number now []
-      (js/window.performance.now))
-   :clj
-    (defn ^Long now []
-      (System/currentTimeMillis)))
+#?(:cljs (defn ^number now [] (js/Date.now))
+   :clj  (defn ^Long now [] (System/currentTimeMillis)))
 
 ;; minibench
+
+(defn set-context! [context]
+  #?(:clj (alter-var-root #'*context* (constantly context))
+     :cljs (set! *context* context)))
 
 #?(:clj
   (defmacro dotime [duration & body]
@@ -61,30 +65,34 @@
         (let [now# (now)]
           (if (< now# end-t#)
             (recur (+ *step* iterations#))
-            (/ (- now# start-t#) iterations#)))))))
+            (double (/ (- now# start-t#) iterations#))))))))
 
 #?(:clj
-  (defmacro minibench [msg & body]
+  (defmacro minibench [spec & body]
    `(let [_#     (dotime *warmup-t* ~@body)
           avg-t# (dotime *bench-t* ~@body)]
-      (println (format-time avg-t#) ~msg "avg time")
+      (println (format-time avg-t#) ~spec "avg time")
       (binding [debug? true]
         ~@body))))
 
 #?(:clj
-  (defmacro bench [msg & body]
-   `(let [_#       (println ~msg)
+  (defmacro bench [spec & body]
+   `(let [_#       (when-not *context* (println (str "\n" ~spec)))
           _#       (dotime *warmup-t* ~@body)
           results# (into [] (for [_# (range *repeats*)]
-                              (dotime *bench-t* ~@body)))]
-      (println 
-        "[ min:" (format-number (reduce min results#))
-        "] [ med:" (format-number (percentile results# 0.5))
-        "] [ max:" (format-number (reduce max results#))
-        "] ms")
-      (binding [debug? true]
-        ~@body)
-      (println))))
+                              (dotime *bench-t* ~@body)))
+          min#     (reduce min results#)
+          med#     (percentile results# 0.5)
+          max#     (reduce max results#)]
+      (if *context*
+        (println "{ :context"   (pr-str *context*)
+                 "\n  :spec   " (pr-str ~spec)
+                 "\n  :results" (pr-str (array-map :median med# :min min# :max max# :raw results#)) "}")
+        (println 
+          "[ min:"   (format-number min#)
+          "] [ med:" (format-number med#)
+          "] [ max:" (format-number max#)
+          "] ms")))))
 
 ;; flame graph
 
@@ -141,3 +149,27 @@
             ~sym)
           ~body))
       body)))
+
+#?(:clj
+  (defmacro cljs? [then else]
+    (if (:ns &env)
+      then
+      else)))
+
+#?(:clj
+  (defn sh [& cmd]
+    (-> (apply clojure.java.shell/sh cmd)
+        :out
+        str/trim)))
+
+#?(:clj
+  (defmacro git-commit-count [& [rev]]
+    (sh "git" "rev-list" (or rev "HEAD") "--count")))
+
+#?(:clj
+  (defmacro git-commit-sha1 [& [rev]]
+    (sh "git" "rev-parse" (or rev "HEAD"))))
+
+#?(:clj
+  (defmacro git-commit-descr [& [rev]]
+    (sh "git" "describe" (or rev "HEAD") "--tags")))

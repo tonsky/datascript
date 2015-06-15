@@ -1,16 +1,15 @@
-(ns datascript.test.perf
+(ns datascript.test.bench
   (:require
-   [datascript :as d]
-   [datascript.btset :as btset]
-   [datascript.core :as dc #?@(:cljs [:refer [DB]])]
-   [datascript.parser :as dp]
-   [datascript.perf :as perf])
+    [clojure.string :as str]
+    [datascript :as d]
+    [datascript.btset :as btset]
+    [datascript.core :as dc #?@(:cljs [:refer [DB]])]
+    [datascript.parser :as dp]
+    [datascript.perf :as perf])
   #?(:clj (:import [datascript.core DB])))
 
 #?(:cljs
    (enable-console-print!))
-
-;; Performance
 
 ;; test-db
 
@@ -53,7 +52,7 @@
 
 ;; tests
 
-(defn ^:export perftest-transact []
+(defn ^:export bench-transact []
   (doseq [size  [100 500 2000]
           batch [1]
           :let [part (->> (take size people)
@@ -61,13 +60,13 @@
     (perf/bench {:test "db-with" :size size :batch batch}
       (reduce d/db-with (d/empty-db) part))))
 
-(defn ^:export perftest-init-db []
+(defn ^:export bench-init-db []
   (doseq [size [100 500 2000 5000 20000]
           :let [datoms (into [] (comp xf-ent->datom (take size)) people)]]
     (perf/bench {:test "init-db" :size size}
       (d/init-db datoms))))
 
-(defn ^:export perftest-queries []
+(defn ^:export bench-queries []
   (doseq [[n q] [["q1" '[:find ?e       :where [?e :name "Ivan"]]]
                  ["q2" '[:find ?e ?a    :where [?e :name "Ivan"]
                                                [?e :age ?a]]]
@@ -83,7 +82,7 @@
     (perf/bench {:test n :size size}
       (d/q q db))))
     
-(defn ^:export perftest-rules []
+(defn ^:export bench-rules []
   (doseq [[id db] [["wide 3×3" (wide-db 3 3)]
                    ["wide 5×3" (wide-db 5 3)]
                    ["wide 7×3" (wide-db 7 3)]
@@ -102,7 +101,7 @@
               [?x :follows ?t]
               (follows ?t ?y)]]))))
 
-(defn ^:export perftest-btset []
+(defn ^:export bench-btset []
   (doseq [[tn target] [["sorted-set" (sorted-set)]
                        ["btset"      (btset/btset)]]
 ;;           distinct?   [true false]
@@ -123,9 +122,14 @@
       (doseq [x set]
         (+ 1 x)))))
 
-(defn ^:export perftest-all []
-  (perftest-transact)
-  (perftest-init-db)
-  (perftest-queries)
-  (perftest-rules)
-  (perftest-btset))
+(defn ^:export bench-all []
+  (perf/set-context!
+    { :project (perf/cljs? "datascript/v8" "datascript/jvm")
+      :build   (str (perf/git-commit-count)
+                    "/" (subs (perf/git-commit-sha1) 0 7)
+                    "/" (str/replace (perf/git-commit-descr) #"-(\d+)-g.+" "+$1")) })
+  (bench-transact)
+  (bench-init-db)
+  (bench-queries)
+  (bench-rules)
+  (bench-btset))
