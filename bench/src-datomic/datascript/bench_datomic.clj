@@ -1,82 +1,85 @@
-(ns datascript.bench
+(ns datascript.bench-datomic
   (:require
     [clojure.string :as str]
-    [datascript :as d]
-    [datascript.core :as dc]
-    [datascript.btset :as btset]
+    [datomic.api :as d]
+    [datomic.btset :as btset]
+    [datascript.bench :as bench]
     [datascript.perf :as perf]))
-
-#?(:cljs
-  (enable-console-print!))
 
 ;; test-db
 
-(def next-eid (volatile! 0))
+;; tests
 
-(def schema
-  { :follows { :db/valueType   :db.type/ref
-               :db/cardinality :db.cardinality/many } })
+(defn- schema-attr [name type & {:as args}]
+  (merge
+    {:db/id          (d/tempid :db.part/db)
+     :db/ident       name
+     :db/valueType   type
+     :db/cardinality :db.cardinality/one
+     :db.install/_attribute :db.part/db}
+    args))
 
-(defn random-man []
-  {:db/id     (vswap! next-eid inc)
-   :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-   :sex       (rand-nth [:male :female])
-   :age       (rand-int 10)
-   :salary    (rand-int 100000)})
+(defn new-conn []
+  (d/delete-database "datomic:mem://bench")
+  (d/create-database "datomic:mem://bench")
+  (let [conn (d/connect "datomic:mem://bench")]
+    @(d/transact conn
+      [ (schema-attr :name      :db.type/string)
+        (schema-attr :last-name :db.type/string)
+        (schema-attr :sex       :db.type/keyword)
+        (schema-attr :age       :db.type/long)
+        (schema-attr :salary    :db.type/long)
+        (schema-attr :follows   :db.type/ref, :db/cardinality :db.cardinality/many)])
+    conn))
 
-(def people (repeatedly random-man))
+(defn db-with [tx-data]
+  (-> (new-conn)
+      (d/transact tx-data)
+      deref
+      :db-after))
 
-(def xf-ent->datom
-  (mapcat (fn [p]
-            (reduce-kv
-              (fn [acc k v]
-                (conj acc (dc/datom (:db/id p) k v)))
-              [] (dissoc p :db/id)))))
+(defn tempid [i]
+  (d/tempid :db.part/user (- i)))
 
 (defn- wide-db
-  ([depth width] (d/db-with (d/empty-db schema) (wide-db 1 depth width)))
+  ([depth width] (db-with (wide-db 1 depth width)))
   ([id depth width]
     (if (pos? depth)
       (let [children (map #(+ (* id width) %) (range width))]
         (concat
           (map #(array-map
-                  :db/add  id
-                  :name    "Ivan"
-                  :follows %) children)
+                 :db/id   (tempid id)
+                 :name    "Ivan"
+                 :follows (tempid %)) children)
           (mapcat #(wide-db % (dec depth) width) children)))
-      [{:db/id id :name "Ivan"}])))
+      [{:db/id (tempid id) :name "Ivan"}])))
 
 (defn- long-db [depth width]
-  (d/db-with (d/empty-db schema)
+  (db-with
     (apply concat
       (for [x (range width)
             y (range depth)
             :let [from (+ (* x (inc depth)) y)
                   to   (+ (* x (inc depth)) y 1)]]
-        [{:db/id     from
-            :name    "Ivan"
-            :follows to}
-           {:db/id   to
-            :name    "Ivan"}]))))
+        [{:db/id   (tempid from)
+          :name    "Ivan"
+          :follows (tempid to)}
+         {:db/id   (tempid to)
+          :name    "Ivan"}]))))
 
-;; tests
+(def people (map #(assoc % :db/id (d/tempid :db.part/user)) bench/people))
 
-(defn ^:export bench-db_with []
+(defn bench-db_with []
   (doseq [size  [100 500 2000]
-          batch [1]
-          :let [part (->> (take size people)
-                          (partition-all batch))]]
+          batch [1 10 100]
+          :let [parts (->> (take size people)
+                           (partition-all batch))]]
     (perf/bench {:test "db_with" :size size :batch batch}
-      (reduce d/db-with (d/empty-db) part))))
+      (let [conn (new-conn)]
+        (doseq [people parts]
+          @(d/transact conn people))))))
 
-(defn ^:export bench-init_db []
-  (doseq [size [100 500 2000 5000 20000]
-          :let [datoms (into [] (comp xf-ent->datom (take size)) people)]]
-    (perf/bench {:test "init_db" :size size}
-      (d/init-db datoms))))
-
-(defn ^:export bench-queries []
+(defn bench-queries []
   (doseq [[n q] [["q1" '[:find ?e       :where [?e :name "Ivan"]]]
                  ["q2" '[:find ?e ?a    :where [?e :name "Ivan"]
                                                [?e :age ?a]]]
@@ -88,15 +91,15 @@
                                                [?e :age ?a]
                                                [?e :sex :male]]]]
           size [100 500 2000 20000]
-          :let [db (d/db-with (d/empty-db) (take size people))]]
+          :let [db (db-with (take size people))]]
     (perf/bench {:test n :size size}
       (d/q q db))))
     
-(defn ^:export bench-rules []
-  (doseq [[id db] [["wide 3×3" (wide-db 3 3)]
-                   ["wide 5×3" (wide-db 5 3)]
-                   ["wide 7×3" (wide-db 7 3)]
-                   ["wide 4×6" (wide-db 4 6)]
+(defn bench-rules []
+  (doseq [[id db] [["wide 3×3"  (wide-db 3 3)]
+                   ["wide 5×3"  (wide-db 5 3)]
+                   ["wide 7×3"  (wide-db 7 3)]
+                   ["wide 4×6"  (wide-db 4 6)]
                    ["long 10×3" (long-db 10 3)]
                    ["long 30×3" (long-db 30 3)]
                    ["long 30×5" (long-db 30 5)]]]
@@ -111,9 +114,10 @@
               [?x :follows ?t]
               (follows ?t ?y)]]))))
 
-(defn ^:export bench-btset []
-  (doseq [[tn target] [["sorted-set" (sorted-set)]
-                       ["btset"      (btset/btset)]]
+(defn bench-btset []
+  (doseq [[tn target] [;;["sorted-set" (sorted-set)]
+                       ;;["btset"      (btset/btset)]
+                       ["datomic/btset" (btset/btset)]]
 ;;           distinct?   [true false]
           size        [100 500 20000]
           :let [range          (if true ;; distinct?
@@ -123,8 +127,8 @@
                 set            (into target range)]]
     (perf/bench {:target tn :test "set-conj" :size size}
       (into target range))
-    (perf/bench {:target tn :test "set-disj" :size size}
-      (reduce disj set shuffled-range))
+;;     (perf/bench {:target tn :test "set-disj" :size size}
+;;       (reduce disj set shuffled-range))
     (perf/bench {:target tn :test "set-lookup" :size size}
       (doseq [i shuffled-range]
         (contains? set i)))
@@ -132,9 +136,8 @@
       (doseq [x set]
         (+ 1 x)))))
 
-(defn ^:export bench-all []
+(defn bench-all []
   (bench-db_with)
-  (bench-init_db)
   (bench-queries)
   (bench-rules)
   (bench-btset))

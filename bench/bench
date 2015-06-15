@@ -50,20 +50,28 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-
 (let [[p b r] (if clean?
                 (next *command-line-args*)
                 *command-line-args*)]
-  (def project (get {"jvm" "datascript-jvm"
-                     "js"  "datascript-v8"}
+  (def project (get {"jvm"     "datascript-jvm"
+                     "js"      "datascript-v8"
+                     "datomic" "datomic-mem"}
                     (or p "jvm")))
+  (def datomic? (= "datomic-mem" project))
   (def bench (or b "all"))
-  (def rfrnc r))
+  (def rfrnc (if datomic?
+               (or r "0.9.5173")
+               r)))
 
 (def dir  (if rfrnc "." ".."))
 (def rdir (if rfrnc "." "./bench"))
 
 (def env (merge
            { "BENCH_PROJECT" project
-             "BENCH_BUILD"   (build (or rfrnc "HEAD"))}
-           (when rfrnc
-             {"BENCH_VERSION" (sh "git" "describe" rfrnc "--tags")})))
+             "BENCH_BUILD"   (if datomic?
+                               rfrnc
+                               (build (or rfrnc "HEAD"))) }
+           (if datomic?
+             {"DATOMIC_VERSION" rfrnc}
+             (when rfrnc
+               {"BENCH_VERSION" (sh "git" "describe" rfrnc "--tags")}))))
 
 (println "Running" bench "within" env "...")
 
@@ -75,6 +83,8 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-
     "datascript-v8"
       (do
         (run "lein" "do" (when clean? "clean,") "cljsbuild" "once" "advanced")
-        (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))))
+        (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))
+    "datomic-mem"
+      (run "lein" "do" (when clean? "clean,") "trampoline" "run" "-m" (str "datascript.bench-datomic/bench-" bench))))
 
 (System/exit 0)
