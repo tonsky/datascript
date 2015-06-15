@@ -7,7 +7,15 @@
 (def ^:const   enabled? false)
 (def ^:dynamic debug?   false)
 
-(def ^:dynamic *context*  nil)
+#?(:clj
+  (defmacro context []
+    (when (and (System/getenv "BENCH_PROJECT")
+               (System/getenv "BENCH_BUILD"))
+      { :project (System/getenv "BENCH_PROJECT")
+        :build   (System/getenv "BENCH_BUILD") })))
+
+(def ^:dynamic *context* (datascript.perf/context))
+
 (def ^:dynamic *warmup-t* 500)
 (def ^:dynamic *bench-t*  1000)
 (def ^:dynamic *step*     10)
@@ -51,10 +59,6 @@
    :clj  (defn ^Long now [] (System/currentTimeMillis)))
 
 ;; minibench
-
-(defn set-context! [context]
-  #?(:clj (alter-var-root #'*context* (constantly context))
-     :cljs (set! *context* context)))
 
 #?(:clj
   (defmacro dotime [duration & body]
@@ -150,26 +154,3 @@
           ~body))
       body)))
 
-#?(:clj
-  (defmacro cljs? [then else]
-    (if (:ns &env)
-      then
-      else)))
-
-#?(:clj
-  (defn sh [& cmd]
-    (-> (apply clojure.java.shell/sh cmd)
-        :out
-        str/trim)))
-
-#?(:clj
-  (defmacro git-commit-count [& [rev]]
-    (sh "git" "rev-list" (or rev "HEAD") "--count")))
-
-#?(:clj
-  (defmacro git-commit-sha1 [& [rev]]
-    (sh "git" "rev-parse" (or rev "HEAD"))))
-
-#?(:clj
-  (defmacro git-commit-descr [& [rev]]
-    (sh "git" "describe" (or rev "HEAD") "--tags")))

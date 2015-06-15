@@ -1,0 +1,80 @@
+#^:shebang '[
+exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-RC1.jar" clojure.main "$0" "$@"
+]
+
+"USAGE: ./bench [-c] (jvm|js) (<test-name>|all) (<tag>|<revision>)"
+
+(require
+  '[clojure.java.io :as io]
+  '[clojure.java.shell :as sh]
+  '[clojure.string :as str])
+
+(defn sh [& cmd]
+  (let [res (apply sh/sh cmd)]
+    (when (not= 0 (:exit res))
+      (throw (ex-info "ERROR" res)))
+    (str/trim (:out res))))
+
+(defn copy [^java.io.InputStream input ^java.io.Writer output]
+  (let [^"[C" buffer (make-array Character/TYPE 1024)
+        in (java.io.InputStreamReader. input "UTF-8")]
+    (loop []
+      (let [size (.read in buffer 0 (alength buffer))]
+        (if (pos? size)
+          (do (.write output buffer 0 size)
+              (.flush output)
+              (recur)))))))
+
+(defn run [& cmd]
+  (let [proc (.exec (Runtime/getRuntime)
+                    ^"[Ljava.lang.String;" (into-array (remove nil? cmd))
+                    (@#'sh/as-env-strings sh/*sh-env*)
+                    (io/as-file sh/*sh-dir*))]
+    (with-open [stdout (.getInputStream proc)
+                stderr (.getErrorStream proc)]
+      (future (copy stdout *out*))
+      (future (copy stderr *err*))
+      (.close (.getOutputStream proc))
+      (let [code (.waitFor proc)]
+        (when (not= code 0)
+          (throw (ex-info "ERROR" {:cmd cmd :code code})))))))
+
+(defn build [ref]
+  (let [commit-count (sh "git" "rev-list" ref "--count")
+        sha1         (sh "git" "rev-parse" ref)
+        descr        (sh "git" "describe" ref "--tags")]
+    (str commit-count "/" (subs sha1 0 7) "/" (str/replace descr #"-g.+" ""))))
+
+
+(def clean? (= "-c" (first *command-line-args*)))
+(let [[p b r] (if clean?
+                (next *command-line-args*)
+                *command-line-args*)]
+  (def project (get {"jvm" "datascript-jvm"
+                     "js"  "datascript-v8"}
+                    (or p "jvm")))
+  (def bench (or b "all"))
+  (def rfrnc r))
+
+(def dir  (if rfrnc "." ".."))
+(def rdir (if rfrnc "." "./bench"))
+
+(def env (merge
+           { "BENCH_PROJECT" project
+             "BENCH_BUILD"   (build (or rfrnc "HEAD"))}
+           (when rfrnc
+             {"BENCH_VERSION" (sh "git" "describe" rfrnc "--tags")})))
+
+(println "Running" bench "within" env "...")
+
+(binding [sh/*sh-env* (merge {} (System/getenv) env)
+          sh/*sh-dir* dir]
+  (case project
+    "datascript-jvm"
+      (run "lein" "do" (when clean? "clean,") "trampoline" "run" "-m" (str "datascript.bench/bench-" bench))
+    "datascript-v8"
+      (do
+        (run "lein" "do" (when clean? "clean,") "cljsbuild" "once" "advanced")
+        (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))))
+
+(System/exit 0)

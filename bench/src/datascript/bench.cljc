@@ -1,29 +1,25 @@
-(ns datascript.test.bench
+(ns datascript.bench
   (:require
     [clojure.string :as str]
     [datascript :as d]
+    [datascript.core :as dc]
     [datascript.btset :as btset]
-    [datascript.core :as dc #?@(:cljs [:refer [DB]])]
-    [datascript.parser :as dp]
-    [datascript.perf :as perf])
-  #?(:clj (:import [datascript.core DB])))
+    [datascript.perf :as perf]))
 
 #?(:cljs
-   (enable-console-print!))
+  (enable-console-print!))
 
 ;; test-db
 
 (def next-eid (volatile! 0))
 
 (defn random-man []
-  (with-meta
-    {:db/id     (vswap! next-eid inc)
-     :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-     :sex       (rand-nth [:male :female])
-     :age       (rand-int 10)
-     :salary    (rand-int 100000)}
-    {:tx (+ d/tx0 (rand-int 1000))}))
+  {:db/id     (vswap! next-eid inc)
+   :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+   :sex       (rand-nth [:male :female])
+   :age       (rand-int 10)
+   :salary    (rand-int 100000)})
 
 (def people (repeatedly random-man))
 
@@ -31,7 +27,7 @@
   (mapcat (fn [p]
             (reduce-kv
               (fn [acc k v]
-                (conj acc (d/datom (:db/id p) k v (:tx (meta p)))))
+                (conj acc (dc/datom (:db/id p) k v)))
               [] (dissoc p :db/id)))))
 
 (defn- wide-db
@@ -52,18 +48,18 @@
 
 ;; tests
 
-(defn ^:export bench-transact []
+(defn ^:export bench-db_with []
   (doseq [size  [100 500 2000]
           batch [1]
           :let [part (->> (take size people)
                           (partition-all batch))]]
-    (perf/bench {:test "db-with" :size size :batch batch}
+    (perf/bench {:test "db_with" :size size :batch batch}
       (reduce d/db-with (d/empty-db) part))))
 
-(defn ^:export bench-init-db []
+(defn ^:export bench-init_db []
   (doseq [size [100 500 2000 5000 20000]
           :let [datoms (into [] (comp xf-ent->datom (take size)) people)]]
-    (perf/bench {:test "init-db" :size size}
+    (perf/bench {:test "init_db" :size size}
       (d/init-db datoms))))
 
 (defn ^:export bench-queries []
@@ -123,13 +119,8 @@
         (+ 1 x)))))
 
 (defn ^:export bench-all []
-  (perf/set-context!
-    { :project (perf/cljs? "datascript/v8" "datascript/jvm")
-      :build   (str (perf/git-commit-count)
-                    "/" (subs (perf/git-commit-sha1) 0 7)
-                    "/" (str/replace (perf/git-commit-descr) #"-(\d+)-g.+" "+$1")) })
-  (bench-transact)
-  (bench-init-db)
+  (bench-db_with)
+  (bench-init_db)
   (bench-queries)
   (bench-rules)
   (bench-btset))

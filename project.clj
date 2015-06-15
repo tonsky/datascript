@@ -21,7 +21,7 @@
   :cljsbuild { 
     :builds [
       { :id "release"
-        :source-paths ["src"]
+        :source-paths ["src" "bench/src"]
         :assert false
         :compiler {
           :output-to     "release-js/datascript.bare.js"
@@ -36,6 +36,7 @@
 
   :profiles {
     :dev {
+      :source-paths ["bench/src" "test"]
       :plugins [
         [lein-cljsbuild "1.0.6"]
         [com.cemerick/clojurescript.test "0.3.3"]
@@ -43,7 +44,7 @@
       :cljsbuild { 
         :builds [
           { :id "advanced"
-            :source-paths ["src" "test"]
+            :source-paths ["src" "bench/src" "test"]
             :compiler {
               :main          datascript.test
               :output-to     "target/datascript.js"
@@ -55,7 +56,7 @@
               :recompile-dependents false
             }}
           { :id "none"
-            :source-paths ["src" "test"]
+            :source-paths ["src" "bench/src" "test"]
             :compiler {
               :main          datascript.test
               :output-to     "target/datascript.js"
