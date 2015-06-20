@@ -94,6 +94,10 @@
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
 
+(defn ^:export conn_from [db]
+  (atom db 
+        :meta { :listeners  (atom {}) }))
+
 (defn ^:export db [conn]
   @conn)
 
