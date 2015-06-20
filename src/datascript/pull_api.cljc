@@ -113,9 +113,9 @@
                (cond->> datoms
                  limit (into [] (take limit))))]
     (if found
-      (let [multi?     (dc/multival? db attr)
-            ref?       (dc/ref? db attr)
+      (let [ref?       (dc/ref? db attr)
             component? (and ref? (dc/component? db attr))
+            multi?     (if forward? (dc/multival? db attr) (not component?))
             datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
         (cond
           (contains? opts :subpattern)
@@ -138,7 +138,7 @@
           :else 
           (let [as-value  (cond->> datom-val
                             ref? (comp #(hash-map :db/id %)))
-                single?   (if forward? (not multi?) component?)]
+                single?   (not multi?)]
             (->> (cond-> (into [] (map as-value) found)
                    single? first)
                  (update parent :kvps assoc! attr-key)

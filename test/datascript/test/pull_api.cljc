@@ -37,6 +37,8 @@
      [9 :name  "Rebecca"]
      [1 :child 2]
      [1 :child 3]
+     [2 :father 1]
+     [3 :father 1]
      [6 :father 3]
      [10 :name  "Part A"]
      [11 :name  "Part A.A"]
@@ -75,7 +77,20 @@
          (d/pull test-db '[:name :_child] 2)))
 
   (is (= {:name "David" :_child [{:name "Petr"}]}
-         (d/pull test-db '[:name {:_child [:name]}] 2))))
+         (d/pull test-db '[:name {:_child [:name]}] 2)))
+
+  (testing "Reverse non-component references yield collections"
+    (is (= {:name "Thomas" :_father [{:db/id 6}]}
+           (d/pull test-db '[:name :_father] 3)))
+
+    (is (= {:name "Petr" :_father [{:db/id 2} {:db/id 3}]}
+           (d/pull test-db '[:name :_father] 1)))
+
+    (is (= {:name "Thomas" :_father [{:name "Matthew"}]}
+           (d/pull test-db '[:name {:_father [:name]}] 3)))
+
+    (is (= {:name "Petr" :_father [{:name "David"} {:name "Thomas"}]}
+           (d/pull test-db '[:name {:_father [:name]}] 1)))))
 
 (deftest test-pull-component-attr
   (let [parts {:name "Part A",
@@ -114,8 +129,11 @@
 
     (testing "Reverse component references yield a single result"
       (is (= {:name "Part A.A" :_part {:db/id 10}}
-             (d/pull test-db [:name :_part] 11))))
-    
+             (d/pull test-db [:name :_part] 11)))
+
+      (is (= {:name "Part A.A" :_part {:name "Part A"}}
+             (d/pull test-db [:name {:_part [:name]}] 11))))
+
     (testing "Like explicit recursion, expansion will not allow loops"
       (is (= rpart (d/pull recdb '[:name :part] 10))))))
 
@@ -124,7 +142,7 @@
           :child [{:db/id 2} {:db/id 3}]}
          (d/pull test-db '[*] 1)))
 
-  (is (= {:db/id 2 :name "David" :_child [{:db/id 1}]}
+  (is (= {:db/id 2 :name "David" :_child [{:db/id 1}] :father {:db/id 1}}
          (d/pull test-db '[* :_child] 2))))
 
 (deftest test-pull-limit
