@@ -16,9 +16,11 @@
   
   :jvm-opts ["-Xmx2g" "-server"]
 
-  :aliases {"test-clj" ["run" "-m" "datascript.test/test-all"]}
-  
-  :cljsbuild { 
+  :aliases {
+    "test-clj" ["run" "-m" "datascript.test/test-all"]
+    "noderepl" ["run" "-m" "clojure.main" "repl.clj"]}
+
+  :cljsbuild {
     :builds [
       { :id "release"
         :source-paths ["src" "bench/src"]
