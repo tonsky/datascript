@@ -283,6 +283,20 @@ function test_pull() {
   assert_eq(expected, actual);
 }
 
+function test_lookup_refs() {
+  var schema = {"name": {":db/unique": ":db.unique/identity"}};
+  var db = d.db_with(d.empty_db(schema),
+                     [{":db/id": 1, "name": "Ivan"},
+                      {":db/id": 2, "name": "Oleg"}]);
+
+  assert_eq("Ivan", d.entity(db, ["name", "Ivan"]).get("name"));
+  assert_eq({"name": "Ivan"}, d.pull(db, '["name"]', ["name", "Ivan"]));
+  assert_eq_set(
+    [{"name": "Ivan"}, {"name": "Oleg"}],
+    d.pull_many(db, '["name"]', [["name", "Ivan"], ["name", "Oleg"]])
+  );
+}
+
 function test_resolve_current_tx() {
   var schema = {"created-at": {":db/valueType":   ":db.type/ref"}};
   var conn = d.create_conn(schema);
@@ -412,6 +426,7 @@ function test_datascript_js() {
                     test_entity,
                     test_entity_refs,
                     test_pull,
+                    test_lookup_refs,
                     test_resolve_current_tx,
                     test_q_relation,
                     test_q_rules,
