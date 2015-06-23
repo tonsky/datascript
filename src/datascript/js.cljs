@@ -74,18 +74,22 @@
 
 (defn ^:export pull [db pattern eid]
   (let [pattern (cljs.reader/read-string pattern)
+        eid (js->clj eid)
         results (d/pull db pattern eid)]
     (pull-result->js results)))
 
 (defn ^:export pull_many [db pattern eids]
   (let [pattern (cljs.reader/read-string pattern)
+        eids (js->clj eids)
         results (d/pull-many db pattern eids)]
     (pull-result->js results)))
 
 (defn ^:export db_with [db entities]
   (d/db-with db (entities->clj entities)))
 
-(def ^:export entity      d/entity)
+(defn ^:export entity [db eid]
+  (d/entity db (js->clj eid)))
+
 (def ^:export touch       d/touch)
 (def ^:export entity_db   d/entity-db)
 (def ^:export filter      d/filter)
