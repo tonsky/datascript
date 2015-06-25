@@ -5,7 +5,7 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure "1.7.0-RC1" :scope "provided"]
+    [org.clojure/clojure "1.7.0-RC2" :scope "provided"]
     [org.clojure/clojurescript "0.0-3308" :scope "provided"]
   ]
   

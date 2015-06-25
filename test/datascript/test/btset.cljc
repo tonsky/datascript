@@ -85,11 +85,10 @@
           (testing (str "from " from " to " to)
             (is (= (vec set-range) (vec (seq set-range)))) ;; checking IReduce on BTSetIter
             (is (= (vec set-range) expected))
-            (is (= (vec (reverse set-range)) (reverse expected)))
-            (is (= (vec (reverse (reverse set-range))) expected))
+            (is (= (vec (rseq set-range)) (reverse expected)))
+            (is (= (vec (rseq (rseq set-range))) expected))
             )))))
-;;   (println "[ OK ] btset slice checked")
-  )
+  #_(println "[ OK ] btset slice checked"))
 
 
 ;; (t/test-ns 'datascript.test.btset)

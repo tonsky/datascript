@@ -2,6 +2,7 @@
   (:require
    [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
    [datascript :as d]
+   [datascript.shim :as shim]
    [datascript.core :as dc]
    [datascript.test.core :as tdc]))
 
@@ -12,7 +13,7 @@
   (doseq [coll [["Devil" "Tupen"]
                 #{"Devil" "Tupen"}
                 '("Devil" "Tupen")
-                (dc/into-arr ["Devil" "Tupen"])]]
+                (shim/into-array ["Devil" "Tupen"])]]
     (testing coll
       (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
                                  :also { :db/cardinality :db.cardinality/many} })]

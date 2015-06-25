@@ -1,39 +1,12 @@
 (ns datascript.core
-  #?(:cljs (:refer-clojure :exclude [array? seqable? alength]))
   #?(:cljs (:require-macros [datascript.core :refer [case-tree combine-cmp raise defrecord-updatable]]))
   (:require
-   #?@(:cljs [[cljs.core :as c]
-              [goog.array :as garray]]
-       :clj  [[clojure.core :as c]])
-    clojure.walk
-   [datascript.btset :as btset]))
+    #?(:cljs [goog.array :as garray])
+     clojure.walk
+    [datascript.shim :as shim]
+    [datascript.btset :as btset]))
 
 ;; ----------------------------------------------------------------------------
-
-#?(:cljs (defn arr [size](make-array size))
-   :clj  (defn ^{:tag "[[Ljava.lang.Object;"} arr [size]
-           (make-array java.lang.Object size)))
-
-(defn into-arr [aseq]
-  #?(:cljs (into-array aseq)
-     :clj  (into-array java.lang.Object aseq)))
-
-(def array?
-  #?(:cljs c/array?
-     :clj  (fn array? [^Object x] (-> x .getClass .isArray))))
-
-(def seqable?
-  #?(:cljs c/seqable?
-     :clj (fn seqable? [x]
-            (or (seq? x)
-                (instance? clojure.lang.Seqable x)
-                (nil? x)
-                (instance? Iterable x)
-                (array? x)
-                (string? x)
-                (instance? java.util.Map x)))))
-
-(def neg-number? (every-pred number? neg?))
 
 #?(:cljs
    (do
@@ -560,7 +533,7 @@
       (empty-db schema)
       (let [_ (validate-schema schema)
             #?@(:cljs
-                [ds-arr  (into-array datoms)
+                [ds-arr  (shim/into-array datoms)
                  eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
                  aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
                  avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
@@ -596,7 +569,7 @@
          (set!   (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
      :clj
      (or @(.-__hash db)
-         (reset! (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))))
+         (reset! (.-__hash db) (hash-ordered-coll (or (-datoms db :eavt []) []))))))
 
 (defn- hash-fdb [^FilteredDB db]
   #?(:cljs
@@ -604,7 +577,7 @@
          (set!   (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
      :clj
      (or @(.-__hash db)
-         (reset! (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))))
+         (reset! (.-__hash db) (hash-ordered-coll (or (-datoms db :eavt []) []))))))
 
 (defn- equiv-db [db other]
   (and (or (instance? DB other) (instance? FilteredDB other))
@@ -848,7 +821,7 @@
     [vs]
 
     ;; not a collection at all, so definitely a single value
-    (not (or (array? vs)
+    (not (or (shim/array? vs)
              (and (coll? vs) (not (map? vs)))))
     [vs]
     
@@ -922,7 +895,7 @@
         (let [old-eid      (:db/id entity)
               known-eid    (->> 
                              (cond
-                               (neg-number? old-eid) (get-in report [:tempids old-eid])
+                               (shim/neg-number? old-eid) (get-in report [:tempids old-eid])
                                (tx-id? old-eid)      (current-tx report)
                                :else                 old-eid)
                              (entid-some db))
@@ -931,7 +904,7 @@
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (cond
                              (nil? old-eid) (allocate-eid report new-eid)
-                             (neg-number? old-eid) (allocate-eid report old-eid new-eid)
+                             (shim/neg-number? old-eid) (allocate-eid report old-eid new-eid)
                              :else report)]
           (recur new-report (concat (explode db new-entity) entities)))
 
@@ -968,12 +941,12 @@
             (and (ref? db a) (tx-id? v))
               (recur report (concat [[op e a (current-tx report)]] entities))
 
-            (neg-number? e)
+            (shim/neg-number? e)
               (if-let [eid (get-in report [:tempids e])]
                 (recur report (concat [[op eid a v]] entities))
                 (recur (allocate-eid report e (next-eid db)) es))
 
-            (and (ref? db a) (neg-number? v))
+            (and (ref? db a) (shim/neg-number? v))
               (if-let [vid (get-in report [:tempids v])]
                 (recur report (concat [[op e a vid]] entities))
                 (recur (allocate-eid report v (next-eid db)) es))

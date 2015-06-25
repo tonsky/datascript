@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [distinct?])
   #?(:cljs (:require-macros [datascript.parser :refer [deftrecord]]))
   (:require
-   [clojure.set :as set]
-   [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]))
+    [clojure.set :as set]
+    [datascript.shim :as shim]
+    [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]))
 
 ;; utils
 
@@ -51,7 +52,7 @@
     (cond
       (pred form)     (conj acc form)
       (satisfies? ITraversable form) (-collect form pred acc)
-      (dc/seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
+      (shim/seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
       :else acc)))
 
 (defn distinct? [coll]

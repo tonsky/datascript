@@ -4,6 +4,7 @@
     ;;[cemerick.cljs.test :as t]
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.shim :as shim]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable]])]
     [datascript.btset :as btset]
@@ -39,8 +40,8 @@
            :cljs [^number hash-arr]) [arr]
   (loop [n 0
          hash-code 1]
-    (if (< n (alength arr))
-      (recur (inc n) (bit-or (+ (#?(:cljs imul :clj unchecked-multiply) 31 hash-code) (hash (aget arr n))) 0))
+    (if (< n (shim/alength arr))
+      (recur (inc n) (bit-or (+ (#?(:cljs imul :clj unchecked-multiply) 31 hash-code) (hash (shim/aget arr n))) 0))
       (mix-collection-hash hash-code n))))
 
 (deftype Tuple [arr _hash]
@@ -186,7 +187,7 @@
        (-reduce [_ f init]
                 (reduce (fn [acc t1]
                           (reduce (fn [acc t2]
-                                    (f acc (dc/into-arr [t1 t2])))
+                                    (f acc (shim/into-array [t1 t2])))
                                   acc rel2))
                         init rel1))
 
@@ -200,7 +201,7 @@
                   (-getter rel2 symbol)))
        (-indexes [_ syms]
                  (let [[syms1 syms2] (split-with (set (.-symbols rel1)) syms)]
-                   (dc/into-arr [(-indexes rel1 syms1) (-indexes rel2 syms2)])))
+                   (shim/into-array [(-indexes rel1 syms1) (-indexes rel2 syms2)])))
        (-copy-tuple [_ tuple idxs target offset]
                     (let [idxs1 (aget idxs 0)
                           idxs2 (aget idxs 1)]
@@ -254,13 +255,13 @@
   #?@(:cljs
        [IReduce
         (-reduce [_ f init]
-                 (f init (dc/into-arr [])))
+                 (f init (shim/into-array [])))
 
         ICounted
         (-count [_] 1)
 
         IRelation
-        (-indexes [_ _] (dc/into-arr []))
+        (-indexes [_ _] (shim/into-array []))
         (-copy-tuple [_ _ _ _ _])
 
         Object
@@ -327,7 +328,7 @@
         (let [key (key-fn t)
               old (get hash key nil)]
           (if (nil? old)
-            (assoc! hash key (dc/into-arr [t]))
+            (assoc! hash key (shim/into-array [t]))
             (do (.push old t) hash))))
       (transient {})
       rel)))
@@ -367,7 +368,7 @@
 ;;; Bindings
 
 (defn- bindable-to-seq? [x]
-  (or (dc/seqable? x) (dc/array? x)))
+  (or (shim/seqable? x) (shim/array? x)))
 
 (defn- binding-symbols [binding]
   (->> (dp/collect-vars-distinct binding)
@@ -396,7 +397,7 @@
   
   BindScalar
   (in->rel [binding value]
-    (array-rel [(.. binding -variable -symbol)] [(dc/into-arr [value])]))
+    (array-rel [(.. binding -variable -symbol)] [(shim/into-array [value])]))
   
   BindColl
   (in->rel [binding coll]
