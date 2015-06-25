@@ -6,9 +6,18 @@
   <body>
     <script src="target/datascript.js" type="text/javascript"></script>
     <script type="text/javascript">
-//       datascript.test.test_most();
-//       datascript.test.test_btset();
+      datascript.test.test_most();
+      datascript.test.test_btset();
 //       datascript.test.bench.perftest_transact();
+    </script>
+
+    <script type="text/javascript">
+      goog.require('datascript.js');
+    </script>
+    <script src="test/js/underscore-1.6.0.min.js" type="text/javascript"></script>
+    <script src="test/js/tests.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      test_datascript_js();
     </script>
   </body>
 </html>
