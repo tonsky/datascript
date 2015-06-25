@@ -32,8 +32,19 @@
      datascript.test.upsert
    ))
 
-(defn ^:export test-all []
-  (t/run-all-tests #"datascript\.test\.(?!btset).*"))
+(defn wrap-res [res]
+  #?(:cljs (clj->js res)
+     :clj  (when (pos? (+ (:fail res) (:error res)))
+             (System/exit 1))))
+
+(defn ^:export test-most []
+  (wrap-res
+    (t/run-all-tests #"datascript\.test\.(?!btset).*")))
 
 (defn ^:export test-btset []
-  (t/test-ns 'datascript.test.btset))
+  (wrap-res
+    (t/test-ns 'datascript.test.btset)))
+
+(defn ^:export test-all []
+  (wrap-res
+    (t/run-all-tests)))

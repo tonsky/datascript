@@ -16,7 +16,8 @@
   
   :jvm-opts ["-Xmx2g" "-server"]
 
-  :aliases {"test-clj" ["run" "-m" "datascript.test/test-all"]}
+  :aliases {"test-clj"     ["run" "-m" "datascript.test/test-most"]
+            "test-clj-all" ["run" "-m" "datascript.test/test-all"]}
   
   :cljsbuild { 
     :builds [

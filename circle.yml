@@ -5,8 +5,10 @@ machine:
 dependencies:
   post:
     - lein clean
+    - lein cljsbuild once advanced:
+        timeout: 300
 
 test:
   override:
-    - lein cljsbuild test:
-        timeout: 300
+    - lein test-clj-all
+    - node ./test_node.js --all
