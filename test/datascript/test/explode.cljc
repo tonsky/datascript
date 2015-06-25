@@ -1,10 +1,11 @@
 (ns datascript.test.explode
   (:require
-   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
-   [datascript :as d]
-   [datascript.shim :as shim]
-   [datascript.core :as dc]
-   [datascript.test.core :as tdc]))
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript :as d]
+    [datascript.shim :as shim]
+    [datascript.core :as dc]
+    [datascript.test.core :as tdc]))
 
 #?(:cljs
    (def Throwable js/Error))

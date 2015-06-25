@@ -1,9 +1,10 @@
 (ns datascript.test.query-pull
   (:require
-   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
-   [datascript :as d]
-   [datascript.core :as dc]
-   [datascript.test.core :as tdc]))
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript :as d]
+    [datascript.core :as dc]
+    [datascript.test.core :as tdc]))
 
 (def test-db (d/db-with (d/empty-db)
              [{:db/id 1 :name "Petr" :age 44}

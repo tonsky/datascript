@@ -40,7 +40,6 @@
       :source-paths ["bench/src" "test"]
       :plugins [
         [lein-cljsbuild "1.0.6"]
-        [com.cemerick/clojurescript.test "0.3.3"]
       ]
       :cljsbuild { 
         :builds [
@@ -68,10 +67,6 @@
               :recompile-dependents false
             }}
         ]
-        :test-commands {
-          "datascript.test"    [ "phantomjs" :runner "target/datascript.js" ]
-          "datascript.test.js" [ "phantomjs" "test/js/runner.js" ]
-        }
       }
     }
   }

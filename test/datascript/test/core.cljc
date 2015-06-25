@@ -1,34 +1,44 @@
 (ns datascript.test.core
   (:require
-   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [deftest is are testing with-test-out]]
-   [datascript :as d]
-   [datascript.impl.entity :as de]
-   [datascript.core :as dc #?@(:cljs [:refer-macros [defrecord-updatable]]
-                                     :clj  [:refer [defrecord-updatable]])]))
+    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript :as d]
+    [datascript.impl.entity :as de]
+    [datascript.core :as dc #?@(:cljs [:refer-macros [defrecord-updatable]]
+                                      :clj  [:refer [defrecord-updatable]])]))
 
 #?(:cljs
    (enable-console-print!))
 
 ;; Added special case for printing ex-data of ExceptionInfo
 #?(:cljs
-   (defmethod t/report :error [{:keys [test-env] :as m}]
-     (with-test-out test-env
-       (t/inc-report-counter test-env :error)
-       (println "\nERROR in" (t/testing-vars-str m))
-       (when (seq (::test-contexts @test-env))
-         (println (t/testing-contexts-str test-env)))
-       (when-let [message (:message m)] (println message))
-       (println "expected:" (pr-str (:expected m)))
-       (print "  actual: ")
-       (let [actual (:actual m)]
-         (cond
-           (instance? ExceptionInfo actual)
-           (println (.-stack actual) "\n" (ex-data actual))
-           (instance? js/Error actual)
-           (println (.-stack actual))
-           :else
-           (prn actual))))))
+  (defmethod t/report [::t/default :error] [m]
+    (t/inc-report-counter! :error)
+    (println "\nERROR in" (t/testing-vars-str m))
+    (when (seq (:testing-contexts (t/get-current-env)))
+      (println (t/testing-contexts-str)))
+    (when-let [message (:message m)] (println message))
+    (println "expected:" (pr-str (:expected m)))
+    (print "  actual: ")
+    (let [actual (:actual m)]
+      (cond
+        (instance? ExceptionInfo actual)
+        (println (.-stack actual) "\n" (pr-str (ex-data actual)))
+        (instance? js/Error actual)
+        (println (.-stack actual))
+        :else
+        (prn actual)))))
+
+#?(:cljs (def test-summary (atom nil)))
+#?(:cljs (defmethod t/report [::t/default :end-run-tests] [m]
+           (reset! test-summary (dissoc m :type))))
+
+(defn wrap-res [f]
+  #?(:cljs (do (f) (clj->js @test-summary))
+     :clj  (let [res (f)]
+             (when (pos? (+ (:fail res) (:error res)))
+               (System/exit 1)))))
 
 ;; utils
 

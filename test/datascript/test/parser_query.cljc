@@ -1,11 +1,13 @@
 (ns datascript.test.parser-query
   (:require
-   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
-   [datascript :as d]
-   [datascript.core :as dc]
-   [datascript.parser :as dp]
-   [datascript.test.core :as tdc])
-  #?(:clj (:import [clojure.lang ExceptionInfo])))
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript :as d]
+    [datascript.core :as dc]
+    [datascript.parser :as dp]
+    [datascript.test.core :as tdc])
+    #?(:clj
+      (:import [clojure.lang ExceptionInfo])))
 
 
 

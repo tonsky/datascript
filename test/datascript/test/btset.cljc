@@ -1,12 +1,8 @@
 (ns datascript.test.btset
-  #?@(:cljs
-      [(:require-macros [cemerick.cljs.test :refer [is deftest testing]])
-       (:require [cemerick.cljs.test :as t]
-                 [datascript.btset :as btset :refer [btset btset-by slice]]
-                 [datascript.perf :as perf])]
-      :clj
-      [(:require [clojure.test :as t :refer [is deftest testing]]
-                 [datascript.btset :as btset :refer [btset btset-by slice]])]))
+  (:require
+    [datascript.btset :as btset :refer [btset btset-by slice]]
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])))
 
 #?(:cljs (enable-console-print!))
 

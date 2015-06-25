@@ -1,7 +1,6 @@
 (ns datascript.query-v3
   (:require
     [clojure.set :as set]
-    ;;[cemerick.cljs.test :as t]
     [datascript :as d]
     [datascript.core :as dc]
     [datascript.shim :as shim]

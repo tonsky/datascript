@@ -1,9 +1,10 @@
 (ns datascript.test.listen
   (:require
-   [#?(:cljs cemerick.cljs.test :clj clojure.test) :as t #?(:cljs :refer-macros :clj :refer) [is are deftest testing]]
-   [datascript :as d]
-   [datascript.core :as dc]
-   [datascript.test.core :as tdc]))
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript :as d]
+    [datascript.core :as dc]
+    [datascript.test.core :as tdc]))
 
 (deftest test-listen!
   (let [conn    (d/create-conn)
