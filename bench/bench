@@ -1,10 +1,11 @@
 #^:shebang '[
-exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-RC1.jar" clojure.main "$0" "$@"
+exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-RC2.jar" clojure.main "$0" "$@"
 ]
 
 "USAGE: ./bench [-c] (jvm|js) (<test-name>|all) (<tag>|<revision>)"
 
 (require
+  '[clojure.edn :as edn]
   '[clojure.java.io :as io]
   '[clojure.java.shell :as sh]
   '[clojure.string :as str])
@@ -17,27 +18,33 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-
 
 (defn copy [^java.io.InputStream input ^java.io.Writer output]
   (let [^"[C" buffer (make-array Character/TYPE 1024)
-        in (java.io.InputStreamReader. input "UTF-8")]
+        in (java.io.InputStreamReader. input "UTF-8")
+        w  (java.io.StringWriter.)]
     (loop []
       (let [size (.read in buffer 0 (alength buffer))]
         (if (pos? size)
           (do (.write output buffer 0 size)
               (.flush output)
-              (recur)))))))
+              (.write w buffer 0 size)
+              (recur))
+          (str w))))))
 
 (defn run [& cmd]
-  (let [proc (.exec (Runtime/getRuntime)
-                    ^"[Ljava.lang.String;" (into-array (remove nil? cmd))
+  (let [cmd  (remove nil? cmd)
+        proc (.exec (Runtime/getRuntime)
+                    (into-array String cmd)
                     (@#'sh/as-env-strings sh/*sh-env*)
-                    (io/as-file sh/*sh-dir*))]
+                    (io/as-file sh/*sh-dir*))
+        out  (promise)]
     (with-open [stdout (.getInputStream proc)
                 stderr (.getErrorStream proc)]
-      (future (copy stdout *out*))
+      (future (deliver out (copy stdout *out*)))
       (future (copy stderr *err*))
       (.close (.getOutputStream proc))
       (let [code (.waitFor proc)]
         (when (not= code 0)
-          (throw (ex-info "ERROR" {:cmd cmd :code code})))))))
+          (throw (ex-info "ERROR" {:cmd cmd :code code})))
+        @out))))
 
 (defn build [ref]
   (let [commit-count (sh "git" "rev-list" ref "--count")
@@ -75,16 +82,49 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC1/clojure-1.7.0-
 
 (println "Running" bench "within" env "...")
 
-(binding [sh/*sh-env* (merge {} (System/getenv) env)
-          sh/*sh-dir* dir]
+(defn run-bench []
   (case project
     "datascript-jvm"
-      (run "lein" "do" (when clean? "clean,") "trampoline" "run" "-m" (str "datascript.bench/bench-" bench))
+    (run "lein" "trampoline" "run" "-m" (str "datascript.bench/bench-" bench))
+
     "datascript-v8"
-      (do
-        (run "lein" "do" (when clean? "clean,") "cljsbuild" "once" "advanced")
-        (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))
+    (do
+      (run "lein" "cljsbuild" "once" "advanced")
+      (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))
+
     "datomic-mem"
-      (run "lein" "do" (when clean? "clean,") "trampoline" "run" "-m" (str "datascript.bench-datomic/bench-" bench))))
+    (run "lein" "trampoline" "run" "-m" (str "datascript.bench-datomic/bench-" bench))))
+
+(defn read-all [reader]
+  (loop [acc []]
+    (if-let [obj (edn/read {:eof nil} reader)]
+      (recur (conj acc obj))
+      acc)))
+
+(defn pp-result [res]
+  (println "{ :context"   (pr-str (:context res))
+           "\n  :spec   " (pr-str (:spec    res))
+           "\n  :results" (pr-str (:results res)) "}"))
+
+(defn merge-results [new]
+  (let [old      (with-open [in0 (io/reader "results.edn")
+                             in  (java.io.PushbackReader. in0)]
+                   (read-all in))
+        new      (read-all (java.io.PushbackReader. (java.io.StringReader. new)))
+        key-fn   (juxt :context :spec)
+        new-keys (into #{} (map key-fn) new)
+        filtered (remove #(contains? new-keys (key-fn %)) old)
+        merged   (concat filtered new)]
+    (with-open [out (io/writer "results.edn")]
+      (binding [*out* out]
+        (doseq [r merged]
+          (pp-result r))))))
+
+(binding [sh/*sh-env* (merge {} (System/getenv) env)
+          sh/*sh-dir* dir]
+  (when clean?
+    (run "lein" "clean"))
+  (let [out (run-bench)]
+    (merge-results out)))
 
 (System/exit 0)
