@@ -104,6 +104,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-
 (defn pp-result [res]
   (println "{ :context"   (pr-str (:context res))
            "\n  :spec   " (pr-str (:spec    res))
+           "\n  :env    " (pr-str (:env     res))
            "\n  :results" (pr-str (:results res)) "}"))
 
 (defn merge-results [new]

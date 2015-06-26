@@ -58,6 +58,10 @@
 #?(:cljs (defn ^number now [] (js/Date.now))
    :clj  (defn ^Long now [] (System/currentTimeMillis)))
 
+(defn inst []
+#?(:cljs (js/Date.)
+   :clj  (java.util.Date.)))
+
 ;; minibench
 
 #?(:clj
@@ -91,6 +95,7 @@
       (if *context*
         (println "{ :context"   (pr-str *context*)
                  "\n  :spec   " (pr-str ~spec)
+                 "\n  :env    " (pr-str (array-map :ts (inst)))
                  "\n  :results" (pr-str (array-map :median med# :min min# :max max# :raw results#)) "}")
         (println 
           "[ min:"   (format-number min#)

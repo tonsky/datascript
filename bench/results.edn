@@ -1,0 +1,204 @@
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:test "db_with", :size 100, :batch 1} 
+  :env     {:ts #inst "2015-06-26T15:06:47.219-00:00"} 
+  :results {:median 12.5625, :min 11.92222222222222, :max 13.2375, :raw [13.2375 12.5625 11.92222222222222 12.575 12.17777777777778]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:test "db_with", :size 500, :batch 1} 
+  :env     {:ts #inst "2015-06-26T15:06:55.140-00:00"} 
+  :results {:median 72.45, :min 64.75, :max 74.1, :raw [72.45 64.75 72.4 72.95 74.1]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:test "db_with", :size 2000, :batch 1} 
+  :env     {:ts #inst "2015-06-26T15:07:14.824-00:00"} 
+  :results {:median 326.8, :min 318.9, :max 329.0, :raw [328.7 329.0 319.3 326.8 318.9]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:10:45.045-00:00"} 
+  :results {:median 0.03302509907529723, :min 0.03215434083601286, :max 0.03508771929824561, :raw [0.03508771929824561 0.03302509907529723 0.03400204012240734 0.03215434083601286 0.03282994090610637]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:10:50.565-00:00"} 
+  :results {:median 0.03040437823046519, :min 0.02839295854628052, :max 0.0309981401115933, :raw [0.0309981401115933 0.03071253071253071 0.02958579881656805 0.02839295854628052 0.03040437823046519]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:10:56.066-00:00"} 
+  :results {:median 0.01264062697509796, :min 0.01207000603500302, :max 0.01293326435592344, :raw [0.01261988894497728 0.01264062697509796 0.01272102785905101 0.01207000603500302 0.01293326435592344]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:11:01.566-00:00"} 
+  :results {:median 0.01191469081377338, :min 0.01182033096926714, :max 0.01243317170210121, :raw [0.01243317170210121 0.01191469081377338 0.01208313194780087 0.01182033096926714 0.01184693756663902]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:11:07.074-00:00"} 
+  :results {:median 0.2463054187192118, :min 0.2398081534772182, :max 0.2527777777777778, :raw [0.2398081534772182 0.248019801980198 0.2527777777777778 0.2426150121065375 0.2463054187192118]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:11:12.577-00:00"} 
+  :results {:median 0.2553571428571429, :min 0.2490049751243781, :max 0.2590673575129534, :raw [0.2553571428571429 0.2531645569620253 0.2490049751243781 0.2590673575129534 0.2583979328165375]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:11:18.080-00:00"} 
+  :results {:median 0.09940357852882704, :min 0.0968054211035818, :max 0.1, :raw [0.09950248756218905 0.09940357852882704 0.09823182711198428 0.1 0.0968054211035818]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:11:23.580-00:00"} 
+  :results {:median 0.0547645125958379, :min 0.05367686527106817, :max 0.06199628022318661, :raw [0.06199628022318661 0.06060606060606061 0.0547645125958379 0.05367686527106817 0.05402485143165856]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:11:29.777-00:00"} 
+  :results {:median 16.6, :min 16.47142857142857, :max 16.88333333333333, :raw [16.57142857142857 16.88333333333333 16.47142857142857 16.6 16.7]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:11:36.213-00:00"} 
+  :results {:median 19.36666666666667, :min 19.25, :max 19.88333333333333, :raw [19.36666666666667 19.25 19.88333333333333 19.36666666666667 19.6]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:11:41.921-00:00"} 
+  :results {:median 6.706666666666667, :min 6.117647058823529, :max 7.157142857142857, :raw [6.211764705882353 6.117647058823529 7.013333333333333 6.706666666666667 7.157142857142857]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:11:47.504-00:00"} 
+  :results {:median 2.304545454545455, :min 2.226666666666667, :max 2.535, :raw [2.535 2.304545454545455 2.226666666666667 2.369767441860465 2.255555555555556]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:11:53.014-00:00"} 
+  :results {:median 0.1955078125, :min 0.1864059590316574, :max 0.1966601178781925, :raw [0.1864059590316574 0.191395793499044 0.1955078125 0.1956947162426614 0.1966601178781925]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:11:58.519-00:00"} 
+  :results {:median 0.1860594795539033, :min 0.1848428835489834, :max 0.1903041825095057, :raw [0.1848428835489834 0.1860594795539033 0.1848428835489834 0.1881578947368421 0.1903041825095057]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:12:04.022-00:00"} 
+  :results {:median 0.1054852320675105, :min 0.104602510460251, :max 0.1067235859124867, :raw [0.1067235859124867 0.1067235859124867 0.1051524710830705 0.1054852320675105 0.104602510460251]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:12:09.522-00:00"} 
+  :results {:median 0.01759014951627089, :min 0.0170590242238144, :max 0.01811594202898551, :raw [0.01725327812284334 0.01759324419422942 0.01811594202898551 0.01759014951627089 0.0170590242238144]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:12:15.075-00:00"} 
+  :results {:median 1.334210526315789, :min 1.315789473684211, :max 1.482352941176471, :raw [1.334210526315789 1.479411764705882 1.482352941176471 1.328947368421053 1.315789473684211]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:12:20.634-00:00"} 
+  :results {:median 1.59047619047619, :min 1.53030303030303, :max 1.736206896551724, :raw [1.53030303030303 1.736206896551724 1.655737704918033 1.59047619047619 1.58125]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:12:26.148-00:00"} 
+  :results {:median 0.6320754716981132, :min 0.6128048780487805, :max 0.6622516556291391, :raw [0.6128048780487805 0.629559748427673 0.6451612903225806 0.6622516556291391 0.6320754716981132]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:12:31.648-00:00"} 
+  :results {:median 0.08025682182985554, :min 0.078003120124805, :max 0.08802816901408451, :raw [0.08598452278589853 0.08802816901408451 0.08025682182985554 0.078003120124805 0.08006405124099279]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:12:41.053-00:00"} 
+  :results {:median 84.05, :min 83.6, :max 85.2, :raw [85.2 84.65 84.05 83.75 83.6]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:12:51.786-00:00"} 
+  :results {:median 96.9, :min 96.8, :max 98.1, :raw [96.8 96.8 98.1 96.9 97.35]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:12:58.929-00:00"} 
+  :results {:median 32.2, :min 31.975, :max 32.525, :raw [32.2 31.975 32.2 32.525 32.4]} }
+{ :context {:project "datascript-jvm", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:13:04.549-00:00"} 
+  :results {:median 3.27741935483871, :min 3.175, :max 3.603571428571429, :raw [3.603571428571429 3.270967741935484 3.175 3.27741935483871 3.335483870967742]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:16:49.566-00:00"} 
+  :results {:median 0.04789272030651341, :min 0.04730368968779565, :max 0.04837929366231253, :raw [0.04833252779120348 0.04837929366231253 0.04789272030651341 0.04748338081671415 0.04730368968779565]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:16:55.087-00:00"} 
+  :results {:median 0.05995203836930456, :min 0.05963029218843172, :max 0.060350030175015085, :raw [0.06031363088057901 0.060350030175015085 0.05995203836930456 0.05963029218843172 0.05970149253731343]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:17:00.589-00:00"} 
+  :results {:median 0.023485204321277594, :min 0.023315458148752622, :max 0.023781212841854936, :raw [0.023781212841854936 0.02332089552238806 0.023551577955723033 0.023315458148752622 0.023485204321277594]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:17:06.090-00:00"} 
+  :results {:median 0.0343878954607978, :min 0.03419972640218878, :max 0.034782608695652174, :raw [0.03419972640218878 0.0343878954607978 0.03429355281207133 0.034782608695652174 0.03454231433506045]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:17:11.605-00:00"} 
+  :results {:median 0.3180952380952381, :min 0.3150943396226415, :max 0.35714285714285715, :raw [0.3150943396226415 0.3180952380952381 0.35714285714285715 0.3184713375796178 0.31577287066246057]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:17:17.115-00:00"} 
+  :results {:median 0.42100840336134454, :min 0.4119341563786008, :max 0.43004291845493564, :raw [0.4175 0.42100840336134454 0.42595744680851066 0.4119341563786008 0.43004291845493564]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:17:22.616-00:00"} 
+  :results {:median 0.16436781609195403, :min 0.16181229773462782, :max 0.16556291390728478, :raw [0.1620745542949757 0.16501650165016502 0.16556291390728478 0.16181229773462782 0.16436781609195403]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:17:28.120-00:00"} 
+  :results {:median 0.17123287671232876, :min 0.17035775127768313, :max 0.1718213058419244, :raw [0.17152658662092624 0.17035775127768313 0.1711111111111111 0.17123287671232876 0.1718213058419244]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-conj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:17:34.560-00:00"} 
+  :results {:median 23.58, :min 23.48, :max 23.7, :raw [23.64 23.58 23.7 23.48 23.58]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-disj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:17:41.359-00:00"} 
+  :results {:median 32.05, :min 31.8, :max 33.6, :raw [31.8 32.05 32.45 33.6 32]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-lookup", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:17:47.307-00:00"} 
+  :results {:median 10.94, :min 10.78, :max 13.075, :raw [10.78 10.94 10.97 13.075 10.85]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "sorted-set", :test "set-iterate", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:17:53.004-00:00"} 
+  :results {:median 6.986666666666666, :min 6.86, :max 7.235714285714286, :raw [6.986666666666666 7.235714285714286 7.235714285714286 6.86 6.886666666666667]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:17:58.509-00:00"} 
+  :results {:median 0.10905125408942203, :min 0.10810810810810811, :max 0.11037527593818984, :raw [0.1088139281828074 0.10810810810810811 0.10905125408942203 0.10905125408942203 0.11037527593818984]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:18:04.012-00:00"} 
+  :results {:median 0.10582010582010581, :min 0.10570824524312897, :max 0.10604453870625663, :raw [0.10604453870625663 0.10604453870625663 0.10582010582010581 0.10582010582010581 0.10570824524312897]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:18:09.512-00:00"} 
+  :results {:median 0.03714710252600297, :min 0.03699593044765076, :max 0.03773584905660377, :raw [0.03710575139146568 0.03699593044765076 0.03714710252600297 0.03723008190618019 0.03773584905660377]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 100} 
+  :env     {:ts #inst "2015-06-26T15:18:15.012-00:00"} 
+  :results {:median 0.015782828282828284, :min 0.01563721657544957, :max 0.015946420028703556, :raw [0.01563721657544957 0.015782828282828284 0.015832805573147563 0.015782828282828284 0.015946420028703556]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:18:20.548-00:00"} 
+  :results {:median 1.003, :min 1.001, :max 1.0161616161616163, :raw [1.003 1.0161616161616163 1.001 1.011 1.002]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:18:26.098-00:00"} 
+  :results {:median 1.4253521126760564, :min 1.419718309859155, :max 1.4414285714285715, :raw [1.419718309859155 1.4414285714285715 1.4225352112676057 1.4253521126760564 1.437142857142857]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:18:31.607-00:00"} 
+  :results {:median 0.2589147286821705, :min 0.2570694087403599, :max 0.2830508474576271, :raw [0.2830508474576271 0.27377049180327867 0.2589147286821705 0.2570694087403599 0.258656330749354]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 500} 
+  :env     {:ts #inst "2015-06-26T15:18:37.107-00:00"} 
+  :results {:median 0.06747638326585695, :min 0.06591957811470006, :max 0.07704160246533127, :raw [0.06747638326585695 0.0673854447439353 0.06591957811470006 0.07704160246533127 0.07283321194464676]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-conj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:18:45.542-00:00"} 
+  :results {:median 75.5, :min 74.6, :max 77.05, :raw [74.6 77.05 76.05 75.45 75.5]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-disj", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:18:51.817-00:00"} 
+  :results {:median 104.3, :min 103, :max 105.8, :raw [103 104.3 103.6 105.8 104.5]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-lookup", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:18:57.580-00:00"} 
+  :results {:median 14.714285714285714, :min 14.685714285714285, :max 14.928571428571429, :raw [14.842857142857143 14.928571428571429 14.714285714285714 14.685714285714285 14.7]} }
+{ :context {:project "datascript-v8", :build "233/f8bbb48/0.11.4-11"} 
+  :spec    {:target "btset", :test "set-iterate", :size 20000} 
+  :env     {:ts #inst "2015-06-26T15:19:03.138-00:00"} 
+  :results {:median 2.772972972972973, :min 2.6315789473684212, :max 2.7944444444444443, :raw [2.772972972972973 2.6315789473684212 2.718918918918919 2.7944444444444443 2.7916666666666665]} }
