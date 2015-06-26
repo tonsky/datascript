@@ -36,7 +36,7 @@
   (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\.test\.(?!btset).*")))
 
 (defn ^:export test-btset []
-  (datascript.test.core/wrap-res #(t/test-ns 'datascript.test.btset)))
+  (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\.test\.btset")))
 
 (defn ^:export test-all []
   (datascript.test.core/wrap-res #(t/run-all-tests)))

@@ -315,8 +315,8 @@
            (shim/aconcat pointers (.-pointers ^Node next))))
   
   (node-merge-n-split [_ next]
-    (let [ks (node-merge-n-split keys     (.-keys ^Node next))
-          ps (node-merge-n-split pointers (.-pointers ^Node next))]
+    (let [ks (merge-n-split keys     (.-keys ^Node next))
+          ps (merge-n-split pointers (.-pointers ^Node next))]
       (return-array (Node. (shim/aget ks 0) (shim/aget ps 0))
                     (Node. (shim/aget ks 1) (shim/aget ps 1)))))
 
@@ -346,8 +346,10 @@
     (let [idx (lookup-range keys key)]
       (when-not (== -1 idx) ;; short-circuit, key not here
         (let [child       (shim/aget pointers idx)
-              left-child  (when (>= (dec idx) 0)                 (shim/aget pointers (dec idx)))
-              right-child (when (< (inc idx) (shim/alength pointers)) (shim/aget pointers (inc idx)))
+              left-child  (when (>= (dec idx) 0)
+                            (shim/aget pointers (dec idx)))
+              right-child (when (< (inc idx) (shim/alength pointers))
+                            (shim/aget pointers (inc idx)))
               disjned     (node-disj child key false left-child right-child)]
           (when disjned     ;; short-circuit, key not here
             (let [left-idx     (if left-child  (dec idx) idx)
@@ -967,3 +969,16 @@
   ([] (btset-by compare))
   ([& keys]
     (-btset-from-seq keys compare)))
+
+(comment
+  (defn- pp-node [n offset]
+    (print (apply str (repeat offset " ")))
+    (when (instance? Leaf n) (print "- "))
+    (print "[" (alength (.-keys n)) "nodes:" (aget (.-keys n) 0) ".." (alast (.-keys n)) "]")
+    (println)
+    (when (instance? Node n)
+      (doseq [p (.-pointers n)]
+        (pp-node p (+ offset 2)))))
+
+  (defn- pp-set [s]
+    (pp-node (.-root s) 0)))
