@@ -130,7 +130,9 @@
         (contains? set i)))
     (perf/bench {:target tn :test "set-iterate" :size size}
       (doseq [x set]
-        (+ 1 x)))))
+        (+ 1 x)))
+    (perf/bench {:target tn :test "set-reduce" :size size}
+      (reduce + 0 set))))
 
 (defn ^:export bench-all []
   (bench-db_with)

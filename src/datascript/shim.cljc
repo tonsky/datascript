@@ -44,10 +44,22 @@
         (list* 'js* (str "[" (str/join "," (repeat (count args) "~{}")) "]") args)
         (vary-meta assoc :tag 'array))
       (let [len (count args)]
-       `(let [arr# (clojure.core/make-array java.lang.Object ~len)]
-          (doto ^{:tag "[[Ljava.lang.Object;"} arr#
-          ~@(map #(list 'aset % (nth args %)) (range len))))))))
+        (if (zero? len)
+          'clojure.lang.RT/EMPTY_ARRAY
+         `(let [arr# (clojure.core/make-array java.lang.Object ~len)]
+            (doto ^{:tag "[[Ljava.lang.Object;"} arr#
+            ~@(map #(list 'aset % (nth args %)) (range len)))))))))
 
+#?(:clj
+  (defmacro acopy [from from-start from-end to to-start]
+    (if-cljs &env
+     `(let [l# (- ~from-end ~from-start)]
+        (dotimes [i# l#]
+          (aset ~to (+ i# ~to-start) (aget ~from (+ i# ~from-start)))))
+     `(let [l# (- ~from-end ~from-start)]
+        (when (pos? l#)
+          (System/arraycopy ~from ~from-start ~to ~to-start l#))))))
+      
 
 (defn aconcat [a b]
   #?(:cljs (.concat a b)

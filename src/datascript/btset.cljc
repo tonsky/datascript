@@ -96,19 +96,14 @@
   (shim/aget arr (dec (shim/alength arr))))
 
 (defn cut-n-splice [arr cut-from cut-to splice-from splice-to xs]
-  ;; TODO arraycopy
-  (let [arr-l   (shim/alength arr)
-        xs-l    (shim/alength xs)
-        l1      (- splice-from cut-from)
-        l2      (- cut-to splice-to)
-        l1xs    (+ l1 xs-l)
+  (let [xs-l (shim/alength xs)
+        l1   (- splice-from cut-from)
+        l2   (- cut-to splice-to)
+        l1xs (+ l1 xs-l)
         new-arr (shim/make-array (+ l1 xs-l l2))]
-    (dotimes [i l1]
-      (shim/aset new-arr i (shim/aget arr (+ cut-from i))))
-    (dotimes [i xs-l]
-      (shim/aset new-arr (+ i l1) (shim/aget xs i)))
-    (dotimes [i l2]
-      (shim/aset new-arr (+ i l1xs) (shim/aget arr (+ splice-to i))))
+    (shim/acopy arr cut-from splice-from new-arr 0)
+    (shim/acopy xs 0 xs-l new-arr l1)
+    (shim/acopy arr splice-to cut-to new-arr l1xs)
     new-arr))
 
 (defn cut
@@ -130,7 +125,6 @@
   (cut-n-splice arr 0 (shim/alength arr) idx idx xs))
 
 (defn merge-n-split [a1 a2]
-  ;; TODO arraycopy
   (let [a1-l    (shim/alength a1)
         a2-l    (shim/alength a2)
         total-l (+ a1-l a2-l)
@@ -138,13 +132,15 @@
         r2-l    (- total-l r1-l)
         r1      (shim/make-array r1-l)
         r2      (shim/make-array r2-l)]
-    (dotimes [i total-l]
-      (let [set-a (if (< i r1-l) r1 r2)
-            set-i (if (< i r1-l) i (- i r1-l))
-            get-a (if (< i a1-l) a1 a2)
-            get-i (if (< i a1-l) i (- i a1-l))
-            set-v (shim/aget get-a get-i)]
-        (shim/aset set-a set-i set-v)))
+    (if (<= a1-l r1-l)
+      (do
+        (shim/acopy a1 0             a1-l          r1 0)
+        (shim/acopy a2 0             (- r1-l a1-l) r1 a1-l)
+        (shim/acopy a2 (- r1-l a1-l) a2-l          r2 0))
+      (do
+        (shim/acopy a1 0    r1-l r1 0)
+        (shim/acopy a1 r1-l a1-l r2 0)
+        (shim/acopy a2 0    a2-l r2 (- a1-l r1-l))))
     (shim/array r1 r2)))
 
 (defn ^boolean eq-arr [cmp a1 a1-from a1-to
