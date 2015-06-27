@@ -53,7 +53,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-
     (str commit-count "/" (subs sha1 0 7) "/" (str/replace descr #"-g.+" ""))))
 
 
-(def clean? (= "-c" (first *command-line-args*)))
+(def clean? (#{"-c" "-clean" "--clean"} (first *command-line-args*)))
 (let [[p b r] (if clean?
                 (next *command-line-args*)
                 *command-line-args*)]
