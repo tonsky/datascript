@@ -44,7 +44,7 @@
                               first
                               inc))
 (def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
-(def ^:const empty-path 0)
+(def ^:const ^long empty-path (long 0))
 
 (defn path-get ^long [^long path ^long level]
   (bit-and path-mask
@@ -607,7 +607,7 @@
 
 ;; iteration
 
-(defn -next-path [node path level]
+(defn -next-path ^long [node ^long path ^long level]
   (let [idx (path-get path level)]
     (if (pos? level)
       ;; inner node
@@ -631,12 +631,12 @@
 (defn next-path
   "Returns path representing next item after `path` in natural traversal order,
    or -1 if end of tree has been reached"
-  [^BTSet set path]
+  ^long [^BTSet set ^long path]
   (-next-path (.-root set) path (.-shift set)))
 
 (defn -rpath
   "Returns rightmost path possible starting from node and going deeper"
-  [node level]
+  ^long [node ^long level]
   (loop [node  node
          path  empty-path
          level level]
@@ -648,7 +648,7 @@
       ;; leaf
       (path-set path 0 (dec (shim/alength (.-keys ^Leaf node)))))))
 
-(defn -prev-path [node path level]
+(defn -prev-path ^long [node ^long path ^long level]
   (let [idx (path-get path level)]
     (if (pos? level)
       ;; inner node
@@ -675,7 +675,7 @@
 (defn prev-path
   "Returns path representing previous item before `path` in natural traversal order,
    or -1 if `path` was already beginning of a tree"
-  [^BTSet set path]
+  ^long [^BTSet set ^long path]
   (-prev-path (.-root set) path (.-shift set)))
 
 
@@ -690,7 +690,7 @@
           right  (inc (-rpath (.-root set) (.-shift set)))]
       (iter set left right))))
 
-(deftype Iter [set left right keys idx]
+(deftype Iter [set ^long left ^long right keys ^long idx]
   #?@(:cljs [
     ISeqable
     (-seq [this] (when keys this))
@@ -743,7 +743,7 @@
     (iterator [this] (clojure.lang.SeqIterator. this))
   ]))
 
-(defn iter [set left right]
+(defn iter [set ^long left ^long right]
   (Iter. set left right (keys-for set left) (path-get left 0)))
 
 (defn iter-first [^Iter iter]
@@ -821,7 +821,7 @@
                   (recur (inc left) keys (inc idx) new-acc)
                   new-acc)
                 (let [new-left (next-path set left)]
-                  (if (and (not= -1 new-left) (< new-left (.-right iter)))
+                  (if (and (not= -1 new-left) (< new-left right))
                     (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
                     new-acc)))))))))
 
@@ -829,7 +829,7 @@
 
 (declare riter-first riter-next riter-rseq)
 
-(deftype ReverseIter [set left right keys idx]
+(deftype ReverseIter [set ^long left ^long right keys ^long idx]
   #?@(:cljs [
     ISeqable
     (-seq [this] (when keys this))
@@ -866,7 +866,7 @@
     (iterator [this] (clojure.lang.SeqIterator. this))
   ]))
 
-(defn riter [set left right]
+(defn riter [set ^long left ^long right]
   (ReverseIter. set left right (keys-for set right) (path-get right 0)))
 
 (defn riter-first [^ReverseIter riter]
@@ -901,7 +901,7 @@
 
 ;; distance
 
-(defn -distance [node left right level]
+(defn -distance [node ^long left ^long right ^long level]
   (let [idx-l (path-get left level)
         idx-r (path-get right level)]
     (if (pos? level)
@@ -915,7 +915,7 @@
             (* res avg-len))))
       (- idx-r idx-l))))
 
-(defn distance [^BTSet set path-l path-r]
+(defn distance [^BTSet set ^long path-l ^long path-r]
   (cond
     (== path-l path-r) 0
     (== (inc path-l) path-r) 1
