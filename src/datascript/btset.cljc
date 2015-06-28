@@ -22,11 +22,11 @@
         (7 << 16) | (53 << 8) | 11 = 472331
         0000 0111   0011 0101   0000 1011
 
-  Iter: set       :: Set this iterator belongs to
-             left      :: Current path
-             right     :: Right bound path (exclusive)
-             keys      :: Cached ref for keys array for a leaf
-             idx       :: Cached idx in keys array
+  Iter:     set       :: Set this iterator belongs to
+            left      :: Current path
+            right     :: Right bound path (exclusive)
+            keys      :: Cached ref for keys array for a leaf
+            idx       :: Cached idx in keys array
   Keys and idx are cached for fast iteration inside a leaf
 "
   :author "Nikita Prokopov"}
@@ -46,46 +46,48 @@
 (def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
 (def ^:const empty-path 0)
 
-(defn path-get ^long [path level]
+(defn path-get ^long [^long path ^long level]
   (bit-and path-mask
            (unsigned-bit-shift-right path level)))
 
-(defn path-set ^long [path level idx]
+(defn path-set ^long [^long path ^long level ^long idx]
   (bit-or path 
           (bit-shift-left idx level)))
 
-(defn binary-search-l [cmp arr l r k]
-  ;; TODO less loop args?
-  (if (<= l r)
-    (let [m  (shim/half (+ l r))
-          mk (shim/aget arr m)]
-      (if (neg? (cmp mk k))
-        (recur cmp arr (inc m) r k)
-        (recur cmp arr l (dec m) k)))
-    l))
+(defn binary-search-l ^long [cmp arr ^long r k]
+  (loop [l 0
+         r (long r)]
+    (if (<= l r)
+      (let [m  (shim/half (+ l r))
+            mk (shim/aget arr m)]
+        (if (neg? (cmp mk k))
+          (recur (inc m) r)
+          (recur l (dec m))))
+      l)))
 
 
-(defn binary-search-r [cmp arr l r k]
-  ;; TODO less loop args?
-  (if (<= l r)
-    (let [m  (shim/half (+ l r))
-          mk (shim/aget arr m)]
-      (if (pos? (cmp mk k))
-        (recur cmp arr l (dec m) k)
-        (recur cmp arr (inc m) r k)))
-    l))
+(defn binary-search-r ^long [cmp arr ^long r k]
+  (loop [l 0
+         r (long r)]
+    (if (<= l r)
+      (let [m  (shim/half (+ l r))
+            mk (shim/aget arr m)]
+        (if (pos? (cmp mk k))
+          (recur l (dec m))
+          (recur (inc m) r)))
+      l)))
 
-(defn lookup-exact [cmp arr key]
+(defn lookup-exact ^long [cmp arr key]
   (let [arr-l (shim/alength arr)
-        idx   (binary-search-l cmp arr 0 (dec arr-l) key)]
+        idx   (binary-search-l cmp arr (dec arr-l) key)]
     (if (and (< idx arr-l)
              (== 0 (cmp (shim/aget arr idx) key)))
       idx
       -1)))
 
-(defn lookup-range [cmp arr key]
+(defn lookup-range ^long [cmp arr key]
   (let [arr-l (shim/alength arr)
-        idx   (binary-search-l cmp arr 0 (dec arr-l) key)]
+        idx   (binary-search-l cmp arr (dec arr-l) key)]
     (if (== idx arr-l)
       -1
       idx)))
@@ -313,7 +315,7 @@
         (node-lookup (shim/aget pointers idx) cmp key))))
   
   (node-conj [_ cmp key]
-    (let [idx   (binary-search-l cmp keys 0 (- (shim/alength keys) 2) key)
+    (let [idx   (binary-search-l cmp keys (- (shim/alength keys) 2) key)
           nodes (node-conj (shim/aget pointers idx) cmp key)]
       (when nodes
         (let [new-keys     (check-n-splice cmp keys     idx (inc idx) (shim/amap node-lim-key nodes))
@@ -369,7 +371,7 @@
         (shim/aget keys idx))))
 
   (node-conj [_ cmp key]
-    (let [idx    (binary-search-l cmp keys 0 (dec (shim/alength keys)) key)
+    (let [idx    (binary-search-l cmp keys (dec (shim/alength keys)) key)
           keys-l (shim/alength keys)]
       (cond
         ;; element already here
@@ -422,7 +424,7 @@
     (-meta [_] meta)
 
     IEmptyableCollection
-    (-empty [_] (BTSet. (Leaf. (array)) 0 0 comparator meta uninitialized-hash))
+    (-empty [_] (BTSet. (Leaf. (shim/array)) 0 0 comparator meta uninitialized-hash))
 
     IEquiv
     (-equiv [this other]
@@ -880,10 +882,10 @@
     (let [keys-l (node-len node)]
       (if (== 0 level)
         (let [keys (.-keys ^Leaf node)
-              idx  (binary-search-l (.-comparator set) keys 0 (dec keys-l) key)]
+              idx  (binary-search-l (.-comparator set) keys (dec keys-l) key)]
           (if (== keys-l idx) -1 (path-set path 0 idx)))
         (let [keys (.-keys ^Node node)
-              idx  (binary-search-l (.-comparator set) keys 0 (- keys-l 2) key)]
+              idx  (binary-search-l (.-comparator set) keys (- keys-l 2) key)]
           (recur (shim/aget (.-pointers ^Node node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
@@ -899,10 +901,10 @@
     (let [keys-l (node-len node)]
       (if (== 0 level)
         (let [keys (.-keys ^Leaf node)
-              idx  (binary-search-r (.-comparator set) keys 0 (dec keys-l) key)]
+              idx  (binary-search-r (.-comparator set) keys (dec keys-l) key)]
           (path-set path 0 idx))
         (let [keys (.-keys ^Node node)
-              idx  (binary-search-r (.-comparator set) keys 0 (- keys-l 2) key)]
+              idx  (binary-search-r (.-comparator set) keys (- keys-l 2) key)]
           (recur (shim/aget (.-pointers ^Node node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
