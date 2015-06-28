@@ -40,11 +40,11 @@
 (def ^:const max-len 32)
 (def ^:const avg-len (shim/half (+ max-len min-len)))
 (def ^:const level-shift (->> (range 31 -1 -1)
-                              (filter #(bit-test (dec max-len) %))
+                              (filter #(bit-test max-len %))
                               first
                               inc))
 (def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
-(def ^:const ^long empty-path (long 0))
+(def ^:const ^long empty-path 0)
 
 (defn path-get ^long [^long path ^long level]
   (bit-and path-mask

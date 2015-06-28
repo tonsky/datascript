@@ -1,3 +1,9 @@
+# 0.11.5
+
+- Ported BTSet to JVM
+- BTSet and BTSetIter implement ChunkedSeq
+- New benchmark runner
+
 # 0.11.4
 
 Experimental support for Clojure on JVM:
