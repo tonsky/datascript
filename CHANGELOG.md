@@ -4,6 +4,14 @@
 - BTSet and BTSetIter implement ChunkedSeq
 - New benchmark runner
 
+This release brings a significant performance boost for JVM version of DataScript (numbers are in comparison to JS/v8 version):
+
+- queries with single clause, no join: ~5–6 times faster
+- queries with joins: ~3–4.5 times faster
+- `transact`: ~3 times faster
+- `init-db`: ~3–4 times faster
+- rules: ~3-4 times faster
+
 # 0.11.4
 
 Experimental support for Clojure on JVM:
