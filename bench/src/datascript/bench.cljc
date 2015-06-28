@@ -112,8 +112,8 @@
               (follows ?t ?y)]]))))
 
 (defn ^:export bench-btset []
-  (doseq [[tn target] [;; ["sorted-set" (sorted-set)]
-                       ;; ["vec"        []]
+  (doseq [[tn target] [["sorted-set" (sorted-set)]
+                       ["vector"     []]
                        ["btset"      (btset/btset)]]
 ;;           distinct?   [true false]
           size        [100 500 20000]
@@ -124,11 +124,12 @@
                 set            (into target range)]]
     (perf/bench {:target tn :test "set-conj" :size size}
       (into target range))
-    (perf/bench {:target tn :test "set-disj" :size size}
-      (reduce disj set shuffled-range))
-    (perf/bench {:target tn :test "set-lookup" :size size}
-      (doseq [i shuffled-range]
-        (contains? set i)))
+    (when (re-find #"set" tn)
+      (perf/bench {:target tn :test "set-disj" :size size}
+        (reduce disj set shuffled-range))
+      (perf/bench {:target tn :test "set-lookup" :size size}
+        (doseq [i shuffled-range]
+          (contains? set i))))
     (perf/bench {:target tn :test "set-iterate" :size size}
       (doseq [x set]
         (+ 1 x)))

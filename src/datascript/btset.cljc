@@ -36,11 +36,11 @@
     [datascript.shim :as shim])
   #?(:clj  (:import [java.util Arrays])))
 
-(def ^:const min-len #?(:clj 16 :cljs 64))
-(def ^:const max-len #?(:clj 31 :cljs 128))
+(def ^:const min-len 16)
+(def ^:const max-len 32)
 (def ^:const avg-len (shim/half (+ max-len min-len)))
 (def ^:const level-shift (->> (range 31 -1 -1)
-                              (filter #(bit-test max-len %))
+                              (filter #(bit-test (dec max-len) %))
                               first
                               inc))
 (def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
@@ -154,8 +154,8 @@
         (cond
           (== i len)
             true
-          (not (== 0 (cmp (shim/aget a1 (+ i a1-from))
-                          (shim/aget a2 (+ i a2-from)))))
+          (shim/not== 0 (cmp (shim/aget a1 (+ i a1-from))
+                             (shim/aget a2 (+ i a2-from))))
             false
           :else
             (recur (inc i)))))))
@@ -821,7 +821,7 @@
                   (recur (inc left) keys (inc idx) new-acc)
                   new-acc)
                 (let [new-left (next-path set left)]
-                  (if (and (not= -1 new-left) (< new-left right))
+                  (if (and (shim/not== -1 new-left) (< new-left right))
                     (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
                     new-acc)))))))))
 

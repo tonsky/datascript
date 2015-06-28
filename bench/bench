@@ -2,7 +2,7 @@
 exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-RC2.jar" clojure.main "$0" "$@"
 ]
 
-"USAGE: ./bench [-c] (jvm|js) (<test-name>|all) (<tag>|<revision>)"
+"USAGE: ./bench [-c | -f] (jvm|js) (<bench-name>|all) (<tag>|<revision>)"
 
 (require
   '[clojure.edn :as edn]
@@ -53,19 +53,40 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-
     (str commit-count "/" (subs sha1 0 7) "/" (str/replace descr #"-g.+" ""))))
 
 
-(def clean? (#{"-c" "-clean" "--clean"} (first *command-line-args*)))
-(let [[p b r] (if clean?
-                (next *command-line-args*)
-                *command-line-args*)]
-  (def project (get {"jvm"     "datascript-jvm"
-                     "js"      "datascript-v8"
-                     "datomic" "datomic-mem"}
-                    (or p "jvm")))
-  (def datomic? (= "datomic-mem" project))
-  (def bench (or b "all"))
-  (def rfrnc (if datomic?
-               (or r "0.9.5173")
-               r)))
+(def opts
+  (loop [opts {:clean   false
+               :fast    false
+               :project "jvm"
+               :bench   "all"
+               :ref     nil}
+         args *command-line-args*]
+    (if-let [arg (first args)]
+      (cond
+        (#{"-c" "-clean" "--clean"} arg)
+          (recur (assoc opts :clean true) (next args))
+        (#{"-f" "-fast" "--fast"} arg)
+          (recur (assoc opts :fast true) (next args))
+        (#{"jvm" "js" "datomic"} arg)
+          (recur (assoc opts :project arg) (next args))
+        (#{"db_with" "init_db" "queries" "rules" "btset"} arg)
+          (recur (assoc opts :bench arg) (next args))
+        (re-matches #"[0-9.\-]+" arg)
+          (recur (assoc opts :ref arg) (next args))
+        :else
+          (throw (ex-info "Unknown option: " {:arg arg :args *command-line-args*})))
+      opts)))
+
+(def clean? (:clean opts))
+(def skip-build? (:fast opts))
+(def project (get {"jvm"     "datascript-jvm"
+                   "js"      "datascript-v8"
+                   "datomic" "datomic-mem"}
+                  (:project opts)))
+(def datomic? (= "datomic-mem" project))
+(def bench (:bench opts))
+(def rfrnc (if datomic?
+             (or (:ref opts) "0.9.5173")
+             (:ref opts)))
 
 (def dir  (if rfrnc "." ".."))
 (def rdir (if rfrnc "." "./bench"))
@@ -89,7 +110,8 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-
 
     "datascript-v8"
     (do
-      (run "lein" "cljsbuild" "once" "advanced")
+      (when-not skip-build?
+        (run "lein" "cljsbuild" "once" "advanced"))
       (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))
 
     "datomic-mem"
@@ -126,6 +148,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-
   (when clean?
     (run "lein" "clean"))
   (let [out (run-bench)]
-    (merge-results out)))
+    (when-not skip-build?
+      (merge-results out))))
 
 (System/exit 0)

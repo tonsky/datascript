@@ -95,5 +95,9 @@
 (def neg-number? (every-pred number? neg?))
 
 #?(:clj
-(defmacro half [x]
-  `(unsigned-bit-shift-right ~x 1)))
+  (defmacro half [x]
+    `(unsigned-bit-shift-right ~x 1)))
+
+#?(:clj
+  (defmacro not== [x y]
+    `(not (== ~x ~y))))
