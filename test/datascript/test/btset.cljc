@@ -37,6 +37,11 @@
     (is (= []                (vec (slice e1 [:c nil]))))         ; totally out of range
     ))
 
+(defn into-via-doseq [to from]
+  (let [res (transient [])]
+    (doseq [x from]  ;; checking chunked iter
+      (conj! res x))
+    (persistent! res)))
 
 (deftest stresstest-btset
   (let [iters 5]
@@ -60,6 +65,8 @@
               (is (= set0 (set xs-sorted))))
             (testing "count"
               (is (= (count set0) (count xs-sorted))))
+            (testing "doseq"
+              (is (= (into-via-doseq [] set0) xs-sorted)))
             (testing rm
               (testing "disj"
                 (is (= (vec set1) (vec xs-rm)))
@@ -68,6 +75,7 @@
                 (is (= set2 #{})))))
           ))))
     #_(println "[ OK ] btset checked"))
+
 
 (deftest stresstest-slice
   (let [iters 5]
@@ -84,6 +92,7 @@
           (testing (str "from " from " to " to)
             (is (= (vec set-range) (vec (seq set-range)))) ;; checking IReduce on BTSetIter
             (is (= (vec set-range) expected))
+            (is (= (into-via-doseq [] set-range) expected))
             (is (= (vec (rseq set-range)) (reverse expected)))
             (is (= (vec (rseq (rseq set-range))) expected))
             )))))

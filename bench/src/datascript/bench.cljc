@@ -112,7 +112,8 @@
               (follows ?t ?y)]]))))
 
 (defn ^:export bench-btset []
-  (doseq [[tn target] [["sorted-set" (sorted-set)]
+  (doseq [[tn target] [;; ["sorted-set" (sorted-set)]
+                       ;; ["vec"        []]
                        ["btset"      (btset/btset)]]
 ;;           distinct?   [true false]
           size        [100 500 20000]
@@ -132,7 +133,7 @@
       (doseq [x set]
         (+ 1 x)))
     (perf/bench {:target tn :test "set-reduce" :size size}
-      (reduce + 0 set))))
+      (reduce + 0 (seq set)))))
 
 (defn ^:export bench-all []
   (bench-db_with)

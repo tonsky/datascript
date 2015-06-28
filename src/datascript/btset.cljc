@@ -451,8 +451,18 @@
     ISeqable
     (-seq [this] (btset-iter this))
 
+    IReduce
+    (-reduce [this f]
+      (if-let [i (btset-iter this)]
+        (-reduce i f)
+        (f)))
+    (-reduce [this f start]
+      (if-let [i (btset-iter this)]
+        (-reduce i f start)
+        start))
+             
     IReversible
-    (-rseq [this] (reverse (btset-iter this)))
+    (-rseq [this] (rseq (btset-iter this)))
 
     ICounted
     (-count [_] cnt)
@@ -473,11 +483,23 @@
     (withMeta [_ new-meta] (BTSet. root shift cnt comparator new-meta _hasheq))
     
     clojure.lang.Reversible
-    (rseq [this] (reverse (btset-iter this)))
+    (rseq [this] (rseq (btset-iter this)))
         
     clojure.lang.Seqable
     (seq [this] (btset-iter this))
 
+    clojure.lang.IReduce
+    (reduce [this f]
+      (if-let [i (btset-iter this)]
+        (.reduce ^clojure.lang.IReduce i f)
+        (f)))
+
+    clojure.lang.IReduceInit
+    (reduce [this f start]
+      (if-let [i (btset-iter this)]
+        (.reduce ^clojure.lang.IReduceInit i f start)
+        start))
+        
     clojure.lang.IPersistentCollection
     (empty [_] (BTSet. (Leaf. (shim/array)) 0 0 comparator meta uninitialized-hash))
     (cons  [this key] (btset-conj this key comparator))
@@ -658,7 +680,7 @@
 
 
 
-(declare iter riter iter-first iter-next iter-rseq iter-reduce)
+(declare iter riter iter-first iter-next iter-chunk iter-chunked-next iter-rseq iter-reduce)
 
 (defn btset-iter
   "Iterator that represents whole set"
@@ -675,11 +697,18 @@
 
     ISeq
     (-first [this] (iter-first this))
-    (-rest [this] (or (iter-next this) ()))
+    (-rest [this]  (or (iter-next this) ()))
 
     INext
     (-next [this] (iter-next this))
 
+    IChunkedSeq
+    (-chunked-first [this] (iter-chunk this))
+    (-chunked-rest  [this] (or (-chunked-next this) ()))
+
+    IChunkedNext
+    (-chunked-next  [this] (iter-chunked-next this))
+             
     IReduce
     (-reduce [this f] (iter-reduce this f))
     (-reduce [this f start] (iter-reduce this f start))
@@ -695,6 +724,11 @@
     (first [this] (iter-first this))
     (next  [this] (iter-next this))
     (more  [this] (or (iter-next this) ()))
+        
+    clojure.lang.IChunkedSeq
+    (chunkedFirst [this] (iter-chunk this))
+    (chunkedNext  [this] (iter-chunked-next this))
+    (chunkedMore  [this] (or (.chunkedNext this) ()))
 
     clojure.lang.IReduce
     (reduce [this f] (iter-reduce this f))
@@ -730,6 +764,28 @@
         (let [left (next-path set left)]
           (when (and (not= -1 left) (< left right))
             (datascript.btset/iter set left right)))))))
+
+(defn iter-chunk [^Iter iter]
+  (let [left  (.-left iter)
+        right (.-right iter)
+        keys  (.-keys iter)
+        idx   (.-idx iter)
+        end-idx (if (= (bit-or left path-mask)
+                       (bit-or right path-mask))
+                  (bit-and right path-mask)
+                  (shim/alength keys))]
+      (#?(:clj clojure.lang.ArrayChunk.
+          :cljs array-chunk) keys idx end-idx)))
+
+(defn iter-chunked-next [^Iter iter]
+  (let [set   (.-set iter)
+        left  (.-left iter)
+        right (.-right iter)
+        keys  (.-keys iter)
+        idx   (.-idx iter)]
+    (let [left (next-path set (+ left (- (shim/alength keys) idx 1)))]
+      (when (and (not= -1 left) (< left right))
+        (datascript.btset/iter set left right)))))
 
 (defn iter-rseq [^Iter iter]
   (let [set   (.-set iter)
