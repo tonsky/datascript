@@ -1,4 +1,4 @@
-# DataScript
+<img src="https://dl.dropboxusercontent.com/u/561580/imgs/datascript_logo.svg">
 
 > What if creating a database would be as cheap as creating a Hashmap?
 
