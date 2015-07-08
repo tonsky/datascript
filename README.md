@@ -166,7 +166,7 @@ Transaction reports:
 
 * `report.tempids` has string keys (`"-1"` for entity tempid `-1`), use `resolve_tempid` to set up a correspondence
 
-Check out [test/js/tests.html](test/js/tests.html) for usage examples.
+Check out [test/js/tests.js](test/js/tests.js) for usage examples.
 
 ## Project status
 
