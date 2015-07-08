@@ -17,22 +17,27 @@ The intention with DataScript is to be a basic building block in client-side app
 
 ## Resources <a href="https://gitter.im/tonsky/datascript?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://camo.githubusercontent.com/da2edb525cde1455a622c58c0effc3a90b9a181c/68747470733a2f2f6261646765732e6769747465722e696d2f4a6f696e253230436861742e737667" alt="Gitter" data-canonical-src="https://badges.gitter.im/Join%20Chat.svg" style="max-width:100%;"></a>
 
-Blog post about [how DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/).
+Posts:
+
+- [How DataScript fits into the current webdev ecosystem](http://tonsky.me/blog/decomposing-web-app-development/)
+- [DataScript internals explained](http://tonsky.me/blog/datascript-internals/)
+- [Sketch of client/server reactive architecture](http://tonsky.me/blog/the-web-after-tomorrow/)
 
 Talks:
 
+- “Programming Web UI with Database in a Browser” talk (PolyConf, July 2015): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2015.07%20polyconf.pdf)
 - “DataScript for Web Development” talk (Clojure eXchange, Dec 2014): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2014.12%20clojure%20eXchange.pdf), [video](https://skillsmatter.com/skillscasts/6038-datascript-for-web-development)
 - “Building ToDo list with DataScript” webinar (ClojureScript NYC, Dec 2014): [video](http://vimeo.com/114688970), [app](https://github.com/tonsky/datascript-todo)
 - DataScript hangout (May 2014, in Russian): [video](http://www.youtube.com/watch?v=jhBC81pczZY)
 
 Projects using DataScript:
 
-- Precursor, collaborative prototyping tool: [live](https://prcrsr.com), [blog](https://prcrsr.com/blog)
-- PartsBox.io, inventory management: [live](https://partsbox.io)
-- Acha-acha, github achievements: [sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/), [live](http://acha-acha.co/)
-- Showkr, flickr gallery viewer: [sources](https://github.com/piranha/showkr), [live](http://showkr.solovyov.net)
-- Radiant, datalog sketchpad: [sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant), [live version](http://www.stuttaford.me/radiant/)
-- PossibleDB, server-side persistence for DataScript: [sources](https://github.com/runexec/PossibleDB)
+- [Precursor](http://precursorapp.com), collaborative prototyping tool
+- [PartsBox](https://partsbox.io), inventory management
+- [I am Fy](https://www.iamfy.co), accessories e-shop
+- [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
+- [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
+- [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 
 Demo applications:
 
