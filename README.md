@@ -33,6 +33,7 @@ Talks:
 Projects using DataScript:
 
 - [Precursor](http://precursorapp.com), collaborative prototyping tool
+- [LightMesh](http://lightmesh.com), datacenter management
 - [PartsBox](https://partsbox.io), inventory management
 - [I am Fy](https://www.iamfy.co), accessories e-shop
 - [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
@@ -52,7 +53,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 
 ```clj
 :dependencies [
-  [org.clojure/clojure "1.7.0-beta2"]
+  [org.clojure/clojure "1.7.0"]
   [org.clojure/clojurescript "0.0-3291"]
   [datascript "0.11.5"]
 ]
