@@ -1,3 +1,7 @@
+# WIP
+
+- msec argument to squuid (#95, #97)
+
 # 0.11.5
 
 - Ported BTSet to JVM
