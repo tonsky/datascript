@@ -11,9 +11,7 @@
     (dc/entid db eid)))
 
 (defn entity [db eid]
-  {:pre [(satisfies? dc/IDB db)
-         (satisfies? dc/ISearch db)
-         (satisfies? dc/IIndexAccess db)]}
+  {:pre [(dc/db? db)]}
   (when-let [e (entid db eid)]
     (->Entity db e (volatile! false) (volatile! {}))))
 
@@ -189,6 +187,7 @@
     {} (partition-by :a datoms)))
 
 (defn touch [^Entity e]
+  {:pre [(entity? e)]}
   (when-not @(.-touched e)
     (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
       (vreset! (.-cache e) (->> datoms

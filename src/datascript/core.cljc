@@ -405,7 +405,10 @@
                 (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
                              (resolve-datom db nil attr end nil))))
 
-(defn db? [x] (and (instance? ISearch x) (instance? IIndexAccess x) (instance? IDB x)))
+(defn db? [x]
+  (and (satisfies? ISearch x)
+       (satisfies? IIndexAccess x)
+       (satisfies? IDB x)))
 
 ;; ----------------------------------------------------------------------------
 (defrecord-updatable FilteredDB [unfiltered-db pred #?(:clj __hash)]
@@ -516,6 +519,7 @@
 (defn ^DB empty-db
   ([] (empty-db default-schema))
   ([schema]
+    {:pre [(or (nil? schema) (map? schema))]}
     (map->DB {
       :schema  (validate-schema schema)
       :eavt    (btset/btset-by cmp-datoms-eavt)
@@ -658,6 +662,7 @@
   (is-attr? db attr :db/isComponent))
 
 (defn entid [db eid]
+  {:pre [(db? db)]}
   (cond
     (number? eid) eid
     (sequential? eid)

@@ -268,10 +268,10 @@
   (let [eids (into [] (map #(dc/entid-strict db %)) eids)]
     (pull-pattern db (list (initial-frame pattern eids multi?)))))
 
-(defn pull
-  [db selector eid]
+(defn pull [db selector eid]
+  {:pre [(dc/db? db)]}
   (pull-spec db (dpp/parse-pull selector) [eid] false))
 
-(defn pull-many
-  [db selector eids]
+(defn pull-many [db selector eids]
+  {:pre [(dc/db? db)]}
   (pull-spec db (dpp/parse-pull selector) eids true))
