@@ -100,3 +100,37 @@
         [ {:email "@2" :_profile [{:name "Ivan"} {:name "Petr"} ]} ]
         #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] [3 :name "Petr"] [3 :profile 1] }
       ))))
+
+(deftest test-circular-refs
+  (let [schema {:comp {:db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/many
+                       :db/isComponent true}}
+        db     (d/db-with (d/empty-db schema)
+                 [{:db/id 1, :comp [{:name "C"}]}])]
+    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
+           [ [ 1 :comp 2  ]
+             [ 2 :name "C"] ])))
+  
+  (let [schema {:comp {:db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/many}}
+        db     (d/db-with (d/empty-db schema)
+                 [{:db/id 1, :comp [{:name "C"}]}])]
+    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
+           [ [ 1 :comp 2  ]
+             [ 2 :name "C"] ])))
+  
+  (let [schema {:comp {:db/valueType   :db.type/ref
+                       :db/isComponent true}}
+        db     (d/db-with (d/empty-db schema)
+                 [{:db/id 1, :comp {:name "C"}}])]
+    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
+           [ [ 1 :comp 2  ]
+             [ 2 :name "C"] ])))
+  
+  (let [schema {:comp {:db/valueType   :db.type/ref}}
+        db     (d/db-with (d/empty-db schema)
+                 [{:db/id 1, :comp {:name "C"}}])]
+    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
+           [ [ 1 :comp 2  ]
+             [ 2 :name "C"] ]))))
+ 

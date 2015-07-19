@@ -908,8 +908,10 @@
               new-eid      (or (:db/id upserted) (next-eid db))
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (cond
-                             (nil? old-eid) (allocate-eid report new-eid)
-                             (shim/neg-number? old-eid) (allocate-eid report old-eid new-eid)
+                             (nil? old-eid)                  (allocate-eid report new-eid)
+                             (shim/neg-number? old-eid)      (allocate-eid report old-eid new-eid)
+                             (and (number? old-eid)
+                                  (> old-eid (:max-eid db))) (allocate-eid report old-eid)
                              :else report)]
           (recur new-report (concat (explode db new-entity) entities)))
 
