@@ -1,4 +1,4 @@
-# WIP
+# 0.11.6
 
 - msec argument to squuid (#95, #97)
 - lookup refs in JS API `pull`, `pull_many`, `entity` (#94, thx [Matt Senior](https://github.com/mattsenior))
