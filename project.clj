@@ -17,7 +17,9 @@
   :jvm-opts ["-Xmx2g" "-server"]
 
   :aliases {"test-clj"     ["run" "-m" "datascript.test/test-most"]
-            "test-clj-all" ["run" "-m" "datascript.test/test-all"]}
+            "test-clj-all" ["run" "-m" "datascript.test/test-all"]
+            "node-repl"    ["run" "-m" "user/node-repl"]
+            "browser-repl" ["run" "-m" "user/browser-repl"]}
   
   :cljsbuild { 
     :builds [
@@ -37,7 +39,7 @@
 
   :profiles {
     :dev {
-      :source-paths ["bench/src" "test"]
+      :source-paths ["bench/src" "test" "dev"]
       :plugins [
         [lein-cljsbuild "1.0.6"]
       ]
@@ -56,7 +58,7 @@
               :recompile-dependents false
             }}
           { :id "none"
-            :source-paths ["src" "bench/src" "test"]
+            :source-paths ["src" "bench/src" "test" "dev"]
             :compiler {
               :main          datascript.test
               :output-to     "target/datascript.js"

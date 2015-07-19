@@ -8,7 +8,7 @@ pom.xml.asc
 *.class
 /.lein-*
 /.nrepl-port
-/.repl
+/.repl*
 web/out
 web/*.js
 release-js/datascript*.js
