@@ -59,9 +59,9 @@
 (deftype Tuple [arr _hash]  
   #?@(
     :cljs [
-      Object (equiv  [this other] (tuple-equiv this other))
+      Object (equiv  [this other] (equiv-tuple this other))
       IHash  (-hash  [_]          _hash)
-      IEquiv (-equiv [this other] (tuple-equiv this other)) ]
+      IEquiv (-equiv [this other] (equiv-tuple this other)) ]
     :clj [
       Object
       (hashCode [_] _hash)
