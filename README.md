@@ -38,7 +38,7 @@ Projects using DataScript:
 
 - [Precursor](http://precursorapp.com), collaborative prototyping tool
 - [LightMesh](http://lightmesh.com), datacenter management
-- [PartsBox](https://partsbox.io), inventory management
+- [PartsBox](https://partsbox.io), electronic parts management 
 - [I am Fy](https://www.iamfy.co), accessories e-shop
 - [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
