@@ -912,7 +912,7 @@
                res   (- idx-r idx-l)]
           (if (== 0 level)
             res
-            (* res avg-len))))
+            (recur (- level level-shift) (* res avg-len)))))
       (- idx-r idx-l))))
 
 (defn distance [^BTSet set ^long path-l ^long path-r]

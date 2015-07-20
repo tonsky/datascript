@@ -6,17 +6,16 @@
     [datascript.shim :as shim]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable]])]
-    [datascript.btset :as btset]
+    [datascript.btset :as btset #?@(:cljs [:refer [Iter]])]
     [datascript.perf :as perf])
   #?(:clj
     (:import 
       [datascript.parser
         BindColl BindIgnore BindScalar BindTuple
         Constant DefaultSrc Pattern RulesVar SrcVar Variable]
-      [clojure.lang
-        IReduceInit Counted]
-      [datascript.core
-        Datom])))
+      [clojure.lang     IReduceInit Counted]
+      [datascript.core  Datom]
+      [datascript.btset Iter])))
 
 (defn mapa [f coll]
   #?(:cljs
@@ -31,6 +30,83 @@
 (defn concatv [& xs]
   (into [] cat xs))
 
+(defn fast-hash []
+  #?(:clj
+     (let [m (java.util.HashMap.)]
+       (reify
+         clojure.lang.ITransientAssociative
+         (assoc [this k v] (.put m k v) this)
+         
+         clojure.lang.ITransientCollection
+         (persistent [_]
+           (reify
+             clojure.lang.IPersistentCollection
+             clojure.lang.Counted
+             (count [_] (.size m))
+             clojure.lang.ILookup
+             (valAt [_ k] (.get m k))))
+         
+         clojure.lang.ILookup
+         (valAt [_ k] (.get m k))))
+     :cljs
+     (transient {})))
+
+#_(defn fast-hash []
+  (transient {}))
+
+#_(defn fast-arr []
+  (let [l (volatile! (list))]
+    (reify
+      clojure.lang.ITransientCollection
+      (conj [this v] (vswap! l conj v) this)
+      (persistent [_] @l))))
+
+#_(defn fast-arr []
+  (transient []))
+
+#_(defn fast-arr []
+  (let [l (volatile! [])]
+    (reify
+      clojure.lang.ITransientCollection
+      (conj [this v] (vswap! l conj v) this)
+      (persistent [this] @l))))
+
+(defn fast-arr []
+  #?(:clj
+     (let [l (java.util.ArrayList.)]
+       (reify
+         clojure.lang.ITransientCollection
+         (conj [this v] (.add l v) this)
+         (persistent [_]
+           (reify
+             clojure.lang.IPersistentCollection
+             clojure.lang.Counted
+             (count [_] (.size l))
+             clojure.lang.IReduceInit
+             (reduce [_ f s]
+               (loop [i   0
+                      res s]
+                 (if (< i (.size l))
+                   (recur (inc i) (f res (.get l i)))
+                   res)))))))
+     :cljs
+     (let [arr (shim/array)]
+       (reify
+         ITransientCollection
+         (-conj! [this v] (.push arr v) this)
+         (-persistent! [_]
+           (reify
+             ICounted
+             (-count [_] (alength arr))
+             IReduce
+             (-reduce [_ f s]
+               (loop [i   0
+                      res s]
+                 (if (< i (alength arr))
+                   (recur (inc i) (f res (aget arr i)))
+                   res)))))))))
+
+
 ;; (defrecord Context [rels consts zeroes sources rules default-source-symbol])
 
 (defprotocol IRelation
@@ -43,9 +119,6 @@
   (-copy-tuple [_ tuple idxs target offset])
   (-union      [_ rel]))
 
-(defn- first-tuple [rel]
-  (-fold rel (fn [_ tuple] (reduced tuple)) nil))
-
 (defn- #?@(:clj  [^Number hash-arr]
            :cljs [^number hash-arr]) [arr]
   (loop [n 0
@@ -56,15 +129,15 @@
 
 (declare equiv-tuple)
 
-(deftype Tuple [arr _hash]  
+(deftype Tuple [arr hash]  
   #?@(
     :cljs [
       Object (equiv  [this other] (equiv-tuple this other))
-      IHash  (-hash  [_]          _hash)
+      IHash  (-hash  [_]          hash)
       IEquiv (-equiv [this other] (equiv-tuple this other)) ]
     :clj [
       Object
-      (hashCode [_] _hash)
+      (hashCode [_] hash)
       (equals   [this other] (equiv-tuple this other)) ]))
 
 (defn equiv-tuple [^Tuple t ^Tuple o]
@@ -126,11 +199,11 @@
 
 (deftype CollRelation [symbols offset-map arity coll]
   IRelation
-  (-symbols [_] symbols)
-  (-arity   [_] arity)
-  (-fold   [_ f init] (reduce f init coll))
-  (-size   [_] (count coll))
-  (-getter [_ symbol]
+  (-symbols [_]        symbols)
+  (-arity   [_]        arity)
+  (-fold    [_ f init] (reduce f init coll))
+  (-size    [_]        (count coll))
+  (-getter  [_ symbol]
     (let [idx (offset-map symbol)]
       (fn [tuple]
         (nth tuple idx))))
@@ -155,7 +228,7 @@
 
 ;;; ProdRelation
 
-(deftype ProdRelation [symbols arity rel1 rel2]  
+(deftype ProdRelation [rel1 rel2]  
   IRelation
   (-symbols [_] (concatv (-symbols rel1) (-symbols rel2)))
   (-arity   [_] (+ (-arity rel1) (-arity rel2)))
@@ -164,7 +237,7 @@
            (fn [acc t1]
              (-fold rel2
                     (fn [acc t2]
-                      (f acc (shim/into-array [t1 t2])))
+                      (f acc (shim/array t1 t2)))
                     acc))
             init))
 
@@ -172,8 +245,12 @@
     (* (-size rel1) (-size rel2)))
   (-getter [_ symbol]
     (if (some #{symbol} (-symbols rel1))
-      (-getter rel1 symbol)
-      (-getter rel2 symbol)))
+      (let [getter (-getter rel1 symbol)]
+        (fn [tuple]
+          (getter (shim/aget tuple 0))))
+      (let [getter (-getter rel2 symbol)]
+        (fn [tuple]
+          (getter (shim/aget tuple 1))))))
   (-indexes [_ syms]
     (let [[syms1 syms2] (split-with (set (-symbols rel1)) syms)]
       (shim/into-array [(-indexes rel1 syms1) (-indexes rel2 syms2)])))
@@ -218,7 +295,7 @@
 (defn- join-tuples [rel1 t1 idxs1
                     rel2 t2 idxs2
                     arity offset]
-  (let [arr (make-array arity)]
+  (let [arr (shim/make-array arity)]
     (-copy-tuple rel1 t1 idxs1 arr 0)
     (-copy-tuple rel2 t2 idxs2 arr offset)
     arr))
@@ -236,7 +313,7 @@
                                                          rel2 t2 idxs2
                                                          arity offset)))
                                acc))
-                      (transient []))]
+                      (fast-arr))]
     (array-rel
       (concatv (-symbols rel1) (-symbols rel2))
       (persistent! coll))))
@@ -259,14 +336,16 @@
 
 (defn hash-rel [rel syms]
   (let [key-fn (key-fn rel syms)]
-    (-fold rel
-      (fn [hash t]
-        (let [key (key-fn t)
-              old (get hash key nil)]
-          (if (nil? old)
-            (assoc! hash key (transient [t])) ;; TODO use ArrayList/Array?
-            (do (conj! old t) hash))))
-      (transient {}))))
+    (->>
+      (-fold rel
+        (fn [hash t]
+          (let [key (key-fn t)
+                old (get hash key)]
+            (if (nil? old)
+              (assoc! hash key (conj! (fast-arr) t))
+              (do (conj! old t) hash))))
+        (fast-hash))
+     (persistent!))))
 
 (defn hash-join [rel1 hash1 join-syms rel2]
   (let [syms1       (-symbols rel1)
@@ -281,7 +360,7 @@
         
         coll        (-fold rel2 ;; iterate over rel2
                       (fn [acc t2]
-                        (let [tuples1 (get hash1 (key-fn2 t2) nil)]
+                        (let [tuples1 (get hash1 (key-fn2 t2))]
                           (if (nil? tuples1)
                             acc
                             (reduce (fn [acc t1]
@@ -289,7 +368,7 @@
                                                               rel2 t2 idxs2
                                                               full-arity offset)))
                                     acc (persistent! tuples1)))))
-                      (transient []))]
+                      (fast-arr))]
     (array-rel full-syms (persistent! coll))))
 
 
@@ -322,19 +401,19 @@
     coll))
 
 (defprotocol IBinding
-  (in->rel [binding value]))
+  (-in->rel [binding value]))
 
 (extend-protocol IBinding
   BindIgnore
-  (in->rel [_ _]
+  (-in->rel [_ _]
     (singleton-rel))
   
   BindScalar
-  (in->rel [binding value]
-    (array-rel [(get-in binding [:variable :symbol])] [(shim/into-array [value])]))
+  (-in->rel [binding value]
+    (array-rel [(get-in binding [:variable :symbol])] [(shim/array value)]))
   
   BindColl
-  (in->rel [binding coll]
+  (-in->rel [binding coll]
     (let [inner-binding (:binding binding)]
       (cond
         (not (bindable-to-seq? coll))
@@ -355,10 +434,10 @@
         ;; something more complex, fallback to generic case
         :else
           (reduce union
-            (map #(in->rel inner-binding %) coll)))))
+            (map #(-in->rel inner-binding %) coll)))))
   
   BindTuple
-  (in->rel [binding coll]
+  (-in->rel [binding coll]
     (cond
       (not (bindable-to-seq? coll))
         (dc/raise "Cannot bind value " coll " to tuple " (dp/source binding)
@@ -372,11 +451,13 @@
       ;; fallback to generic case
       :else
         (reduce product
-          (map #(in->rel %1 %2) (:bindings binding) coll)))))
+          (map #(-in->rel %1 %2) (:bindings binding) coll)))))
 
 (defn- rel->consts [rel]
   {:pre [(== (-size rel) 1)]}
-  (into {} (map vector (-symbols rel) (first-tuple rel))))
+  (let [tuple (-fold rel (fn [_ t] t) nil)]
+    (into {}
+      (map #(vector % ((-getter rel %) tuple)) (-symbols rel)))))
 
 (defn- resolve-in [context [binding value]]
   (cond
@@ -387,7 +468,7 @@
 ;;          (instance? RulesVar (:variable binding)))
 ;;       (assoc context :rules (parse-rules value))
     :else
-      (let [rel (in->rel binding value)]
+      (let [rel (-in->rel binding value)]
         (if (== 1 (-size rel))
           (update-in context [:consts] merge (rel->consts rel))
           (update-in context [:rels] conj rel)))))
@@ -397,7 +478,7 @@
     (dc/raise "Wrong number of arguments for bindings " (mapv dp/source bindings)
            ", " (count bindings) " required, " (count values) " provided"
            {:error :query/binding, :binding (mapv dp/source bindings)}))
-  (reduce resolve-in context (map vector bindings values)))
+  (reduce resolve-in context (shim/zip bindings values)))
 
 ;;; Resolution
 
@@ -408,11 +489,10 @@
       (fn [form]
         (if (instance? Variable form)
           (let [sym (:symbol form)]
-            (if-let [subs ((:consts context) (:symbol form))]
+            (if-let [subs (get (:consts context) (:symbol form))]
               (do
                 (perf/debug "substituted" sym "with" subs)
-                (Constant. subs)
-              )
+                (Constant. subs))
               form))
           form)))
    "substitute-constants"))
@@ -434,22 +514,30 @@
 
 (deftype DatomsRelation [props-map iter]
   IRelation
-  (-symbols [_] (keys props-map))
-  (-arity   [_] (count props-map))
-  (-fold [_ f init] (reduce f init iter))
-  (-size [_]        (btset/est-count iter))
-  (-getter [_ symbol]
+  (-symbols [_]        (keys props-map))
+  (-arity   [_]        (count props-map))
+  (-fold    [_ f init] (reduce f init iter))
+  (-size    [_]        (if (instance? Iter iter)
+                         (count iter);; (btset/est-count iter)
+                         (count iter)))
+  (-getter  [_ symbol]
     (let [prop (props-map symbol)]
       (case prop
-        "e"  (fn [^Datom d] (.-e d))
-        "a"  (fn [^Datom d] (.-a d))
-        "v"  (fn [^Datom d] (.-v d))
-        "tx" (fn [^Datom d] (.-tx d)))))
+        0 (fn [^Datom d] (.-e d))
+        1 (fn [^Datom d] (.-a d))
+        2 (fn [^Datom d] (.-v d))
+        3 (fn [^Datom d] (.-tx d)))))
   (-indexes [_ syms]
     (mapa props-map syms))
   (-copy-tuple [_ tuple props target offset]
     (dotimes [i (shim/alength props)]
-      (shim/aset target (+ i offset) (shim/aget tuple (shim/aget props i)))))
+      (let [prop (shim/aget props i)
+            v    (case (long prop)
+                   0 (.-e  ^Datom tuple)
+                   1 (.-a  ^Datom tuple)
+                   2 (.-v  ^Datom tuple)
+                   3 (.-tx ^Datom tuple))]
+        (shim/aset target (+ i offset) v))))
   ;;   (-union [_ rel]
   ;;     (CollRelation. symbols offsets arity (into coll (.-coll rel))))
   )
@@ -461,9 +549,9 @@
         (assoc acc (:symbol var) prop)
         acc))
     {}
-    (zipmap pattern ["e" "a" "v" "tx"])))
+    (zipmap pattern [0 1 2 3])))
 
-(defn -resolve-pattern-db [db clause join-syms hash]
+(defn resolve-pattern-db [db clause join-syms hash]
   ;; TODO optimize with bound attrs min/max values here
   (let [pattern        (:pattern clause)
         search-pattern (mapv #(when (instance? Constant %) (:value %)) pattern)
@@ -480,7 +568,7 @@
 ;;            {:error :query/where, :value tuple, :binding (dp/source clause)}))
   (reduce-kv
     (fn [_ i v]
-      (if (not= (nth tuple i) v)
+      (if (not= (nth tuple i) v) ;; nth?
         (reduced false)
         true))
     true
@@ -494,7 +582,7 @@
               pattern)
     coll))
 
-(defn -resolve-pattern-coll [coll clause]
+(defn resolve-pattern-coll [coll clause]
   (when-not (bindable-to-seq? coll)
     (dc/raise "Cannot match by pattern " (dp/source clause) " because source is not a collection: " coll
        {:error :query/where, :value coll, :binding (dp/source clause)}))
@@ -510,17 +598,17 @@
   (-resolve-clause [clause context join-syms hash]
     (let [source (get-source context (:source clause))]
       (if (satisfies? dc/ISearch source)
-        (-resolve-pattern-db   source clause join-syms hash)
-        (-resolve-pattern-coll source clause)))))
+        (resolve-pattern-db   source clause join-syms hash)
+        (resolve-pattern-coll source clause)))))
 
 (defn resolve-clause-new [context clause]
   (perf/measure (-resolve-clause clause context nil nil)
-     "resolve-clause-new to" (-symbols %) "with" (count %) "tuples:" %))
+     "resolve-clause-new to" (-symbols %) "with" (-size %) "tuples:" %))
 
 (defn resolve-clause-related [context clause clause-syms related-rels]
   (perf/measure
-    (let [related   (reduce product related-rels)
-          join-syms (filter clause-syms (-symbols related))
+    (let [related   (reduce product related-rels) ;; use prod-rel?
+          join-syms (into [] (filter clause-syms) (-symbols related))
           _         (perf/debug "got" (count related-rels) "related rels over" join-syms)
           _         (perf/when-debug
                       (doseq [rel related-rels]
@@ -558,8 +646,9 @@
           (do
             (perf/debug "Promoting to :empties" (set/union clause-syms consts))
             (-> context
-              (update :consts #(apply dissoc % consts))
-              (update :empties set/union clause-syms consts)))
+              (update :consts  #(apply dissoc % consts))
+              (update :empties set/union clause-syms consts)
+              (assoc  :rels    keep-rels)))
         (== 1 cardinality)
           (do
             (perf/debug "Promoting to :consts" (rel->consts new-rel))
@@ -574,9 +663,9 @@
 
 (def query-cache (volatile! {}))
 (defn parse-query [q]
-  (or (@query-cache q)
+  (or (get @query-cache q)
       (let [parsed-q (dp/parse-query q)]
-        (vswap! query-cache assoc q parsed-q) ;; TODO limit cache size
+        (vswap! query-cache assoc q parsed-q) ;; TODO use LRU, limit cache size
         parsed-q)))
 
 (defn q [q & inputs]
@@ -596,51 +685,7 @@
       context)
     "Query" q))
 
-#_(perf/minibench "q coll"
-  (q '[:find ?a
-       :in $1 $2 ?n
-       :where [$1 ?a ?n ?b]
-              [$2 ?n ?a]]
-     (repeatedly 100 (fn [] [(rand-nth [:a :b :c :d]) (rand-int 10) (rand-nth [:x :y :z])]))
-     (repeatedly 10 (fn [] [(rand-int 10) (rand-nth [:a :b :c :d]) ]))
-     1))
 
-(defn rand-entity []
-  {:name (rand-nth ["ivan" "oleg" "petr" "igor"])
-   :age  (rand-int 10)})
-
-;; (def db (d/db-with (d/empty-db) (repeatedly 10000 rand-entity)))
-
-#_(binding [datascript.debug/debug? true]
-  (q '[:find ?e
-         :in $ ?n
-         :where [?e :name "ivan"]
-                [?e :age ?n]]
-       (d/db-with (d/empty-db) (repeatedly 10 rand-entity))
-       1))
-
-#_(perf/minibench "q2 const"
-  (d/q '[:find ?e
-         :where [?e :name "ivan"]
-                [?e :age 1]]
-     db))
-
-
-#_(perf/minibench "q3 db"
-  (q '[:find ?e
-       :in $ ?n
-       :where [?e :name "ivan"]
-              [?e :age ?n]]
-     db
-     1))
-  
-#_(perf/minibench "q2 db"
-  (d/q '[:find ?e
-         :in $ ?n
-         :where [?e :name "ivan"]
-                [?e :age ?n]]
-     db
-     1))
 
 
 
@@ -670,4 +715,37 @@
 ;; (t/test-ns 'datascript.test.query-v3)
 
 
+(comment
+(defn random-man []
+  {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+   :sex       (rand-nth [:male :female])
+   :age       (rand-int 10)
+   :salary    (rand-int 100000)})
 
+#_(require '[datascript.query-v3 :as q] :reload-all)
+
+(defn bench [name q & args]
+  (println "\n---\n")
+  (perf/minibench (str "OLD " name) (apply d/q q args))
+  (perf/minibench (str "NEW " name) (apply datascript.query-v3/q q args))
+  nil)
+
+(defonce db (d/db-with (d/empty-db) (repeatedly 10000 random-man)))
+
+#_(require 'datascript.perf :reload-all)
+#_(require '[datascript.query-v3 :as q] :reload)
+
+(bench "q2 const"
+       '[:find  ?e
+         :where [?e :name "Ivan"]
+                [?e :age 1]]
+       db)
+
+(bench "q2 const in"
+       '[:find ?e
+         :in $ ?n
+         :where [?e :name "Ivan"]
+                [?e :age ?n]]
+       db 1)
+)

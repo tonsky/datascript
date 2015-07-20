@@ -101,3 +101,7 @@
 #?(:clj
   (defmacro not== [x y]
     `(not (== ~x ~y))))
+
+(defn zip
+  ([a b] (map vector a b))
+  ([a b & rest] (apply map vector a b rest)))

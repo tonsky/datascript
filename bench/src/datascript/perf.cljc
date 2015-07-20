@@ -4,7 +4,7 @@
     #?(:clj clojure.java.shell))
   #?(:cljs (:require-macros datascript.perf)))
 
-(def ^:const   enabled? false)
+(def ^:const   enabled? true)
 (def ^:dynamic debug?   false)
 
 #?(:clj
@@ -39,8 +39,8 @@
   (cond
     (> n 1)        (to-fixed n 1)
     (> n 0.1)      (to-fixed n 2)
-    (> n 0.001)    (to-fixed n 4)
-    (> n 0.000001) (to-fixed n 7)
+    (> n 0.001)    (to-fixed n 2)
+;;     (> n 0.000001) (to-fixed n 7)
     :else          n))
 
 (defn pad [n l]
@@ -55,8 +55,8 @@
 (defn format-time [dt]
   (str "[ " (format-number dt) " ms ]"))
 
-#?(:cljs (defn ^number now [] (js/Date.now))
-   :clj  (defn ^Long now [] (System/currentTimeMillis)))
+#?(:cljs (defn ^number now [] (js/performance.now))
+   :clj  (defn ^Long   now [] (/ (System/nanoTime) 1000000.0)))
 
 (defn inst []
 #?(:cljs (js/Date.)

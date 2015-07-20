@@ -26,8 +26,9 @@
           ITraversable
           (~'-postwalk [this# ~f]
             (let [new# (new ~tagname ~@(map #(list 'datascript.parser/postwalk % f) fields))]
-              (set! (.-__meta new#) (meta this#))
-              new#))
+              (if-let [meta# (meta this#)]
+                (with-meta new# meta#)
+                new#)))
           (~'-collect [_# ~pred ~acc]
             ;; [x y z] -> (collect pred z (collect pred y (collect pred x acc)))
             ~(reduce #(list 'datascript.parser/collect pred %2 %1) acc fields))
