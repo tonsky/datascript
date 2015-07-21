@@ -241,12 +241,7 @@
 
 (defn cmp-val [o1 o2]
   (if (and (some? o1) (some? o2))
-;;     (let [t1 (type o1)
-;;           t2 (type o2)]
-;;       (if (identical? t1 t2)
-        (compare o1 o2)
-;;         #?(:cljs (garray/defaultCompare t1 t2)
-;;            :clj  (compare (.getName ^Class t1) (.getName ^Class t2)))))
+    (compare o1 o2)
     0))
 
 ;; Slower cmp-* fns allows for datom fields to be nil.
@@ -285,18 +280,7 @@
      :clj
      (compare a1 a2)))
 
-(defn- cmp-val-quick [o1 o2]
-  (compare o1 o2))
-;;   (let [t1 (type o1)
-;;         t2 (type o2)]
-;;     #?(:cljs
-;;        (if (identical? t1 t2)
-;;          (compare o1 o2)
-;;          (garray/defaultCompare t1 t2))
-;;        :clj
-;;        (combine-cmp
-;;         (compare (str t1) (str t2))
-;;         (compare o1 o2)))))
+(def cmp-val-quick compare)
 
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp

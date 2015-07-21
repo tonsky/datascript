@@ -1,3 +1,8 @@
+# WIP
+
+- [ BREAKING ] Values you put to database should be comparable. You cannot store maps and vectors with non-uniform structure.
+- [ BREAKING ] Min/max aggregation functions will only work on a comaparable values
+
 # 0.11.6
 
 - msec argument to squuid (#95, #97)
