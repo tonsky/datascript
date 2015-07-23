@@ -29,7 +29,7 @@
     (is (= (into {} (d/entity db 2))
            {:name "Ivan", :sex "male", :aka #{"Z"}}))
 
-    (is (= (pr-str (d/entity db 1) "{:db/id 1}")))
+    (is (= (pr-str (d/entity db 1)) "{:db/id 1}"))
     (is (= (pr-str (let [e (d/entity db 1)] (:unknown e) e)) "{:db/id 1}"))
     ;; read back in to account for unordered-ness
     (is (= (edn/read-string (pr-str (let [e (d/entity db 1)] (:name e) e)))
