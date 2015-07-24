@@ -3,6 +3,7 @@
     [clojure.set :as set]
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.lru :as lru]
     [datascript.shim :as shim]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable]])]
@@ -17,15 +18,13 @@
       [datascript.core  Datom]
       [datascript.btset Iter])))
 
+(def ^:const lru-cache-size 100)
+
 (defn mapa [f coll]
-  #?(:cljs
-     ;; perf optimization, instead of using into-array as in CLJ
-     (let [res (js/Array.)]
-       (doseq [el coll]
-         (.push res (f el)))
-       res)
-     :clj
-     (into-array (map f coll))))
+  (shim/into-array (map f coll)))
+
+#_(defn arange [start end]
+  (into-array (range start end)))
 
 (defn concatv [& xs]
   (into [] cat xs))
@@ -105,6 +104,13 @@
                  (if (< i (alength arr))
                    (recur (inc i) (f res (aget arr i)))
                    res)))))))))
+
+(defn into-set [xf el]
+  #?(:clj
+     (let [rf (xf #(doto ^java.util.HashSet %1 (.add %2)))]
+       (rf (java.util.HashSet.) el))
+     :cljs
+     (into #{} xf [el])))
 
 
 ;; (defrecord Context [rels consts zeroes sources rules default-source-symbol])
@@ -659,14 +665,56 @@
           (assoc context :rels (conj keep-rels new-rel))))
    "resolve-clause" (dp/source clause)))
 
-;;; Query
+(defn collect-consts [syms-indexed specimen consts]
+  (doseq [[sym i] syms-indexed]
+    (when (contains? consts sym)
+      (let [val (get consts sym)]
+        (shim/aset specimen i val)))))
 
-(def query-cache (volatile! {}))
+(defn collect-rel-xf [syms-indexed rel]
+  (let [getters (vec
+                  (for [[sym i] syms-indexed
+                        :when (shim/has? (-symbols rel) sym)]
+                    [(-getter rel sym) i]))
+        idxs (-indexes rel (map first syms-indexed))]
+    (perf/debug "will collect" (-symbols rel) "with" (-size rel) "tuples")
+    (fn [rf]
+      (fn
+        ([] (rf))
+        ([result] (rf result))
+        ([result specimen]
+          (-fold rel
+            (fn [acc tuple]
+              (let [t (shim/aclone specimen)]
+                (-copy-tuple rel tuple idxs t 0)
+                #_(doseq [[getter idx] getters]
+                  (shim/aset t idx (getter tuple)))
+                (rf acc t)))
+            result))))))
+
+(defn collect [context syms]
+  (perf/measure
+    (if (some (:empties context) syms)
+      #{}
+      (let [syms-indexed (vec (shim/zip syms (range)))
+            specimen     (shim/make-array (count syms))
+            _            (collect-consts syms-indexed specimen (:consts context))
+            related-rels (->> (:rels context)
+                              (filter #(some (set (-symbols %)) syms)))
+            xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
+                             (concat [(map vec)]))]
+        (into-set (apply comp xfs) specimen)))
+   "collect"))
+
+;; Query
+
+(def query-cache (volatile! (datascript.lru/lru lru-cache-size)))
 (defn parse-query [q]
-  (or (get @query-cache q)
-      (let [parsed-q (dp/parse-query q)]
-        (vswap! query-cache assoc q parsed-q) ;; TODO use LRU, limit cache size
-        parsed-q)))
+  (if-let [cached (get @query-cache q nil)]
+    cached
+    (let [qp (dp/parse-query q)]
+      (vswap! query-cache assoc q qp)
+      qp)))
 
 (defn q [q & inputs]
   (perf/measure
@@ -681,8 +729,10 @@
           context  (perf/measure (resolve-ins context (:in parsed-q) inputs)
                      "resolve-ins")
           context  (perf/measure (reduce resolve-clause context (:where parsed-q))
-                     "resolve-clauses")]
-      context)
+                     "resolve-clauses")
+          vars     (concat (dp/find-vars (:find parsed-q))
+                           (map :symbol (:with parsed-q)))]
+      (collect context vars))
     "Query" q))
 
 

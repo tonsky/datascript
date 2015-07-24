@@ -6,7 +6,7 @@
 
 (comment
 
-#_(perf/minibench "q coll"
+(perf/minibench "q coll"
   (q/q '[:find ?a
        :in $1 $2 ?n
        :where [$1 ?a ?n ?b]
@@ -15,18 +15,20 @@
      (repeatedly 10 (fn [] [(rand-int 10) (rand-nth [:a :b :c :d]) ]))
      1))
 
+(require '[datascript.query-v3 :as q] :reload)
+
 (binding [datascript.perf/debug? true]
-(let [entities (repeatedly 2 rand-entity)
-;;       _        (println entities)
-      db       (d/db-with (d/empty-db) entities)
-      result   (q/q '[:find ?e ?n
-                      :in $
-                      :where [?e :name "ivan"]
-                             [?e :age ?n]]
-                    db)]
-  #_[entities result]
-  result)
-  )
+  (let [entities (repeatedly 5 rand-entity)
+  ;;       _        (println entities)
+        db       (d/db-with (d/empty-db) entities)
+        result   (q/q '[:find ?e ?n ?e2 ?a
+                        :in $
+                        :where [?e :name ?n]
+                               #_[?e2 :name ?n]
+                               [?e2 :age ?a]]
+                      db)]
+    #_[entities result]
+    result))
 
 
 (defn rand-entity []
@@ -40,9 +42,7 @@
    :age       (rand-int 10)
    :salary    (rand-int 100000)})
 
-#_(require '[datascript.query-v3 :as q] :reload-all)
-
-
+(require '[datascript.query-v3 :as q] :reload-all)
 
 (defn bench [name q & args]
   (println "\n---\n")
@@ -50,15 +50,18 @@
   (perf/minibench (str "NEW " name) (apply q/q q args))
   nil)
 
-(def db (d/db-with (d/empty-db) (repeatedly 100000 random-man)))
+(defonce db (d/db-with (d/empty-db) (repeatedly 100000 random-man)))
 
-#_(require 'datascript.perf :reload-all)
-#_(require '[datascript.query-v3 :as q] :reload)
+(require 'datascript.perf :reload-all)
+(require '[datascript.query-v3 :as q] :reload)
 
 (bench "q2 const"
-       '[:find  ?e
+        '[:find ?e ?a ?s ?w ?ln
          :where [?e :name "Ivan"]
-                [?e :age 1]]
+                [?e :age ?a]
+                [?e :sex ?s]
+                [?e :salary ?w]
+                [?e :last-name ?ln]]
        db)
 
 (bench "q2 const in"

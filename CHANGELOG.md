@@ -1,6 +1,6 @@
 # WIP
 
-- [ BREAKING ] Values you put to database should be comparable. You cannot store maps and vectors with non-uniform structure.
+- [ BREAKING ] Values you put to database under the same attribute should be comparable. Maps and list are not comparable by default, and vectors are compared value-by-value
 - [ BREAKING ] Min/max aggregation functions will only work on a comaparable values
 
 # 0.11.6

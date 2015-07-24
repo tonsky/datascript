@@ -1,7 +1,7 @@
 (ns datascript.shim
   (:require
     [clojure.string :as str])
-  (:refer-clojure :exclude [make-array into-array array amap aget aset alength array? seqable? ])
+  (:refer-clojure :exclude [make-array into-array array amap aget aset alength array? seqable? aclone])
   #?(:cljs (:require-macros datascript.shim))
   #?(:clj  (:import [java.util Arrays])))
 
@@ -59,7 +59,10 @@
      `(let [l# (- ~from-end ~from-start)]
         (when (pos? l#)
           (System/arraycopy ~from ~from-start ~to ~to-start l#))))))
-      
+
+(defn aclone [from]
+  #?(:clj  (Arrays/copyOf ^{:tag "[[Ljava.lang.Object;"} from (alength from))
+     :cljs (.slice from 0)))
 
 (defn aconcat [a b]
   #?(:cljs (.concat a b)
@@ -105,3 +108,7 @@
 (defn zip
   ([a b] (map vector a b))
   ([a b & rest] (apply map vector a b rest)))
+
+(defn has? [coll el]
+  (some #(= el %) coll))
+  
