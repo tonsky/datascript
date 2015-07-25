@@ -94,7 +94,7 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-datom equiv-datom seq-datom val-at-datom assoc-datom)
+(declare hash-datom equiv-datom seq-datom val-at-datom nth-datom assoc-datom)
 
 (deftype Datom [e a v tx added]
   #?@(:cljs
@@ -111,6 +111,10 @@
         (-lookup [d k] (val-at-datom d k nil))
         (-lookup [d k nf] (val-at-datom d k nf))
 
+        IIndexed
+        (-nth [this i] (nth-datom this i))
+        (-nth [this i not-found] (nth-datom this i not-found))
+        
         IAssociative
         (-assoc [d k v] (assoc-datom k))
 
@@ -135,6 +139,10 @@
         (empty [d] (throw (UnsupportedOperationException. "empty is not supported on Datom")))
         (count [d] 5)
         (cons [d [k v]] (assoc-datom k v))
+        
+        clojure.lang.Indexed
+        (nth [this i]           (nth-datom this i))
+        (nth [this i not-found] (nth-datom this i not-found))
 
         clojure.lang.ILookup
         (valAt [d k] (val-at-datom d k nil))
@@ -176,6 +184,25 @@
     :tx    (.-tx d)       "tx"    (.-tx d)
     :added (.-added d)    "added" (.-added d)
     not-found))
+
+(defn- nth-datom
+  ([^Datom d ^long i]
+    (case i
+      0 (.-e d)
+      1 (.-a d)
+      2 (.-v d)
+      3 (.-tx d)
+      4 (.-added d)
+        #?(:clj  (throw (IndexOutOfBoundsException.))
+           :cljs (throw (js/Error. (str "Datom/-nth: Index out of bounds: " i))))))
+  ([^Datom d ^long i not-found]
+    (case i
+      0 (.-e d)
+      1 (.-a d)
+      2 (.-v d)
+      3 (.-tx d)
+      4 (.-added d)
+        not-found)))
 
 (defn- ^Datom assoc-datom [^Datom d k v]
   (case k

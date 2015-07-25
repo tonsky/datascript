@@ -23,8 +23,11 @@
 (defn mapa [f coll]
   (shim/into-array (map f coll)))
 
-#_(defn arange [start end]
+(defn arange [start end]
   (into-array (range start end)))
+
+(defn subarr [arr start end]
+  (shim/acopy arr start end (shim/make-array (- end start)) 0))
 
 (defn concatv [& xs]
   (into [] cat xs))
@@ -122,7 +125,7 @@
   (-size       [_])
   (-getter     [_ symbol])
   (-indexes    [_ symbols])
-  (-copy-tuple [_ tuple idxs target offset])
+  (-copy-tuple [_ tuple idxs target target-idxs])
   (-union      [_ rel]))
 
 (defn- #?@(:clj  [^Number hash-arr]
@@ -174,9 +177,9 @@
         (shim/aget tuple idx))))
   (-indexes [_ syms]
     (mapa (zipmap symbols (range)) syms))
-  (-copy-tuple [_ tuple idxs target offset]
+  (-copy-tuple [_ tuple idxs target target-idxs]
     (dotimes [i (shim/alength idxs)]
-      (shim/aset target (+ i offset) (shim/aget tuple (shim/aget idxs i)))))
+      (shim/aset target (shim/aget target-idxs i) (shim/aget tuple (shim/aget idxs i)))))
   (-union [_ rel]
     (ArrayRelation. symbols (into coll (.-coll ^ArrayRelation rel)))))
 
@@ -193,8 +196,8 @@
   (-size    [_]        (count coll))
   (-getter  [_ _]      (fn [el] el))
   (-indexes [_ _]      0)
-  (-copy-tuple [_ el _ target offset]
-    (shim/aset target offset el))
+  (-copy-tuple [_ el _ target target-idxs]
+    (shim/aset target (shim/aget target-idxs 0) el))
   (-union [_ rel]
     (Coll1Relation. symbol (into coll (.-coll ^Coll1Relation rel)))))
 
@@ -215,9 +218,9 @@
         (nth tuple idx))))
   (-indexes [_ syms]
     (mapa offset-map syms))
-  (-copy-tuple [_ tuple idxs target offset]
+  (-copy-tuple [_ tuple idxs target target-idxs]
     (dotimes [i (shim/alength idxs)]
-      (shim/aset target (+ i offset) (nth tuple (shim/aget idxs i)))))
+      (shim/aset target (shim/aget target-idxs i) (nth tuple (shim/aget idxs i)))))
   (-union [_ rel]
     (CollRelation. symbols offset-map arity (into coll (.-coll ^CollRelation rel)))))
 
@@ -259,12 +262,16 @@
           (getter (shim/aget tuple 1))))))
   (-indexes [_ syms]
     (let [[syms1 syms2] (split-with (set (-symbols rel1)) syms)]
-      (shim/into-array [(-indexes rel1 syms1) (-indexes rel2 syms2)])))
-  (-copy-tuple [_ tuple idxs target offset]
-    (let [idxs1 (shim/aget idxs 0)
-          idxs2 (shim/aget idxs 1)]
-      (-copy-tuple rel1 (shim/aget tuple 0) idxs1 target offset)
-      (-copy-tuple rel2 (shim/aget tuple 1) idxs2 target (+ offset (-arity rel1))))))
+      [(-indexes rel1 syms1)
+       (count syms1)
+       (-indexes rel2 syms2)
+       (count syms2)]))
+  (-copy-tuple [_ tuple idxs target target-idxs]
+    (let [[idxs1 arity1 idxs2 arity2] idxs
+          target-idxs1 (subarr target-idxs 0 arity1)
+          target-idxs2 (subarr target-idxs arity1 (shim/alength target-idxs))]
+      (-copy-tuple rel1 (shim/aget tuple 0) idxs1 target target-idxs1)
+      (-copy-tuple rel2 (shim/aget tuple 1) idxs2 target target-idxs2))))
 
 (def prod-rel ->ProdRelation)
 
@@ -300,24 +307,30 @@
 
 (defn- join-tuples [rel1 t1 idxs1
                     rel2 t2 idxs2
-                    arity offset]
+                    arity
+                    target-idxs1 target-idxs2]
   (let [arr (shim/make-array arity)]
-    (-copy-tuple rel1 t1 idxs1 arr 0)
-    (-copy-tuple rel2 t2 idxs2 arr offset)
+    (-copy-tuple rel1 t1 idxs1 arr target-idxs1)
+    (-copy-tuple rel2 t2 idxs2 arr target-idxs2)
     arr))
 
 (defn product [rel1 rel2]
   (let [idxs1  (-indexes rel1 (-symbols rel1))
         idxs2  (-indexes rel2 (-symbols rel2))
-        arity  (+ (-arity rel1) (-arity rel2))
-        offset (-arity rel1)
+        arity1 (-arity rel1)
+        arity2 (-arity rel2)
+        arity  (+ arity1 arity2)
+        target-idxs1 (arange 0 arity1)
+        target-idxs2 (arange arity1 arity)
         coll   (-fold rel1
                       (fn [acc t1]
                         (-fold rel2
                                (fn [acc t2]
                                  (conj! acc (join-tuples rel1 t1 idxs1
                                                          rel2 t2 idxs2
-                                                         arity offset)))
+                                                         arity
+                                                         target-idxs1
+                                                         target-idxs2)))
                                acc))
                       (fast-arr))]
     (array-rel
@@ -331,10 +344,11 @@
   (let [arity (count syms)]
     (if (== arity 1)
       (-getter rel (first syms))
-      (let [idxs (-indexes rel syms)]
+      (let [idxs        (-indexes rel syms)
+            target-idxs (arange 0 arity)]
         (fn [t]
           (let [arr (make-array arity)]
-            (-copy-tuple rel t idxs arr 0)
+            (-copy-tuple rel t idxs arr target-idxs)
             (tuple arr)))))))
 
 (defn- common-symbols [rel1 rel2]
@@ -361,8 +375,11 @@
         idxs1       (-indexes rel1 syms1)
         idxs2       (-indexes rel2 keep-syms2)
         full-syms   (concatv syms1 keep-syms2)
-        full-arity  (count full-syms)
-        offset      (-arity rel1)
+        arity1      (count syms1)
+        arity2      (count keep-syms2)
+        arity       (+ arity1 arity2)
+        target-idxs1 (arange 0 arity1)
+        target-idxs2 (arange arity1 arity)
         
         coll        (-fold rel2 ;; iterate over rel2
                       (fn [acc t2]
@@ -372,7 +389,9 @@
                             (reduce (fn [acc t1]
                                       (conj! acc (join-tuples rel1 t1 idxs1
                                                               rel2 t2 idxs2
-                                                              full-arity offset)))
+                                                              arity
+                                                              target-idxs1
+                                                              target-idxs2)))
                                     acc (persistent! tuples1)))))
                       (fast-arr))]
     (array-rel full-syms (persistent! coll))))
@@ -518,32 +537,25 @@
 
 ;; Patterns
 
-(deftype DatomsRelation [props-map iter]
+(deftype DatomsRelation [offset-map iter]
   IRelation
-  (-symbols [_]        (keys props-map))
-  (-arity   [_]        (count props-map))
+  (-symbols [_]        (keys offset-map))
+  (-arity   [_]        (count offset-map))
   (-fold    [_ f init] (reduce f init iter))
   (-size    [_]        (if (instance? Iter iter)
                          (count iter);; (btset/est-count iter)
                          (count iter)))
   (-getter  [_ symbol]
-    (let [prop (props-map symbol)]
-      (case prop
-        0 (fn [^Datom d] (.-e d))
-        1 (fn [^Datom d] (.-a d))
-        2 (fn [^Datom d] (.-v d))
-        3 (fn [^Datom d] (.-tx d)))))
+    (let [idx (offset-map symbol)]
+      (fn [tuple]
+        (nth tuple idx))))
   (-indexes [_ syms]
-    (mapa props-map syms))
-  (-copy-tuple [_ tuple props target offset]
-    (dotimes [i (shim/alength props)]
-      (let [prop (shim/aget props i)
-            v    (case (long prop)
-                   0 (.-e  ^Datom tuple)
-                   1 (.-a  ^Datom tuple)
-                   2 (.-v  ^Datom tuple)
-                   3 (.-tx ^Datom tuple))]
-        (shim/aset target (+ i offset) v))))
+    (mapa offset-map syms))
+  (-copy-tuple [_ datom idxs target target-idxs]
+    (dotimes [i (shim/alength idxs)]
+      (shim/aset target
+                 (shim/aget target-idxs i)
+                 (nth datom (shim/aget idxs i)))))
   ;;   (-union [_ rel]
   ;;     (CollRelation. symbols offsets arity (into coll (.-coll rel))))
   )
@@ -555,15 +567,15 @@
         (assoc acc (:symbol var) prop)
         acc))
     {}
-    (zipmap pattern [0 1 2 3])))
+    (zipmap pattern (range 5))))
 
 (defn resolve-pattern-db [db clause join-syms hash]
   ;; TODO optimize with bound attrs min/max values here
   (let [pattern        (:pattern clause)
         search-pattern (mapv #(when (instance? Constant %) (:value %)) pattern)
         datoms         (dc/-search db search-pattern)
-        props-map      (pattern->props-map (:pattern clause))]
-    (->DatomsRelation props-map datoms)))
+        offset-map     (pattern->props-map (:pattern clause))]
+    (->DatomsRelation offset-map datoms)))
 
 (defn- matches-pattern? [idxs tuple]
 ;;   (when-not (bindable-to-seq? tuple)
@@ -672,11 +684,11 @@
         (shim/aset specimen i val)))))
 
 (defn collect-rel-xf [syms-indexed rel]
-  (let [getters (vec
-                  (for [[sym i] syms-indexed
-                        :when (shim/has? (-symbols rel) sym)]
-                    [(-getter rel sym) i]))
-        idxs (-indexes rel (map first syms-indexed))]
+  (let [sym+idx     (for [[sym i] syms-indexed
+                            :when (shim/has? (-symbols rel) sym)]
+                      [sym i])
+        idxs        (-indexes rel (map first sym+idx))
+        target-idxs (mapa second sym+idx)]
     (perf/debug "will collect" (-symbols rel) "with" (-size rel) "tuples")
     (fn [rf]
       (fn
@@ -686,9 +698,7 @@
           (-fold rel
             (fn [acc tuple]
               (let [t (shim/aclone specimen)]
-                (-copy-tuple rel tuple idxs t 0)
-                #_(doseq [[getter idx] getters]
-                  (shim/aset t idx (getter tuple)))
+                (-copy-tuple rel tuple idxs t target-idxs)
                 (rf acc t)))
             result))))))
 
