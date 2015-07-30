@@ -24,7 +24,7 @@
   (shim/into-array (map f coll)))
 
 (defn arange [start end]
-  (into-array (range start end)))
+  (shim/into-array (range start end)))
 
 (defn subarr [arr start end]
   (shim/acopy arr start end (shim/make-array (- end start)) 0))
@@ -32,7 +32,7 @@
 (defn concatv [& xs]
   (into [] cat xs))
 
-(defn fast-hash []
+(defn fast-map []
   #?(:clj
      (let [m (java.util.HashMap.)]
        (reify
@@ -53,7 +53,7 @@
      :cljs
      (transient {})))
 
-#_(defn fast-hash []
+#_(defn fast-map []
   (transient {}))
 
 #_(defn fast-arr []
@@ -128,13 +128,20 @@
   (-copy-tuple [_ tuple idxs target target-idxs])
   (-union      [_ rel]))
 
-(defn- #?@(:clj  [^Number hash-arr]
-           :cljs [^number hash-arr]) [arr]
-  (loop [n 0
-         hash-code 1]
-    (if (< n (shim/alength arr))
-      (recur (inc n) (bit-or (+ (#?(:cljs imul :clj unchecked-multiply) 31 hash-code) (hash (shim/aget arr n))) 0))
-      (mix-collection-hash hash-code n))))
+(defn- #?@(:clj  [^long hash-arr]
+           :cljs [^number  hash-arr]) [arr]
+  (let [count (int (shim/alength arr))]
+    (loop [n         (int 0)
+           hash-code (int 1)]
+      (if (== n count)
+        (mix-collection-hash hash-code n)
+        (recur (inc n)
+               #?(:clj  (unchecked-add-int
+                          (unchecked-multiply-int 31 hash-code)
+                          (hash (shim/aget arr n)))
+                  :cljs (bit-or (+ (imul 31 hash-code)
+                                   (hash (shim/aget arr n)))
+                                0)))))))
 
 (declare equiv-tuple)
 
@@ -166,6 +173,9 @@
 ;;; ArrayRelation
 
 (deftype ArrayRelation [symbols coll]
+  #?@(:clj [
+      Object
+      (toString [_] (str "ArrayRelation#{:symbols " symbols ", :coll " coll "}")) ])
   IRelation
   (-symbols [_] symbols)
   (-arity   [_] (count symbols))
@@ -182,6 +192,14 @@
       (shim/aset target (shim/aget target-idxs i) (shim/aget tuple (shim/aget idxs i)))))
   (-union [_ rel]
     (ArrayRelation. symbols (into coll (.-coll ^ArrayRelation rel)))))
+
+#?(:clj
+   (defmethod print-method ArrayRelation [^ArrayRelation rel, ^java.io.Writer w]
+     (.write w (str "#datascript.query/ArrayRelation "))
+     (binding [*out* w]
+       (pr {:symbols (.-symbols rel)
+            :coll    (mapv vec (.-coll rel))}))))
+
 
 (def array-rel ->ArrayRelation)
 
@@ -315,27 +333,29 @@
     arr))
 
 (defn product [rel1 rel2]
-  (let [idxs1  (-indexes rel1 (-symbols rel1))
-        idxs2  (-indexes rel2 (-symbols rel2))
-        arity1 (-arity rel1)
-        arity2 (-arity rel2)
-        arity  (+ arity1 arity2)
-        target-idxs1 (arange 0 arity1)
-        target-idxs2 (arange arity1 arity)
-        coll   (-fold rel1
-                      (fn [acc t1]
-                        (-fold rel2
-                               (fn [acc t2]
-                                 (conj! acc (join-tuples rel1 t1 idxs1
-                                                         rel2 t2 idxs2
-                                                         arity
-                                                         target-idxs1
-                                                         target-idxs2)))
-                               acc))
-                      (fast-arr))]
-    (array-rel
-      (concatv (-symbols rel1) (-symbols rel2))
-      (persistent! coll))))
+  (perf/measure
+    (let [idxs1  (-indexes rel1 (-symbols rel1))
+          idxs2  (-indexes rel2 (-symbols rel2))
+          arity1 (-arity rel1)
+          arity2 (-arity rel2)
+          arity  (+ arity1 arity2)
+          target-idxs1 (arange 0 arity1)
+          target-idxs2 (arange arity1 arity)
+          coll   (-fold rel1
+                        (fn [acc t1]
+                          (-fold rel2
+                                 (fn [acc t2]
+                                   (conj! acc (join-tuples rel1 t1 idxs1
+                                                           rel2 t2 idxs2
+                                                           arity
+                                                           target-idxs1
+                                                           target-idxs2)))
+                                 acc))
+                        (fast-arr))]
+      (array-rel
+        (concatv (-symbols rel1) (-symbols rel2))
+        (persistent! coll)))
+    "product of" (-symbols rel1) (str "(" (-size rel1) " tuples)") "and" (-symbols rel2) (str "(" (-size rel2) " tuples)")))
 
 
 ;;; hash-join
@@ -347,7 +367,7 @@
       (let [idxs        (-indexes rel syms)
             target-idxs (arange 0 arity)]
         (fn [t]
-          (let [arr (make-array arity)]
+          (let [arr (shim/make-array arity)]
             (-copy-tuple rel t idxs arr target-idxs)
             (tuple arr)))))))
 
@@ -364,7 +384,7 @@
             (if (nil? old)
               (assoc! hash key (conj! (fast-arr) t))
               (do (conj! old t) hash))))
-        (fast-hash))
+        (fast-map))
      (persistent!))))
 
 (defn hash-join [rel1 hash1 join-syms rel2]
@@ -522,8 +542,6 @@
           form)))
    "substitute-constants"))
 
-(defprotocol IClause
-  (-resolve-clause [_ context join-args hash]))
 
 (defn get-source [context source]
   (let [symbol (cond
@@ -547,8 +565,8 @@
                          (count iter)))
   (-getter  [_ symbol]
     (let [idx (offset-map symbol)]
-      (fn [tuple]
-        (nth tuple idx))))
+      (fn [datom]
+        (nth datom idx))))
   (-indexes [_ syms]
     (mapa offset-map syms))
   (-copy-tuple [_ datom idxs target target-idxs]
@@ -556,6 +574,7 @@
       (shim/aset target
                  (shim/aget target-idxs i)
                  (nth datom (shim/aget idxs i)))))
+                   
   ;;   (-union [_ rel]
   ;;     (CollRelation. symbols offsets arity (into coll (.-coll rel))))
   )
@@ -569,7 +588,7 @@
     {}
     (zipmap pattern (range 5))))
 
-(defn resolve-pattern-db [db clause join-syms hash]
+(defn resolve-pattern-db [db clause]
   ;; TODO optimize with bound attrs min/max values here
   (let [pattern        (:pattern clause)
         search-pattern (mapv #(when (instance? Constant %) (:value %)) pattern)
@@ -611,71 +630,82 @@
         data    (filter #(matches-pattern? idxs %) coll)]
     (bind-pattern pattern data)))
 
+(defn clause-syms [clause]
+  (into #{} (map :symbol) (dp/collect #(instance? Variable %) clause #{})))
+
+(defn split-rels [context syms]
+  (let [related? #(some syms (-symbols %))]
+    [(filter related? (:rels context))
+     (remove related? (:rels context))]))
+
+(defn join-empty [context syms]
+  (let [[related unrelated] (split-rels context syms)
+        related-syms        (mapcat -symbols related)]
+    (perf/debug "Promoting to :empties" (set/union syms related-syms))
+    (-> context
+        (update :consts  #(apply dissoc % syms))
+        (update :empties set/union syms related-syms)
+        (assoc  :rels    unrelated))))
+
+(defn join-constants [context rel]
+  (perf/debug "Promoting to :consts" (rel->consts rel))
+  (-> context
+      (update :consts merge (rel->consts rel))))
+
+(defn join-unrelated [context rel syms]
+  (case (long (-size rel))
+    0 (join-empty context syms)
+    1 (join-constants context rel)
+    (update context :rels conj rel)))
+    
+(defn hash-join-rel [context rel syms]
+  (if (== 0 (-size rel))
+    (join-empty context syms)
+    (let [[related unrelated] (split-rels context syms)]
+      (if (empty? related)
+        (join-unrelated context rel syms)
+        (perf/measure
+         (let [join-syms   (into [] (comp (map -symbols) cat (filter syms)) related)
+               _           (perf/debug "got" (count related) "related rels over" join-syms)
+               _           (perf/when-debug
+                            (doseq [rel related]
+                              (perf/debug "  " (-symbols rel) "with" (-size rel) "tuples")))
+               related-rel (reduce product related) ;; use prod-rel?
+               hash        (perf/measure (hash-rel related-rel join-syms)
+                                         "hash calculated with" (count %) "keys")
+               rel*        (perf/measure (hash-join related-rel hash join-syms rel) ;; TODO choose between hash-join and lookup-join
+                                         "hash-join to" (-symbols %) "with" (-size %) "tuples")
+               context*    (assoc context :rels unrelated)
+               syms*       (set/union syms (-symbols rel*))]
+           (join-unrelated context* rel* syms*))
+         "hash-join-rel")))))
+
+(defn resolve-pattern [context clause]
+  (perf/measure
+    (let [syms    (clause-syms clause)
+          consts  (:consts context)
+          clause* (if (some #(contains? consts %) syms)
+                    (substitute-constants clause context)
+                    clause)
+          rel     (if (some (:empties context) syms)
+                    (empty-rel syms)
+                    (let [source (get-source context (:source clause))]
+                      (if (satisfies? dc/ISearch source)
+                        (resolve-pattern-db   source clause*)
+                        (resolve-pattern-coll source clause*))))]
+      (hash-join-rel context rel syms))
+    "resolve-pattern" (dp/source clause)))
+
+(defprotocol IClause
+  (-resolve-clause [_ context]))
+
 (extend-protocol IClause
   Pattern
-  (-resolve-clause [clause context join-syms hash]
-    (let [source (get-source context (:source clause))]
-      (if (satisfies? dc/ISearch source)
-        (resolve-pattern-db   source clause join-syms hash)
-        (resolve-pattern-coll source clause)))))
+  (-resolve-clause [clause context]
+    (resolve-pattern context clause)))
 
-(defn resolve-clause-new [context clause]
-  (perf/measure (-resolve-clause clause context nil nil)
-     "resolve-clause-new to" (-symbols %) "with" (-size %) "tuples:" %))
-
-(defn resolve-clause-related [context clause clause-syms related-rels]
-  (perf/measure
-    (let [related   (reduce product related-rels) ;; use prod-rel?
-          join-syms (into [] (filter clause-syms) (-symbols related))
-          _         (perf/debug "got" (count related-rels) "related rels over" join-syms)
-          _         (perf/when-debug
-                      (doseq [rel related-rels]
-                        (perf/debug "  " (-symbols rel) "with" (-size rel) "tuples")))
-          hash      (perf/measure (hash-rel related join-syms)
-                             "hash calculated with" (count %) "keys")
-          rel       (perf/measure (-resolve-clause clause context join-syms hash) ;; TODO use hash
-                             "-resolve-clause to" (-size %) "tuples")
-          joined    (perf/measure (hash-join related hash join-syms rel) ;; TODO choose between hash-join and lookup-join
-                             "hash-join to" (-symbols %) "with" (-size %) "tuples")]
-      joined)
-    "resolve-clause-related"))
-
-(defn resolve-clause [context clause]
-  (perf/measure
-    (let [clause-syms  (perf/measure (into #{} (map :symbol) (dp/collect #(instance? Variable %) clause #{})) "clause-syms")
-          consts       (into #{} (filter (:consts context)) clause-syms)
-          old-rels     (:rels context)
-          related?     #(some clause-syms (-symbols %))
-          related-rels (filter related? old-rels)
-          clause*      (if (some (:consts context) clause-syms)
-                         (substitute-constants clause context)
-                         clause)
-          new-rel      (cond
-                         (some (:empties context) clause-syms)
-                           (empty-rel (vec (set (concat clause-syms (mapcat #(-symbols %) related-rels)))))
-                         (empty? related-rels)
-                           (resolve-clause-new context clause*)
-                         :else
-                           (resolve-clause-related context clause* clause-syms related-rels))
-          keep-rels    (remove related? old-rels)
-          cardinality  (-size new-rel)]
-      (cond
-        (== 0 cardinality)
-          (do
-            (perf/debug "Promoting to :empties" (set/union clause-syms consts))
-            (-> context
-              (update :consts  #(apply dissoc % consts))
-              (update :empties set/union clause-syms consts)
-              (assoc  :rels    keep-rels)))
-        (== 1 cardinality)
-          (do
-            (perf/debug "Promoting to :consts" (rel->consts new-rel))
-            (-> context
-              (update :consts merge (rel->consts new-rel))
-              (assoc :rels keep-rels)))
-        :else
-          (assoc context :rels (conj keep-rels new-rel))))
-   "resolve-clause" (dp/source clause)))
+(defn resolve-clauses [context clauses]
+  (reduce #(-resolve-clause %2 %1) context clauses))
 
 (defn collect-consts [syms-indexed specimen consts]
   (doseq [[sym i] syms-indexed]
@@ -738,7 +768,7 @@
                      :default-source-symbol '$ }
           context  (perf/measure (resolve-ins context (:in parsed-q) inputs)
                      "resolve-ins")
-          context  (perf/measure (reduce resolve-clause context (:where parsed-q))
+          context  (perf/measure (resolve-clauses context (:where parsed-q))
                      "resolve-clauses")
           vars     (concat (dp/find-vars (:find parsed-q))
                            (map :symbol (:with parsed-q)))]
@@ -774,8 +804,6 @@
 
 ;; (t/test-ns 'datascript.test.query-v3)
 
-
-(comment
 (defn random-man []
   {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
    :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
@@ -783,29 +811,27 @@
    :age       (rand-int 10)
    :salary    (rand-int 100000)})
 
-#_(require '[datascript.query-v3 :as q] :reload-all)
-
 (defn bench [name q & args]
   (println "\n---\n")
   (perf/minibench (str "OLD " name) (apply d/q q args))
   (perf/minibench (str "NEW " name) (apply datascript.query-v3/q q args))
   nil)
 
-(defonce db (d/db-with (d/empty-db) (repeatedly 10000 random-man)))
+#?(:cljs
+   (do
+    #_(require '[datascript.query-v3 :as q] :reload)
 
-#_(require 'datascript.perf :reload-all)
-#_(require '[datascript.query-v3 :as q] :reload)
+    (def db (d/db-with (d/empty-db) (repeatedly 10000 random-man)))
 
-(bench "q2 const"
-       '[:find  ?e
-         :where [?e :name "Ivan"]
-                [?e :age 1]]
-       db)
+    (bench "q2 const"
+           '[:find  ?e
+             :where [?e :name "Ivan"]
+                    [?e :age 1]]
+           db)
 
-(bench "q2 const in"
-       '[:find ?e
-         :in $ ?n
-         :where [?e :name "Ivan"]
-                [?e :age ?n]]
-       db 1)
-)
+    #_(bench "q2 const in"
+           '[:find ?e
+             :in $ ?n
+             :where [?e :name "Ivan"]
+                    [?e :age ?n]]
+           db 1)))
