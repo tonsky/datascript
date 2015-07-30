@@ -817,7 +817,7 @@
   (perf/minibench (str "NEW " name) (apply datascript.query-v3/q q args))
   nil)
 
-#?(:cljs
+(comment
    (do
     #_(require '[datascript.query-v3 :as q] :reload)
 

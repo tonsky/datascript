@@ -2,6 +2,11 @@
 
 var fs = require('fs');
 
+global.performance = { now: function () {
+  var t = process.hrtime();
+  return t[0] * 1000 + t[1] / 1000000;
+} }
+
 global.goog = {};
 
 global.CLOSURE_IMPORT_SCRIPT = function(src) {
