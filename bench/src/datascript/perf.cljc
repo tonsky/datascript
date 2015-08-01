@@ -62,46 +62,6 @@
 #?(:cljs (js/Date.)
    :clj  (java.util.Date.)))
 
-;; minibench
-
-#?(:clj
-  (defmacro dotime [duration & body]
-   `(let [start-t# (now)
-          end-t#   (+ ~duration start-t#)]
-      (loop [iterations# *step*]
-        (dotimes [_# *step*] ~@body)
-        (let [now# (now)]
-          (if (< now# end-t#)
-            (recur (+ *step* iterations#))
-            (double (/ (- now# start-t#) iterations#))))))))
-
-#?(:clj
-  (defmacro minibench [spec & body]
-   `(let [_#     (dotime *warmup-t* ~@body)
-          avg-t# (dotime *bench-t* ~@body)]
-      (println (format-time avg-t#) ~spec "avg time")
-      (binding [debug? true]
-        ~@body))))
-
-#?(:clj
-  (defmacro bench [spec & body]
-   `(let [_#       (when-not *context* (println (str "\n" ~spec)))
-          _#       (dotime *warmup-t* ~@body)
-          results# (into [] (for [_# (range *repeats*)]
-                              (dotime *bench-t* ~@body)))
-          min#     (reduce min results#)
-          med#     (percentile results# 0.5)
-          max#     (reduce max results#)]
-      (if *context*
-        (println "{ :context"   (pr-str *context*)
-                 "\n  :spec   " (pr-str ~spec)
-                 "\n  :env    " (pr-str (array-map :ts (inst)))
-                 "\n  :results" (pr-str (array-map :median med# :min min# :max max# :raw results#)) "}")
-        (println 
-          "[ min:"   (format-number min#)
-          "] [ med:" (format-number med#)
-          "] [ max:" (format-number max#)
-          "] ms")))))
 
 ;; flame graph
 
@@ -159,3 +119,59 @@
           ~body))
       body)))
 
+
+(defn short-circuit-frames [& [msg]]
+  (loop []
+    (when-not (nil? @current-frame)
+      (end-frame (or msg "↑↑↑ exception ↑↑↑"))
+      (recur))))
+
+
+#?(:clj
+   (defmacro with-debug [& body]
+    `(binding [debug? true]
+       (try
+         ~@body
+         (finally
+           (short-circuit-frames))))))
+
+;; minibench
+
+#?(:clj
+  (defmacro dotime [duration & body]
+   `(let [start-t# (now)
+          end-t#   (+ ~duration start-t#)]
+      (loop [iterations# *step*]
+        (dotimes [_# *step*] ~@body)
+        (let [now# (now)]
+          (if (< now# end-t#)
+            (recur (+ *step* iterations#))
+            (double (/ (- now# start-t#) iterations#))))))))
+
+#?(:clj
+  (defmacro minibench [spec & body]
+   `(let [_#     (dotime *warmup-t* ~@body)
+          avg-t# (dotime *bench-t* ~@body)]
+      (println (format-time avg-t#) ~spec "avg time")
+      (with-debug
+        ~@body))))
+
+#?(:clj
+  (defmacro bench [spec & body]
+   `(let [_#       (when-not *context* (println (str "\n" ~spec)))
+          _#       (dotime *warmup-t* ~@body)
+          results# (into [] (for [_# (range *repeats*)]
+                              (dotime *bench-t* ~@body)))
+          min#     (reduce min results#)
+          med#     (percentile results# 0.5)
+          max#     (reduce max results#)]
+      (if *context*
+        (println "{ :context"   (pr-str *context*)
+                 "\n  :spec   " (pr-str ~spec)
+                 "\n  :env    " (pr-str (array-map :ts (inst)))
+                 "\n  :results" (pr-str (array-map :median med# :min min# :max max# :raw results#)) "}")
+        (println 
+          "[ min:"   (format-number min#)
+          "] [ med:" (format-number med#)
+          "] [ max:" (format-number max#)
+          "] ms")))))

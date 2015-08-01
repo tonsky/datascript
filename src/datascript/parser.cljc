@@ -497,6 +497,7 @@
       (when (= 'not sym)
         (if-let [clauses* (parse-seq parse-clause clauses)]
           (-> (Not. source* (collect-vars-distinct clauses*) clauses*)
+              (with-source form)
               (validate-not form))
           (raise "Cannot parse 'not' clause, expected [ src-var? 'not' clause+ ]"
                  {:error :parser/where, :form form}))))))
@@ -509,6 +510,7 @@
               clauses* (parse-seq parse-clause clauses)]
           (if (and vars* clauses*)
             (-> (Not. source* vars* clauses*)
+                (with-source form)
                 (validate-not form))
             (raise "Cannot parse 'not-join' clause, expected [ src-var? 'not-join' [variable+] clause+ ]"
                    {:error :parser/where, :form form})))))))

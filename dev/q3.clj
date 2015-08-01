@@ -26,25 +26,26 @@
      (repeatedly 10 (fn [] [(rand-int 10) (rand-nth [:a :b :c :d]) ]))
      1))
 
+(require 'datascript.perf :reload-all)
 (require '[datascript.query-v3 :as q] :reload)
 
-(binding [datascript.perf/debug? true]
-  (let [entities [{:name "Ivan" :age 1}
-                  {:name "Ivan" :age 2}
-                  {:name "Oleg" :age 1}
-                  {:name "Oleg" :age 2}]
+(perf/with-debug
+  (let [entities [{:db/id 1 :name "Ivan" :age 10}
+                  {:db/id 2 :name "Ivan" :age 20}
+                  {:db/id 3 :name "Oleg" :age 10}
+                  {:db/id 4 :name "Oleg" :age 20}
+                  {:db/id 5 :name "Ivan" :age 10}
+                  {:db/id 6 :name "Ivan" :age 20}
+                  ]
         db       (d/db-with (d/empty-db) entities)
-        result   (q/q '[:find ?e ?a ?e2 ?a2
-                        :in $
-                        :where [?e  :name "Ivan"]
-                               [?e2 :name "Oleg"]
-                               [?e  :age ?a]
-                               [?e2 :age ?a2]
-                               [?e  :age ?a2]]
+        result   (q/q '[:find ?e ?n ?a
+                        :where [?e :name ?n]
+                               [?e :age ?a]
+                               (not
+                                 [?e :name _]
+                                 [?e :age 10])]
                       db)]
     result))
-
-
 
 (require '[datascript.query-v3 :as q] :reload-all)
 
@@ -54,24 +55,29 @@
         new (perf/minibench (str "NEW " name) (apply q/q q args))]
     (= old new)))
 
-(def db (d/db-with (d/empty-db) (repeatedly 1000 random-man)))
+(def db (d/db-with (d/empty-db) (repeatedly 2000 random-man)))
 
 (require 'datascript.perf :reload-all)
 (require '[datascript.query-v3 :as q] :reload)
 
-(bench "q2 const"
+(bench "prod + join"
         '[:find ?e ?e2 ?a ?a2
          :where [?e :name "Ivan"]
                 [?e2 :name "Oleg"]
                 [?e :age ?a]
                 [?e2 :age ?a2]
-                [?e :age ?a2]
-          
-;;                 [?e :sex ?s]
-;;                 [?e :salary ?w]
-;;                 [?e :last-name ?ln]
-          ]
+                [?e :age ?a2]]
        db)
+
+(bench "q5"
+        '[:find ?e ?a ?s ?w ?ln 
+         :where [?e :name "Ivan"]
+                [?e :age ?a]
+                [?e :sex ?s]
+                [?e :salary ?w]
+                [?e :last-name ?ln]]
+       db)
+
 
 (bench "q2 const in"
        '[:find ?e
