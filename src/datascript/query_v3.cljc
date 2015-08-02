@@ -282,6 +282,9 @@
                            (assoc acc (get-in e [:variable :symbol]) i)
                          (instance? Variable e)
                            (assoc acc (:symbol e) i)
+                         (and (symbol? e)
+                              (not= '_ e))
+                           (assoc acc e i)
                          :else acc))
                      {}
                      (zipmap symbols (range)))]
@@ -545,6 +548,11 @@
 
 ;;; Resolution
 
+
+(defprotocol IClause
+  (-resolve-clause [clause context]))
+
+
 (defn get-source [context source]
   (let [symbol (cond
                  (instance? SrcVar source)     (:symbol source)
@@ -747,7 +755,7 @@
                          (into (keys (:consts context)))
                          (into (mapcat -symbols) (:rels context)))]
     (when-not (set/subset? syms context-syms)
-      (let [missing (set/difference syms context-syms)]
+      (let [missing (set/difference (set syms) context-syms)]
         (throw (ex-info (str "Insufficient bindings: " missing " not bound in " form)
                         {:error :query/where
                          :form  form
@@ -767,8 +775,27 @@
     "resolve-not" (dp/source clause)))
 
 
-(defprotocol IClause
-  (-resolve-clause [clause context]))
+(defn resolve-or [context clause]
+  (perf/measure
+    (let [{:keys [source rule-vars clauses]} clause
+          {:keys [required free]}            rule-vars
+          _    (check-bound context (map :symbol required) (dp/source clause))
+          syms (into #{} (map :symbol) (concat required free))
+          context*  (-> context
+                      (project-context syms)
+                      (upd-default-source clause))
+          contexts  (->> clauses
+                         (map #(-resolve-clause % context*))
+                         (remove :empty?))]
+      (if (empty? contexts)
+        empty-context ;; everything resolved to empty rel, short-circuit
+        (let [non-consts (set/difference syms (set (keys (:consts context))))]
+          (if (empty? non-consts)
+            context ;; join was by constants only, nothing changes
+            (let [sets (map #(collect % non-consts) contexts)
+                  rel  (coll-rel non-consts (into (fast-set) cat sets))]
+              (hash-join-rel context rel))))))
+    "resolve-or" (dp/source clause)))
 
 
 (extend-protocol IClause
@@ -777,7 +804,13 @@
     (resolve-pattern context clause))
   Not
   (-resolve-clause [clause context]
-    (resolve-not context clause)))
+    (resolve-not context clause))
+  Or
+  (-resolve-clause [clause context]
+    (resolve-or context clause))
+  And
+   (-resolve-clause [clause context]
+     (resolve-clauses context (:clauses clause))))
 
 
 (defn println-context [context]
@@ -788,7 +821,6 @@
       (println " " rel)))
   (println "  :consts" (:consts context) "}"))
     
-
 
 (defn resolve-clauses [context clauses]
   (reduce (fn [context clause]

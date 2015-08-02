@@ -93,17 +93,17 @@
                [:db/add 2 :age 20] ])]
     (are [q res] (= (q/q (concat '[:find ?e :in $ $2 :where] (quote q)) db1 db2)
                     (into #{} (map vector) res))
-      ;; not inherits default source
+      ;; NOT inherits default source
       [[?e :name]
        (not [?e :name "Ivan"])]
       #{2}
       
-      ;; not can reference any source
+      ;; NOT can reference any source
       [[?e :name]
        (not [$2 ?e :age 10])]
       #{2}
       
-      ;; not can change default source
+      ;; NOT can change default source
       [[?e :name]
        ($2 not [?e :age 10])]
       #{2}
@@ -113,12 +113,12 @@
        ($2 not [$ ?e :name "Ivan"])]
       #{2}
       
-      ;; nested not keeps the default source
+      ;; nested NOT keeps the default source
       [[?e :name]
        ($2 not (not [?e :age 10]))]
       #{1}
 
-      ;; can override nested not source
+      ;; can override nested NOT source
       [[?e :name]
        ($2 not ($ not [?e :name "Ivan"]))]
       #{1})))

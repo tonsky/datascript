@@ -539,6 +539,7 @@
       (when (= 'or sym)
         (if-let [clauses* (parse-seq (some-fn parse-and parse-clause) clauses)]
           (-> (Or. source* (RuleVars. nil (collect-vars-distinct clauses*)) clauses*)
+              (with-source form)
               (validate-or form))
           (raise "Cannot parse 'or' clause, expected [ src-var? 'or' clause+ ]"
                  {:error :parser/where, :form form}))))))
@@ -548,9 +549,10 @@
     (let [[sym vars & clauses] next-form]
       (when (= 'or-join sym)
         (let [vars*    (parse-rule-vars vars)
-              clauses* (parse-clauses clauses)]
+              clauses* (parse-seq (some-fn parse-and parse-clause) clauses)]
           (if (and vars* clauses*)
             (-> (Or. source* vars* clauses*)
+                (with-source form)
                 (validate-or form))
             (raise "Cannot parse 'or-join' clause, expected [ src-var? 'or-join' [variable+] clause+ ]"
                    {:error :parser/where, :form form})))))))

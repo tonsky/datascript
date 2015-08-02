@@ -205,6 +205,20 @@
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :friend) (dp/->Variable '?y)])])
        
+    '(or-join [[?e]]
+       (and [?e :follows ?x]
+            [?e :friend ?y]))
+    (dp/->Or
+      (dp/->DefaultSrc)
+      (dp/->RuleVars [(dp/->Variable '?e)] nil)
+      [ (dp/->And
+          [(dp/->Pattern
+             (dp/->DefaultSrc)
+             [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
+           (dp/->Pattern
+             (dp/->DefaultSrc)
+             [(dp/->Variable '?e) (dp/->Constant :friend) (dp/->Variable '?y)])]) ])
+       
     '($1 or-join [[?e] ?x]
          [?e :follows ?x])
     (dp/->Or
