@@ -20,7 +20,7 @@
       [datascript.core  Datom]
       [datascript.btset Iter])))
 
-(declare resolve-clauses collect)
+(declare resolve-clauses collect-to)
 
 (def ^:const lru-cache-size 100)
 
@@ -727,7 +727,7 @@
                       (fn [set tuple]
                         (conj! set (getter tuple))))
                (persistent!)))))
-    (collect context syms)))
+    (collect-to context syms (fast-set) [(map vec)])))
 
 
 (defn subtract-from-rel [rel syms exclude-key-set]
@@ -802,8 +802,8 @@
         (let [non-consts (set/difference syms (set (keys (:consts context))))]
           (if (empty? non-consts)
             context ;; join was by constants only, nothing changes
-            (let [sets (map #(collect % non-consts) contexts)
-                  rel  (coll-rel non-consts (into (first sets) cat (next sets)))]
+            (let [arrays (map #(collect-to % non-consts (fast-arr) []) contexts)
+                  rel    (array-rel non-consts (into (first arrays) cat (next arrays)))]
               (hash-join-rel context rel))))))
     "resolve-or" (dp/source clause)))
 
@@ -871,21 +871,22 @@
             result))))))
 
 
-(defn collect [context syms]
+(defn collect-to [context syms acc xfs]
   (perf/measure
     (if (:empty? context)
-      (fast-set)
+      acc
       (let [syms-indexed (vec (shim/zip syms (range)))
             specimen     (shim/make-array (count syms))
             _            (collect-consts syms-indexed specimen (:consts context))
             related-rels (related-rels context syms)
             xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
-                             (concat [(map vec)]))]
-        (into (fast-set) (apply comp xfs) [specimen])))
-   "collect"))
+                             (concat xfs))]
+        (into acc (apply comp xfs) [specimen])))
+   "collect-to"))
 
 
 ;; Query
+
 
 (def query-cache (volatile! (datascript.lru/lru lru-cache-size)))
 
@@ -913,7 +914,7 @@
                      "resolve-clauses")
           syms     (concat (dp/find-vars (:find parsed-q))
                            (map :symbol (:with parsed-q)))]
-      (native-coll (collect context syms)))
+      (native-coll (collect-to context syms (fast-set) [(map vec)])))
     "Query" q))
 
 
