@@ -38,14 +38,29 @@
                   {:db/id 6 :name "Ivan" :age 20}
                   ]
         db       (d/db-with (d/empty-db) entities)
-        result   (q/q '[:find ?e ?n ?a
-                        :where [?e :name ?n]
-                               [?e :age ?a]
-                               (not
-                                 [?e :name _]
-                                 [?e :age 10])]
+        result   (q/q '[:find ?e ?a
+                        :where [?e :age ?a]
+                               (not [?e :name "Ivan"])]
                       db)]
     result))
+
+
+
+(let [entities [{:db/id 1 :name "Ivan" :age 10}
+                {:db/id 2 :name "Ivan" :age 20}
+                {:db/id 3 :name "Oleg" :age 10}
+                {:db/id 4 :name "Oleg" :age 20}
+                {:db/id 5 :name "Ivan" :age 10}
+                {:db/id 6 :name "Ivan" :age 20}]
+      db       (d/db-with (d/empty-db) entities)]
+  (perf/with-debug
+    (q/q '[:find ?e ?e2
+           :where [?e  :name "Ivan"]
+                  [?e2 :name "Ivan"]
+           (not [?e  :age 10]
+                [?e2 :age 20])]
+         db)))
+                  
 
 (require '[datascript.query-v3 :as q] :reload-all)
 
@@ -59,6 +74,9 @@
 
 (require 'datascript.perf :reload-all)
 (require '[datascript.query-v3 :as q] :reload)
+
+;; (require 'datascript.test.query-not :reload)
+;; (clojure.test/test-ns 'datascript.test.query-not)
 
 (bench "prod + join"
         '[:find ?e ?e2 ?a ?a2

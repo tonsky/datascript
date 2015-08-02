@@ -67,8 +67,7 @@
          clojure.lang.ILookup
          (valAt [_ k] (.get m k))
          (valAt [_ k nf] (or (.get m k) nf))))
-     :cljs
-     (transient {})))
+     :cljs {}))
 
 (defn fast-arr []
   #?(:clj
@@ -147,8 +146,7 @@
                (if (.hasNext iter)
                  (recur (f acc (.next iter)))
                  acc))))))
-     :cljs
-     (transient #{})))
+     :cljs #{}))
 
 ;; (defrecord Context [rels consts sources rules default-source-symbol])
 
@@ -421,7 +419,7 @@
             (if (nil? old)
               (assoc! hash key (conj! (fast-arr) t))
               (do (conj! old t) hash))))
-        (fast-map))
+        (transient (fast-map)))
      (persistent!))))
 
 (defn hash-join [rel1 hash1 join-syms rel2]
@@ -743,10 +741,24 @@
       (assoc context :default-source-symbol (:symbol source))
       context)))
 
+
+(defn check-bound [context syms form]
+  (let [context-syms (-> #{}
+                         (into (keys (:consts context)))
+                         (into (mapcat -symbols) (:rels context)))]
+    (when-not (set/subset? syms context-syms)
+      (let [missing (set/difference syms context-syms)]
+        (throw (ex-info (str "Insufficient bindings: " missing " not bound in " form)
+                        {:error :query/where
+                         :form  form
+                         :vars  missing}))))))
+                           
+
 (defn resolve-not [context clause]
   (perf/measure
     (let [{:keys [source vars clauses]} clause
           syms      (into #{} (map :symbol) vars)
+          _         (check-bound context syms (dp/source clause))
           context*  (-> context
                       (project-context syms) ;; sub-context will only see symbols Not is joined by
                       (upd-default-source clause)

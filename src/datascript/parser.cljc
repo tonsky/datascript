@@ -398,7 +398,7 @@
 (deftrecord Or        [source rule-vars clauses])
 (deftrecord And       [clauses])
 
-(declare parse-clause)
+(declare parse-clause parse-clauses)
 
 (defn parse-pattern-el [form]
   (or (parse-placeholder form)
@@ -495,7 +495,7 @@
   (when-let [[source* next-form] (take-source form)]
     (let [[sym & clauses] next-form]
       (when (= 'not sym)
-        (if-let [clauses* (parse-seq parse-clause clauses)]
+        (if-let [clauses* (parse-clauses clauses)]
           (-> (Not. source* (collect-vars-distinct clauses*) clauses*)
               (with-source form)
               (validate-not form))
@@ -507,7 +507,7 @@
     (let [[sym vars & clauses] next-form]
       (when (= 'not-join sym)
         (let [vars*    (parse-seq parse-variable vars)
-              clauses* (parse-seq parse-clause clauses)]
+              clauses* (parse-clauses clauses)]
           (if (and vars* clauses*)
             (-> (Not. source* vars* clauses*)
                 (with-source form)
@@ -527,7 +527,7 @@
 (defn parse-and [form]
   (when (and (sequential? form)
              (= 'and (first form)))
-    (let [clauses* (parse-seq parse-clause (next form))]
+    (let [clauses* (parse-clauses (next form))]
       (if (not-empty clauses*)
         (And. clauses*)
         (raise "Cannot parse 'and' clause, expected [ 'and' clause+ ]"
@@ -548,12 +548,40 @@
     (let [[sym vars & clauses] next-form]
       (when (= 'or-join sym)
         (let [vars*    (parse-rule-vars vars)
-              clauses* (parse-seq parse-clause clauses)]
+              clauses* (parse-clauses clauses)]
           (if (and vars* clauses*)
             (-> (Or. source* vars* clauses*)
                 (validate-or form))
             (raise "Cannot parse 'or-join' clause, expected [ src-var? 'or-join' [variable+] clause+ ]"
                    {:error :parser/where, :form form})))))))
+
+
+#_(defn reorder-nots [parent-vars clauses]
+  (loop [acc     []
+         clauses clauses
+         vars    (set parent-vars)
+         pending []]
+    (if-let [sufficient (not-empty (filter #(set/subset? (set (:vars %)) vars) pending))]
+      (recur (into acc sufficient)
+             clauses
+             vars
+             (remove (set sufficient) pending))
+      (if-let [clause (first clauses)]
+        (if (instance? Not clause)
+          (recur acc (next clauses) vars (conj pending clause))
+          (recur (conj acc clause)
+                 (next clauses)
+                 (into vars (collect-vars clause))
+                 pending))
+        (if (empty? pending)
+          acc
+          (let [not     (first pending)
+                missing (->> (set/difference (set (:vars not)) vars)
+                             (into #{} (map :symbol)))]
+            (throw (ex-info (str "Insufficient bindings: " missing " are not bound in clause " (source not))
+                            {:error :parser/where
+                             :form  (source not)
+                             :vars  missing}))))))))
 
 
 (defn parse-clause [form]
@@ -569,8 +597,11 @@
       (raise "Cannot parse clause, expected (data-pattern | pred-expr | fn-expr | rule-expr | not-clause | not-join-clause | or-clause | or-join-clause)"
              {:error :parser/where, :form form} )))
 
+(defn parse-clauses [clauses]
+  (parse-seq parse-clause clauses))
+
 (defn parse-where [form]
-  (or (parse-seq parse-clause form)
+  (or (parse-clauses form)
       (raise "Cannot parse :where clause, expected [clause+]"
              {:error :parser/where, :form form})))
 
@@ -599,7 +630,7 @@
                            (raise "Cannot parse rule name, expected plain-symbol"
                                   {:error :parser/rule, :form form}))
               vars*    (parse-rule-vars vars)
-              clauses* (or (not-empty (parse-seq parse-clause clauses))
+              clauses* (or (not-empty (parse-clauses clauses))
                            (raise "Rule branch should have clauses"
                                   {:error :parser/rule, :form form}))]
             (validate-vars vars* clauses* form)
