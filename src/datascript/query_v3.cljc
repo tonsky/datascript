@@ -161,7 +161,8 @@
   (-size       [_])
   (-getter     [_ symbol])
   (-indexes    [_ symbols])
-  (-copy-tuple [_ tuple idxs target target-idxs]))
+  (-copy-tuple [_ tuple idxs target target-idxs])
+  (-union      [_ rel]))
 
 ;; (defn- #?@(:clj  [^long hash-arr]
 ;;            :cljs [^number  hash-arr]) [arr]
@@ -240,7 +241,11 @@
     (mapa offset-map syms))
   (-copy-tuple [_ tuple idxs target target-idxs]
     (dotimes [i (shim/alength idxs)]
-      (shim/aset target (shim/aget target-idxs i) (shim/aget tuple (shim/aget idxs i))))))
+      (shim/aset target (shim/aget target-idxs i) (shim/aget tuple (shim/aget idxs i)))))
+  (-union [_ rel]
+    (assert (instance? ArrayRelation rel))
+    (assert (= offset-map (:offset-map rel)))
+    (ArrayRelation. offset-map (concat coll (:coll rel)))))
 
 #?(:clj
    (defmethod print-method ArrayRelation [rel w]
@@ -272,7 +277,11 @@
     (mapa offset-map syms))
   (-copy-tuple [_ tuple idxs target target-idxs]
     (dotimes [i (shim/alength idxs)]
-      (shim/aset target (shim/aget target-idxs i) (nth tuple (shim/aget idxs i))))))
+      (shim/aset target (shim/aget target-idxs i) (nth tuple (shim/aget idxs i)))))
+  (-union [_ rel]
+    (assert (instance? CollRelation rel))
+    (assert (= offset-map (:offset-map rel)))
+    (CollRelation. offset-map (concat coll (:coll rel)))))
 
 (defn coll-rel [symbols coll]
   (let [offset-map (reduce-kv
@@ -390,13 +399,6 @@
   (reduce product rels)) ;; TODO check for empty rels
 
 
-;; union
-
-
-(defn union [rel1 rel2]
-  (throw (ex-info "Not implemented" [rel1 rel2])))
-
-
 ;; hash-join
 
 
@@ -424,6 +426,7 @@
               (do (conj! old t) hash))))
         (transient (fast-map)))
      (persistent!))))
+
 
 (defn hash-join [rel1 hash1 join-syms rel2]
   (let [syms1       (-symbols rel1)
@@ -454,10 +457,13 @@
                       (fast-arr))]
     (array-rel full-syms (persistent! coll))))
 
+
 ;;; Bindings
+
 
 (defn- bindable-to-seq? [x]
   (or (shim/seqable? x) (shim/array? x)))
+
 
 (defn- plain-tuple-binding? [binding]
   (and (instance? BindTuple binding)
@@ -465,17 +471,21 @@
                     (instance? BindIgnore %))
                (:bindings binding))))
 
+
 (defprotocol IBinding
   (-in->rel [binding value]))
+
 
 (extend-protocol IBinding
   BindIgnore
   (-in->rel [_ _]
     (singleton-rel))
   
+  
   BindScalar
   (-in->rel [binding value]
     (array-rel [(get-in binding [:variable :symbol])] [(shim/array value)]))
+  
   
   BindColl
   (-in->rel [binding coll]
@@ -498,7 +508,7 @@
 
         ;; something more complex, fallback to generic case
         :else
-          (reduce union
+          (reduce -union
             (map #(-in->rel inner-binding %) coll)))))
   
   BindTuple
@@ -793,7 +803,7 @@
           (if (empty? non-consts)
             context ;; join was by constants only, nothing changes
             (let [sets (map #(collect % non-consts) contexts)
-                  rel  (coll-rel non-consts (into (fast-set) cat sets))]
+                  rel  (coll-rel non-consts (into (first sets) cat (next sets)))]
               (hash-join-rel context rel))))))
     "resolve-or" (dp/source clause)))
 
