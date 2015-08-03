@@ -432,14 +432,16 @@
 (defn parse-pred [form]
   (when (of-size? form 1)
     (when-let [[fn* args*] (parse-call (first form))]
-      (Predicate. fn* args*))))
+      (-> (Predicate. fn* args*)
+          (with-source form)))))
 
 (defn parse-fn [form]
   (when (of-size? form 2)
     (let [[call binding] form]
       (when-let [[fn* args*] (parse-call call)]
         (when-let [binding* (parse-binding binding)]
-          (Function. fn* args* binding*))))))
+          (-> (Function. fn* args* binding*)
+              (with-source form)))))))
 
 (defn parse-rule-expr [form]
   (when-let [[source* next-form] (take-source form)]

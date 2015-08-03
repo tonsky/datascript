@@ -78,6 +78,20 @@
 ;; (require 'datascript.test.query-not :reload)
 ;; (clojure.test/test-ns 'datascript.test.query-not)
 
+(bench "pred"
+  '[:find ?e ?a
+    :where [?e :age ?a]
+           [(> ?a 5)]]
+  db)
+
+(bench "join + pred"
+  '[:find ?e ?e2
+    :where [?e  :name "Ivan"]
+           [?e2 :name "Ivan"]
+           [(not= ?e ?e2)]]
+  db)
+
+
 (bench "prod + join"
         '[:find ?e ?e2 ?a ?a2
          :where [?e :name "Ivan"]

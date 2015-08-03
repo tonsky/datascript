@@ -3,11 +3,12 @@
     [clojure.set :as set]
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.query :as dq]
     [datascript.lru :as lru]
     [datascript.shim :as shim]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable
-                                                 Not Or And]])]
+                                                 Not Or And Predicate PlainSymbol]])]
     [datascript.btset :as btset #?@(:cljs [:refer [Iter]])]
     [datascript.perf :as perf])
   #?(:clj
@@ -15,12 +16,12 @@
       [datascript.parser
         BindColl BindIgnore BindScalar BindTuple
         Constant DefaultSrc Pattern RulesVar SrcVar Variable
-        Not Or And]
+        Not Or And Predicate PlainSymbol]
       [clojure.lang     IReduceInit Counted]
       [datascript.core  Datom]
       [datascript.btset Iter])))
 
-(declare resolve-clauses collect-to)
+(declare resolve-clauses collect-rel-xf collect-to)
 
 (def ^:const lru-cache-size 100)
 
@@ -500,7 +501,7 @@
        
         ;; [?x ...] type of binding
         (instance? BindScalar inner-binding)
-          (coll-rel [inner-binding] coll)
+          (coll-rel [inner-binding] (map vector coll)) ;; Coll1Rel?
        
         ;; [[?x ?y] ...] type of binding
         (plain-tuple-binding? inner-binding)
@@ -642,7 +643,7 @@
          (filter #(some syms (-symbols %))))))
 
 
-(defn extract-rel [context syms]
+(defn extract-rels [context syms]
   (let [syms      (set syms)
         rels      (:rels context)
         related?  #(some syms (-symbols %))
@@ -650,7 +651,7 @@
     (if (empty? related)
       [nil context]
       (let [unrelated (remove related? rels)]
-        [(product-all related) (assoc context :rels unrelated)]))))
+        [related (assoc context :rels unrelated)]))))
 
 
 (defn join-unrelated [context rel]
@@ -665,12 +666,13 @@
 (defn hash-join-rel [context rel]
   (if (== 0 (-size rel))
     empty-context
-    (let [syms                   (set (-symbols rel))
-          [related-rel context*] (extract-rel context syms)]
-      (if (nil? related-rel)
+    (let [syms                    (set (-symbols rel))
+          [related-rels context*] (extract-rels context syms)]
+      (if (empty? related-rels)
         (join-unrelated context rel)
         (perf/measure
-          (let [join-syms   (set/intersection syms (set (-symbols related-rel)))
+          (let [related-rel (product-all related-rels)
+                join-syms   (set/intersection syms (set (-symbols related-rel)))
                 _           (perf/debug (-symbols rel)
                                         "to" (-symbols related-rel)
                                         "over" join-syms)
@@ -747,9 +749,10 @@
       (if (empty? syms*) ;; join happened by constants only
         empty-context    ;; context2 is not-empty, meaning it satisfied constans,
                          ;; meaning we proved constants in context1 do not match
-        (let [[rel1 context1*] (extract-rel context1 syms*)
-              set2             (collect-opt context2 syms*)
-              rel1*            (subtract-from-rel rel1 syms* set2)]
+        (let [[rels1 context1*] (extract-rels context1 syms*)
+              rel1              (product-all rels1)
+              set2              (collect-opt context2 syms*)
+              rel1*             (subtract-from-rel rel1 syms* set2)]
           (join-unrelated context1* rel1*))))))
 
 
@@ -763,7 +766,8 @@
 (defn check-bound [context syms form]
   (let [context-syms (-> #{}
                          (into (keys (:consts context)))
-                         (into (mapcat -symbols) (:rels context)))]
+                         (into (mapcat -symbols) (:rels context))
+                         (into (keys (:sources context))))]
     (when-not (set/subset? syms context-syms)
       (let [missing (set/difference (set syms) context-syms)]
         (throw (ex-info (str "Insufficient bindings: " missing " not bound in " form)
@@ -802,10 +806,86 @@
         (let [non-consts (set/difference syms (set (keys (:consts context))))]
           (if (empty? non-consts)
             context ;; join was by constants only, nothing changes
-            (let [arrays (map #(collect-to % non-consts (fast-arr) []) contexts)
+            (let [arrays (map #(collect-to % non-consts (fast-arr)) contexts)
                   rel    (array-rel non-consts (into (first arrays) cat (next arrays)))]
               (hash-join-rel context rel))))))
     "resolve-or" (dp/source clause)))
+
+
+(defn collect-args! [context args target form]
+  (let [consts  (:consts context)
+        sources (:sources context)]
+    (doseq [[arg i] (shim/zip args (range))
+            :let [sym (:symbol arg)]]
+      (cond
+        (instance? Variable arg)
+          (when (contains? consts sym)
+            (shim/aset target i (get consts sym)))
+        (instance? SrcVar arg)
+          (if (contains? sources sym)
+            (shim/aset target i (get sources sym))
+            (throw (ex-info (str "Unbound source variable: " sym " in " form)
+                            { :error :query/where, :form form, :var sym })))
+        (instance? Constant arg)
+          (shim/aset target i (:value arg))))))
+
+
+(defn get-f [context fun form]
+  (let [sym (:symbol fun)]
+    (if (instance? PlainSymbol fun)
+      (or (get dq/built-ins sym)
+          (throw (ex-info (str "Unknown built-in " sym " in " form)
+                          {:error :query/where, :form form, :var sym})))
+      (or (get (:consts context) sym) ;; variable then
+          (throw (ex-info (str "Unknown function " sym " in " form)
+                          {:error :query/where, :form form, :var sym}))))))
+
+
+(defn resolve-predicate [context clause]
+  (perf/measure
+    (let [{fun :fn, args :args} clause
+          form      (dp/source clause)
+          f         (get-f context fun form)
+          args-arr  (shim/make-array (count args))
+          _         (collect-args! context args args-arr form)
+          consts    (:consts context)
+          sym+idx   (for [[arg i] (shim/zip args (range))
+                          :when   (instance? Variable arg)
+                          :let    [sym (:symbol arg)]
+                          :when   (not (contains? consts sym))]
+                      [sym i])
+          args-syms (map first sym+idx)
+          args-idxs (mapa second sym+idx)
+          _         (check-bound context args-syms form)]
+      (if (empty? args-syms) ;; only constants
+        (if (apply f (vec args-arr))
+          context
+          empty-context)
+        (let [[rels context*] (extract-rels context args-syms)]
+          (if (== 1 (count rels))
+            (let [rel  (first rels)
+                  idxs (-indexes rel args-syms)
+                  pred (fn [tuple]
+                         (-copy-tuple rel tuple idxs args-arr args-idxs)
+                         (apply f (vec args-arr)))
+                  rel* (-alter-coll rel #(filterv pred %))]
+              (join-unrelated context* rel*))
+            (let [prod-syms    (mapcat -symbols rels)
+                  prod-sym+idx (shim/zip prod-syms (range))
+                  xfs          (map #(collect-rel-xf prod-sym+idx %) rels)
+                  prod-rel     (array-rel prod-syms [])
+
+                  idxs         (-indexes prod-rel args-syms)
+                  pred         (fn [tuple]
+                                 (-copy-tuple prod-rel tuple idxs args-arr args-idxs)
+                                 (apply f (vec args-arr)))
+
+                  array        (into (fast-arr)
+                                 (apply comp (concat xfs [(filter pred)]))
+                                 [(shim/make-array (count prod-syms))])
+                  prod-rel*    (array-rel prod-syms array)]
+          (join-unrelated context* prod-rel*))))))
+    "resolve-predicate" (dp/source clause)))
 
 
 (extend-protocol IClause
@@ -819,8 +899,11 @@
   (-resolve-clause [clause context]
     (resolve-or context clause))
   And
-   (-resolve-clause [clause context]
-     (resolve-clauses context (:clauses clause))))
+  (-resolve-clause [clause context]
+    (resolve-clauses context (:clauses clause)))
+  Predicate
+  (-resolve-clause [clause context]
+    (resolve-predicate context clause)))
 
 
 (defn println-context [context]
@@ -850,10 +933,10 @@
       (let [val (get consts sym)]
         (shim/aset specimen i val)))))
 
-
+        
 (defn collect-rel-xf [syms-indexed rel]
   (let [sym+idx     (for [[sym i] syms-indexed
-                            :when (shim/has? (-symbols rel) sym)]
+                          :when (shim/has? (-symbols rel) sym)]
                       [sym i])
         idxs        (-indexes rel (map first sym+idx))
         target-idxs (mapa second sym+idx)]
@@ -871,18 +954,22 @@
             result))))))
 
 
-(defn collect-to [context syms acc xfs]
-  (perf/measure
-    (if (:empty? context)
-      acc
-      (let [syms-indexed (vec (shim/zip syms (range)))
-            specimen     (shim/make-array (count syms))
-            _            (collect-consts syms-indexed specimen (:consts context))
-            related-rels (related-rels context syms)
-            xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
-                             (concat xfs))]
-        (into acc (apply comp xfs) [specimen])))
-   "collect-to"))
+(defn collect-to
+  ([context syms acc]
+   (collect-to context syms acc [] (shim/make-array (count syms))))
+  ([context syms acc xfs]
+   (collect-to context syms acc xfs (shim/make-array (count syms))))
+  ([context syms acc xfs specimen]
+    (perf/measure
+      (if (:empty? context)
+        acc
+        (let [syms-indexed (vec (shim/zip syms (range)))
+              _            (collect-consts syms-indexed specimen (:consts context))
+              related-rels (related-rels context syms)
+              xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
+                               (concat xfs))]
+          (into acc (apply comp xfs) [specimen])))
+     "collect-to")))
 
 
 ;; Query

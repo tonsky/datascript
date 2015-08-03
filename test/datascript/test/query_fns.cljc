@@ -4,11 +4,12 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.query-v3 :as q]
     [datascript.test.core :as tdc]))
 
 (deftest test-query-fns
   (testing "predicate without free variables"
-    (is (= (d/q '[:find ?x
+    (is (= (q/q '[:find ?x
                   :in [?x ...]
                   :where [(> 2 1)]] [:a :b :c])
            #{[:a] [:b] [:c]})))
@@ -38,28 +39,28 @@
              #{[1 15] [2 240] [3 37]})))
 
     (testing "missing?"
-      (is (= (d/q '[:find ?e ?age
+      (is (= (q/q '[:find ?e ?age
                     :in $
                     :where [?e :age ?age]
                            [(missing? $ ?e :height)]] db)
              #{[1 15] [3 37]})))
 
     (testing "missing? back-ref"
-      (is (= (d/q '[:find ?e
+      (is (= (q/q '[:find ?e
                     :in $
                     :where [?e :age ?age]
                     [(missing? $ ?e :_parent)]] db)
              #{[3]})))
 
     (testing "Built-in predicate"
-      (is (= (d/q '[:find  ?e1 ?e2
+      (is (= (q/q '[:find  ?e1 ?e2
                     :where [?e1 :age ?a1]
                            [?e2 :age ?a2]
                            [(< ?a1 18 ?a2)]] db)
              #{[1 2] [1 3]})))
 
     (testing "Passing predicate as source"
-      (is (= (d/q '[:find  ?e
+      (is (= (q/q '[:find  ?e
                     :in    $ ?adult
                     :where [?e :age ?a]
                            [(?adult ?a)]]
@@ -108,3 +109,59 @@
                   [])
              #{})))
 ))
+
+(deftest test-predicates
+  (let [entities [{:db/id 1 :name "Ivan" :age 10}
+                  {:db/id 2 :name "Ivan" :age 20}
+                  {:db/id 3 :name "Oleg" :age 10}
+                  {:db/id 4 :name "Oleg" :age 20}]
+        db (d/db-with (d/empty-db) entities)]
+    (are [q res] (= (q/q (quote q) db) res)
+      ;; plain predicate
+      [:find  ?e ?a
+       :where [?e :age ?a]
+              [(> ?a 10)]]
+      #{[2 20] [4 20]}
+
+      ;; join in predicate
+      [:find  ?e ?e2
+       :where [?e  :name]
+              [?e2 :name]
+              [(< ?e ?e2)]]
+      #{[1 2] [1 3] [1 4] [2 3] [2 4] [3 4]}
+         
+      ;; join with extra symbols
+      [:find  ?e ?e2
+       :where [?e  :age ?a]
+              [?e2 :age ?a2]
+              [(< ?e ?e2)]]
+      #{[1 2] [1 3] [1 4] [2 3] [2 4] [3 4]}
+      
+      ;; empty result
+      [:find  ?e ?e2
+       :where [?e  :name "Ivan"]
+              [?e2 :name "Oleg"]
+              [(= ?e ?e2)]]
+      #{}
+         
+      ;; pred over const, true
+      [:find  ?e
+       :where [?e :name "Ivan"]
+              [?e :age 20]
+              [(= ?e 2)]]
+      #{[2]}
+
+      ;; pred over const, false
+      [:find  ?e
+       :where [?e :name "Ivan"]
+              [?e :age 20]
+              [(= ?e 1)]]
+      #{})
+    (let [pred (fn [db e a]
+                 (= a (:age (d/entity db e))))]
+      (is (= (q/q '[:find ?e
+                    :in $ ?pred
+                    :where [?e :age ?a]
+                           [(?pred $ ?e 10)]]
+                  db pred)
+             #{[1] [3]})))))
