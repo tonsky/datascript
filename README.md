@@ -58,7 +58,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ```clj
 :dependencies [
   [org.clojure/clojure "1.7.0"]
-  [org.clojure/clojurescript "0.0-3291"]
+  [org.clojure/clojurescript "1.7.28"]
   [datascript "0.11.6"]
 ]
 ```
