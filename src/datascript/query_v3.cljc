@@ -459,75 +459,63 @@
     (array-rel full-syms (persistent! coll))))
 
 
-;;; Bindings
+;; Bindings
 
 
 (defn- bindable-to-seq? [x]
   (or (shim/seqable? x) (shim/array? x)))
 
 
-(defn- plain-tuple-binding? [binding]
-  (and (instance? BindTuple binding)
-       (every? #(or (instance? BindScalar %)
-                    (instance? BindIgnore %))
-               (:bindings binding))))
+(defn- bind! [tuples binding source indexes]
+  (condp instance? binding
+
+    BindIgnore
+      tuples
+
+    BindScalar
+      (let [symbol (get-in binding [:variable :symbol])
+            idx    (get indexes symbol)]
+        (run! #(shim/aset % idx source) tuples)
+        tuples)
+
+    BindColl
+      (if (not (bindable-to-seq? source))
+        (dc/raise "Cannot bind value " source " to collection " (dp/source binding)
+                  {:error :query/binding, :value source, :binding (dp/source binding)})
+        (let [inner-binding (:binding binding)]
+          (case (count source)
+            0 []
+            1 (bind! tuples inner-binding (first source) indexes)
+              (into [] ;; TODO fast-arr
+                (comp (map #(bind! tuples inner-binding % indexes))
+                      cat
+                      (map shim/aclone))
+                source))))
+
+    BindTuple
+    (let [bindings (:bindings binding)]
+      (when-not (bindable-to-seq? source)
+        (dc/raise "Cannot bind value " source " to tuple " (dp/source binding)
+                  {:error :query/binding, :value source, :binding (dp/source binding)}))
+      (when (< (count source) (count bindings))
+        (dc/raise "Not enough elements in a collection " source " to bind tuple " (dp/source binding)
+                  {:error :query/binding, :value source, :binding (dp/source binding)}))
+      (reduce (fn [ts [b s]]
+                (bind! ts b s indexes))
+              tuples
+              (shim/zip bindings source)))
+    
+    :else
+      (dc/raise "Unknown binding form " (dp/source binding)
+               {:error :query/binding, :value source, :binding (dp/source binding)})))
 
 
-(defprotocol IBinding
-  (-in->rel [binding value]))
+(defn bind [binding source]
+  (let [syms    (map :symbol (dp/collect-vars-distinct binding))
+        indexes (zipmap syms (range))
+        tuples  (bind! [(shim/make-array (count syms))] binding source indexes)]
+    (array-rel syms tuples)))
 
-
-(extend-protocol IBinding
-  BindIgnore
-  (-in->rel [_ _]
-    (singleton-rel))
-  
-  
-  BindScalar
-  (-in->rel [binding value]
-    (array-rel [(get-in binding [:variable :symbol])] [(shim/array value)]))
-  
-  
-  BindColl
-  (-in->rel [binding coll]
-    (let [inner-binding (:binding binding)]
-      (cond
-        (not (bindable-to-seq? coll))
-          (dc/raise "Cannot bind value " coll " to collection " (dp/source binding)
-                 {:error :query/binding, :value coll, :binding (dp/source binding)})
-       
-        (empty? coll)
-          (coll-rel (dp/collect-vars-distinct binding) [])
-       
-        ;; [?x ...] type of binding
-        (instance? BindScalar inner-binding)
-          (coll-rel [inner-binding] (map vector coll)) ;; Coll1Rel?
-       
-        ;; [[?x ?y] ...] type of binding
-        (plain-tuple-binding? inner-binding)
-          (coll-rel (:bindings inner-binding) coll)
-
-        ;; something more complex, fallback to generic case
-        :else
-          (reduce -union
-            (map #(-in->rel inner-binding %) coll)))))
-  
-  BindTuple
-  (-in->rel [binding coll]
-    (cond
-      (not (bindable-to-seq? coll))
-        (dc/raise "Cannot bind value " coll " to tuple " (dp/source binding)
-               {:error :query/binding, :value coll, :binding (dp/source binding)})
-      (< (count coll) (count (:bindings binding)))
-        (dc/raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
-               {:error :query/binding, :value coll, :binding (dp/source binding)})
-      ;; [?x ?y] type of binding
-      (plain-tuple-binding? binding)
-        (coll-rel (:bindings binding) [coll])
-      ;; fallback to generic case
-      :else
-        (product-all
-          (map #(-in->rel %1 %2) (:bindings binding) coll)))))
 
 (defn- rel->consts [rel]
   {:pre [(== (-size rel) 1)]}
@@ -544,7 +532,7 @@
 ;;          (instance? RulesVar (:variable binding)))
 ;;       (assoc context :rules (parse-rules value))
     :else
-      (let [rel (-in->rel binding value)]
+      (let [rel (bind binding value)]
         (if (== 1 (-size rel))
           (update-in context [:consts] merge (rel->consts rel))
           (update-in context [:rels] conj rel)))))
@@ -960,6 +948,7 @@
   ([context syms acc xfs]
    (collect-to context syms acc xfs (shim/make-array (count syms))))
   ([context syms acc xfs specimen]
+    ;; TODO don't collect if array-rel and matches symbols
     (perf/measure
       (if (:empty? context)
         acc

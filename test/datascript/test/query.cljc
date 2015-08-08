@@ -4,6 +4,7 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript :as d]
     [datascript.core :as dc]
+    [datascript.query-v3 :as q]
     [datascript.test.core :as tdc])
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
@@ -122,7 +123,7 @@
                           { :db/id 2, :name  "Petr", :age   37 }
                           { :db/id 3, :name  "Ivan", :age   37 }]))]
     (testing "Relation binding"
-      (is (= (d/q '[:find  ?e ?email
+      (is (= (q/q '[:find  ?e ?email
                     :in    $ [[?n ?email]]
                     :where [?e :name ?n]]
                   db
@@ -133,7 +134,7 @@
                [3 "ivan@mail.ru"]})))
 
     (testing "Tuple binding"
-      (is (= (d/q '[:find  ?e
+      (is (= (q/q '[:find  ?e
                     :in    $ [?name ?age]
                     :where [?e :name ?name]
                            [?e :age ?age]]
@@ -141,48 +142,50 @@
              #{[3]})))
 
     (testing "Collection binding"
-      (is (= (d/q '[:find  ?attr ?value
+      (is (= (q/q '[:find  ?attr ?value
                     :in    $ ?e [?attr ...]
                     :where [?e ?attr ?value]]
                   db 1 [:name :age])
              #{[:name "Ivan"] [:age 15]})))
 
     (testing "Empty coll handling"
-      (is (= (d/q '[:find ?id
+      (is (= (q/q '[:find ?id
                     :in $ [?id ...]
                     :where [?id :age _]]
                [[1 :name "Ivan"]
-                [2 :name "Petr"]])
+                [2 :name "Petr"]]
+               [])
              #{}))
-      (is (= (d/q '[:find ?id
+      (is (= (q/q '[:find ?id
                     :in $ [[?id]]
                     :where [?id :age _]]
                [[1 :name "Ivan"]
-                [2 :name "Petr"]])
+                [2 :name "Petr"]]
+               [])
              #{})))
     
     (testing "Placeholders"
-      (is (= (d/q '[:find ?x ?z
+      (is (= (q/q '[:find ?x ?z
                     :in [?x _ ?z]]
                   [:x :y :z])
              #{[:x :z]}))
-      (is (= (d/q '[:find ?x ?z
+      (is (= (q/q '[:find ?x ?z
                     :in [[?x _ ?z]]]
                   [[:x :y :z] [:a :b :c]])
              #{[:x :z] [:a :c]})))
     
     (testing "Error reporting"
       (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to tuple \[\?a \?b\]"
-            (d/q '[:find ?a ?b :in [?a ?b]] :a)))
+            (q/q '[:find ?a ?b :in [?a ?b]] :a)))
       (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to collection \[\?a \.\.\.\]"
-            (d/q '[:find ?a :in [?a ...]] :a)))
+            (q/q '[:find ?a :in [?a ...]] :a)))
       (is (thrown-with-msg? ExceptionInfo #"Not enough elements in a collection \[:a\] to bind tuple \[\?a \?b\]"
-            (d/q '[:find ?a ?b :in [?a ?b]] [:a]))))
+            (q/q '[:find ?a ?b :in [?a ?b]] [:a]))))
 
 ))
         
 (deftest test-nested-bindings
-  (is (= (d/q '[:find  ?k ?v
+  (is (= (q/q '[:find  ?k ?v
                 :in    [[?k ?v] ...]
                 :where [(> ?v 1)]]
               {:a 1, :b 2, :c 3})
@@ -207,3 +210,6 @@
               range)
          #{[:a 2] [:a 4] [:a 6]
            [:b 2]})))
+
+#_(require 'datascript.test.query :reload)
+#_(clojure.test/test-ns 'datascript.test.query)
