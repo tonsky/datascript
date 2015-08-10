@@ -514,6 +514,11 @@
                      :key k
                      :value v}))))
 
+(def supported-value-types
+  #{:db.type/keyword :db.type/string :db.type/boolean :db.type/long
+    :db.type/bigint :db.type/float :db.type/double :db.type/bigdec :db.type/ref
+    :db.type/instant :db.type/uuid :db.type/uri :db.type/bytes})
+
 (defn- validate-schema [schema]
   (doseq [[a kv] schema]
     (let [comp? (:db/isComponent kv false)]
@@ -524,7 +529,7 @@
                          :attribute a
                          :key       :db/isComponent}))))
     (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
-    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
+    (validate-schema-key a :db/valueType (:db/valueType kv) supported-value-types)
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
   schema)
 
