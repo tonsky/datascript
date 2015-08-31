@@ -6,7 +6,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.7.0" :scope "provided"]
-    [org.clojure/clojurescript "0.0-3308" :scope "provided"]
+    [org.clojure/clojurescript "1.7.122" :scope "provided"]
   ]
   
   :global-vars {
@@ -48,9 +48,7 @@
           { :id "advanced"
             :source-paths ["src" "bench/src" "test"]
             :compiler {
-              :main          datascript.test
               :output-to     "target/datascript.js"
-;;               :output-dir    "target/advanced"
               :optimizations :advanced
               :source-map    "target/datascript.js.map"
               :pretty-print  true

@@ -1,6 +1,7 @@
 #!/usr/local/bin/node
 
-var fs = require('fs');
+var fs = require('fs'),
+    vm = require('vm');
 
 global.performance = { now: function () {
   var t = process.hrtime();
@@ -15,7 +16,7 @@ global.CLOSURE_IMPORT_SCRIPT = function(src) {
 };
 
 function nodeGlobalRequire(file) {
-  process.binding('evals').NodeScript.runInThisContext.call(global, fs.readFileSync(file), file);
+  vm.runInThisContext.call(global, fs.readFileSync(file), file);
 }
 
 if (fs.existsSync("./target/none")) {
