@@ -63,6 +63,8 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ]
 ```
 
+_WARN:_ *ClojureScript versions 1.7.48, 1.7.58 and 1.7.107 [break DataScript](https://github.com/tonsky/datascript/issues/108). Use either 1.7.28, 1.7.122 or newer*
+
 _Note:_ DataScript 0.11.3 and later requires CLJS 0.0-3291 or later
 
 _Note:_ DataScript 0.11.2 and later requires Clojure 1.7.0-beta2 or later
