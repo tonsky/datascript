@@ -2,7 +2,7 @@
 
 > What if creating a database would be as cheap as creating a Hashmap?
 
-An immutable in-memory database and Datalog query engine in ClojureScript.
+An immutable in-memory database and Datalog query engine in Clojure and ClojureScript.
 
 DataScript is meant to run inside the browser. It is cheap to create, quick to query and ephemeral. You create a database on page load, put some data in it, track changes, do queries and forget about it when the user closes the page.
 
@@ -230,10 +230,10 @@ Expected soon:
 ## Differences from Datomic
 
 * DataScript is built totally from scratch and is not related by any means to the popular Clojure database Datomic
-* Runs in a browser
+* Runs in a browser and/or in a JVM
 * Simplified schema, not queryable
-* Attributes do not have to be declared by default
-* Any type can be used for values. It’s better if values are immutable and fast to compare
+* Attributes do not have to be declared in advance. Put them to schema only when you need special behaviour from them
+* Any type can be used for values
 * No `:db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
 
 * No schema migrations

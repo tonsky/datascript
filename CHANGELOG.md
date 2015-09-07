@@ -1,6 +1,16 @@
 # WIP
 
-- [ BREAKING ] Values you put to database under the same attribute should be comparable. Maps and list are not comparable by default, and vectors are compared value-by-value
+[ BREAKING ] Introducing new `:db/index` schema attribute:
+
+- Attributes are not put to AVET _by default_ anymore
+- Following attributes are put to AVET:
+
+  - `:db/index true`
+  - `:db/unique :db.unique/identity`
+  - `:db/unique :db.unique/value`
+  - `:db/valueType :db.type/ref`
+
+- All attributes put to AVET should be comparable. Note: maps and list are not comparable by default, vectors are compared value-by-value
 - [ BREAKING ] Min/max aggregation functions will only work on a comaparable values
 
 # 0.11.6
