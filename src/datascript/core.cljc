@@ -307,26 +307,24 @@
      :clj
      (compare a1 a2)))
 
-(def cmp-val-quick compare)
-
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (- (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (cmp-val-quick  (.-v d1) (.-v d2))
+    (compare (.-v d1) (.-v d2))
     (- (.-tx d1) (.-tx d2))))
 
 (defn cmp-datoms-aevt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (- (.-e d1) (.-e d2))
-    (cmp-val-quick (.-v d1) (.-v d2))
+    (compare (.-v d1) (.-v d2))
     (- (.-tx d1) (.-tx d2))))
 
 (defn cmp-datoms-avet-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (cmp-val-quick  (.-v d1) (.-v d2))
+    (compare (.-v d1) (.-v d2))
     (- (.-e d1) (.-e d2))
     (- (.-tx d1) (.-tx d2))))
 
@@ -348,7 +346,7 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern)
+(declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern indexed?)
 
 (defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
   #?@(:cljs
@@ -393,12 +391,19 @@
                          (->> (btset/slice eavt (Datom. e nil nil nil nil))    ;; e _ _ tx
                               (filter (fn [^Datom d] (= tx (.-tx d)))))
                          (btset/slice eavt (Datom. e nil nil nil nil))         ;; e _ _ _
-                         (->> (btset/slice avet (Datom. nil a v nil nil))      ;; _ a v tx
+                         (if (indexed? db a)                                   ;; _ a v tx
+                           (->> (btset/slice avet (Datom. nil a v nil nil))      
+                                (filter (fn [^Datom d] (= tx (.-tx d)))))
+                           (->> (btset/slice aevt (Datom. nil a nil nil nil))
+                                (filter (fn [^Datom d] (and (= v (.-v d))
+                                                            (= tx (.-tx d)))))))
+                         (if (indexed? db a)                                   ;; _ a v _
+                           (btset/slice avet (Datom. nil a v nil nil))
+                           (->> (btset/slice aevt (Datom. nil a nil nil nil))
+                                (filter (fn [^Datom d] (= v (.-v d))))))
+                         (->> (btset/slice aevt (Datom. nil a nil nil nil))    ;; _ a _ tx
                               (filter (fn [^Datom d] (= tx (.-tx d)))))
-                         (btset/slice avet (Datom. nil a v nil nil))           ;; _ a v _
-                         (->> (btset/slice avet (Datom. nil a nil nil nil))    ;; _ a _ tx
-                              (filter (fn [^Datom d] (= tx (.-tx d)))))
-                         (btset/slice avet (Datom. nil a nil nil nil))         ;; _ a _ _
+                         (btset/slice aevt (Datom. nil a nil nil nil))         ;; _ a _ _
                          (filter (fn [^Datom d] (and (= v (.-v d))
                                                      (= tx (.-tx d)))) eavt)   ;; _ _ v tx
                          (filter (fn [^Datom d] (= v (.-v d))) eavt)           ;; _ _ v _
@@ -486,10 +491,11 @@
 (defn attr->properties [k v]
   (cond
     (= [k v] [:db/isComponent true]) [:db/isComponent]
-    (= v :db.type/ref)               [:db.type/ref]
+    (= v :db.type/ref)               [:db.type/ref :db/index]
     (= v :db.cardinality/many)       [:db.cardinality/many]
-    (= v :db.unique/identity)        [:db/unique :db.unique/identity]
-    (= v :db.unique/value)           [:db/unique :db.unique/value]))
+    (= v :db.unique/identity)        [:db/unique :db.unique/identity :db/index]
+    (= v :db.unique/value)           [:db/unique :db.unique/value    :db/index]
+    (= [k v] [:db/index true])       [:db/index]))
 
 (defn- multimap [e m]
   (reduce
@@ -673,6 +679,10 @@
           :cljs [^boolean component?]) [db attr]
   (is-attr? db attr :db/isComponent))
 
+(defn #?@(:clj  [^Boolean indexed?]
+          :cljs [^boolean indexed?]) [db attr]
+  (is-attr? db attr :db/index))
+
 (defn entid [db eid]
   {:pre [(db? db)]}
   (cond
@@ -759,17 +769,18 @@
 
 (defn- with-datom [db ^Datom datom]
   (validate-datom db datom)
-  (if (.-added datom)
-    (-> db
-      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
-      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
-      (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
-      (advance-max-eid (.-e datom)))
-    (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
-      (-> db
-        (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
-        (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-        (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)))))
+  (let [indexed? (indexed? db (.-a datom))]
+    (if (.-added datom)
+      (cond-> db
+        true     (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
+        true     (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
+        indexed? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
+        true     (advance-max-eid (.-e datom)))
+      (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
+        (cond-> db
+          true     (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
+          true     (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
+          indexed? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))))))
 
 (defn- transact-report [report datom]
   (-> report

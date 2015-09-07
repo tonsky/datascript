@@ -232,10 +232,10 @@ Expected soon:
 * DataScript is built totally from scratch and is not related by any means to the popular Clojure database Datomic
 * Runs in a browser
 * Simplified schema, not queryable
-* No need to declare attributes except for `:db/cardinality` `:db.cardinality/many` and `:db/valueType` `:db.type/ref`
+* Attributes do not have to be declared by default
 * Any type can be used for values. It’s better if values are immutable and fast to compare
-* No `db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
-* AVET index for all datoms
+* No `:db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
+
 * No schema migrations
 * No cache segments management, no laziness. Entire DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server

@@ -8,7 +8,7 @@
 
 (deftest test-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
-        db (-> (d/empty-db)
+        db (-> (d/empty-db { :age  { :db/index true } })
                (d/db-with [ [:db/add 1 :name "Petr"]
                             [:db/add 1 :age 44]
                             [:db/add 2 :name "Ivan"]
@@ -35,10 +35,7 @@
       (is (= (map dvec (d/datoms db :avet))
              [ [3 :age 11]
                [2 :age 25]
-               [1 :age 44]
-               [2 :name "Ivan"]
-               [1 :name "Petr"]
-               [3 :name "Sergey"] ])))
+               [1 :age 44] ]))) ;; name non-indexed, excluded from avet
 
     (testing "Components filtration"
       (is (= (map dvec (d/datoms db :eavt 1))
@@ -55,7 +52,8 @@
 
 (deftest test-seek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
-        db (-> (d/empty-db)
+        db (-> (d/empty-db { :name { :db/index true }
+                             :age  { :db/index true } })
                (d/db-with [[:db/add 1 :name "Petr"]
                            [:db/add 1 :age 44]
                            [:db/add 2 :name "Ivan"]
@@ -85,7 +83,8 @@
 (deftest test-index-range
   (let [dvec #(vector (:e %) (:a %) (:v %))
         db    (d/db-with
-                (d/empty-db)
+                (d/empty-db { :name { :db/index true}
+                              :age  { :db/index true} })
                 [ { :db/id 1 :name "Ivan"   :age 15 }
                   { :db/id 2 :name "Oleg"   :age 20 }
                   { :db/id 3 :name "Sergey" :age 7 }
