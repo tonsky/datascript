@@ -298,7 +298,7 @@ function test_lookup_refs() {
 }
 
 function test_resolve_current_tx() {
-  var schema = {"created-at": {":db/valueType":   ":db.type/ref"}};
+  var schema = {"created-at": {":db/valueType": ":db.type/ref"}};
   var conn = d.create_conn(schema);
   var tx_report = d.transact(conn, [{"name": "X", "created-at": ":db/current-tx"},
                                     {":db/id": ":db/current-tx", "prop1": "val1"},
@@ -318,7 +318,7 @@ function test_resolve_current_tx() {
 }
 
 
-var people_db = d.db_with(d.empty_db(),
+var people_db = d.db_with(d.empty_db({"age": {":db/index": true}}),
                  [{ ":db/id": 1, "name": "Ivan", "age": 15 },
                   { ":db/id": 2, "name": "Petr", "age": 37 },
                   { ":db/id": 3, "name": "Ivan", "age": 37 }]);
@@ -391,10 +391,7 @@ function test_datoms() {
                    d.datoms(people_db, ":eavt", 1));
   
   assert_eq_datoms([[2, "age", 37, tx0+1],
-                    [3, "age", 37, tx0+1],
-                    [1, "name", "Ivan", tx0+1],
-                    [3, "name", "Ivan", tx0+1],
-                    [2, "name", "Petr", tx0+1]],
+                    [3, "age", 37, tx0+1]],
                    d.seek_datoms(people_db, ":avet", "age", 20));
 }
 

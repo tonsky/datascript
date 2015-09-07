@@ -346,7 +346,7 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern indexed?)
+(declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern indexing?)
 
 (defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
   #?@(:cljs
@@ -391,13 +391,13 @@
                          (->> (btset/slice eavt (Datom. e nil nil nil nil))    ;; e _ _ tx
                               (filter (fn [^Datom d] (= tx (.-tx d)))))
                          (btset/slice eavt (Datom. e nil nil nil nil))         ;; e _ _ _
-                         (if (indexed? db a)                                   ;; _ a v tx
+                         (if (indexing? db a)                                  ;; _ a v tx
                            (->> (btset/slice avet (Datom. nil a v nil nil))      
                                 (filter (fn [^Datom d] (= tx (.-tx d)))))
                            (->> (btset/slice aevt (Datom. nil a nil nil nil))
                                 (filter (fn [^Datom d] (and (= v (.-v d))
                                                             (= tx (.-tx d)))))))
-                         (if (indexed? db a)                                   ;; _ a v _
+                         (if (indexing? db a)                                  ;; _ a v _
                            (btset/slice avet (Datom. nil a v nil nil))
                            (->> (btset/slice aevt (Datom. nil a nil nil nil))
                                 (filter (fn [^Datom d] (= v (.-v d))))))
@@ -412,15 +412,17 @@
 
   IIndexAccess
   (-datoms [db index cs]
-           (btset/slice (get db index) (components->pattern db index cs)))
+    (btset/slice (get db index) (components->pattern db index cs)))
 
   (-seek-datoms [db index cs]
-                (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
+    (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
   (-index-range [db attr start end]
-                (validate-attr attr (list '-index-range 'db attr start end))
-                (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
-                             (resolve-datom db nil attr end nil))))
+    (when-not (indexing? db attr)
+      (raise "Attribute" attr "should be marked as :db/index true"))
+    (validate-attr attr (list '-index-range 'db attr start end))
+    (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
+                 (resolve-datom db nil attr end nil))))
 
 (defn db? [x]
   (and (satisfies? ISearch x)
@@ -679,8 +681,8 @@
           :cljs [^boolean component?]) [db attr]
   (is-attr? db attr :db/isComponent))
 
-(defn #?@(:clj  [^Boolean indexed?]
-          :cljs [^boolean indexed?]) [db attr]
+(defn #?@(:clj  [^Boolean indexing?]
+          :cljs [^boolean indexing?]) [db attr]
   (is-attr? db attr :db/index))
 
 (defn entid [db eid]
@@ -769,18 +771,18 @@
 
 (defn- with-datom [db ^Datom datom]
   (validate-datom db datom)
-  (let [indexed? (indexed? db (.-a datom))]
+  (let [indexing? (indexing? db (.-a datom))]
     (if (.-added datom)
       (cond-> db
-        true     (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
-        true     (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
-        indexed? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
-        true     (advance-max-eid (.-e datom)))
+        true      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
+        true      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
+        indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
+        true      (advance-max-eid (.-e datom)))
       (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
-          true     (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
-          true     (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-          indexed? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))))))
+          true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
+          true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
+          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))))))
 
 (defn- transact-report [report datom]
   (-> report

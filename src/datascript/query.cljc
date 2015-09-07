@@ -173,7 +173,7 @@
     'distinct (comp vec distinct)
     'min      (fn
                 ([coll] (reduce (fn [acc x]
-                                  (if (neg? (dc/cmp-val-quick x acc))
+                                  (if (neg? (compare x acc))
                                     x acc))
                                 (first coll) (next coll)))
                 ([n coll]
@@ -181,14 +181,14 @@
                     (reduce (fn [acc x]
                               (cond
                                 (< (count acc) n)
-                                  (sort dc/cmp-val-quick (conj acc x))
-                                (neg? (dc/cmp-val-quick x (last acc)))
-                                  (sort dc/cmp-val-quick (conj (butlast acc) x))
+                                  (sort compare (conj acc x))
+                                (neg? (compare x (last acc)))
+                                  (sort compare (conj (butlast acc) x))
                                 :else acc))
                             [] coll))))
     'max      (fn
                 ([coll] (reduce (fn [acc x]
-                                  (if (pos? (dc/cmp-val-quick x acc))
+                                  (if (pos? (compare x acc))
                                     x acc))
                                 (first coll) (next coll)))
                 ([n coll]
@@ -196,9 +196,9 @@
                     (reduce (fn [acc x]
                               (cond
                                 (< (count acc) n)
-                                  (sort dc/cmp-val-quick (conj acc x))
-                                (pos? (dc/cmp-val-quick x (first acc)))
-                                  (sort dc/cmp-val-quick (conj (next acc) x))
+                                  (sort compare (conj acc x))
+                                (pos? (compare x (first acc)))
+                                  (sort compare (conj (next acc) x))
                                 :else acc))
                             [] coll))))
     'sum      sum
