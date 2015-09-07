@@ -1,4 +1,4 @@
-# WIP
+# 0.12.0
 
 [ BREAKING ] Introducing new `:db/index` schema attribute:
 
