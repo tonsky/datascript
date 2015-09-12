@@ -235,7 +235,6 @@ Expected soon:
 * Attributes do not have to be declared in advance. Put them to schema only when you need special behaviour from them
 * Any type can be used for values
 * No `:db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
-
 * No schema migrations
 * No cache segments management, no laziness. Entire DB must reside in memory
 * No facilities to persist, transfer over the wire or sync DB with the server

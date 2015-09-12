@@ -53,3 +53,51 @@
                (dc/datom 1 :age 14 100)
                (dc/datom 2 :name "Petr" 101) ]
              {:name {:db/unique :db.unique/identity}})))))
+
+
+(def data
+  [[1 :name    "Petr"]
+   [1 :aka     "Devil"]
+   [1 :aka     "Tupen"]
+   [1 :age     15]
+   [1 :follows 2]
+   [1 :email   "petr@gmail.com"]
+   [1 :avatar  10]
+   [10 :url    "http://"]
+   [1 :attach  { :some-key :some-value }]
+   [2 :name    "Oleg"]
+   [2 :age     30]
+   [2 :email   "oleg@gmail.com"]
+   [2 :attach  [ :just :values ]]
+   [3 :name    "Ivan"]
+   [3 :age     15]
+   [3 :follows 2]
+   [3 :attach  { :another :map }]
+   [3 :avatar  30]
+   [30 :url    "https://" ]])
+
+
+(def schema 
+  { :name    { } ;; nothing special about name
+    :aka     { :db/cardinality :db.cardinality/many }
+    :age     { :db/index true }
+    :follows { :db/valueType :db.type/ref }
+    :email   { :db/unique :db.unique/identity }
+    :avatar  { :db/valueType :db.type/ref, :db/isComponent true }
+    :url     { } ;; just a component prop
+    :attach  { } ;; should skip index
+})
+
+
+(deftest test-init-db
+  (let [db-init     (-> (map #(apply d/datom %) data)
+                        (d/init-db schema))
+        db-transact (->> (map (fn [[e a v]] [:db/add e a v]) data)
+                         (d/db-with (d/empty-db schema)))]
+    (testing "db-init produces the same result as regular transacttions"
+      (is (= db-init db-transact)))
+    
+    (testing "Roundtrip"
+      (doseq [[r read-fn] readers]
+        (testing r
+          (is (= db-init (read-fn (pr-str db-init)))))))))

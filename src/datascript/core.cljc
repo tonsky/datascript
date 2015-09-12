@@ -556,17 +556,26 @@
     (if (empty? datoms)
       (empty-db schema)
       (let [_ (validate-schema schema)
+            rschema (rschema schema)
+            indexed (:db/index rschema)
             #?@(:cljs
                 [ds-arr  (shim/into-array datoms)
                  eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
                  aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
-                 avet    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-avet-quick) cmp-datoms-avet)
+                 avet-datoms (-> (reduce (fn [arr d]
+                                           (when (contains? indexed (.-a d))
+                                             (.push arr d))
+                                           arr)
+                                         #js [] datoms)
+                                 (.sort cmp-datoms-avet-quick))
+                 avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
                  max-eid (:e (first (-rseq eavt)))]
                 :clj
-                [eavt    (apply btset/btset-by cmp-datoms-eavt datoms)
-                 aevt    (apply btset/btset-by cmp-datoms-aevt datoms)
-                 avet    (apply btset/btset-by cmp-datoms-avet datoms)
-                 max-eid (:e (first (rseq eavt)))])
+                [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
+                 aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
+                 avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
+                 avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
+                 max-eid     (:e (first (rseq eavt)))])
             max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
         (map->DB {
           :schema  schema
@@ -575,7 +584,7 @@
           :avet    avet
           :max-eid max-eid
           :max-tx  max-tx
-          :rschema (rschema schema)
+          :rschema rschema
           #?@(:clj [:__hash (atom nil)])})))))
 
 (defn- equiv-db-index [x y]

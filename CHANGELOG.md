@@ -1,3 +1,7 @@
+# WIP
+
+- `db-init` respects `:db/index` property
+
 # 0.12.0
 
 [ BREAKING ] Introducing new `:db/index` schema attribute:
