@@ -46,7 +46,7 @@
 (deftest stresstest-btset
   (let [iters 5]
     (dotimes [i iters]
-      (let [xs        (vec (repeatedly (rand-int 10000) #(rand-int 10000)))
+      (let [xs        (vec (repeatedly (+ 1 (rand-int 10000)) #(rand-int 10000)))
             xs-sorted (distinct (sort xs))
             rm        (repeatedly (rand-int 50000) #(rand-nth xs))
             full-rm   (shuffle (concat xs rm))
@@ -80,7 +80,7 @@
 (deftest stresstest-slice
   (let [iters 5]
     (dotimes [i iters]
-      (let [xs        (repeatedly (rand-int 20000) #(rand-int 20000))
+      (let [xs        (repeatedly (+ 1 (rand-int 20000)) #(rand-int 20000))
             xs-sorted (distinct (sort xs))
             [from to] (sort [(- 10000 (rand-int 20000)) (+ 10000 (rand-int 20000))])
             expected  (filter #(<= from % to) xs-sorted)
