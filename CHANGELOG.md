@@ -1,4 +1,4 @@
-# WIP
+# 0.12.1
 
 - `db-init` respects `:db/index` property
 
