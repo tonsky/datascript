@@ -29,6 +29,7 @@ Posts:
 
 Talks:
 
+- “Frontend with Joy” talk (FPConf, August 2015): [video](https://www.youtube.com/watch?v=cRWrrHPrk9g) in Russian
 - “Programming Web UI with Database in a Browser” talk (PolyConf, July 2015): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2015.07%20polyconf.pdf)
 - “DataScript for Web Development” talk (Clojure eXchange, Dec 2014): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2014.12%20clojure%20eXchange.pdf), [video](https://skillsmatter.com/skillscasts/6038-datascript-for-web-development)
 - “Building ToDo list with DataScript” webinar (ClojureScript NYC, Dec 2014): [video](http://vimeo.com/114688970), [app](https://github.com/tonsky/datascript-todo)
@@ -36,10 +37,12 @@ Talks:
 
 Projects using DataScript:
 
-- [Precursor](http://precursorapp.com), collaborative prototyping tool
-- [LightMesh](http://lightmesh.com), datacenter management
-- [PartsBox](https://partsbox.io), electronic parts management 
-- [I am Fy](https://www.iamfy.co), accessories e-shop
+- [Precursor](http://precursorapp.com/), collaborative prototyping tool
+- [LightMesh](http://lightmesh.com/), datacenter management
+- [Cognician](https://cognician.com/), coaching platform
+- [bitfountain](http://www.bitfountain.io/), iOS courses
+- [PartsBox](https://partsbox.io/), electronic parts management 
+- [I am Fy](https://www.iamfy.co/), accessories e-shop
 - [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
