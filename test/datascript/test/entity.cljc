@@ -22,6 +22,8 @@
     (is (= (e :name) "Ivan")) ; IFn form
     (is (= (:age  e) 19))
     (is (= (:aka  e) #{"X" "Y"}))
+    (is (= true (contains? e :age)))
+    (is (= false (contains? e :not-found)))
     (is (= (into {} e)
            {:name "Ivan", :age 19, :aka #{"X" "Y"}}))
     (is (= (into {} (d/entity db 1))

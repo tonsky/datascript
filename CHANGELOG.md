@@ -1,3 +1,7 @@
+# WIP
+
+- Fix null pointer exception when `contains?` is called with an entity (PR #114, thx [Kevin Lynagh](https://github.com/lynaghk))
+
 # 0.12.1
 
 - `db-init` respects `:db/index` property

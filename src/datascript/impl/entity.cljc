@@ -125,7 +125,7 @@
 
        clojure.lang.Associative
        (equiv [e o]       (equiv-entity e o))
-       (containsKey [e k] (lookup-entity e k))
+       (containsKey [e k] (not= ::nf (lookup-entity e k ::nf)))
        (entryAt [e k]     (some->> (lookup-entity e k) (clojure.lang.MapEntry. k)))
 
        (empty [e]         (throw (UnsupportedOperationException.)))
