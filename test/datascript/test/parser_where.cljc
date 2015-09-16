@@ -66,7 +66,7 @@
     '($1 friends ?x ?y)
     (dp/->RuleExpr (dp/->SrcVar '$1) (dp/->PlainSymbol 'friends) [(dp/->Variable '?x) (dp/->Variable '?y)]))
 
-  (is (thrown-with-msg? ExceptionInfo #"rule-expr requieres at least one argument"
+  (is (thrown-with-msg? ExceptionInfo #"rule-expr requires at least one argument"
         (dp/parse-clause '(friends))))
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-expr arguments"

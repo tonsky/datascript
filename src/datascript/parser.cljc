@@ -451,7 +451,7 @@
       (when name*
         (cond
           (empty? args)
-            (raise "rule-expr requieres at least one argument"
+            (raise "rule-expr requires at least one argument"
                    {:error :parser/where, :form form})
           (nil? args*)
             (raise "Cannot parse rule-expr arguments, expected [ (variable | constant | '_')+ ]"
