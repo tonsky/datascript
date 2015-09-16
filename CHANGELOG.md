@@ -1,4 +1,4 @@
-# WIP
+# 0.12.2
 
 - Fix null pointer exception when `contains?` is called with an entity (PR #114, thx [Kevin Lynagh](https://github.com/lynaghk))
 
