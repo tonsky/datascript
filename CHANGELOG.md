@@ -1,3 +1,7 @@
+# WIP
+
+- Guard `conn?` will check that value is derefable instead of checking for `(instance? Atom)`
+
 # 0.13.0
 
 - **[ BREAKING ] Main namespace to include is now `datascript.core`, not `datascript`**

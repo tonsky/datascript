@@ -85,9 +85,9 @@
 ;; Conn
 
 (defn conn? [conn]
-  (and (instance? #?(:clj  clojure.lang.Atom
-                     :cljs cljs.core/Atom) conn)
-       (db/db? @conn)))
+  (and #?(:clj  (instance? clojure.lang.IDeref conn)
+          :cljs (satisfies? cljs.core/IDeref conn))
+    (db/db? @conn)))
 
 (defn create-conn
   ([] (create-conn db/default-schema))
