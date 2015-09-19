@@ -5,7 +5,7 @@
     [datascript.db :as db]
     [datascript.query :as dq]
     [datascript.lru :as lru]
-    [datascript.shim :as shim]
+    [datascript.arrays :as da]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable
                                                  Not Or And Predicate PlainSymbol]])]
@@ -26,16 +26,23 @@
 (def ^:const lru-cache-size 100)
 
 (defn mapa [f coll]
-  (shim/into-array (map f coll)))
+  (da/into-array (map f coll)))
 
 (defn arange [start end]
-  (shim/into-array (range start end)))
+  (da/into-array (range start end)))
 
 (defn subarr [arr start end]
-  (shim/acopy arr start end (shim/make-array (- end start)) 0))
+  (da/acopy arr start end (da/make-array (- end start)) 0))
 
 (defn concatv [& xs]
   (into [] cat xs))
+
+(defn zip
+  ([a b] (map vector a b))
+  ([a b & rest] (apply map vector a b rest)))
+
+(defn has? [coll el]
+  (some #(= el %) coll))
 
 (defprotocol NativeColl
   (-native-coll [_]))
@@ -96,7 +103,7 @@
                (recur (inc i) (f res (.get l i)))
                res)))))
      :cljs
-     (let [arr (shim/array)]
+     (let [arr (da/array)]
        (reify
          NativeColl
          (-native-coll [_] arr)
@@ -167,7 +174,7 @@
 
 ;; (defn- #?@(:clj  [^long hash-arr]
 ;;            :cljs [^number  hash-arr]) [arr]
-;;   (let [count (int (shim/alength arr))]
+;;   (let [count (int (da/alength arr))]
 ;;     (loop [n         (int 0)
 ;;            hash-code (int 1)]
 ;;       (if (== n count)
@@ -175,9 +182,9 @@
 ;;         (recur (inc n)
 ;;                #?(:clj  (unchecked-add-int
 ;;                           (unchecked-multiply-int 31 hash-code)
-;;                           (hash (shim/aget arr n)))
+;;                           (hash (da/aget arr n)))
 ;;                   :cljs (bit-or (+ (imul 31 hash-code)
-;;                                    (hash (shim/aget arr n)))
+;;                                    (hash (da/aget arr n)))
 ;;                                 0)))))))
 
 ;; (declare equiv-tuple)
@@ -200,12 +207,12 @@
 ;; (defn equiv-tuple [^Tuple t ^Tuple o]
 ;;   (boolean
 ;;     (and
-;;       (== (shim/alength (.-arr t))
-;;           (shim/alength (.-arr o)))
+;;       (== (da/alength (.-arr t))
+;;           (da/alength (.-arr o)))
 ;;       (loop [i 0]
 ;;         (cond
-;;           (== i (shim/alength (.-arr t))) true
-;;           (not= (shim/aget (.-arr t) i) (shim/aget (.-arr o) i)) false
+;;           (== i (da/alength (.-arr t))) true
+;;           (not= (da/aget (.-arr t) i) (da/aget (.-arr o) i)) false
 ;;           :else (recur (inc i)))))))
 
 ;; (defn tuple [arr]
@@ -237,12 +244,12 @@
   (-getter [_ symbol]
     (let [idx (offset-map symbol)]
       (fn [tuple]
-        (shim/aget tuple idx))))
+        (da/aget tuple idx))))
   (-indexes [_ syms]
     (mapa offset-map syms))
   (-copy-tuple [_ tuple idxs target target-idxs]
-    (dotimes [i (shim/alength idxs)]
-      (shim/aset target (shim/aget target-idxs i) (shim/aget tuple (shim/aget idxs i)))))
+    (dotimes [i (da/alength idxs)]
+      (da/aset target (da/aget target-idxs i) (da/aget tuple (da/aget idxs i)))))
   (-union [_ rel]
     (assert (instance? ArrayRelation rel))
     (assert (= offset-map (:offset-map rel)))
@@ -277,8 +284,8 @@
   (-indexes [_ syms]
     (mapa offset-map syms))
   (-copy-tuple [_ tuple idxs target target-idxs]
-    (dotimes [i (shim/alength idxs)]
-      (shim/aset target (shim/aget target-idxs i) (nth tuple (shim/aget idxs i)))))
+    (dotimes [i (da/alength idxs)]
+      (da/aset target (da/aget target-idxs i) (nth tuple (da/aget idxs i)))))
   (-union [_ rel]
     (assert (instance? CollRelation rel))
     (assert (= offset-map (:offset-map rel)))
@@ -316,7 +323,7 @@
 ;;            (fn [acc t1]
 ;;              (-fold rel2
 ;;                     (fn [acc t2]
-;;                       (f acc (shim/array t1 t2)))
+;;                       (f acc (da/array t1 t2)))
 ;;                     acc))
 ;;             init))
 
@@ -326,10 +333,10 @@
 ;;     (if (some #{symbol} (-symbols rel1))
 ;;       (let [getter (-getter rel1 symbol)]
 ;;         (fn [tuple]
-;;           (getter (shim/aget tuple 0))))
+;;           (getter (da/aget tuple 0))))
 ;;       (let [getter (-getter rel2 symbol)]
 ;;         (fn [tuple]
-;;           (getter (shim/aget tuple 1))))))
+;;           (getter (da/aget tuple 1))))))
 ;;   (-indexes [_ syms]
 ;;     (let [[syms1 syms2] (split-with (set (-symbols rel1)) syms)]
 ;;       [(-indexes rel1 syms1)
@@ -339,9 +346,9 @@
 ;;   (-copy-tuple [_ tuple idxs target target-idxs]
 ;;     (let [[idxs1 arity1 idxs2 arity2] idxs
 ;;           target-idxs1 (subarr target-idxs 0 arity1)
-;;           target-idxs2 (subarr target-idxs arity1 (shim/alength target-idxs))]
-;;       (-copy-tuple rel1 (shim/aget tuple 0) idxs1 target target-idxs1)
-;;       (-copy-tuple rel2 (shim/aget tuple 1) idxs2 target target-idxs2))))
+;;           target-idxs2 (subarr target-idxs arity1 (da/alength target-idxs))]
+;;       (-copy-tuple rel1 (da/aget tuple 0) idxs1 target target-idxs1)
+;;       (-copy-tuple rel2 (da/aget tuple 1) idxs2 target target-idxs2))))
 
 ;; (def prod-rel ->ProdRelation)
 
@@ -352,9 +359,9 @@
   IRelation
   (-symbols    [_] [])
   (-arity      [_] 0)
-  (-fold       [_ f init] (f init (shim/into-array [])))
+  (-fold       [_ f init] (f init (da/into-array [])))
   (-size       [_] 1)
-  (-indexes    [_ _] (shim/into-array []))
+  (-indexes    [_ _] (da/into-array []))
   (-copy-tuple [_ _ _ _ _]))
 
 (def singleton-rel ->SingletonRelation)
@@ -365,7 +372,7 @@
                     rel2 t2 idxs2
                     arity
                     target-idxs1 target-idxs2]
-  (let [arr (shim/make-array arity)]
+  (let [arr (da/make-array arity)]
     (-copy-tuple rel1 t1 idxs1 arr target-idxs1)
     (-copy-tuple rel2 t2 idxs2 arr target-idxs2)
     arr))
@@ -410,7 +417,7 @@
       (let [idxs        (-indexes rel syms)
             target-idxs (arange 0 arity)]
         (fn [t]
-          (let [arr (shim/make-array arity)]
+          (let [arr (da/make-array arity)]
             (-copy-tuple rel t idxs arr target-idxs)
             (vec arr)))))))
 
@@ -463,7 +470,7 @@
 
 
 (defn- bindable-to-seq? [x]
-  (or (shim/seqable? x) (shim/array? x)))
+  (or (db/seqable? x) (da/array? x)))
 
 
 (defn- bind! [tuples binding source indexes]
@@ -475,7 +482,7 @@
     BindScalar
       (let [symbol (get-in binding [:variable :symbol])
             idx    (get indexes symbol)]
-        (run! #(shim/aset % idx source) tuples)
+        (run! #(da/aset % idx source) tuples)
         tuples)
 
     BindColl
@@ -489,7 +496,7 @@
               (into [] ;; TODO fast-arr
                 (comp (map #(bind! tuples inner-binding % indexes))
                       cat
-                      (map shim/aclone))
+                      (map da/aclone))
                 source))))
 
     BindTuple
@@ -503,7 +510,7 @@
       (reduce (fn [ts [b s]]
                 (bind! ts b s indexes))
               tuples
-              (shim/zip bindings source)))
+              (zip bindings source)))
     
     :else
       (db/raise "Unknown binding form " (dp/source binding)
@@ -513,7 +520,7 @@
 (defn bind [binding source]
   (let [syms    (map :symbol (dp/collect-vars-distinct binding))
         indexes (zipmap syms (range))
-        tuples  (bind! [(shim/make-array (count syms))] binding source indexes)]
+        tuples  (bind! [(da/make-array (count syms))] binding source indexes)]
     (array-rel syms tuples)))
 
 
@@ -542,7 +549,7 @@
     (db/raise "Wrong number of arguments for bindings " (mapv dp/source bindings)
            ", " (count bindings) " required, " (count values) " provided"
            {:error :query/binding, :binding (mapv dp/source bindings)}))
-  (reduce resolve-in context (shim/zip bindings values)))
+  (reduce resolve-in context (zip bindings values)))
 
 
 ;;; Resolution
@@ -803,19 +810,19 @@
 (defn collect-args! [context args target form]
   (let [consts  (:consts context)
         sources (:sources context)]
-    (doseq [[arg i] (shim/zip args (range))
+    (doseq [[arg i] (zip args (range))
             :let [sym (:symbol arg)]]
       (cond
         (instance? Variable arg)
           (when (contains? consts sym)
-            (shim/aset target i (get consts sym)))
+            (da/aset target i (get consts sym)))
         (instance? SrcVar arg)
           (if (contains? sources sym)
-            (shim/aset target i (get sources sym))
+            (da/aset target i (get sources sym))
             (throw (ex-info (str "Unbound source variable: " sym " in " form)
                             { :error :query/where, :form form, :var sym })))
         (instance? Constant arg)
-          (shim/aset target i (:value arg))))))
+          (da/aset target i (:value arg))))))
 
 
 (defn get-f [context fun form]
@@ -834,10 +841,10 @@
     (let [{fun :fn, args :args} clause
           form      (dp/source clause)
           f         (get-f context fun form)
-          args-arr  (shim/make-array (count args))
+          args-arr  (da/make-array (count args))
           _         (collect-args! context args args-arr form)
           consts    (:consts context)
-          sym+idx   (for [[arg i] (shim/zip args (range))
+          sym+idx   (for [[arg i] (zip args (range))
                           :when   (instance? Variable arg)
                           :let    [sym (:symbol arg)]
                           :when   (not (contains? consts sym))]
@@ -859,7 +866,7 @@
                   rel* (-alter-coll rel #(filterv pred %))]
               (join-unrelated context* rel*))
             (let [prod-syms    (mapcat -symbols rels)
-                  prod-sym+idx (shim/zip prod-syms (range))
+                  prod-sym+idx (zip prod-syms (range))
                   xfs          (map #(collect-rel-xf prod-sym+idx %) rels)
                   prod-rel     (array-rel prod-syms [])
 
@@ -870,7 +877,7 @@
 
                   array        (into (fast-arr)
                                  (apply comp (concat xfs [(filter pred)]))
-                                 [(shim/make-array (count prod-syms))])
+                                 [(da/make-array (count prod-syms))])
                   prod-rel*    (array-rel prod-syms array)]
           (join-unrelated context* prod-rel*))))))
     "resolve-predicate" (dp/source clause)))
@@ -919,12 +926,12 @@
   (doseq [[sym i] syms-indexed]
     (when (contains? consts sym)
       (let [val (get consts sym)]
-        (shim/aset specimen i val)))))
+        (da/aset specimen i val)))))
 
         
 (defn collect-rel-xf [syms-indexed rel]
   (let [sym+idx     (for [[sym i] syms-indexed
-                          :when (shim/has? (-symbols rel) sym)]
+                          :when (has? (-symbols rel) sym)]
                       [sym i])
         idxs        (-indexes rel (map first sym+idx))
         target-idxs (mapa second sym+idx)]
@@ -936,7 +943,7 @@
         ([result specimen]
           (-fold rel
             (fn [acc tuple]
-              (let [t (shim/aclone specimen)]
+              (let [t (da/aclone specimen)]
                 (-copy-tuple rel tuple idxs t target-idxs)
                 (rf acc t)))
             result))))))
@@ -944,15 +951,15 @@
 
 (defn collect-to
   ([context syms acc]
-   (collect-to context syms acc [] (shim/make-array (count syms))))
+   (collect-to context syms acc [] (da/make-array (count syms))))
   ([context syms acc xfs]
-   (collect-to context syms acc xfs (shim/make-array (count syms))))
+   (collect-to context syms acc xfs (da/make-array (count syms))))
   ([context syms acc xfs specimen]
     ;; TODO don't collect if array-rel and matches symbols
     (perf/measure
       (if (:empty? context)
         acc
-        (let [syms-indexed (vec (shim/zip syms (range)))
+        (let [syms-indexed (vec (zip syms (range)))
               _            (collect-consts syms-indexed specimen (:consts context))
               related-rels (related-rels context syms)
               xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)

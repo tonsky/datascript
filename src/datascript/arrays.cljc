@@ -1,9 +1,12 @@
-(ns datascript.shim
+(ns datascript.arrays
   (:require
     [clojure.string :as str])
-  (:refer-clojure :exclude [make-array into-array array amap aget aset alength array? seqable? aclone])
-  #?(:cljs (:require-macros datascript.shim))
+  (:refer-clojure :exclude [make-array into-array array amap aget aset alength array? aclone])
+  #?(:cljs (:require-macros datascript.arrays))
   #?(:clj  (:import [java.util Arrays])))
+
+(defn- if-cljs [env then else]
+  (if (:ns env) then else))
 
 #?(:cljs (def make-array cljs.core/make-array)
    :clj  (defn make-array ^{:tag "[[Ljava.lang.Object;"}
@@ -14,9 +17,6 @@
    :clj  (defn into-array ^{:tag "[[Ljava.lang.Object;"}
            [aseq]
            (clojure.core/into-array java.lang.Object aseq)))
-
-(defn- if-cljs [env then else]
-  (if (:ns env) then else))
 
 #?(:clj
   (defmacro aget [arr i]
@@ -83,32 +83,3 @@
 (def array?
   #?(:cljs cljs.core/array?
      :clj  (fn array? [^Object x] (-> x .getClass .isArray))))
-
-(def seqable?
-  #?(:cljs cljs.core/seqable?
-     :clj (fn seqable? [x]
-            (or (seq? x)
-                (instance? clojure.lang.Seqable x)
-                (nil? x)
-                (instance? Iterable x)
-                (array? x)
-                (string? x)
-                (instance? java.util.Map x)))))
-
-(def neg-number? (every-pred number? neg?))
-
-#?(:clj
-  (defmacro half [x]
-    `(unsigned-bit-shift-right ~x 1)))
-
-#?(:clj
-  (defmacro not== [x y]
-    `(not (== ~x ~y))))
-
-(defn zip
-  ([a b] (map vector a b))
-  ([a b & rest] (apply map vector a b rest)))
-
-(defn has? [coll el]
-  (some #(= el %) coll))
-  

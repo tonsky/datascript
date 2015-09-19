@@ -3,7 +3,7 @@
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
-    [datascript.shim :as shim]
+    [datascript.arrays :as da]
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
@@ -14,7 +14,7 @@
   (doseq [coll [["Devil" "Tupen"]
                 #{"Devil" "Tupen"}
                 '("Devil" "Tupen")
-                (shim/into-array ["Devil" "Tupen"])]]
+                (da/into-array ["Devil" "Tupen"])]]
     (testing coll
       (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
                                  :also { :db/cardinality :db.cardinality/many} })]

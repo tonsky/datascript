@@ -187,7 +187,7 @@ Check out [test/js/tests.js](test/js/tests.js) for usage examples.
 
 ## Project status
 
-Alpha quality. Half of the features done, a lot of cases where error reporting is missing, no docs (use examples & Datomic documentation).
+Beta quality. Most of the features done, expecting some API polishing (breaking) and performance optimizations. No docs at the moment, use examples & Datomic documentation.
 
 The following features are supported:
 

@@ -1,10 +1,11 @@
 (ns datascript.db
-  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable]]))
   (:require
     #?(:cljs [goog.array :as garray])
      clojure.walk
-    [datascript.shim :as shim]
-    [datascript.btset :as btset]))
+    [datascript.arrays :as da]
+    [datascript.btset :as btset])
+  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable]]))
+  (:refer-clojure :exclude [seqable?]))
 
 ;; ----------------------------------------------------------------------------
 
@@ -24,6 +25,19 @@
     (let [msgs (butlast fragments)
           data (last fragments)]
       `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
+
+(def seqable?
+  #?(:cljs cljs.core/seqable?
+     :clj (fn seqable? [x]
+            (or (seq? x)
+                (instance? clojure.lang.Seqable x)
+                (nil? x)
+                (instance? Iterable x)
+                (da/array? x)
+                (string? x)
+                (instance? java.util.Map x)))))
+
+(def neg-number? (every-pred number? neg?))
 
 ;; ----------------------------------------------------------------------------
 ;; macros and funcs to support writing defrecords and updating
@@ -559,7 +573,7 @@
             rschema (rschema schema)
             indexed (:db/index rschema)
             #?@(:cljs
-                [ds-arr  (shim/into-array datoms)
+                [ds-arr  (da/into-array datoms)
                  eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
                  aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
                  avet-datoms (-> (reduce (fn [arr d]
@@ -860,7 +874,7 @@
     [vs]
 
     ;; not a collection at all, so definitely a single value
-    (not (or (shim/array? vs)
+    (not (or (da/array? vs)
              (and (coll? vs) (not (map? vs)))))
     [vs]
     
@@ -934,7 +948,7 @@
         (let [old-eid      (:db/id entity)
               known-eid    (->> 
                              (cond
-                               (shim/neg-number? old-eid) (get-in report [:tempids old-eid])
+                               (neg-number? old-eid) (get-in report [:tempids old-eid])
                                (tx-id? old-eid)      (current-tx report)
                                :else                 old-eid)
                              (entid-some db))
@@ -943,7 +957,7 @@
               new-entity   (assoc upserted :db/id new-eid)
               new-report   (cond
                              (nil? old-eid)                  (allocate-eid report new-eid)
-                             (shim/neg-number? old-eid)      (allocate-eid report old-eid new-eid)
+                             (neg-number? old-eid)           (allocate-eid report old-eid new-eid)
                              (and (number? old-eid)
                                   (> old-eid (:max-eid db))) (allocate-eid report old-eid)
                              :else report)]
@@ -982,12 +996,12 @@
             (and (ref? db a) (tx-id? v))
               (recur report (concat [[op e a (current-tx report)]] entities))
 
-            (shim/neg-number? e)
+            (neg-number? e)
               (if-let [eid (get-in report [:tempids e])]
                 (recur report (concat [[op eid a v]] entities))
                 (recur (allocate-eid report e (next-eid db)) es))
 
-            (and (ref? db a) (shim/neg-number? v))
+            (and (ref? db a) (neg-number? v))
               (if-let [vid (get-in report [:tempids v])]
                 (recur report (concat [[op e a vid]] entities))
                 (recur (allocate-eid report v (next-eid db)) es))

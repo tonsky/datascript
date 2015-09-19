@@ -1,13 +1,20 @@
 # WIP
 
-- [ BREAKING ] **Main namespace to include is now `datascript.core`**, not `datascript`.
+- **[ BREAKING ] Main namespace to include is now `datascript.core`, not `datascript`**
 - [ BREAKING ] Old `datascript.core` (internal namespace) was renamed to `datascript.db`
+- [ BREAKING ] `datascript.shim` (internal namespace) was renamed to `datascript.arrays`
 
-Motivation: Usage of top-level namespaces is discouraged and even generates a warning in CLJS. This would’ve happen sooner or later anyways. 0.13 seems like a great number for this sort of release.
+Motivations:
 
-Migration path: just change `(require '[datascript :as d])` to `(require '[datascript.core :as d])` and you’re good to go.
+- Usage of top-level namespaces is discouraged and even generates a warning in CLJS.
+- Better sooner than later.
+- 0.13 seems like a great number for this sort of release.
 
-Due to significance and impact of this release (100% user base), there’re no other changes in this release.
+Migration procedure:
+
+- Just change `(require '[datascript :as d])` to `(require '[datascript.core :as d])` and you’re good to go.
+
+For the sake of easy migration, there’re no other changes in this release. Just renamings.
 
 # 0.12.2
 
