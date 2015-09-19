@@ -1,6 +1,6 @@
 (ns datascript.query-v3
   (:require
-    [datascript :as d]
+    [datascript.core :as d]
     [datascript.query-v3 :as q]
      datascript.perf))
 

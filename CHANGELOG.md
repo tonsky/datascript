@@ -1,3 +1,14 @@
+# WIP
+
+- [ BREAKING ] **Main namespace to include is now `datascript.core`**, not `datascript`.
+- [ BREAKING ] Old `datascript.core` (internal namespace) was renamed to `datascript.db`
+
+Motivation: Usage of top-level namespaces is discouraged and even generates a warning in CLJS. This would’ve happen sooner or later anyways. 0.13 seems like a great number for this sort of release.
+
+Migration path: just change `(require '[datascript :as d])` to `(require '[datascript.core :as d])` and you’re good to go.
+
+Due to significance and impact of this release (100% user base), there’re no other changes in this release.
+
 # 0.12.2
 
 - Fix null pointer exception when `contains?` is called with an entity (PR #114, thx [Kevin Lynagh](https://github.com/lynaghk))

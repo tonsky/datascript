@@ -66,6 +66,8 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 ]
 ```
 
+_Note:_ Since DataScript 0.13 **main namespace to include is `datascript.core`**, not `datascript`. This was done because usage of top-level namespaces is discouraged and even generates a warning in CLJS. Old `datascript.core`, if you were using it, was renamed to `datascript.db`
+
 _WARN:_ *ClojureScript versions 1.7.48, 1.7.58 and 1.7.107 [break DataScript](https://github.com/tonsky/datascript/issues/108). Use either 1.7.28, 1.7.122 or newer*
 
 _Note:_ DataScript 0.11.3 and later requires CLJS 0.0-3291 or later
@@ -75,7 +77,7 @@ _Note:_ DataScript 0.11.2 and later requires Clojure 1.7.0-beta2 or later
 _Note:_ DataScript 0.11.0 and later will only work with CLJS 0.0-3196 and later
 
 ```clj
-(require '[datascript :as d])
+(require '[datascript.core :as d])
 
 ;; Implicit join, multi-valued attribute
 

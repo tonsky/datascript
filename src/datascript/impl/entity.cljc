@@ -1,32 +1,32 @@
 (ns datascript.impl.entity
   (:refer-clojure :exclude [keys get])
   (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
-            [datascript.core :as dc]))
+            [datascript.db :as db]))
 
 (declare entity ->Entity equiv-entity lookup-entity touch)
 
 (defn- entid [db eid]
   (when (or (number? eid)
             (sequential? eid))
-    (dc/entid db eid)))
+    (db/entid db eid)))
 
 (defn entity [db eid]
-  {:pre [(dc/db? db)]}
+  {:pre [(db/db? db)]}
   (when-let [e (entid db eid)]
     (->Entity db e (volatile! false) (volatile! {}))))
 
 (defn- entity-attr [db a datoms]
-  (if (dc/multival? db a)
-    (if (dc/ref? db a)
+  (if (db/multival? db a)
+    (if (db/ref? db a)
       (reduce #(conj %1 (entity db (:v %2))) #{} datoms)
       (reduce #(conj %1 (:v %2)) #{} datoms))
-    (if (dc/ref? db a)
+    (if (db/ref? db a)
       (entity db (:v (first datoms)))
       (:v (first datoms)))))
 
 (defn- -lookup-backwards [db eid attr not-found]
-  (if-let [datoms (not-empty (dc/-search db [nil attr eid]))]
-    (if (dc/component? db attr)
+  (if-let [datoms (not-empty (db/-search db [nil attr eid]))]
+    (if (db/component? db attr)
       (entity db (:e (first datoms)))
       (reduce #(conj %1 (entity db (:e %2))) #{} datoms))
     not-found))
@@ -39,7 +39,7 @@
    (defn- js-seq [e]
      (touch e)
      (for [[a v] @(.-cache e)]
-       (if (dc/multival? (.-db e) a)
+       (if (db/multival? (.-db e) a)
          [a (multival->js v)]
          [a v]))))
 
@@ -63,11 +63,11 @@
        (get [this attr]
             (if (= attr ":db/id")
               eid
-              (if (dc/reverse-ref? attr)
-                (-> (-lookup-backwards db eid (dc/reverse-ref attr) nil)
+              (if (db/reverse-ref? attr)
+                (-> (-lookup-backwards db eid (db/reverse-ref attr) nil)
                     multival->js)
                 (cond-> (lookup-entity this attr)
-                  (dc/multival? db attr) multival->js))))
+                  (db/multival? db attr) multival->js))))
        (forEach [this f]
                 (doseq [[a v] (js-seq this)]
                   (f v a this)))
@@ -159,12 +159,12 @@
   ([^Entity this attr not-found]
    (if (= attr :db/id)
      (.-eid this)
-     (if (dc/reverse-ref? attr)
-       (-lookup-backwards (.-db this) (.-eid this) (dc/reverse-ref attr) not-found)
+     (if (db/reverse-ref? attr)
+       (-lookup-backwards (.-db this) (.-eid this) (db/reverse-ref attr) not-found)
        (or (@(.-cache this) attr)
            (if @(.-touched this)
              not-found
-             (if-let [datoms (not-empty (dc/-search (.-db this) [(.-eid this) attr]))]
+             (if-let [datoms (not-empty (db/-search (.-db this) [(.-eid this) attr]))]
                (let [value (entity-attr (.-db this) attr datoms)]
                  (vreset! (.-cache this) (assoc @(.-cache this) attr value))
                  value)
@@ -173,8 +173,8 @@
 (defn touch-components [db a->v]
   (reduce-kv (fn [acc a v]
                (assoc acc a
-                 (if (dc/component? db a)
-                   (if (dc/multival? db a)
+                 (if (db/component? db a)
+                   (if (db/multival? db a)
                      (set (map touch v))
                      (touch v))
                    v)))
@@ -189,7 +189,7 @@
 (defn touch [^Entity e]
   {:pre [(entity? e)]}
   (when-not @(.-touched e)
-    (when-let [datoms (not-empty (dc/-search (.-db e) [(.-eid e)]))]
+    (when-let [datoms (not-empty (db/-search (.-db e) [(.-eid e)]))]
       (vreset! (.-cache e) (->> datoms
                                 (datoms->cache (.-db e))
                                 (touch-components (.-db e))))

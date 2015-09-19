@@ -3,8 +3,8 @@
     [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
-    [datascript :as d]
-    [datascript.core :as dc]
+    [datascript.core :as d]
+    [datascript.db :as db]
     [datascript.test.core :as tdc])
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))

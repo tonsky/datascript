@@ -1,8 +1,7 @@
 (ns datascript.bench
   (:require
     [clojure.string :as str]
-    [datascript :as d]
-    [datascript.core :as dc]
+    [datascript.core :as d]
     [datascript.btset :as btset]
     [datascript.perf :as perf]))
 
@@ -31,7 +30,7 @@
   (mapcat (fn [p]
             (reduce-kv
               (fn [acc k v]
-                (conj acc (dc/datom (:db/id p) k v)))
+                (conj acc (d/datom (:db/id p) k v)))
               [] (dissoc p :db/id)))))
 
 (defn- wide-db

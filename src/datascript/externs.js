@@ -1,11 +1,11 @@
 var datascript = {};
-datascript.core = {};
-datascript.core.Datom = {};
-datascript.core.Datom.e = 0;
-datascript.core.Datom.a = "";
-datascript.core.Datom.v = "";
-datascript.core.Datom.tx = 0;
-datascript.core.Datom.added = true;
+datascript.db = {};
+datascript.db.Datom = {};
+datascript.db.Datom.e = 0;
+datascript.db.Datom.a = "";
+datascript.db.Datom.v = "";
+datascript.db.Datom.tx = 0;
+datascript.db.Datom.added = true;
 
 datascript.impl = {};
 datascript.impl.entity = {};

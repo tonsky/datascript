@@ -36,17 +36,16 @@ function merge(m1, m2) {
 }
 
 if ("--all" === process.argv[2] || "--js" === process.argv[2]) {
-  nodeGlobalRequire('./test/js/underscore-1.6.0.min.js');
-  nodeGlobalRequire('./test/js/tests.js');
+  var tests_js = require('./test/js/tests.js');
 }
 
 if ("--all" === process.argv[2])
-  var res = merge(datascript.test.test_all(), test_datascript_js());
+  var res = merge(datascript.test.test_all(), tests_js.test_all());
 else if ("--btset" === process.argv[2])
   var res = datascript.test.test_btset();
-else if ("--js" === process.argv[2]) {
-  var res = test_datascript_js();
-} else
+else if ("--js" === process.argv[2])
+  var res = tests_js.test_all();
+else
   var res = datascript.test.test_most();
 
 if (res.fail + res.error > 0)

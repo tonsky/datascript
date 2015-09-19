@@ -1,3 +1,5 @@
+var _ = require("./underscore-1.6.0.min.js");
+
 var passed = 0, failures = 0, asserts = 0, errors = 0;
 
 function eq_set(s1, s2) {
@@ -95,7 +97,11 @@ function test_fns(fns) {
            pass:  asserts - failures - errors };
 }
 
-var d = datascript.js;
+
+///--------- TESTS ---------
+
+
+var d = require("../../release-js/datascript.js");
 var tx0 = 0x20000000; // we just know it, alright?
 
 function test_db_with() {
@@ -433,3 +439,5 @@ function test_datascript_js() {
                     test_filter
                   ]);
 }
+
+module.exports = { "test_all": test_datascript_js };

@@ -3,8 +3,8 @@
     [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
-    [datascript :as d]
-    [datascript.core :as dc]
+    [datascript.core :as d]
+    [datascript.db :as db]
     [datascript.test.core :as tdc])
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
@@ -17,11 +17,11 @@
 (deftest test-pr-read
   (doseq [[r read-fn] readers]
     (testing r
-      (let [d (dc/datom 1 :name "Oleg" 17 true)]
+      (let [d (db/datom 1 :name "Oleg" 17 true)]
         (is (= (pr-str d) "#datascript/Datom [1 :name \"Oleg\" 17 true]"))
         (is (= d (read-fn (pr-str d)))))
       
-      (let [d (dc/datom 1 :name 3)]
+      (let [d (db/datom 1 :name 3)]
         (is (= (pr-str d) "#datascript/Datom [1 :name 3 536870912 true]"))
         (is (= d (read-fn (pr-str d)))))
       
@@ -42,16 +42,16 @@
 #?(:clj
   (deftest test-reader-literals
     (is (= #datascript/Datom [1 :name "Oleg"]
-                    (dc/datom 1 :name "Oleg")))
+                    (db/datom 1 :name "Oleg")))
     (is (= #datascript/Datom [1 :name "Oleg" 100 false]
-                    (dc/datom 1 :name "Oleg" 100 false)))
+                    (db/datom 1 :name "Oleg" 100 false)))
     ;; not supported because IRecord print method is hard-coded into Compiler
     #_(is (= #datascript/DB {:schema {:name {:db/unique :db.unique/identity}}
                            :datoms [[1 :name "Oleg" 100] [1 :age 14 100] [2 :name "Petr" 101]]}
            (d/init-db 
-             [ (dc/datom 1 :name "Oleg" 100)
-               (dc/datom 1 :age 14 100)
-               (dc/datom 2 :name "Petr" 101) ]
+             [ (db/datom 1 :name "Oleg" 100)
+               (db/datom 1 :age 14 100)
+               (db/datom 2 :name "Petr" 101) ]
              {:name {:db/unique :db.unique/identity}})))))
 
 

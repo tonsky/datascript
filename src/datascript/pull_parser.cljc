@@ -1,6 +1,6 @@
 (ns datascript.pull-parser
   (:require
-   [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]))
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]))
 
 (defrecord PullSpec [wildcard? attrs])
 
@@ -67,8 +67,8 @@
 (defn- parse-attr-name
   [spec]
   (when (or (keyword? spec) (string? spec))
-    (if (dc/reverse-ref? spec)
-      (PullReverseAttrName. (dc/reverse-ref spec) spec)
+    (if (db/reverse-ref? spec)
+      (PullReverseAttrName. (db/reverse-ref spec) spec)
       (PullAttrName. spec))))
 
 (def ^:private unlimited-recursion? #{'... "..."})

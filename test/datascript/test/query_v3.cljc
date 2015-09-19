@@ -2,8 +2,8 @@
   (:require
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
-    [datascript :as d]
-    [datascript.core :as dc]
+    [datascript.core :as d]
+    [datascript.db :as db]
     [datascript.query-v3 :as dq]
     [datascript.test.core :as tdc])
     #?(:clj

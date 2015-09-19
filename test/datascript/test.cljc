@@ -6,6 +6,7 @@
    
     datascript.test.btset
     datascript.test.components
+    datascript.test.db
     datascript.test.entity
     datascript.test.explode
     datascript.test.filter

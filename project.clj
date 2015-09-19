@@ -41,7 +41,7 @@
     :dev {
       :source-paths ["bench/src" "test" "dev"]
       :plugins [
-        [lein-cljsbuild "1.0.6"]
+        [lein-cljsbuild "1.1.0"]
       ]
       :cljsbuild { 
         :builds [

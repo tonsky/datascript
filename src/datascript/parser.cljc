@@ -4,7 +4,7 @@
   (:require
     [clojure.set :as set]
     [datascript.shim :as shim]
-    [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]))
+    [datascript.db #?(:cljs :refer-macros :clj :refer) [raise]]))
 
 ;; utils
 

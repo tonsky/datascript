@@ -1,10 +1,10 @@
 (ns datascript.pull-api
   (:require
-    [datascript.core :as dc]
+    [datascript.db :as db]
     [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])
     #?(:clj
       (:import
-        [datascript.core Datom]
+        [datascript.db Datom]
         [datascript.pull_parser PullSpec])))
 
 (defn- into!
@@ -113,9 +113,9 @@
                (cond->> datoms
                  limit (into [] (take limit))))]
     (if found
-      (let [ref?       (dc/ref? db attr)
-            component? (and ref? (dc/component? db attr))
-            multi?     (if forward? (dc/multival? db attr) (not component?))
+      (let [ref?       (db/ref? db attr)
+            component? (and ref? (db/component? db attr))
+            multi?     (if forward? (db/multival? db attr) (not component?))
             datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
         (cond
           (contains? opts :subpattern)
@@ -152,15 +152,15 @@
   [db spec eid frames]
   (let [[attr-key opts] spec]
     (if (= :db/id attr-key)
-      (if (not-empty (dc/-datoms db :eavt [eid]))
+      (if (not-empty (db/-datoms db :eavt [eid]))
         (conj (rest frames)
               (update (first frames) :kvps assoc! :db/id eid))
         frames)
       (let [attr     (:attr opts)
             forward? (= attr-key attr)
             results  (if forward?
-                       (dc/-datoms db :eavt [eid attr])
-                       (dc/-datoms db :avet [attr eid]))]
+                       (db/-datoms db :eavt [eid attr])
+                       (db/-datoms db :avet [attr eid]))]
         (pull-attr-datoms db attr-key attr eid forward?
                           results opts frames)))))
 
@@ -209,7 +209,7 @@
 
 (defn- pull-wildcard-expand
   [db frame frames eid pattern]
-  (let [datoms (group-by (fn [^Datom d] (.-a d)) (dc/-datoms db :eavt [eid]))
+  (let [datoms (group-by (fn [^Datom d] (.-a d)) (db/-datoms db :eavt [eid]))
         {:keys [attr recursion]} frame
         rec (cond-> recursion
               (some? attr) (push-recursion attr eid))]
@@ -265,13 +265,13 @@
 
 (defn pull-spec
   [db pattern eids multi?]
-  (let [eids (into [] (map #(dc/entid-strict db %)) eids)]
+  (let [eids (into [] (map #(db/entid-strict db %)) eids)]
     (pull-pattern db (list (initial-frame pattern eids multi?)))))
 
 (defn pull [db selector eid]
-  {:pre [(dc/db? db)]}
+  {:pre [(db/db? db)]}
   (pull-spec db (dpp/parse-pull selector) [eid] false))
 
 (defn pull-many [db selector eids]
-  {:pre [(dc/db? db)]}
+  {:pre [(db/db? db)]}
   (pull-spec db (dpp/parse-pull selector) eids true))

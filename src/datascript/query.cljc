@@ -3,7 +3,7 @@
    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
    [clojure.set :as set]
    [clojure.walk :as walk]
-   [datascript.core :as dc #?(:cljs :refer-macros :clj :refer) [raise]]
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]
    [datascript.shim :as shim]
    [datascript.lru]
    [datascript.impl.entity :as de]
@@ -120,7 +120,7 @@
 
 (defn- -get-else
   [db e a else-val]
-  (if-let [datom (first (dc/-search db [e a]))]
+  (if-let [datom (first (db/-search db [e a]))]
     (:v datom)
     else-val))
 
@@ -128,7 +128,7 @@
   [db e & as]
   (reduce
    (fn [_ a]
-     (when-let [datom (first (dc/-search db [e a]))]
+     (when-let [datom (first (db/-search db [e a]))]
        (reduced (:v datom))))
    nil
    as))
@@ -289,7 +289,7 @@
           (let [eid (#?(:cljs aget :clj get) tuple idx)]
             (if (number? eid) ;; quick path to avoid fn call
               eid
-              (dc/entid *lookup-source* eid))))
+              (db/entid *lookup-source* eid))))
       (fn [tuple]
         (#?(:cljs aget :clj get) tuple idx)))))
 
@@ -341,7 +341,7 @@
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
   (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
-        datoms         (dc/-search db search-pattern)
+        datoms         (db/-search db search-pattern)
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (free-var? s)))
                             (into {}))]
@@ -372,7 +372,7 @@
 
 (defn lookup-pattern [source pattern]
   (cond
-    (satisfies? dc/ISearch source)
+    (satisfies? db/ISearch source)
       (lookup-pattern-db source pattern)
     :else
       (lookup-pattern-coll source pattern)))
@@ -550,13 +550,13 @@
         rel))))
 
 (defn resolve-pattern-lookup-refs [source pattern]
-  (if (satisfies? dc/IDB source)
+  (if (satisfies? db/IDB source)
     (let [[e a v tx] pattern]
       (->
-        [(if (lookup-ref? e) (dc/entid-strict source e) e)
+        [(if (lookup-ref? e) (db/entid-strict source e) e)
          a
-         (if (and v (attr? a) (dc/ref? source a) (lookup-ref? v)) (dc/entid-strict source v) v)
-         (if (lookup-ref? tx) (dc/entid-strict source tx) tx)]
+         (if (and v (attr? a) (db/ref? source a) (lookup-ref? v)) (db/entid-strict source v) v)
+         (if (lookup-ref? tx) (db/entid-strict source tx) tx)]
         (subvec 0 (count pattern))))
     pattern))
 
@@ -568,7 +568,7 @@
       (and
         (free-var? v)
         (not (free-var? a))
-        (dc/ref? source a)) (conj v))))
+        (db/ref? source a)) (conj v))))
 
 (defn -resolve-clause [context clause]
   (condp looks-like? clause
@@ -583,7 +583,7 @@
             source   (get (:sources context) source-sym)
             pattern  (resolve-pattern-lookup-refs source pattern)
             relation (lookup-pattern source pattern)
-            lookup-source? (satisfies? dc/IDB source)]
+            lookup-source? (satisfies? db/IDB source)]
         (binding [*lookup-source* (when lookup-source? source)
                   *lookup-attrs*  (when lookup-source? (dynamic-lookup-attrs source pattern))]
           (update-in context [:rels] collapse-rels relation)))))

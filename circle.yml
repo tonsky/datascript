@@ -7,6 +7,8 @@ dependencies:
     - lein clean
     - lein cljsbuild once advanced:
         timeout: 300
+    - lein cljsbuild once release:
+        timeout: 300
 
 test:
   override:
