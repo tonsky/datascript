@@ -1,4 +1,4 @@
-# WIP
+# 0.13.0
 
 - **[ BREAKING ] Main namespace to include is now `datascript.core`, not `datascript`**
 - [ BREAKING ] Old `datascript.core` (internal namespace) was renamed to `datascript.db`
