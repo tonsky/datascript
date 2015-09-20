@@ -1,4 +1,4 @@
-# WIP
+# 0.13.1
 
 - Guard `conn?` will check that value is derefable instead of checking for `(instance? Atom)`
 
