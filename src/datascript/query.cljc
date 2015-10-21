@@ -92,7 +92,7 @@
     res))
 
 (defn sum-rel [a b]
-  (Relation. (:attrs a) (concat (:tuples a) (:tuples b))))
+  (Relation. (:attrs a) (into (:tuples a) (:tuples b))))
 
 (defn prod-rel
   ([] (Relation. {} [(da/make-array 0)]))
