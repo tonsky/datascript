@@ -1,3 +1,7 @@
+# 0.13.2
+
+- Fixed issue #120 with binding of large collections
+
 # 0.13.1
 
 - Guard `conn?` will check that value is derefable instead of checking for `(instance? Atom)`
