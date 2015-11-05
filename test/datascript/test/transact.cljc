@@ -109,7 +109,14 @@
     (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
     (is (= (:label (d/entity @conn 1)) #{:x :y :z}))
     (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :label \(:x :y :z\)\], expected :s"
-                          (d/transact! conn [[:db.fn/cas 1 :label :s :t]])))))
+                          (d/transact! conn [[:db.fn/cas 1 :label :s :t]]))))
+
+  (let [conn (d/create-conn)]
+    (d/transact! conn [[:db/add 1 :name "Ivan"]])
+    (d/transact! conn [[:db.fn/cas 1 :age nil 42]])
+    (is (= (:age (d/entity @conn 1)) 42))
+    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :age 42\], expected nil"
+                          (d/transact! conn [[:db.fn/cas 1 :age nil 4711]])))))
 
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})

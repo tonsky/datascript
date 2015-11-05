@@ -976,7 +976,6 @@
                     _ (validate-attr a entity)
                     ov (if (ref? db a) (entid-strict db ov) ov)
                     nv (if (ref? db a) (entid-strict db nv) nv)
-                    _ (validate-val ov entity)
                     _ (validate-val nv entity)
                     datoms (-search db [e a])]
                 (if (multival? db a)
