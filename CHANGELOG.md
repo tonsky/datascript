@@ -1,3 +1,7 @@
+# 0.13.3
+
+- Accept `nil` as old value in `:db.fn/cas` (PR #127, thx [Petter Eriksson](https://github.com/petterik))
+
 # 0.13.2
 
 - Fixed issue #120 with binding of large collections
