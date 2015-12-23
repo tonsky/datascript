@@ -77,7 +77,63 @@
                            [(= ?a12 ?a3)]]
                   db)
              #{[1 2 3] [2 1 3]})))
-    
+
+    (testing "Two conflicting function values for one binding."
+      (is (= (d/q '[:find  ?n
+                    :where [(identity 1) ?n]
+                           [(identity 2) ?n]]
+                  db)
+             #{})))
+
+    (testing "Destructured conflicting function values for two bindings."
+      (is (= (d/q '[:find  ?n ?x
+                    :where [(identity [3 4]) [?n ?x]]
+                           [(identity [1 2]) [?n ?x]]]
+                  db)
+             #{})))
+
+    (testing "Rule bindings interacting with function binding. (fn, rule)"
+      (is (= (d/q '[:find  ?n
+                    :in $ %
+                    :where [(identity 2) ?n]
+                    (my-vals ?n)]
+                  db
+                  '[[(my-vals ?x)
+                     [(identity 1) ?x]]
+                    [(my-vals ?x)
+                     [(identity 2) ?x]]
+                    [(my-vals ?x)
+                     [(identity 3) ?x]]])
+             #{[2]})))
+
+    (testing "Rule bindings interacting with function binding. (rule, fn)"
+      (is (= (d/q '[:find  ?n
+                    :in $ %
+                    :where (my-vals ?n)
+                    [(identity 2) ?n]]
+                  db
+                  '[[(my-vals ?x)
+                     [(identity 1) ?x]]
+                    [(my-vals ?x)
+                     [(identity 2) ?x]]
+                    [(my-vals ?x)
+                     [(identity 3) ?x]]])
+             #{[2]})))
+
+    (testing "Conflicting relational bindings with function binding. (rel, fn)"
+      (is (= (d/q '[:find  ?age
+                    :where [_ :age ?age]
+                           [(identity 100) ?age]]
+                  db)
+             #{})))
+
+    (testing "Conflicting relational bindings with function binding. (fn, rel)"
+      (is (= (d/q '[:find  ?age
+                    :where [(identity 100) ?age]
+                           [_ :age ?age]]
+                  db)
+             #{})))
+
     (testing "Function on empty rel"
       (is (= (d/q '[:find  ?e ?y
                     :where [?e :salary ?x]
@@ -91,13 +147,13 @@
                     :where [(ground ?in) [?a _ ?c]]]
                   [:a :b :c])
              #{[:a :c]}))
-      
+
       (is (= (d/q '[:find ?in
                     :in ?in
                     :where [(ground ?in) _]]
                   :a)
              #{[:a]}))
-      
+
       (is (= (d/q '[:find ?x ?z
                     :in ?in
                     :where [(ground ?in) [[?x _ ?z]...]]]
@@ -136,14 +192,14 @@
               [?e2 :age ?a2]
               [(< ?e ?e2)]]
       #{[1 2] [1 3] [1 4] [2 3] [2 4] [3 4]}
-      
+
       ;; empty result
       [:find  ?e ?e2
        :where [?e  :name "Ivan"]
               [?e2 :name "Oleg"]
               [(= ?e ?e2)]]
       #{}
-         
+
       ;; pred over const, true
       [:find  ?e
        :where [?e :name "Ivan"]
