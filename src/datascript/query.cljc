@@ -439,7 +439,7 @@
                            (reduce sum-rel))
                       (prod-rel production (empty-rel binding))))
                   (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
-    (update-in context [:rels] conj new-rel)))
+    (update-in context [:rels] collapse-rels new-rel)))
 
 ;;; RULES
 
