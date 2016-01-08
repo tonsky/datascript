@@ -1,3 +1,7 @@
+# WIP
+
+- Unify fn binding results with existing relations (PR #138, issue #141, thx [Aaron Brooks](https://github.com/abrooks))
+
 # 0.13.3
 
 - Accept `nil` as old value in `:db.fn/cas` (PR #127, thx [Petter Eriksson](https://github.com/petterik))
