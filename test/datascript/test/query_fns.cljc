@@ -26,17 +26,17 @@
 
     (testing "get-else"
       (is (= (d/q '[:find ?e ?age ?height
-                    :in $
                     :where [?e :age ?age]
                            [(get-else $ ?e :height 300) ?height]] db)
              #{[1 15 300] [2 22 240] [3 37 300]})))
 
     (testing "get-some"
-      (is (= (d/q '[:find ?e ?v
-                    :in $
-                    :where [?e :name ?name]
-                           [(get-some $ ?e :height :age) ?v]] db)
-             #{[1 15] [2 240] [3 37]})))
+      (is (= (d/q '[:find ?e ?a ?v
+                    :where [?e :name _]
+                           [(get-some $ ?e :height :age) [?a ?v]]] db)
+             #{[1 :age 15]
+               [2 :height 240]
+               [3 :age 37]})))
 
     (testing "missing?"
       (is (= (q/q '[:find ?e ?age

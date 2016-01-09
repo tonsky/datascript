@@ -1,6 +1,7 @@
 # WIP
 
 - Unify fn binding results with existing relations (PR #138, issue #141, thx [Aaron Brooks](https://github.com/abrooks))
+- [ BREAKING ] `get-some` returns `[attr value]` instead of just `value` (#143, same as Datomic)
 
 # 0.13.3
 

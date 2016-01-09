@@ -129,7 +129,7 @@
   (reduce
    (fn [_ a]
      (when-let [datom (first (db/-search db [e a]))]
-       (reduced (:v datom))))
+       (reduced [(:a datom) (:v datom)])))
    nil
    as))
 
