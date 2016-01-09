@@ -6,7 +6,7 @@
   
   :dependencies [
     [org.clojure/clojure "1.7.0" :scope "provided"]
-    [org.clojure/clojurescript "1.7.170" :scope "provided"]
+    [org.clojure/clojurescript "1.7.228" :scope "provided"]
   ]
   
   :global-vars {
@@ -32,7 +32,7 @@
           :pretty-print  false
           :elide-asserts true
           :output-wrapper false 
-          :warnings      {:single-segment-namespace false}
+          :parallel-build true
         }
         :notify-command ["release-js/wrap_bare.sh"]}
   ]}
@@ -52,8 +52,8 @@
               :optimizations :advanced
               :source-map    "target/datascript.js.map"
               :pretty-print  true
-              :warnings     {:single-segment-namespace false}
               :recompile-dependents false
+              :parallel-build true
             }}
           { :id "none"
             :source-paths ["src" "bench/src" "test" "dev"]
@@ -63,8 +63,8 @@
               :output-dir    "target/none"
               :optimizations :none
               :source-map    true
-              :warnings     {:single-segment-namespace false}
               :recompile-dependents false
+              :parallel-build true
             }}
         ]
       }
