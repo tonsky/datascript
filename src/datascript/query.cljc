@@ -387,9 +387,11 @@
         (recur (next rels) new-rel (conj acc rel)))
       (conj acc new-rel))))
 
+(defn- rel-with-attr [context sym]
+  (some #(when (contains? (:attrs %) sym) %) (:rels context)))
 
 (defn- context-resolve-val [context sym]
-  (when-let [rel (some #(when (contains? (:attrs %) sym) %) (:rels context))]
+  (when-let [rel (rel-with-attr context sym)]
     (when-let [tuple (first (:tuples rel))]
       (#?(:cljs aget :clj get) tuple ((:attrs rel) sym)))))
 
@@ -415,7 +417,10 @@
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
         pred         (or (get built-ins f)
-                         (context-resolve-val context f))
+                         (context-resolve-val context f)
+                         (when (nil? (rel-with-attr context f))
+                           (throw (ex-info (str "Unknown predicate '" f " in " clause)
+                                           {:error :query/where, :form clause, :var f}))))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         new-rel      (if pred
                        (let [tuple-pred (-call-fn context production pred args)]
@@ -427,7 +432,10 @@
   (let [[[f & args] out] clause
         binding  (dp/parse-binding out)
         fun      (or (get built-ins f)
-                     (context-resolve-val context f))
+                     (context-resolve-val context f)
+                     (when (nil? (rel-with-attr context f))
+                       (throw (ex-info (str "Unknown function '" f " in " clause)
+                                       {:error :query/where, :form clause, :var f}))))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         new-rel (if fun
                   (let [tuple-fn (-call-fn context production fun args)

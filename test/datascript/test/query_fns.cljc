@@ -5,7 +5,9 @@
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.query-v3 :as q]
-    [datascript.test.core :as tdc]))
+    [datascript.test.core :as tdc])
+#?(:clj
+   (:import [clojure.lang ExceptionInfo])))
 
 (deftest test-query-fns
   (testing "predicate without free variables"
@@ -231,3 +233,18 @@
                            [(?pred $ ?e 10)]]
                   db pred)
              #{[1] [3]})))))
+
+
+(deftest test-exceptions
+  (is (thrown-with-msg? ExceptionInfo #"Unknown predicate 'fun in \[\(fun \?e\)\]"
+    (d/q '[:find ?e
+           :in   [?e ...]
+           :where [(fun ?e)]]
+         [1])))
+  
+  (is (thrown-with-msg? ExceptionInfo #"Unknown function 'fun in \[\(fun \?e\) \?x\]"
+    (d/q '[:find ?e ?x
+           :in   [?e ...]
+           :where [(fun ?e) ?x]]
+         [1]))))
+
