@@ -430,14 +430,15 @@
                      (context-resolve-val context f))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         new-rel (if fun
-                  (let [tuple-fn (-call-fn context production fun args)]
-                    (if-let [tuples (not-empty (:tuples production))]
-                      (->> tuples
-                           (map #(let [val (tuple-fn %)
-                                       rel (in->rel binding val)]
-                                   (prod-rel (Relation. (:attrs production) [%]) rel)))
-                           (reduce sum-rel))
-                      (prod-rel production (empty-rel binding))))
+                  (let [tuple-fn (-call-fn context production fun args)
+                        rels     (for [tuple (:tuples production)
+                                       :let  [val (tuple-fn tuple)]
+                                       :when (not (nil? val))]
+                                   (prod-rel (Relation. (:attrs production) [tuple])
+                                             (in->rel binding val)))]
+                    (if (empty? rels)
+                      (prod-rel production (empty-rel binding))
+                      (reduce sum-rel rels)))
                   (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
     (update-in context [:rels] collapse-rels new-rel)))
 

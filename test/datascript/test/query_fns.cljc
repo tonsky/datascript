@@ -140,6 +140,14 @@
                            [(+ ?x 100) ?y]]
                   [[0 :age 15] [1 :age 35]])
              #{})))
+    
+    (testing "Returning nil from function filters out tuple from result"
+      (is (= (d/q '[:find ?x
+                    :in    [?in ...] ?f
+                    :where [(?f ?in) ?x]]
+                [1 2 3 4]
+                #(when (even? %) %))
+           #{[2] [4]})))
 
     (testing "Result bindings"
       (is (= (d/q '[:find ?a ?c
@@ -159,12 +167,14 @@
                     :where [(ground ?in) [[?x _ ?z]...]]]
                   [[:a :b :c] [:d :e :f]])
              #{[:a :c] [:d :f]}))
+      
       (is (= (d/q '[:find ?in
                     :in [?in ...]
                     :where [(ground ?in) _]]
                   [])
              #{})))
 ))
+
 
 (deftest test-predicates
   (let [entities [{:db/id 1 :name "Ivan" :age 10}
