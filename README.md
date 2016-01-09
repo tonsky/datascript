@@ -47,6 +47,11 @@ Projects using DataScript:
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 
+Related projects:
+
+- [Intension](https://github.com/alandipert/intension), lib to convert associative structures to in-memory databases for querying them
+- [Posh](https://github.com/mpdairy/posh), lib that lets you use a single DataScript db to store Reagent app state
+
 Demo applications:
 
 - ToDo, task manager demo app (persistence via localStorage and transit, filtering, undo/redo): [sources](https://github.com/tonsky/datascript-todo), [live](http://tonsky.me/datascript-todo/)
