@@ -54,12 +54,18 @@
                     [(missing? $ ?e :_parent)]] db)
              #{[3]})))
 
-    (testing "Built-in predicate"
+    (testing "Built-ins"
       (is (= (q/q '[:find  ?e1 ?e2
                     :where [?e1 :age ?a1]
                            [?e2 :age ?a2]
                            [(< ?a1 18 ?a2)]] db)
-             #{[1 2] [1 3]})))
+             #{[1 2] [1 3]}))
+      
+      (is (= (d/q '[:find  ?x ?c
+                    :in    [?x ...]
+                    :where [(count ?x) ?c]]
+                   ["a" "abc"])
+             #{["a" 1] ["abc" 3]})))
 
     (testing "Passing predicate as source"
       (is (= (q/q '[:find  ?e

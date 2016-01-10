@@ -137,11 +137,25 @@
   [db e a]
   (nil? (get (de/entity db e) a)))
 
+(defn- and-fn [& args]
+  (reduce (fn [a b]
+            (if b b (reduced b))) true args))
+            
+(defn- or-fn [& args]
+  (reduce (fn [a b]
+            (if b (reduced b) b)) nil args))
+
 (def built-ins {
   '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -,
   '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
-  'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'true? true?,
-  'false? false?, 'nil? nil?, 'str str, 'identity identity, 'vector vector,
+  'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'compare compare,
+  'rand rand, 'rand-int rand-int,
+  'true? true?, 'false? false?, 'nil? nil?, 'some? some?, 'not not, 'and and-fn, 'or or-fn,
+  'complement complement, 'identical? identical?, 
+  'identity identity, 'meta meta, 'name name, 'type type,
+  'count count, 'range range, 'not-empty not-empty, 'empty? empty,
+  'str str, 'pr-str pr-str, 'print-str print-str, 'println-str println-str, 'prn-str prn-str, 'subs subs,
+  're-find re-find, 're-matches re-matches, 're-seq re-seq,
   '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity})
  
 (def built-in-aggregates 
@@ -437,17 +451,17 @@
                        (throw (ex-info (str "Unknown function '" f " in " clause)
                                        {:error :query/where, :form clause, :var f}))))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
-        new-rel (if fun
-                  (let [tuple-fn (-call-fn context production fun args)
+        new-rel  (if fun
+                   (let [tuple-fn (-call-fn context production fun args)
                         rels     (for [tuple (:tuples production)
                                        :let  [val (tuple-fn tuple)]
                                        :when (not (nil? val))]
                                    (prod-rel (Relation. (:attrs production) [tuple])
                                              (in->rel binding val)))]
-                    (if (empty? rels)
-                      (prod-rel production (empty-rel binding))
-                      (reduce sum-rel rels)))
-                  (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
+                     (if (empty? rels)
+                       (prod-rel production (empty-rel binding))
+                       (reduce sum-rel rels)))
+                   (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
     (update-in context [:rels] collapse-rels new-rel)))
 
 ;;; RULES

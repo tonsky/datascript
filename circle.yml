@@ -4,10 +4,7 @@ machine:
    
 dependencies:
   post:
-    - lein clean
-    - lein cljsbuild once advanced:
-        timeout: 300
-    - lein cljsbuild once release:
+    - lein do clean, cljsbuild once advanced release:
         timeout: 300
 
 test:

@@ -4,6 +4,7 @@
 - [ BREAKING ] `get-some` returns `[attr value]` instead of just `value` (#143, same as Datomic)
 - Returning nil from query function filters out tuple from result
 - Throw when calling unbound predicate/function inside a query (#111)
+- Added several built-ins, including `count` (#142) and `subs` (#111)
 
 # 0.13.3
 

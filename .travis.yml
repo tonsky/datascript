@@ -1,5 +1,5 @@
 language: clojure
-script: lein do clean, test-clj-all, cljsbuild once advanced, cljsbuild once release && node ./test_node.js --all
+script: lein do clean, test-clj-all, cljsbuild once advanced release && node ./test_node.js --all
 sudo: false
 
 notifications:
