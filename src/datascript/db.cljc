@@ -721,6 +721,8 @@
           (raise "Lookup ref attribute should be marked as :db.unique/identity: " eid
                  {:error :lookup-ref/unique
                   :entity-id eid})
+        (nil? (second eid))
+          nil
         :else
           (:e (first (-datoms db :avet eid))))
    :else

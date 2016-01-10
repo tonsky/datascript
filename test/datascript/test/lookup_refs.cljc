@@ -19,7 +19,8 @@
     (are [eid res] (= (tdc/entity-map db eid) res)
       [:name "Ivan"]   {:db/id 1 :name "Ivan" :email "@1" :age 35}
       [:email "@1"]    {:db/id 1 :name "Ivan" :email "@1" :age 35}
-      [:name "Sergey"] nil)
+      [:name "Sergey"] nil
+      [:name nil]      nil)
     
     (are [eid msg] (thrown-with-msg? ExceptionInfo msg (d/entity db eid))
       [:name]     #"Lookup ref should contain 2 elements"
