@@ -7,6 +7,7 @@
 - Added several built-ins, including `count` (#142) and `subs` (#111)
 - Lookups with nil value (`[<attr> nil]`) resolve to nil (#140)
 - Allow pull-pattern to be specified with a input variable without `?` prefix (#136, #122)
+- Retract functions do not fail if lookup ref is pointing nowhere (#131)
 
 # 0.13.3
 

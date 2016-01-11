@@ -81,6 +81,29 @@
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))))
 
+(deftest test-retract-fns-not-found
+  (let [db  (-> (d/empty-db { :name { :db/unique :db.unique/identity } })
+                (d/db-with  [[:db/add 1 :name "Ivan"]]))
+        all #(vec (d/datoms % :eavt))]
+    (are [op] (= [(d/datom 1 :name "Ivan")] 
+                 (all (d/db-with db [op])))
+      [:db/retract             2 :name "Petr"]
+      [:db.fn/retractAttribute 2 :name]
+      [:db.fn/retractEntity    2]
+      [:db/retract             [:name "Petr"] :name "Petr"]
+      [:db.fn/retractAttribute [:name "Petr"] :name]
+      [:db.fn/retractEntity    [:name "Petr"]])
+         
+    (are [op] (= [[] []] 
+                 [(all (d/db-with db [op]))
+                  (all (d/db-with db [op op]))]) ;; idempotency
+      [:db/retract             1 :name "Ivan"]
+      [:db.fn/retractAttribute 1 :name]
+      [:db.fn/retractEntity    1]
+      [:db/retract             [:name "Ivan"] :name "Ivan"]
+      [:db.fn/retractAttribute [:name "Ivan"] :name]
+      [:db.fn/retractEntity    [:name "Ivan"]])))
+
 (deftest test-transact!
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :name "Ivan"]])

@@ -670,12 +670,12 @@
 (defn- resolve-datom [db e a v t]
   (when a (validate-attr a (list 'resolve-datom 'db e a v t)))
   (Datom.
-    (entid-some db e)         ;; e
+    (entid-some db e)               ;; e
     a                               ;; a
     (if (and (some? v) (ref? db a)) ;; v
       (entid-strict db v)
       v)
-    (entid-some db t)         ;; t
+    (entid-some db t)               ;; t
     nil))
 
 (defn- components->pattern [db index [c0 c1 c2 c3]]
@@ -1011,27 +1011,30 @@
               (recur (transact-add report entity) entities)
 
             (= op :db/retract)
-              (let [e (entid-strict db e)
-                    v (if (ref? db a) (entid-strict db v) v)]
-                (validate-attr a entity)
-                (validate-val v entity)
-                (if-let [old-datom (first (-search db [e a v]))]
-                  (recur (transact-retract-datom report old-datom) entities)
-                  (recur report entities)))
+              (if-let [e (entid db e)]
+                (let [v (if (ref? db a) (entid-strict db v) v)]
+                  (validate-attr a entity)
+                  (validate-val v entity)
+                  (if-let [old-datom (first (-search db [e a v]))]
+                    (recur (transact-retract-datom report old-datom) entities)
+                    (recur report entities)))
+                (recur report entities))
 
             (= op :db.fn/retractAttribute)
-              (let [e (entid-strict db e)]
-                (validate-attr a entity)
-                (let [datoms (-search db [e a])]
+              (if-let [e (entid db e)]
+                (let [_ (validate-attr a entity)
+                      datoms (-search db [e a])]
                   (recur (reduce transact-retract-datom report datoms)
-                         (concat (retract-components db datoms) entities))))
+                         (concat (retract-components db datoms) entities)))
+                (recur report entities))
 
             (= op :db.fn/retractEntity)
-              (let [e (entid-strict db e)
-                    e-datoms (-search db [e])
-                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
-                (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
-                       (concat (retract-components db e-datoms) entities)))
+              (if-let [e (entid db e)]
+                (let [e-datoms (-search db [e])
+                      v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
+                  (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
+                         (concat (retract-components db e-datoms) entities)))
+                (recur report entities))
            
            :else
              (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity"
