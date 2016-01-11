@@ -124,5 +124,14 @@
 
     (testing "upsert and :current-tx conflict"
       (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
-        (d/with db [{:db/id :db/current-tx :name "Ivan" :age 35}]))))
-))
+        (d/with db [{:db/id :db/current-tx :name "Ivan" :age 35}]))))))
+
+(deftest test-vector-upsert
+  (let [conn (d/create-conn {:name {:db/unique :db.unique/identity}})]
+    (d/transact! conn [{:db/id -1 :name "Ivan"}])
+    (d/transact! conn [{:db/id -1 :name "Ivan"}]) ; works
+    (is (= 1 (d/q '[:find (count ?e) . :where [?e :name "Ivan"]] @conn)))
+    (d/transact! conn [[:db/add -1 :name "Ivan"]]) ; throws
+    (is (= 1 (d/q '[:find (count ?e) . :where [?e :name "Ivan"]] @conn)))))
+
+
