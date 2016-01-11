@@ -98,5 +98,7 @@
             )))))
   #_(println "[ OK ] btset slice checked"))
 
+(deftest test-reduced
+  (is (= [1 2] (into [] (take 2) (btset 1 2)))))
 
 ;; (t/test-ns 'datascript.test.btset)

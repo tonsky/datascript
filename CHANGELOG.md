@@ -8,6 +8,7 @@
 - Lookups with nil value (`[<attr> nil]`) resolve to nil (#140)
 - Allow pull-pattern to be specified with a input variable without `?` prefix (#136, #122)
 - Retract functions do not fail if lookup ref is pointing nowhere (#131)
+- Fixed BTSet implementation of IReduceInit (#124)
 
 # 0.13.3
 

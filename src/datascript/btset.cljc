@@ -819,16 +819,17 @@
              keys (.-keys iter)
              idx  (.-idx iter)
              acc  start]
-        (cond
-          (reduced? acc) @acc
-          (nil? keys)    acc
-          :else
-            (let [new-acc (f acc (da/aget keys idx))]
-              (if (< (inc idx) (da/alength keys))
-                ;; can use cached array to move forward
+        (if (nil? keys)
+          acc
+          (let [new-acc (f acc (da/aget keys idx))]
+            (cond
+              (reduced? new-acc)
+                @new-acc
+              (< (inc idx) (da/alength keys)) ;; can use cached array to move forward
                 (if (< (inc left) right)
                   (recur (inc left) keys (inc idx) new-acc)
                   new-acc)
+              :else
                 (let [new-left (next-path set left)]
                   (if (and (not== -1 new-left) (< new-left right))
                     (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
