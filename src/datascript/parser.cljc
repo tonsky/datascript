@@ -117,8 +117,14 @@
   (when (and (symbol? form)
              (not (parse-variable form))
              (not (parse-src-var form))
+             (not (parse-rules-var form))
              (not (parse-placeholder form)))
     (PlainSymbol. form)))
+
+(defn parse-plain-variable [form]
+  (when (parse-plain-symbol form)
+    (Variable. form)))
+
 
 
 ;; fn-arg = (variable | constant | src-var)
@@ -223,7 +229,7 @@
 ;; find-tuple       = [ find-elem+ ]
 ;; find-elem        = (variable | pull-expr | aggregate | custom-aggregate) 
 ;; pull-expr        = [ 'pull' src-var? variable pull-pattern ]
-;; pull-pattern     = (constant | variable)
+;; pull-pattern     = (constant | variable | plain-symbol)
 ;; aggregate        = [ aggregate-fn fn-arg+ ]
 ;; aggregate-fn     = plain-symbol
 ;; custom-aggregate = [ 'aggregate' variable fn-arg+ ]
@@ -299,12 +305,13 @@
             src*          (parse-src-var src)                    
             var*          (parse-variable var)
             pattern*      (or (parse-variable pattern)
+                              (parse-plain-variable pattern)
                               (parse-constant pattern))]
         (if (and src* var* pattern*)
           (Pull. src* var* pattern*)
-          (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
+          (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable | plain-symbol)]"
              {:error :parser/find, :fragment form})))
-      (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable)]"
+      (raise "Cannot parse pull expression, expect ['pull' src-var? variable (constant | variable | plain-symbol)]"
              {:error :parser/find, :fragment form}))))
 
 (defn parse-find-elem [form]
@@ -361,18 +368,19 @@
            {:error :parser/with, :form form})))
 
 
-;; in = [ (src-var | rules-var | binding)+ ]
+;; in = [ (src-var | rules-var | plain-symbol | binding)+ ]
 
 (defn- parse-in-binding [form]
   (if-let [var (or (parse-src-var form)
-                   (parse-rules-var form))]
+                   (parse-rules-var form)
+                   (parse-plain-variable form))]
     (with-source (BindScalar. var) form)
     (parse-binding form)))
 
 (defn parse-in [form]
   (or
     (parse-seq parse-in-binding form)
-    (raise "Cannot parse :in clause, expected (src-var | % | bind-scalar | bind-tuple | bind-coll | bind-rel)"
+    (raise "Cannot parse :in clause, expected (src-var | % | plain-symbol | bind-scalar | bind-tuple | bind-coll | bind-rel)"
            {:error :parser/in, :form form})))
 
 

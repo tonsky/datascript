@@ -95,6 +95,18 @@
                test-db)
          [2 {:name "Ivan"}])))
 
+(deftest test-find-spec-input
+  (is (= (d/q '[:find (pull ?e ?p) .
+                :in $ ?p
+                :where [(ground 2) ?e]]
+                test-db [:name])
+         {:name "Ivan"}))
+  (is (= (d/q '[:find (pull ?e p) .
+                :in $ p
+                :where [(ground 2) ?e]]
+                test-db [:name])
+         {:name "Ivan"})))
+
 (deftest test-aggregates
   (let [db (d/db-with (d/empty-db {:value {:db/cardinality :db.cardinality/many}})
              [{:db/id 1 :name "Petr" :value [10 20 30 40]}

@@ -6,6 +6,7 @@
 - Throw when calling unbound predicate/function inside a query (#111)
 - Added several built-ins, including `count` (#142) and `subs` (#111)
 - Lookups with nil value (`[<attr> nil]`) resolve to nil (#140)
+- Allow pull-pattern to be specified with a input variable without `?` prefix (#136, #122)
 
 # 0.13.3
 
