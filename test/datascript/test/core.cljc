@@ -24,11 +24,11 @@
     (let [actual (:actual m)]
       (cond
         (instance? ExceptionInfo actual)
-        (println (.-stack actual) "\n" (pr-str (ex-data actual)))
+          (println (.-stack actual) "\n" (pr-str (ex-data actual)))
         (instance? js/Error actual)
-        (println (.-stack actual))
+          (println (.-stack actual))
         :else
-        (prn actual)))))
+          (prn actual)))))
 
 #?(:cljs (def test-summary (atom nil)))
 #?(:cljs (defmethod t/report [::t/default :end-run-tests] [m]
@@ -48,6 +48,9 @@
          (clojure.walk/prewalk #(if (de/entity? %)
                                   {:db/id (:db/id %)}
                                   %)))))
+
+(defn all-datoms [db]
+  (map (juxt :e :a :v) (d/datoms db :eavt)))
 
 ;; Core tests
 

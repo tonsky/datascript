@@ -1,3 +1,8 @@
+# WIP
+
+- Better error messages for upsert conflicts
+- Backtracking of tempids when redefining them later with upserts (issue #76)
+
 # 0.14.0
 
 - Unify fn binding results with existing relations (PR #138, issue #141, thx [Aaron Brooks](https://github.com/abrooks))

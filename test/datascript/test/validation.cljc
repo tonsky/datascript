@@ -10,7 +10,7 @@
 
 (deftest test-with-validation
   (let [db (d/empty-db {:profile { :db/valueType :db.type/ref }})]
-    (are [tx] (thrown-with-msg? Throwable #"Expected number or lookup ref for entity id" (d/db-with db tx))
+    (are [tx] (thrown-with-msg? Throwable #"Expected number or lookup ref" (d/db-with db tx))
       [[:db/add nil :name "Ivan"]]
       [[:db/add "aaa" :name "Ivan"]]
       [{:db/id "aaa" :name "Ivan"}])

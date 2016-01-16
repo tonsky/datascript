@@ -83,8 +83,15 @@
       {:db/id 1 :name "Ivan"}
          
       [[:db.fn/retractEntity [:name "Ivan"]]]
-      {:db/id 1}
-    )))
+      {:db/id 1})
+    
+    (are [tx msg] (thrown-with-msg? ExceptionInfo msg (d/db-with db tx))
+      [{:db/id [:name "Oleg"], :age 10}]
+      #"Nothing found for entity id \[:name \"Oleg\"\]"
+         
+      [[:db/add [:name "Oleg"] :age 10]]
+      #"Nothing found for entity id \[:name \"Oleg\"\]")
+    ))
 
 (deftest test-lookup-refs-transact-multi
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }

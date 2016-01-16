@@ -60,11 +60,6 @@
         (is (= (tempids tx)
                {-1 1, -2 1}))))
 
-    (testing "tempids already resolved to new id"
-      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
-        (d/with db [{:db/id -1 :age 35}
-                    {:db/id -1 :name "Ivan" :age 36}]))))
-
     (testing "upsert with existing id"
       (let [tx (d/with db [{:db/id 1 :name "Ivan" :age 35}])]
         (is (= (touched tx 1)
@@ -80,11 +75,11 @@
                {}))))
 
     (testing "upsert conficts with existing id"
-      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id 2"
         (d/with db [{:db/id 2 :name "Ivan" :age 36}]))))
 
     (testing "upsert conficts with non-existing id"
-      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id 3"
         (d/with db [{:db/id 3 :name "Ivan" :age 36}]))))
     
     (testing "upsert by non-existing value resolves as update"
@@ -95,7 +90,7 @@
                {}))))
 
     (testing "upsert by 2 conflicting fields"
-      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Conflicting upserts: \[:name \"Ivan\"\] resolves to 1, but \[:email \"@2\"\] resolves to 2"
         (d/with db [{:name "Ivan" :email "@2" :age 35}]))))
 
     (testing "upsert over intermediate db"
@@ -123,6 +118,25 @@
                {-1 3, -2 3}))))
 
     (testing "upsert and :current-tx conflict"
-      (is (thrown-with-msg? Throwable #"Cannot resolve upsert"
+      (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id \d+"
         (d/with db [{:db/id :db/current-tx :name "Ivan" :age 35}]))))
 ))
+
+
+(deftest test-redefining-ids
+  (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity }})
+               (d/db-with [{:db/id 1 :name "Ivan"}]))]
+    (let [tx (d/with db [{:db/id -1 :age 35}
+                         {:db/id -1 :name "Ivan" :age 36}])]
+      (is (= [[1 :age 36] [1 :name "Ivan"]]
+             (tdc/all-datoms (:db-after tx))))
+      (is (= {-1 1, :db/current-tx (+ d/tx0 2)}
+             (:tempids tx)))))
+  
+  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+               (d/db-with [{:db/id 1 :name "Ivan"}
+                           {:db/id 2 :name "Oleg"}]))]
+    (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"
+          (d/with db [{:db/id -1 :name "Ivan" :age 35}
+                      {:db/id -1 :name "Oleg" :age 36}])))))
+
