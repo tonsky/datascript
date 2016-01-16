@@ -968,6 +968,18 @@
          ~expr
          (cond-let ~@rest)))))
 
+(declare transact-tx-data)
+
+(defn retry-with-tempid [report es tempid upserted-eid]
+  (if (contains? (:tempids report) tempid)
+    (raise "Conflicting upsert: " tempid " resolves"
+           " both to " upserted-eid " and " (get (:tempids report) tempid)
+      { :error :transact/upsert })
+    ;; try to re-run from the beginning
+    ;; but remembering that `old-eid` will resolve to `upserted-eid`
+    (transact-tx-data (assoc-in report [:tempids tempid] upserted-eid)
+                      es)))
+
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
                 (sequential? initial-es))
@@ -1003,15 +1015,7 @@
               (if (and (neg-number? old-eid)
                        (contains? (:tempids report) old-eid)
                        (not= upserted-eid (get (:tempids report) old-eid)))
-                (if (contains? (:tempids initial-report) old-eid)
-                  (raise "Conflicting upsert: " old-eid " resolves"
-                         " both to " upserted-eid " and " (get (:tempids initial-report) old-eid)
-                         { :error :transact/upsert
-                           :entity entity })
-                  ;; try to re-run from the beginning
-                  ;; but remembering that `old-eid` will resolve to `upserted-eid`
-                  (transact-tx-data (assoc-in initial-report [:tempids old-eid] upserted-eid)
-                                    initial-es))
+                (retry-with-tempid initial-report initial-es old-eid upserted-eid)
                 (recur (allocate-eid report old-eid upserted-eid)
                        (concat (explode db (assoc entity :db/id upserted-eid)) entities)))
              
@@ -1059,19 +1063,27 @@
                                {:error :transact/cas, :old (first datoms), :expected ov, :new nv })))))
 
               (tx-id? e)
-                (recur report (concat [[op (current-tx report) a v]] entities))
+                (recur report (cons [op (current-tx report) a v] entities))
 
               (and (ref? db a) (tx-id? v))
-                (recur report (concat [[op e a (current-tx report)]] entities))
+                (recur report (cons [op e a (current-tx report)] entities))
 
               (neg-number? e)
-                (if-let [eid (get-in report [:tempids e])]
-                  (recur report (concat [[op eid a v]] entities))
-                  (recur (allocate-eid report e (next-eid db)) es))
+                (if (not= op :db/add)
+                  (raise "Negative entity ids are resolved for :db/add only"
+                         { :error :transact/syntax
+                           :op    entity })
+                  (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
+                                        (:e (first (-datoms db :avet [a v]))))
+                        allocated-eid (get-in report [:tempids e])]
+                    (if (and upserted-eid allocated-eid (not= upserted-eid allocated-eid))
+                      (retry-with-tempid initial-report initial-es e upserted-eid)
+                      (let [eid (or upserted-eid allocated-eid (next-eid db))]
+                        (recur (allocate-eid report e eid) (cons [op eid a v] entities))))))
 
               (and (ref? db a) (neg-number? v))
                 (if-let [vid (get-in report [:tempids v])]
-                  (recur report (concat [[op e a vid]] entities))
+                  (recur report (cons [op e a vid] entities))
                   (recur (allocate-eid report v (next-eid db)) es))
 
               (= op :db/add)

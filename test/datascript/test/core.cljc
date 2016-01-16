@@ -50,7 +50,7 @@
                                   %)))))
 
 (defn all-datoms [db]
-  (map (juxt :e :a :v) (d/datoms db :eavt)))
+  (into #{} (map (juxt :e :a :v)) (d/datoms db :eavt)))
 
 ;; Core tests
 

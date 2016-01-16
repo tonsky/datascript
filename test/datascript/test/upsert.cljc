@@ -125,18 +125,39 @@
 
 (deftest test-redefining-ids
   (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity }})
-               (d/db-with [{:db/id 1 :name "Ivan"}]))]
+               (d/db-with [{:db/id -1 :name "Ivan"}]))]
     (let [tx (d/with db [{:db/id -1 :age 35}
                          {:db/id -1 :name "Ivan" :age 36}])]
-      (is (= [[1 :age 36] [1 :name "Ivan"]]
+      (is (= #{[1 :age 36] [1 :name "Ivan"]}
              (tdc/all-datoms (:db-after tx))))
       (is (= {-1 1, :db/current-tx (+ d/tx0 2)}
              (:tempids tx)))))
   
   (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
-               (d/db-with [{:db/id 1 :name "Ivan"}
-                           {:db/id 2 :name "Oleg"}]))]
+               (d/db-with [{:db/id -1 :name "Ivan"}
+                           {:db/id -2 :name "Oleg"}]))]
     (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"
           (d/with db [{:db/id -1 :name "Ivan" :age 35}
                       {:db/id -1 :name "Oleg" :age 36}])))))
 
+
+(deftest test-vector-upsert
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+               (d/db-with [{:db/id -1, :name "Ivan"}]))]
+    (are [tx res] (= res (tdc/all-datoms (d/db-with db tx)))
+      [[:db/add -1 :name "Ivan"]
+       [:db/add -1 :age 12]]
+      #{[1 :age 12] [1 :name "Ivan"]}
+         
+      [[:db/add -1 :age 12]
+       [:db/add -1 :name "Ivan"]]
+      #{[1 :age 12] [1 :name "Ivan"]}))
+  
+  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+               (d/db-with [[:db/add -1 :name "Ivan"]
+                           [:db/add -2 :name "Oleg"]]))]
+    (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"
+          (d/with db [[:db/add -1 :name "Ivan"]
+                      [:db/add -1 :age 35]
+                      [:db/add -1 :name "Oleg"]
+                      [:db/add -1 :age 36]])))))
