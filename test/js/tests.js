@@ -200,6 +200,21 @@ function test_tx_report() {
   assert_eq(meta[0], {"some-meta": 1});
 }
 
+function test_conn() {
+  var datoms = [[1, "age",  17, tx0+1],
+                [1, "name", "Ivan", tx0+1]];
+  var conn = d.conn_from_datoms(datoms);
+  assert_eq_datoms(datoms, d.datoms(d.db(conn), ":eavt"));
+  
+  conn = d.conn_from_db(d.init_db(datoms));
+  assert_eq_datoms(datoms, d.datoms(d.db(conn), ":eavt"));
+  
+  var datoms2 = [[1, "age",  20, tx0+1],
+                 [1, "sex", "male", tx0+1]];
+  d.reset_conn(conn, d.init_db(datoms2));
+  assert_eq_datoms(datoms2, d.datoms(d.db(conn), ":eavt"));
+}
+
 function test_entity() {
   var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
   var db = d.db_with(d.empty_db(schema), 
@@ -426,6 +441,7 @@ function test_datascript_js() {
                     test_dbfn_call,
                     test_schema,
                     test_tx_report,
+                    test_conn,
                     test_entity,
                     test_entity_refs,
                     test_pull,

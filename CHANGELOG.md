@@ -6,6 +6,7 @@
 - Can specify transaction number in `:db/add`
 - Can put datoms into transaction directly (issue #121: supports both addition and retration datoms, keeps tx number)
 - Added all `datascript.core` symbols to externs so they can be called directly from JS (e.g. in combination with mori, issue #139)
+- Added `reset-conn`, `conn-from-datoms` and `conn-from-db` (issue #45)
 
 # 0.14.0
 

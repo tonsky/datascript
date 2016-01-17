@@ -89,11 +89,16 @@
           :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
+(defn ^:export conn-from-db [db]
+  (atom db :meta { :listeners (atom {}) }))
+
+(defn ^:export conn-from-datoms
+  ([datoms]        (conn-from-db (init-db datoms)))
+  ([datoms schema] (conn-from-db (init-db datoms schema))))
+
 (defn ^:export create-conn
-  ([] (create-conn db/default-schema))
-  ([schema]
-    (atom (empty-db schema)
-          :meta { :listeners  (atom {}) })))
+  ([]       (conn-from-db (empty-db)))
+  ([schema] (conn-from-db (empty-db schema))))
 
 (defn -transact! [conn tx-data tx-meta]
   {:pre [(conn? conn)]}
@@ -112,7 +117,22 @@
       (doseq [[_ callback] @(:listeners (meta conn))]
         (callback report))
       report)))
-           
+
+(defn ^:export reset-conn!
+  ([conn db] (reset-conn! conn db nil))
+  ([conn db tx-meta]
+    (let [report (db/map->TxReport
+                  { :db-before @conn
+                    :db-after  db
+                    :tx-data   (concat
+                                 (map #(assoc % :added false) (datoms @conn :eavt))
+                                 (datoms db :eavt))
+                    :tx-meta   tx-meta})]
+      (reset! conn db)
+      (doseq [[_ callback] @(:listeners (meta conn))]
+        (callback report))
+      db)))
+
 (defn ^:export listen!
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]

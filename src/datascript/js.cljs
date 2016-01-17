@@ -97,6 +97,12 @@
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
 
+(def ^:export conn_from_db d/conn-from-db)
+
+(defn ^:export conn_from_datoms
+  ([datoms]        (conn_from_db (init_db datoms)))
+  ([datoms schema] (conn_from_db (init_db datoms schema))))
+
 (defn ^:export db [conn]
   @conn)
 
@@ -107,6 +113,19 @@
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
     report))
+
+(defn ^:export reset_conn [conn db & [tx-meta]]
+  (let [report #js { :db_before @conn
+                     :db_after  db
+                     :tx_data   (into-array
+                                  (concat
+                                    (map #(assoc % :added false) (d/datoms @conn :eavt))
+                                    (d/datoms db :eavt)))
+                     :tx_meta   tx-meta }]
+    (reset! conn db)
+    (doseq [[_ callback] @(:listeners (meta conn))]
+      (callback report))
+    db))
 
 (def ^:export listen d/listen!)
 

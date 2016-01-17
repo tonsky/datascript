@@ -133,7 +133,7 @@
         (-nth [this i not-found] (nth-datom this i not-found))
         
         IAssociative
-        (-assoc [d k v] (assoc-datom k))
+        (-assoc [d k v] (assoc-datom d k v))
 
         IPrintWithWriter
         (-pr-writer [d writer opts]
@@ -155,7 +155,7 @@
         (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
         (empty [d] (throw (UnsupportedOperationException. "empty is not supported on Datom")))
         (count [d] 5)
-        (cons [d [k v]] (assoc-datom k v))
+        (cons [d [k v]] (assoc-datom d k v))
         
         clojure.lang.Indexed
         (nth [this i]           (nth-datom this i))
@@ -168,7 +168,7 @@
         clojure.lang.Associative
         (entryAt [d k] (some->> (val-at-datom d k nil) (clojure.lang.MapEntry k)))
         (containsKey [e k] (#{:e :a :v :tx :added} k))
-        (assoc [d k v] (assoc-datom k v))
+        (assoc [d k v] (assoc-datom d k v))
         ]))
 
 (defn ^Datom datom
