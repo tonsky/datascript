@@ -14,30 +14,30 @@
 
 ;; SUMMING UP
 
-(def  q dq/q)
-(def  entity de/entity)
-(defn entity-db [^Entity entity]
+(def ^:export  q dq/q)
+(def ^:export  entity de/entity)
+(defn ^:export entity-db [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
-(def  datom db/datom)
+(def ^:export datom db/datom)
 
-(def  pull dp/pull)
-(def  pull-many dp/pull-many)
-(def  touch de/touch)
+(def ^:export pull dp/pull)
+(def ^:export pull-many dp/pull-many)
+(def ^:export touch de/touch)
 
-(def  empty-db db/empty-db)
-(def  init-db db/init-db)
+(def ^:export empty-db db/empty-db)
+(def ^:export init-db db/init-db)
 
-(def  datom? db/datom?)
-(def  db? db/db?)
+(def ^:export datom? db/datom?)
+(def ^:export db? db/db?)
 
-(def ^:const tx0 db/tx0)
+(def ^:export ^:const tx0 db/tx0)
 
-(defn is-filtered [x]
+(defn ^:export is-filtered [x]
   (instance? FilteredDB x))
 
-(defn filter [db pred]
+(defn ^:export filter [db pred]
   {:pre [(db/db? db)]}
   (if (is-filtered db)
     (let [^FilteredDB fdb db
@@ -45,7 +45,7 @@
       (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) #?(:clj (atom nil))))
     (FilteredDB. db #(pred db %) #?(:clj (atom nil)))))
 
-(defn with
+(defn ^:export with
   ([db tx-data] (with db tx-data nil))
   ([db tx-data tx-meta]
     {:pre [(db/db? db)]}
@@ -58,38 +58,38 @@
                                :tempids   {}
                                :tx-meta   tx-meta}) tx-data))))
 
-(defn db-with [db tx-data]
+(defn ^:export db-with [db tx-data]
   {:pre [(db/db? db)]}
   (:db-after (with db tx-data)))
 
-(defn datoms
+(defn ^:export datoms
   ([db index]             {:pre [(db/db? db)]} (db/-datoms db index []))
   ([db index c1]          {:pre [(db/db? db)]} (db/-datoms db index [c1]))
   ([db index c1 c2]       {:pre [(db/db? db)]} (db/-datoms db index [c1 c2]))
   ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3]))
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3 c4])))
 
-(defn seek-datoms
+(defn ^:export seek-datoms
   ([db index]             {:pre [(db/db? db)]} (db/-seek-datoms db index []))
   ([db index c1]          {:pre [(db/db? db)]} (db/-seek-datoms db index [c1]))
   ([db index c1 c2]       {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2]))
   ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3]))
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3 c4])))
 
-(defn index-range [db attr start end]
+(defn ^:export index-range [db attr start end]
   {:pre [(db/db? db)]}
   (db/-index-range db attr start end))
 
-(def entid db/entid)
+(def ^:export entid db/entid)
 
 ;; Conn
 
-(defn conn? [conn]
+(defn ^:export conn? [conn]
   (and #?(:clj  (instance? clojure.lang.IDeref conn)
           :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
-(defn create-conn
+(defn ^:export create-conn
   ([] (create-conn db/default-schema))
   ([schema]
     (atom (empty-db schema)
@@ -104,7 +104,7 @@
                     (:db-after r))))
     @report))
 
-(defn transact!
+(defn ^:export transact!
   ([conn tx-data] (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -113,14 +113,14 @@
         (callback report))
       report)))
            
-(defn listen!
+(defn ^:export listen!
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
      {:pre [(conn? conn)]}
      (swap! (:listeners (meta conn)) assoc key callback)
      key))
 
-(defn unlisten! [conn key]
+(defn ^:export unlisten! [conn key]
   {:pre [(conn? conn)]}
   (swap! (:listeners (meta conn)) dissoc key))
 
@@ -142,9 +142,9 @@
 
 ;; Datomic compatibility layer
 
-(def last-tempid (atom -1000000))
+(def ^:private last-tempid (atom -1000000))
 
-(defn tempid
+(defn ^:export tempid
   ([part]
     (if (= part :db.part/tx)
       :db/current-tx
@@ -154,14 +154,14 @@
       :db/current-tx
       x)))
 
-(defn resolve-tempid [_db tempids tempid]
+(defn ^:export resolve-tempid [_db tempids tempid]
   (get tempids tempid))
 
-(defn db [conn]
+(defn ^:export db [conn]
   {:pre [(conn? conn)]}
   @conn)
 
-(defn transact
+(defn ^:export transact
   ([conn tx-data] (transact conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -197,7 +197,7 @@
          IPending
          (-realized? [_] @realized)))))
 
-(defn transact-async
+(defn ^:export transact-async
   ([conn tx-data] (transact-async conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -215,7 +215,7 @@
         (< c l) (str (apply str (repeat (- l c) "0")) s)
         :else   s))))
 
-(defn squuid
+(defn ^:export squuid
   ([]
     (squuid #?(:clj  (System/currentTimeMillis)
                :cljs (.getTime (js/Date.)))))
@@ -240,7 +240,7 @@
                (-> (rand-bits 16) (to-hex-string 4))
                (-> (rand-bits 16) (to-hex-string 4)))))))
 
-(defn squuid-time-millis [uuid]
+(defn ^:export squuid-time-millis [uuid]
   #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
               (bit-shift-right 32)
               (* 1000))
