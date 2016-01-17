@@ -811,11 +811,12 @@
         true      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
         indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
         true      (advance-max-eid (.-e datom)))
-      (let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
+      (if-let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
           true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
           true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))))))
+          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))
+        db))))
 
 (defn- transact-report [report datom]
   (-> report
@@ -932,10 +933,10 @@
           [:db/add v   straight-a eid]
           [:db/add eid straight-a v])))))
 
-(defn- transact-add [report [_ e a v :as ent]]
+(defn- transact-add [report [_ e a v tx :as ent]]
   (validate-attr a ent)
   (validate-val  v ent)
-  (let [tx    (current-tx report)
+  (let [tx    (or tx (current-tx report))
         db    (:db-after report)
         e     (entid-strict db e)
         v     (if (ref? db a) (entid-strict db v) v)
@@ -994,7 +995,7 @@
           (-> report
               (assoc-in  [:tempids :db/current-tx] (current-tx report))
               (update-in [:db-after :max-tx] inc))
-       
+        
         (map? entity)
           (let [old-eid (:db/id entity)]
             (cond-let
@@ -1118,6 +1119,13 @@
              :else
                (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity"
                       {:error :transact/syntax, :operation op, :tx-data entity})))
+       
+       (datom? entity)
+         (let [[e a v tx added] entity]
+           (if added
+             (recur (transact-add report [:db/add e a v tx]) entities)
+             (recur report (cons [:db/retract e a v] entities))))
+
        :else
          (raise "Bad entity type at " entity ", expected map or vector"
                 {:error :transact/syntax, :tx-data entity})

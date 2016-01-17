@@ -44,6 +44,27 @@
                       :where [1 :name ?v]] db)
                #{["Petr"]}))))))
 
+(deftest test-with-datoms
+  (testing "keeps tx number"
+    (let [db (-> (d/empty-db)
+                 (d/db-with [(d/datom 1 :name "Oleg")
+                             (d/datom 1 :age  17 (+ 1 d/tx0))
+                             [:db/add 1 :aka  "x" (+ 2 d/tx0)]]))]
+      (is (= [[1 :age  17     (+ 1 d/tx0)]
+              [1 :aka  "x"    (+ 2 d/tx0)]
+              [1 :name "Oleg" d/tx0      ]]
+             (map (juxt :e :a :v :tx)
+                  (d/datoms db :eavt))))))
+  
+  (testing "retraction"
+    (let [db (-> (d/empty-db)
+                 (d/db-with [(d/datom 1 :name "Oleg")
+                             (d/datom 1 :age  17)
+                             (d/datom 1 :name "Oleg" d/tx0 false)]))]
+      (is (= [[1 :age 17 d/tx0]]
+             (map (juxt :e :a :v :tx)
+                  (d/datoms db :eavt)))))))
+
 (deftest test-retract-fns
   (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
                             :friend { :db/valueType :db.type/ref }})

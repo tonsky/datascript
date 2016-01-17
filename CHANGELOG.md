@@ -3,6 +3,8 @@
 - Better error messages for upsert conflicts
 - Backtracking of tempids when redefining them later with upserts (issue #76)
 - Upsert works in vector form too (issue #99, #109)
+- Can specify transaction number in `:db/add`
+- Can put datoms into transaction directly (issue #121: supports both addition and retration datoms, keeps tx number)
 
 # 0.14.0
 
