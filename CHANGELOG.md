@@ -1,4 +1,4 @@
-# WIP
+# 0.15.0
 
 - Better error messages for upsert conflicts
 - Backtracking of tempids when redefining them later with upserts (issue #76)
