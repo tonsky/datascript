@@ -120,6 +120,8 @@
 
 (defn- -get-else
   [db e a else-val]
+  (when (nil? else-val)
+    (raise "get-else: nil default value is not supported" {:error :query/where}))
   (if-let [datom (first (db/-search db [e a]))]
     (:v datom)
     else-val))

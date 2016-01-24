@@ -1,3 +1,7 @@
+# WIP
+
+- `get-else` throws if `nil` is used for default value
+
 # 0.15.0
 
 - Better error messages for upsert conflicts

@@ -30,7 +30,12 @@
       (is (= (d/q '[:find ?e ?age ?height
                     :where [?e :age ?age]
                            [(get-else $ ?e :height 300) ?height]] db)
-             #{[1 15 300] [2 22 240] [3 37 300]})))
+             #{[1 15 300] [2 22 240] [3 37 300]}))
+      
+      (is (thrown-with-msg? ExceptionInfo #"get-else: nil default value is not supported"
+            (d/q '[:find ?e ?height
+                    :where [?e :age]
+                           [(get-else $ ?e :height nil) ?height]] db))))
 
     (testing "get-some"
       (is (= (d/q '[:find ?e ?a ?v
