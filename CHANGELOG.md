@@ -12,7 +12,7 @@
 
 - Unify fn binding results with existing relations (PR #138, issue #141, thx [Aaron Brooks](https://github.com/abrooks))
 - [ BREAKING ] `get-some` returns `[attr value]` instead of just `value` (#143, same as Datomic)
-- Returning nil from query function filters out tuple from result
+- [ BREAKING ] Returning `nil` from query function filters out tuple from result
 - Throw when calling unbound predicate/function inside a query (#111)
 - Added several built-ins, including `count` (#142) and `subs` (#111)
 - Lookups with nil value (`[<attr> nil]`) resolve to nil (#140)
