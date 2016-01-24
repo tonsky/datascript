@@ -39,7 +39,7 @@ Projects using DataScript:
 
 - [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [LightMesh](http://lightmesh.com/), datacenter management
-- [Cognician](https://cognician.com/), coaching platform
+- [Cognician](https://www.cognician.com/), coaching platform
 - [bitfountain](http://www.bitfountain.io/), iOS courses
 - [PartsBox](https://partsbox.io/), electronic parts management 
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
