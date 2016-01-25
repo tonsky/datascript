@@ -54,6 +54,7 @@ Related projects:
 
 Demo applications:
 
+- [Localisation Demo with Om Next](http://simonb.com/blog/2016/01/24/om-next-datascript-localisation-demo/)
 - ToDo, task manager demo app (persistence via localStorage and transit, filtering, undo/redo): [sources](https://github.com/tonsky/datascript-todo), [live](http://tonsky.me/datascript-todo/)
 - CatChat, chat demo app: [sources](https://github.com/tonsky/datascript-chat), [code walkthrough](http://tonsky.me/blog/datascript-chat/), [live](http://tonsky.me/datascript-chat/)
 - clj-crud, demo CRUD app: [sources](https://github.com/thegeez/clj-crud), [blog post](http://thegeez.net/2014/04/30/datascript_clojure_web_app.html)
