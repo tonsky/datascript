@@ -30,7 +30,7 @@ Posts:
 Talks:
 
 - “Frontend with Joy” talk (FPConf, August 2015): [video](https://www.youtube.com/watch?v=cRWrrHPrk9g) in Russian
-- “Programming Web UI with Database in a Browser” talk (PolyConf, July 2015): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2015.07%20polyconf.pdf)
+- “Programming Web UI with Database in a Browser” talk (PolyConf, July 2015): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2015.07%20polyconf.pdf), [video](https://www.youtube.com/watch?v=1dr-CzMMDD8)
 - “DataScript for Web Development” talk (Clojure eXchange, Dec 2014): [slides](https://dl.dropboxusercontent.com/u/561580/conferences/2014.12%20clojure%20eXchange.pdf), [video](https://skillsmatter.com/skillscasts/6038-datascript-for-web-development)
 - “Building ToDo list with DataScript” webinar (ClojureScript NYC, Dec 2014): [video](http://vimeo.com/114688970), [app](https://github.com/tonsky/datascript-todo)
 - DataScript hangout (May 2014, in Russian): [video](http://www.youtube.com/watch?v=jhBC81pczZY)
