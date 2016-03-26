@@ -434,6 +434,28 @@ function test_filter() {
                              })));
 }
 
+function test_upsert() {
+  var schema = {
+    ":my/tid": {
+      ":db/unique": ":db.unique/identity"
+    }
+  };
+  var conn = d.create_conn(schema);
+
+  d.transact(conn, [{
+    ":my/tid": "5x",
+    ":my/name": "Terin"
+  }]);
+
+  d.transact(conn, [{
+    ":my/tid": "5x",
+    ":my/name": "Charlie"
+  }]);
+
+  var names = d.q('[:find ?name :where [?e ":my/tid" "5x"] [?e ":my/name" ?name]]', d.db(conn));
+  assert_eq_set([["Charlie"]], names);
+}
+
 function test_datascript_js() {
   return test_fns([ test_db_with,
                     test_nested_maps,
@@ -452,7 +474,8 @@ function test_datascript_js() {
                     test_q_fns,
                     test_find_specs,
                     test_datoms,
-                    test_filter
+                    test_filter,
+                    test_upsert
                   ]);
 }
 

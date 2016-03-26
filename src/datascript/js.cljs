@@ -14,7 +14,8 @@
 
 (defn- schema->clj [schema]
   (->> (js->clj schema)
-       (walk/postwalk keywordize)))
+       (reduce-kv
+         (fn [m k v] (assoc m k (walk/postwalk keywordize v))) {})))
 
 (declare entities->clj)
 
