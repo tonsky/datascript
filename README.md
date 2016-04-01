@@ -19,6 +19,8 @@ The intention with DataScript is to be a basic building block in client-side app
 
 Docs:
 
+- [Getting started](https://github.com/tonsky/datascript/wiki/Getting-started)
+- [Tutorials](https://github.com/kristianmandrup/datascript-tutorial)
 - [Tips & tricks](https://github.com/tonsky/datascript/wiki/Tips-&-tricks)
 
 Posts:
@@ -49,6 +51,9 @@ Projects using DataScript:
 
 Related projects:
 
+- [DataScript-Transit](https://github.com/tonsky/datascript-transit), transit serialization for database and datoms
+- [DataScript-mori](https://github.com/typeetfunc/datascript-mori), DataScript & Mori wrapper for use from JS
+- [DatSync](https://github.com/metasoarous/datsync), Datomic ↔︎ DataScript syncing/replication utilities
 - [Intension](https://github.com/alandipert/intension), lib to convert associative structures to in-memory databases for querying them
 - [Posh](https://github.com/mpdairy/posh), lib that lets you use a single DataScript db to store Reagent app state
 
