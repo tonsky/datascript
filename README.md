@@ -48,6 +48,7 @@ Projects using DataScript:
 - [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
+- [OmNext TodoMVC](https://github.com/madvas/todomvc-omnext-datomic-datascript), TodoMVC app with OmNext, Datomic, Datascript
 
 Related projects:
 
