@@ -58,9 +58,8 @@
                                :tempids   {}
                                :tx-meta   tx-meta}) tx-data))))
 
-(defn ^:export db-with [db tx-data]
-  {:pre [(db/db? db)]}
-  (:db-after (with db tx-data)))
+(def ^:export db-with
+  (comp :db-after with))
 
 (defn ^:export datoms
   ([db index]             {:pre [(db/db? db)]} (db/-datoms db index []))
