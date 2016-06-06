@@ -44,11 +44,12 @@ Projects using DataScript:
 - [LightMesh](http://lightmesh.com/), datacenter management
 - [Cognician](https://www.cognician.com/), coaching platform
 - [bitfountain](http://www.bitfountain.io/), iOS courses
-- [PartsBox](https://partsbox.io/), electronic parts management 
+- [PartsBox](https://partsbox.io/), electronic parts management
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
 - [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
+- [Zetawar](http://www.zetawar.com), turn-based tactical strategy game
 
 Related projects:
 
