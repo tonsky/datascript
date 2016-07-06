@@ -74,8 +74,9 @@
    [3 :follows 2]
    [3 :attach  { :another :map }]
    [3 :avatar  30]
-   [4 :name    "Nick" (+ d/tx0 100)]
-   [(+ d/tx0 100) :txInstant 0xdeadbeef]
+   [4 :name    "Nick" d/tx0]
+   ;; check that facts about transactions doesn’t set off max-eid
+   [d/tx0      :txInstant 0xdeadbeef]
    [30 :url    "https://" ]])
 
 

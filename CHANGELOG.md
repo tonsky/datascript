@@ -1,4 +1,4 @@
-# WIP
+# 0.15.1
 
 - `get-else` throws if `nil` is used for default value
 - JS API: Do not keywordize attribute names in schema (PR #155, issue #153, thx [typeetfunc](https://github.com/typeetfunc))
