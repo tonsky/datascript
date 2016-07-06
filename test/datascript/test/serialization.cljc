@@ -74,6 +74,8 @@
    [3 :follows 2]
    [3 :attach  { :another :map }]
    [3 :avatar  30]
+   [4 :name    "Nick" (+ d/tx0 100)]
+   [(+ d/tx0 100) :txInstant 0xdeadbeef]
    [30 :url    "https://" ]])
 
 
@@ -94,8 +96,13 @@
                         (d/init-db schema))
         db-transact (->> (map (fn [[e a v]] [:db/add e a v]) data)
                          (d/db-with (d/empty-db schema)))]
-    (testing "db-init produces the same result as regular transacttions"
+    (testing "db-init produces the same result as regular transactions"
       (is (= db-init db-transact)))
+
+    (testing "db-init produces the same max-eid as regular transactions"
+      (let [assertions [ [:db/add -1 :name "Lex"] ]]
+        (is (= (d/db-with db-init assertions)
+               (d/db-with db-transact assertions)))))
     
     (testing "Roundtrip"
       (doseq [[r read-fn] readers]

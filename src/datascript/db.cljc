@@ -586,13 +586,17 @@
                                          #js [] datoms)
                                  (.sort cmp-datoms-avet-quick))
                  avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
-                 max-eid (:e (first (-rseq eavt)))]
+                 max-eid     (:e (first (-rseq (btset/slice eavt
+                                                           (Datom. nil nil nil nil nil)
+                                                           (Datom. (dec tx0) nil nil nil nil)))))]
                 :clj
                 [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
                  aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
                  avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
                  avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
-                 max-eid     (:e (first (rseq eavt)))])
+                 max-eid     (:e (first (rseq (btset/slice eavt
+                                                           (Datom. nil nil nil nil nil)
+                                                           (Datom. (dec tx0) nil nil nil nil)))))])
             max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
         (map->DB {
           :schema  schema
