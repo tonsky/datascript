@@ -2,6 +2,7 @@
 
 - `get-else` throws if `nil` is used for default value
 - JS API: Do not keywordize attribute names in schema (PR #155, issue #153, thx [typeetfunc](https://github.com/typeetfunc))
+- `init-db` sets correct `max-eid` when processing facts about transactions (PR #164, issue #163, thx [Nick Alexander](https://github.com/ncalexan))
 
 # 0.15.0
 
