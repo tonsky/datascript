@@ -280,7 +280,8 @@
 
 (defn- cmp-num [n1 n2]
   (if (and n1 n2)
-    (- n1 n2)
+    #?(:clj  (Long/compare n1 n2)
+       :cljs (- n1 n2))
     0))
 
 (defn cmp-val [o1 o2]
@@ -322,28 +323,28 @@
        (-compare a1 a2)
        (garray/defaultCompare a1 a2))
      :clj
-     (compare a1 a2)))
+     (.compareTo ^Comparable a1 a2)))
 
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
-    (- (.-e d1) (.-e d2))
+    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
     (compare (.-v d1) (.-v d2))
-    (- (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
 
 (defn cmp-datoms-aevt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (- (.-e d1) (.-e d2))
+    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
     (compare (.-v d1) (.-v d2))
-    (- (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
 
 (defn cmp-datoms-avet-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (compare (.-v d1) (.-v d2))
-    (- (.-e d1) (.-e d2))
-    (- (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
 
 ;; ----------------------------------------------------------------------------
 
@@ -567,6 +568,14 @@
       :rschema (rschema schema)
       #?@(:clj [:__hash (atom nil)])})))
 
+(defn- init-max-eid [eavt]
+  (if-let [slice (btset/slice
+                   eavt
+                   (Datom. nil nil nil nil nil)
+                   (Datom. (dec tx0) nil nil nil nil))]
+    (-> slice rseq first :e) ;; :e of last datom in slice
+    0))
+
 (defn ^DB init-db
   ([datoms] (init-db datoms default-schema))
   ([datoms schema]
@@ -586,17 +595,13 @@
                                          #js [] datoms)
                                  (.sort cmp-datoms-avet-quick))
                  avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
-                 max-eid     (:e (first (-rseq (btset/slice eavt
-                                                           (Datom. nil nil nil nil nil)
-                                                           (Datom. (dec tx0) nil nil nil nil)))))]
+                 max-eid (init-max-eid eavt)]
                 :clj
                 [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
                  aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
                  avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
                  avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
-                 max-eid     (:e (first (rseq (btset/slice eavt
-                                                           (Datom. nil nil nil nil nil)
-                                                           (Datom. (dec tx0) nil nil nil nil)))))])
+                 max-eid     (init-max-eid eavt)])
             max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
         (map->DB {
           :schema  schema

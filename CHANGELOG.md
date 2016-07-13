@@ -1,3 +1,7 @@
+# WIP
+
+- large long entity ids were breaking `init-db` (issue #165)
+
 # 0.15.1
 
 - `get-else` throws if `nil` is used for default value
