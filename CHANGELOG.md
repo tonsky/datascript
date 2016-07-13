@@ -1,4 +1,4 @@
-# WIP
+# 0.15.2
 
 - large long entity ids were breaking `init-db` (issue #165)
 
