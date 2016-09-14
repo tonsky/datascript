@@ -430,10 +430,16 @@
                              args)]
       (apply f resolved-args))))
 
+(defn- resolve-sym [sym]
+  #?(:cljs nil
+     :clj (when (namespace sym)
+            (when-let [v (resolve sym)] @v))))
+
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
         pred         (or (get built-ins f)
                          (context-resolve-val context f)
+                         (resolve-sym f)
                          (when (nil? (rel-with-attr context f))
                            (throw (ex-info (str "Unknown predicate '" f " in " clause)
                                            {:error :query/where, :form clause, :var f}))))
@@ -449,6 +455,7 @@
         binding  (dp/parse-binding out)
         fun      (or (get built-ins f)
                      (context-resolve-val context f)
+                     (resolve-sym f)
                      (when (nil? (rel-with-attr context f))
                        (throw (ex-info (str "Unknown function '" f " in " clause)
                                        {:error :query/where, :form clause, :var f}))))
