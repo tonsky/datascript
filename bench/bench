@@ -1,5 +1,5 @@
 #^:shebang '[
-exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0-RC2/clojure-1.7.0-RC2.jar" clojure.main "$0" "$@"
+exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0/clojure-1.7.0.jar" clojure.main "$0" "$@"
 ]
 
 "USAGE: ./bench [-c | -f] (jvm|js) (<bench-name>|all) (<tag>|<revision>)"

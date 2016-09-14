@@ -23,9 +23,9 @@
 ;; whitebox test to confirm that hash cache caches
 (deftest test-db-hash-cache
   (let [db (db/empty-db)]
-    (is (= nil (-> (.-__hash db) #?(:clj (deref)))))
+    (is (= 0         @(.-hash db)))
     (let [h (hash db)]
-      (is (= h (-> (.-__hash db) #?(:clj (deref))))))))
+      (is (= h @(.-hash db))))))
 
 (defn- now []
   #?(:clj  (System/currentTimeMillis)

@@ -443,7 +443,7 @@
         (every? #(contains? this %) other)))
 
     IHash
-    (-hash [this] (caching-hash this hash-iset __hash))
+    (-hash [this] (caching-hash this hash-unordered-coll __hash))
 
     ICollection
     (-conj [this key] (btset-conj this key comparator))
@@ -530,7 +530,7 @@
     clojure.lang.ILookup
     (valAt [this key] (.get this key))
     (valAt [this key not-found] (or (.get this key) not-found))
-        
+    
     clojure.lang.IHashEq
     (hasheq [this]
       (when (== -1 _hasheq)

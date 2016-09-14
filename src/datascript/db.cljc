@@ -61,6 +61,10 @@
      [then else]
      (if (cljs-env? &env) then else)))
 
+(defn combine-hashes [x y]
+  #?(:clj  (clojure.lang.Util/hashCombine x y)
+     :cljs (hash-combine x y)))
+
 #?(:clj
    (defn- get-sig [method]
      ;; expects something like '(method-symbol [arg arg arg] ...)
@@ -180,8 +184,8 @@
 
 (defn- hash-datom [^Datom d]
   (-> (hash (.-e d))
-      (hash-combine (hash (.-a d)))
-      (hash-combine (hash (.-v d)))))
+      (combine-hashes (hash (.-a d)))
+      (combine-hashes (hash (.-v d)))))
 
 (defn- equiv-datom [^Datom d ^Datom o]
   (and (= (.-e d) (.-e o))
@@ -366,7 +370,7 @@
 
 (declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern indexing?)
 
-(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema #?(:clj __hash)]
+(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema hash]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -448,7 +452,7 @@
        (satisfies? IDB x)))
 
 ;; ----------------------------------------------------------------------------
-(defrecord-updatable FilteredDB [unfiltered-db pred #?(:clj __hash)]
+(defrecord-updatable FilteredDB [unfiltered-db pred hash]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-fdb db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -566,7 +570,7 @@
       :max-eid 0
       :max-tx  tx0
       :rschema (rschema schema)
-      #?@(:clj [:__hash (atom nil)])})))
+      :hash    (atom 0)})))
 
 (defn- init-max-eid [eavt]
   (if-let [slice (btset/slice
@@ -611,32 +615,31 @@
           :max-eid max-eid
           :max-tx  max-tx
           :rschema rschema
-          #?@(:clj [:__hash (atom nil)])})))))
+          :hash    (atom 0)})))))
 
 (defn- equiv-db-index [x y]
-  (and (= (count x) (count y))
-    (loop [xs (seq x)
-           ys (seq y)]
-      (cond
-        (nil? xs) true
-        (= (first xs) (first ys)) (recur (next xs) (next ys))
-        :else false))))
+  (loop [xs (seq x)
+         ys (seq y)]
+    (cond
+      (nil? xs) (nil? ys)
+      (= (first xs) (first ys)) (recur (next xs) (next ys))
+      :else false)))
 
 (defn- hash-db [^DB db]
-  #?(:cljs
-     (or (.-__hash db)
-         (set!   (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
-     :clj
-     (or @(.-__hash db)
-         (reset! (.-__hash db) (hash-ordered-coll (or (-datoms db :eavt []) []))))))
+  (let [h @(.-hash db)]
+    (if (zero? h)
+      (reset! (.-hash db) (combine-hashes (hash (.-schema db))
+                                          (hash (.-eavt db))))
+      h)))
 
 (defn- hash-fdb [^FilteredDB db]
-  #?(:cljs
-     (or (.-__hash db)
-         (set!   (.-__hash db) (hash-ordered-coll (-datoms db :eavt []))))
-     :clj
-     (or @(.-__hash db)
-         (reset! (.-__hash db) (hash-ordered-coll (or (-datoms db :eavt []) []))))))
+  (let [h @(.-hash db)
+        datoms (or (-datoms db :eavt []) #{})]
+    (if (zero? h)
+      (let [datoms (or (-datoms db :eavt []) #{})]
+        (reset! (.-hash db) (combine-hashes (hash (-schema db))
+                                            (hash-unordered-coll datoms))))
+      h)))
 
 (defn- equiv-db [db other]
   (and (or (instance? DB other) (instance? FilteredDB other))
@@ -819,12 +822,14 @@
         true      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
         true      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
         indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
-        true      (advance-max-eid (.-e datom)))
+        true      (advance-max-eid (.-e datom))
+        true      (assoc :hash (atom 0)))
       (if-let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
           true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
           true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick))
+          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)
+          true      (assoc :hash (atom 0)))
         db))))
 
 (defn- transact-report [report datom]

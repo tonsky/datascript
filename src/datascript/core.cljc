@@ -42,8 +42,8 @@
   (if (is-filtered db)
     (let [^FilteredDB fdb db
           u (.-unfiltered-db fdb)]
-      (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) #?(:clj (atom nil))))
-    (FilteredDB. db #(pred db %) #?(:clj (atom nil)))))
+      (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) (atom 0)))
+    (FilteredDB. db #(pred db %) (atom 0))))
 
 (defn ^:export with
   ([db tx-data] (with db tx-data nil))

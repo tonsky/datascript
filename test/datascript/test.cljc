@@ -42,4 +42,12 @@
   (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\.test\.btset")))
 
 (defn ^:export test-all []
-  (datascript.test.core/wrap-res #(t/run-all-tests)))
+  (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\..*")))
+
+#?(:clj
+(defn test-node [& args]
+  (let [res (apply clojure.java.shell/sh "node" "test_node.js" args)]
+    (println (:out res))
+    (binding [*out* *err*]
+      (println (:err res)))
+    (System/exit (:exit res)))))

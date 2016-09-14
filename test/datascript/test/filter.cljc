@@ -7,7 +7,8 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-filter-db
-  (let [db (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
+  (let [empty-db (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
+        db (-> empty-db
                (d/db-with [{:db/id 1
                             :name  "Petr"
                             :email "petya@spb.ru"
@@ -56,8 +57,16 @@
       (is (= (map :v (d/datoms (d/filter db remove-pass) :aevt :password))
              [])))
   
-    (testing "equiv and hash"
+    (testing "equiv"
       (is (= (d/db-with db [[:db.fn/retractEntity 2]])
              (d/filter db remove-ivan)))
+      (is (= empty-db
+             (d/filter empty-db (constantly true))
+             (d/filter db (constantly false)))))
+    
+    (testing "hash"
       (is (= (hash (d/db-with db [[:db.fn/retractEntity 2]]))
-             (hash (d/filter db remove-ivan)))))))
+             (hash (d/filter db remove-ivan))))
+      (is (= (hash empty-db)
+             (hash (d/filter empty-db (constantly true)))
+             (hash (d/filter db (constantly false))))))))

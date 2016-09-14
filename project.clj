@@ -9,6 +9,10 @@
     [org.clojure/clojurescript "1.7.228" :scope "provided"]
   ]
   
+  :plugins [
+    [lein-cljsbuild "1.1.4"]
+  ]
+  
   :global-vars {
     *warn-on-reflection* true
 ;;     *unchecked-math* :warn-on-boxed
@@ -19,7 +23,13 @@
   :aliases {"test-clj"     ["run" "-m" "datascript.test/test-most"]
             "test-clj-all" ["run" "-m" "datascript.test/test-all"]
             "node-repl"    ["run" "-m" "user/node-repl"]
-            "browser-repl" ["run" "-m" "user/browser-repl"]}
+            "browser-repl" ["run" "-m" "user/browser-repl"]
+            "test-all"     ["do" ["clean"]
+                                 ["test-clj-all"]
+                                 ["cljsbuild" "once" "release" "advanced"]
+                                 ["run" "-m" "datascript.test/test-node" "--all"]]
+            "test-1.8"     ["with-profile" "dev,1.8" "test-all"]
+            "test-1.9"     ["with-profile" "dev,1.9" "test-all"]}
   
   :cljsbuild { 
     :builds [
@@ -35,40 +45,38 @@
           :parallel-build true
         }
         :notify-command ["release-js/wrap_bare.sh"]}
+              
+      { :id "advanced"
+        :source-paths ["src" "bench/src" "test"]
+        :compiler {
+          :output-to     "target/datascript.js"
+          :optimizations :advanced
+          :source-map    "target/datascript.js.map"
+          :pretty-print  true
+          :recompile-dependents false
+          :parallel-build true
+        }}
+              
+      { :id "none"
+        :source-paths ["src" "bench/src" "test" "dev"]
+        :compiler {
+          :main          datascript.test
+          :output-to     "target/datascript.js"
+          :output-dir    "target/none"
+          :optimizations :none
+          :source-map    true
+          :recompile-dependents false
+          :parallel-build true
+        }}
   ]}
 
   :profiles {
-    :dev {
-      :source-paths ["bench/src" "test" "dev"]
-      :plugins [
-        [lein-cljsbuild "1.1.2"]
-      ]
-      :cljsbuild { 
-        :builds [
-          { :id "advanced"
-            :source-paths ["src" "bench/src" "test"]
-            :compiler {
-              :output-to     "target/datascript.js"
-              :optimizations :advanced
-              :source-map    "target/datascript.js.map"
-              :pretty-print  true
-              :recompile-dependents false
-              :parallel-build true
-            }}
-          { :id "none"
-            :source-paths ["src" "bench/src" "test" "dev"]
-            :compiler {
-              :main          datascript.test
-              :output-to     "target/datascript.js"
-              :output-dir    "target/none"
-              :optimizations :none
-              :source-map    true
-              :recompile-dependents false
-              :parallel-build true
-            }}
-        ]
-      }
-    }
+    :1.8 { :dependencies [[org.clojure/clojure       "1.8.0" :scope "provided"]
+                          [org.clojure/clojurescript "1.8.51" :scope "provided"]] }
+    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha12" :scope "provided"]
+                          [org.clojure/clojurescript "1.9.229" :scope "provided"]]
+           :global-vars  { *print-namespace-maps* false } }
+    :dev { :source-paths ["bench/src" "test" "dev"] }
   }
   
   :clean-targets ^{:protect false} [
