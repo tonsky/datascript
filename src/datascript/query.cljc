@@ -673,7 +673,8 @@
     (get-in context [:sources (.-symbol var)]))
   PlainSymbol
   (-context-resolve [var _]
-    (get built-in-aggregates (.-symbol var)))
+    (or (get built-in-aggregates (.-symbol var))
+        (resolve-sym (.-symbol var))))
   Constant
   (-context-resolve [var _]
     (.-value var)))

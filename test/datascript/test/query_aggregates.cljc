@@ -6,6 +6,11 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
+
+(defn sort-reverse [xs]
+  (reverse (sort xs)))
+
+
 (deftest test-aggregates
   (let [monsters [ ["Cerberus" 3]
                    ["Medusa" 1]
@@ -83,9 +88,19 @@
               23.53720459187964)))
 
     (testing "Custom aggregates"
-      (is (= (set (d/q '[ :find ?color (aggregate ?agg ?x)
-                          :in   [[?color ?x]] ?agg ]
-                       [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
-                        [:blue 7] [:blue 8]]
-                       #(reverse (sort %))))
-             #{[:red [5 4 3 2 1]] [:blue [8 7]]})))))
+      (let [data   [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
+                    [:blue 7] [:blue 8]]
+            result #{[:red [5 4 3 2 1]] [:blue [8 7]]}]
+        
+        (is (= (set (d/q '[ :find ?color (aggregate ?agg ?x)
+                            :in   [[?color ?x]] ?agg ]
+                         data
+                         sort-reverse))
+               result))
+        
+        #?(:clj
+            (is (= (set (d/q '[ :find ?color (datascript.test.query-aggregates/sort-reverse ?x)
+                                :in   [[?color ?x]]]
+                             data))
+                   result)))
+        ))))

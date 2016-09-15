@@ -259,13 +259,9 @@
            :where [(fun ?e) ?x]]
          [1]))))
 
-(def sample-query-fn (constantly 42))
+(defn sample-query-fn [] 42)
 
+#?(:clj
 (deftest test-symbol-resolution
-  (let [q '[:find ?x .
-            :where [(datascript.test.query-fns/sample-query-fn) ?x]]]
-    #?(:clj
-       (is (= 42 (d/q q [1])))
-       :cljs
-       (is (thrown-with-msg? ExceptionInfo #"Unknown function"
-             (d/q q [1]))))))
+  (is (= 42 (d/q '[:find ?x .
+                   :where [(datascript.test.query-fns/sample-query-fn) ?x]])))))
