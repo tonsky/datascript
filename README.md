@@ -79,7 +79,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 :dependencies [
   [org.clojure/clojure "1.7.0"]
   [org.clojure/clojurescript "1.7.228"]
-  [datascript "0.15.2"]
+  [datascript "0.15.3"]
 ]
 ```
 
@@ -161,7 +161,7 @@ _Note:_ DataScript 0.11.0 and later will only work with CLJS 0.0-3196 and later
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="https://github.com/tonsky/datascript/releases/download/0.15.2/datascript-0.15.2.min.js"></script>
+<script src="https://github.com/tonsky/datascript/releases/download/0.15.3/datascript-0.15.3.min.js"></script>
 ```
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
@@ -238,7 +238,7 @@ Interface differences:
 * Conn is just an atom storing last DB value, use `@conn` instead of `(d/db conn)`
 * Instead of `#db/id[:db.part/user -100]` just use `-100` in place of `:db/id` or entity id
 * Transactor functions can be called as `[:db.fn/call f args]` where `f` is a function reference and will take db as first argument (thx [@thegeez](https://github.com/thegeez))
-* Custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
+* In ClojureScript, custom query functions and aggregates should be passed as source instead of being referenced by symbol (due to lack of `resolve` in CLJS)
 * Custom aggregate functions are called via aggregate keyword: `:find (aggregate ?myfn ?e) :in $ ?myfn`
 * Additional `:db.fn/retractAttribute` shortcut
 * Transactions are not annotated by default with `:db/txInstant`

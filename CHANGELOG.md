@@ -1,3 +1,8 @@
+# 0.15.3
+
+- Compatibility with 1.9 records (issue #176)
+- Resolve query functions and predicates on JVM (issue #177, PR #178, thx [Luke VanderHart](https://github.com/levand))
+
 # 0.15.2
 
 - large long entity ids were breaking `init-db` (issue #165)
