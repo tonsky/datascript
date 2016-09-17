@@ -316,6 +316,14 @@ function test_lookup_refs() {
     [{"name": "Ivan"}, {"name": "Oleg"}],
     d.pull_many(db, '["name"]', [["name", "Ivan"], ["name", "Oleg"]])
   );
+
+  assert_eq_datoms([[1, "name", "Ivan", tx0+1]],
+                   d.datoms(db, ":eavt", ["name", "Ivan"]));
+
+  assert_eq_datoms([[2, "name", "Oleg", tx0+1]],
+                   d.seek_datoms(db, ":eavt", ["name", "Oleg"]));
+
+  assert_eq("Ivan", d.q('[:find ?c . :in $ ?e :where [?e "name" ?c]]', db, ["name", "Ivan"]));
 }
 
 function test_resolve_current_tx() {
