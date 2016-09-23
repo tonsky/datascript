@@ -420,15 +420,30 @@
     [(update-in context [:rels] #(remove (set rels) %)) production]))
 
 (defn -call-fn [context rel f args]
-  (fn [tuple]
-    ;; TODO raise if not all args are bound
-    (let [resolved-args (map #(if (symbol? %)
-                                (or
-                                 (get (:sources context) %)
-                                 (#?(:cljs aget :clj get) tuple (get (:attrs rel) %)))
-                                %)
-                             args)]
-      (apply f resolved-args))))
+  ;; The closure we  return from here appears to be  called a lot, try
+  ;; resolving as much as we can beforehand.  Any argument that is not
+  ;; a symbol resolves  to itself.  A symbol could be  resolved from a
+  ;; context  map, and  only if  it  does not  (i.e. is  falsy in  the
+  ;; original  version) the  resolution  has to  be  postponed to  the
+  ;; execution time of the closure.
+  (let [context-sources (:sources context)
+        rel-attrs (:attrs rel)
+        ;; Try resolving arguments from context:
+        args (mapv (fn [a]
+                     (if-not (symbol? a)
+                       [:resolved a]
+                       (if-let [v (get context-sources a)]
+                         [:resolved v]
+                         [:unresolved (get rel-attrs a)])))
+                   args)]
+    ;; (prn args)
+    (fn [tuple]
+      ;; TODO raise if not all args are bound
+      (let [resolved-args (for [[k v] args]
+                            (if (= :resolved k)
+                              v
+                              (#?(:cljs aget :clj get) tuple v)))]
+        (apply f resolved-args)))))
 
 (defn- resolve-sym [sym]
   #?(:cljs nil
