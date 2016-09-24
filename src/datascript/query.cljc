@@ -447,7 +447,9 @@
         new-rel      (if pred
                        (let [tuple-pred (-call-fn context production pred args)]
                          (update-in production [:tuples] #(filter tuple-pred %)))
-                       (assoc production [:tuples] []))]
+                       ;; A typo lived here for some time, is this
+                       ;; branch ever chosen?
+                       (assoc production :tuples []))]
     (update-in context [:rels] conj new-rel)))
 
 (defn bind-by-fn [context clause]
@@ -470,7 +472,9 @@
                      (if (empty? rels)
                        (prod-rel production (empty-rel binding))
                        (reduce sum-rel rels)))
-                   (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
+                   ;; A typo lived here for some time, is this
+                   ;; branch ever chosen?
+                   (prod-rel (assoc production :tuples []) (empty-rel binding)))]
     (update-in context [:rels] collapse-rels new-rel)))
 
 ;;; RULES
