@@ -420,15 +420,25 @@
     [(update-in context [:rels] #(remove (set rels) %)) production]))
 
 (defn -call-fn [context rel f args]
-  (fn [tuple]
-    ;; TODO raise if not all args are bound
-    (let [resolved-args (map #(if (symbol? %)
-                                (or
-                                 (get (:sources context) %)
-                                 (#?(:cljs aget :clj get) tuple (get (:attrs rel) %)))
-                                %)
-                             args)]
-      (apply f resolved-args))))
+  (let [sources     (:sources context)
+        attrs       (:attrs rel)
+        len         (count args)
+        static-args (da/make-array len)
+        tuples-args (da/make-array len)]
+    (dotimes [i len]
+      (let [arg (nth args i)]
+        (if (symbol? arg) 
+          (if-let [source (get sources arg)]
+            (da/aset static-args i source)
+            (da/aset tuples-args i (get attrs arg)))
+          (da/aset static-args i arg))))
+    (fn [tuple]
+      ;; TODO raise if not all args are bound
+      (dotimes [i len]
+        (when-let [tuple-idx (aget tuples-args i)]
+          (let [v (#?(:cljs aget :clj get) tuple tuple-idx)]
+            (da/aset static-args i v))))
+      (apply f static-args))))
 
 (defn- resolve-sym [sym]
   #?(:cljs nil

@@ -90,7 +90,21 @@
           :let [db (d/db-with (d/empty-db) (take size people))]]
     (perf/bench {:test n :size size}
       (d/q q db))))
-    
+
+(defn ^:export bench-predicates []
+  (doseq [[n q] [["p1" '[:find ?e ?s
+                         :in   $ ?min_s
+                         :where [?e :salary ?s]
+                                [(> ?s 50000)]]]
+                 ["p2" '[:find ?e ?s
+                         :in   $ ?min_s
+                         :where [?e :salary ?s]
+                                [(> ?s ?min_s)]]]]
+          size [20000]
+          :let [db (d/db-with (d/empty-db) (take size people))]]
+    (perf/bench {:test n :size size}
+      (d/q q db 50000))))
+
 (defn ^:export bench-rules []
   (doseq [[id db] [["wide 3×3" (wide-db 3 3)]
                    ["wide 5×3" (wide-db 5 3)]
@@ -139,5 +153,6 @@
   (bench-db_with)
   (bench-init_db)
   (bench-queries)
+  (bench-predicates)
   (bench-rules)
   (bench-btset))

@@ -68,7 +68,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0/clojure-1.7.0.jar"
           (recur (assoc opts :fast true) (next args))
         (#{"jvm" "js" "datomic"} arg)
           (recur (assoc opts :project arg) (next args))
-        (#{"db_with" "init_db" "queries" "rules" "btset"} arg)
+        (#{"db_with" "init_db" "queries" "predicates" "rules" "btset"} arg)
           (recur (assoc opts :bench arg) (next args))
         (re-matches #"[0-9.\-]+" arg)
           (recur (assoc opts :ref arg) (next args))

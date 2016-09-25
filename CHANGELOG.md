@@ -1,3 +1,7 @@
+# WIP
+
+- ~30% better performance for predicate and fn calls in queries
+
 # 0.15.3
 
 - Compatibility with 1.9 records (issue #176)
