@@ -109,8 +109,8 @@ function test_db_with() {
   var db1 = d.db_with(db, [[":db/add", 1, "name", "Ivan"],
                            [":db/add", 1, "age", 17]]);
   var db2 = d.db_with(db1, [{":db/id": 2,
-                            "name": "Igor",
-                            "age": 35}]);
+                             "name": "Igor",
+                             "age": 35}]);
   var q = '[:find ?n ?a :where [?e "name" ?n] [?e "age" ?a]]'; 
   assert_eq_set([["Ivan", 17]], d.q(q, db1));
   assert_eq_set([["Ivan", 17], ["Igor", 35]], d.q(q, db2));
@@ -344,22 +344,37 @@ var people_db = d.db_with(d.empty_db({"age": {":db/index": true}}),
                   { ":db/id": 2, "name": "Petr", "age": 37 },
                   { ":db/id": 3, "name": "Ivan", "age": 37 }]);
 
+function test_q_coll() {
+  assert_eq_set([[1, "Ivan"], [2, "Petr"], [3, "Ivan"]],
+                d.q('[:find ?e ?name \
+                      :in   $ [?name ...] \
+                      :where [?e "name" ?name]]',
+                    people_db,
+                    ["Ivan", "Petr"]));
+  
+  assert_eq_set([[1], [2]],
+                d.q('[:find ?x \
+                      :in   [?x ...] \
+                      :where [(pos? ?x)]]',
+                    [-2, -1, 0, 1, 2]));
+}
+
 function test_q_relation() {
   var res = d.q('[:find ?e ?email \
                   :in    $ $b \
                   :where [?e "name" ?n] \
                          [$b ?n ?email]]',
                 people_db,
-              [["Ivan", "ivan@mail.ru"],
-               ["Petr", "petr@gmail.com"]]);
+               [["Ivan", "ivan@mail.ru"],
+                ["Petr", "petr@gmail.com"]]);
   assert_eq_set([[1, "ivan@mail.ru"], [2, "petr@gmail.com"], [3, "ivan@mail.ru"]], res);
 
   res     = d.q('[:find ?e ?email \
                   :in    $ [[?n ?email]] \
                   :where [?e "name" ?n]]',
                 people_db,
-              [["Ivan", "ivan@mail.ru"],
-               ["Petr", "petr@gmail.com"]]);
+               [["Ivan", "ivan@mail.ru"],
+                ["Petr", "petr@gmail.com"]]);
   assert_eq_set([[1, "ivan@mail.ru"], [2, "petr@gmail.com"], [3, "ivan@mail.ru"]], res);
 }
 
@@ -410,6 +425,9 @@ function test_datoms() {
   assert_eq_datoms([[1, "age", 15, tx0+1],
                     [1, "name", "Ivan", tx0+1]],
                    d.datoms(people_db, ":eavt", 1));
+  
+  assert_eq_datoms([[1, "age", 15, tx0+1]],
+                   d.datoms(people_db, ":eavt", 1, "age"));
   
   assert_eq_datoms([[2, "age", 37, tx0+1],
                     [3, "age", 37, tx0+1]],
@@ -469,6 +487,7 @@ function test_datascript_js() {
                     test_pull,
                     test_lookup_refs,
                     test_resolve_current_tx,
+                    test_q_coll,
                     test_q_relation,
                     test_q_rules,
                     test_q_fns,
