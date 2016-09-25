@@ -420,15 +420,30 @@
     [(update-in context [:rels] #(remove (set rels) %)) production]))
 
 (defn -call-fn [context rel f args]
-  (fn [tuple]
-    ;; TODO raise if not all args are bound
-    (let [resolved-args (map #(if (symbol? %)
-                                (or
-                                 (get (:sources context) %)
-                                 (#?(:cljs aget :clj get) tuple (get (:attrs rel) %)))
-                                %)
-                             args)]
-      (apply f resolved-args))))
+  ;; The closure we  return from here appears to be  called a lot, try
+  ;; resolving as much as we can beforehand.  Any argument that is not
+  ;; a symbol resolves  to itself.  A symbol could be  resolved from a
+  ;; context  map, and  only if  it  does not  (i.e. is  falsy in  the
+  ;; original  version) the  resolution  has to  be  postponed to  the
+  ;; execution time of the closure.
+  (let [context-sources (:sources context)
+        rel-attrs (:attrs rel)
+        ;; Try resolving arguments from context:
+        args (mapv (fn [a]
+                     (if-not (symbol? a)
+                       [:resolved a]
+                       (if-let [v (get context-sources a)]
+                         [:resolved v]
+                         [:unresolved (get rel-attrs a)])))
+                   args)]
+    ;; (prn args)
+    (fn [tuple]
+      ;; TODO raise if not all args are bound
+      (let [resolved-args (for [[k v] args]
+                            (if (= :resolved k)
+                              v
+                              (#?(:cljs aget :clj get) tuple v)))]
+        (apply f resolved-args)))))
 
 (defn- resolve-sym [sym]
   #?(:cljs nil
@@ -447,7 +462,9 @@
         new-rel      (if pred
                        (let [tuple-pred (-call-fn context production pred args)]
                          (update-in production [:tuples] #(filter tuple-pred %)))
-                       (assoc production [:tuples] []))]
+                       ;; A typo lived here for some time, is this
+                       ;; branch ever chosen?
+                       (assoc production :tuples []))]
     (update-in context [:rels] conj new-rel)))
 
 (defn bind-by-fn [context clause]
@@ -470,7 +487,9 @@
                      (if (empty? rels)
                        (prod-rel production (empty-rel binding))
                        (reduce sum-rel rels)))
-                   (prod-rel (assoc production [:tuples] []) (empty-rel binding)))]
+                   ;; A typo lived here for some time, is this
+                   ;; branch ever chosen?
+                   (prod-rel (assoc production :tuples []) (empty-rel binding)))]
     (update-in context [:rels] collapse-rels new-rel)))
 
 ;;; RULES
