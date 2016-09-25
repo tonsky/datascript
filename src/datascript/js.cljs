@@ -69,7 +69,8 @@
 
 (defn ^:export q [query & sources]
   (let [query   (cljs.reader/read-string query)
-        results (apply d/q query sources)]
+        js-sources (map #(js->clj %) (rest sources))
+        results (apply d/q query (conj js-sources (first sources)))]
     (clj->js results)))
 
 (defn ^:export pull [db pattern eid]
@@ -136,11 +137,11 @@
   (aget tempids (str tempid)))
 
 (defn ^:export datoms [db index & components]
-  (->> (apply d/datoms db (keywordize index) components)
+  (->> (apply d/datoms db (keywordize index) (js->clj components))
        into-array))
 
 (defn ^:export seek_datoms [db index & components]
-  (->> (apply d/seek-datoms db (keywordize index) components)
+  (->> (apply d/seek-datoms db (keywordize index) (js->clj components))
        into-array))
 
 (defn ^:export index_range [db attr start end]
