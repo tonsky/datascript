@@ -259,6 +259,14 @@
            :where [(fun ?e) ?x]]
          [1]))))
 
+(deftest test-issue-180
+  (is (= #{}
+         (d/q '[:find ?e ?a
+                :where [_ :pred ?pred]
+                       [?e :age ?a]
+                       [(?pred ?a)]]
+              (d/db-with (d/empty-db) [[:db/add 1 :age 20]])))))
+
 (defn sample-query-fn [] 42)
 
 #?(:clj
