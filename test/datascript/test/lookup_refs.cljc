@@ -12,7 +12,7 @@
 
 (deftest test-lookup-refs
   (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
-                                   :email { :db/unique :db.unique/identity }})
+                                   :email { :db/unique :db.unique/value }})
                       [{:db/id 1 :name "Ivan" :email "@1" :age 35}
                        {:db/id 2 :name "Petr" :email "@2" :age 22}])]
     
@@ -25,7 +25,7 @@
     (are [eid msg] (thrown-with-msg? ExceptionInfo msg (d/entity db eid))
       [:name]     #"Lookup ref should contain 2 elements"
       [:name 1 2] #"Lookup ref should contain 2 elements"
-      [:age 10]   #"Lookup ref attribute should be marked as :db.unique/identity")))
+      [:age 10]   #"Lookup ref attribute should be marked as :db/unique")))
 
 (deftest test-lookup-refs-transact
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }

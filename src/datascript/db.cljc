@@ -732,8 +732,8 @@
         (not= (count eid) 2)
           (raise "Lookup ref should contain 2 elements: " eid
                  {:error :lookup-ref/syntax, :entity-id eid})
-        (not (is-attr? db (first eid) :db.unique/identity))
-          (raise "Lookup ref attribute should be marked as :db.unique/identity: " eid
+        (not (is-attr? db (first eid) :db/unique))
+          (raise "Lookup ref attribute should be marked as :db/unique: " eid
                  {:error :lookup-ref/unique
                   :entity-id eid})
         (nil? (second eid))

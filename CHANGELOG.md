@@ -1,7 +1,8 @@
 # WIP
 
-- ~30% better performance for predicate and fn calls in queries
-- JS API now supports lookup refs in index lookups and queries (#179)
+- ~30% better performance for predicate and fn calls in queries (see #180)
+- JS API now supports lookup refs in index lookups and queries (see #179)
+- Lookup refs now work with `:db.unique/value` too (issue #171)
 
 # 0.15.3
 
