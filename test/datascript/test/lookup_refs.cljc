@@ -196,11 +196,11 @@
                     [{:db/id 1 :id 1 :name "Ivan" :age 11 :friend 2}
                      {:db/id 2 :id 2 :name "Petr" :age 22 :friend 3}
                      {:db/id 3 :id 3 :name "Oleg" :age 33 }])]
-    (is (= (set (d/q '[:find [?v ...]
+    (is (= (set (d/q '[:find ?e ?v
                        :in $ ?e
                        :where [?e :age ?v]]
                      db [:name "Ivan"]))
-           #{11}))
+           #{[[:name "Ivan"] 11]}))
     
     (is (= (set (d/q '[:find [?v ...]
                        :in $ [?e ...]

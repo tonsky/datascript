@@ -740,10 +740,11 @@
           nil
         :else
           (:e (first (-datoms db :avet eid))))
-   :else
-     (raise "Expected number or lookup ref for entity id, got " eid
-             {:error :entity-id/syntax
-              :entity-id eid})))
+    #?@(:cljs [(array? eid) (recur db (array-seq eid))])
+    :else
+      (raise "Expected number or lookup ref for entity id, got " eid
+              {:error :entity-id/syntax
+               :entity-id eid})))
 
 (defn entid-strict [db eid]
   (or (entid db eid)

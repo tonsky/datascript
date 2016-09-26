@@ -307,15 +307,25 @@ function test_pull() {
 function test_lookup_refs() {
   var schema = {"name": {":db/unique": ":db.unique/identity"}};
   var db = d.db_with(d.empty_db(schema),
-                     [{":db/id": 1, "name": "Ivan"},
-                      {":db/id": 2, "name": "Oleg"}]);
-
+                     [{":db/id": 1, "name": "Ivan", "age": 18},
+                      {":db/id": 2, "name": "Oleg", "age": 32}]);
+  // entity
   assert_eq("Ivan", d.entity(db, ["name", "Ivan"]).get("name"));
+  // pull
   assert_eq({"name": "Ivan"}, d.pull(db, '["name"]', ["name", "Ivan"]));
   assert_eq_set(
     [{"name": "Ivan"}, {"name": "Oleg"}],
     d.pull_many(db, '["name"]', [["name", "Ivan"], ["name", "Oleg"]])
   );
+  // index access
+  assert_eq_datoms([[1, "age", 18, tx0+1],
+                    [1, "name", "Ivan", tx0+1]],
+                   d.datoms(db, ":eavt", ["name", "Ivan"]));
+  // queries
+  assert_eq([[["name", "Ivan"], 18]], 
+            d.q('[:find ?e ?a\
+                  :in $ ?e \
+                  :where [?e "age" ?a]]', db, ["name", "Ivan"]));
 }
 
 function test_resolve_current_tx() {

@@ -1,6 +1,7 @@
 # WIP
 
 - ~30% better performance for predicate and fn calls in queries
+- JS API now supports lookup refs in index lookups and queries (#179)
 
 # 0.15.3
 
