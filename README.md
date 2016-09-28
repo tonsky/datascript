@@ -62,6 +62,7 @@ Related projects:
 - [DataScript-mori](https://github.com/typeetfunc/datascript-mori), DataScript & Mori wrapper for use from JS
 - [DatSync](https://github.com/metasoarous/datsync), Datomic ↔︎ DataScript syncing/replication utilities
 - [Intension](https://github.com/alandipert/intension), lib to convert associative structures to in-memory databases for querying them
+- [Datamaps](https://github.com/djjolicoeur/datamaps),  lib designed to leverage datalog queries to query arbitrary maps.
 
 Demo applications:
 
