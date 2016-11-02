@@ -76,8 +76,8 @@
       (is (= (d/q '[:find [?tx-data ...]
                     :where
                     [(ground :db/add) ?op]
-                    [(vector ?op :attr 12) ?tx-data]])
-             [[:db/add :attr 12]]))
+                    [(vector ?op -1 :attr 12) ?tx-data]])
+             [[:db/add -1 :attr 12]]))
 
       (is (= (d/q '[:find [?tx-data ...]
                     :where
