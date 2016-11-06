@@ -1,3 +1,7 @@
+# WIP
+
+- Add `vector`, `hash-map`, `array-map`, `list` and `set` to built-in query functions (PR #186, thx [Linus Ericsson](https://github.com/claj))
+
 # 0.15.4
 
 - ~30% better performance for predicate and fn calls in queries (see #180)

@@ -155,11 +155,11 @@
   'true? true?, 'false? false?, 'nil? nil?, 'some? some?, 'not not, 'and and-fn, 'or or-fn,
   'complement complement, 'identical? identical?, 
   'identity identity, 'meta meta, 'name name, 'type type,
+  'vector vector, 'list list, 'set set, 'hash-map hash-map, 'array-map array-map,
   'count count, 'range range, 'not-empty not-empty, 'empty? empty,
   'str str, 'pr-str pr-str, 'print-str print-str, 'println-str println-str, 'prn-str prn-str, 'subs subs,
   're-find re-find, 're-matches re-matches, 're-seq re-seq,
-  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity
-  'vector vector 'hash-map hash-map})
+  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity})
  
 (def built-in-aggregates 
  (letfn [(sum [coll] (reduce + 0 coll))
