@@ -72,6 +72,19 @@
                    ["a" "abc"])
              #{["a" 1] ["abc" 3]})))
 
+    (testing "Built-in vector, hashmap"
+      (is (= (d/q '[:find [?tx-data ...]
+                    :where
+                    [(ground :db/add) ?op]
+                    [(vector ?op -1 :attr 12) ?tx-data]])
+             [[:db/add -1 :attr 12]]))
+
+      (is (= (d/q '[:find [?tx-data ...]
+                    :where
+                    [(hash-map :db/id -1 :age 92 :name "Aaron") ?tx-data]])
+             [{:db/id -1 :age 92 :name "Aaron"}])))
+
+
     (testing "Passing predicate as source"
       (is (= (q/q '[:find  ?e
                     :in    $ ?adult
