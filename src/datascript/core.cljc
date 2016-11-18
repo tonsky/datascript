@@ -41,8 +41,9 @@
   {:pre [(db/db? db)]}
   (if (is-filtered db)
     (let [^FilteredDB fdb db
-          u (.-unfiltered-db fdb)]
-      (FilteredDB. u #(and (pred u %) ((.-pred fdb) %)) (atom 0)))
+          orig-pred (.-pred fdb)
+          orig-db   (.-unfiltered-db fdb)]
+      (FilteredDB. orig-db #(and (orig-pred %) (pred orig-db %)) (atom 0)))
     (FilteredDB. db #(pred db %) (atom 0))))
 
 (defn ^:export with

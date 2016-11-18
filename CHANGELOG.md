@@ -1,6 +1,7 @@
 # WIP
 
 - Add `vector`, `hash-map`, `array-map`, `list` and `set` to built-in query functions (PR #186, thx [Linus Ericsson](https://github.com/claj))
+- When filtering already filtered DB, filters were applied in the wrong order
 
 # 0.15.4
 

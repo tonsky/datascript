@@ -69,4 +69,16 @@
              (hash (d/filter db remove-ivan))))
       (is (= (hash empty-db)
              (hash (d/filter empty-db (constantly true)))
-             (hash (d/filter db (constantly false))))))))
+             (hash (d/filter db (constantly false)))))))
+  
+  (testing "double filtering"
+    (let [db       (d/db-with (d/empty-db {})
+                     [{ :db/id 1, :name "Petr", :age 32}
+                      { :db/id 2, :name "Oleg"}
+                      { :db/id 3, :name "Ivan", :age 12}])
+          has-age? (fn [db datom] (some? (:age (d/entity db (:e datom)))))
+          adult?   (fn [db datom] (>= (:age (d/entity db (:e datom))) 18))
+          names    (fn [db] (map :v (d/datoms db :aevt :name)))]
+      (is (= ["Petr" "Oleg" "Ivan"] (names db)))
+      (is (= ["Petr" "Ivan"]        (names (-> db (d/filter has-age?)))))
+      (is (= ["Petr"]               (names (-> db (d/filter has-age?) (d/filter adult?))))))))
