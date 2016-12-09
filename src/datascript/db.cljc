@@ -589,7 +589,7 @@
             rschema (rschema schema)
             indexed (:db/index rschema)
             #?@(:cljs
-                [ds-arr  (da/into-array datoms)
+                [ds-arr  (if (array? datoms) datoms (da/into-array datoms))
                  eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
                  aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
                  avet-datoms (-> (reduce (fn [arr d]
