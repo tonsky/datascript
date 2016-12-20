@@ -58,14 +58,15 @@
   (let [schema {:aka {:db/cardinality :db.cardinality/many}}
         db (d/db-with (d/empty-db schema)
                       [{:db/id 1 :name "Ivan" :aka ["IV" "Terrible"]}
-                       {:db/id 2 :name "Petr" :age 37}])]
+                       {:db/id 2 :name "Petr" :age 37 :huh? false}])]
     (is (= (d/empty-db schema)
            (empty db)))
-    (is (= 5 (count db)))
-    (is (= (vec (seq db))
-           [(d/datom 1 :aka "IV")
-            (d/datom 1 :aka "Terrible")
-            (d/datom 1 :name "Ivan")
-            (d/datom 2 :age 37)
-            (d/datom 2 :name "Petr")]))
+    (is (= 6 (count db)))
+    (is (= (set (seq db))
+           #{(d/datom 1 :aka "IV")
+             (d/datom 1 :aka "Terrible")
+             (d/datom 1 :name "Ivan")
+             (d/datom 2 :age 37)
+             (d/datom 2 :name "Petr")
+             (d/datom 2 :huh? false)}))
     ))
