@@ -161,14 +161,15 @@
      (.-eid this)
      (if (db/reverse-ref? attr)
        (-lookup-backwards (.-db this) (.-eid this) (db/reverse-ref attr) not-found)
-       (or (@(.-cache this) attr)
-           (if @(.-touched this)
-             not-found
-             (if-let [datoms (not-empty (db/-search (.-db this) [(.-eid this) attr]))]
-               (let [value (entity-attr (.-db this) attr datoms)]
-                 (vreset! (.-cache this) (assoc @(.-cache this) attr value))
-                 value)
-               not-found)))))))
+       (if-let [[_ v] (find @(.-cache this) attr)]
+         v
+         (if @(.-touched this)
+           not-found
+           (if-let [datoms (not-empty (db/-search (.-db this) [(.-eid this) attr]))]
+             (let [value (entity-attr (.-db this) attr datoms)]
+               (vreset! (.-cache this) (assoc @(.-cache this) attr value))
+               value)
+             not-found)))))))
 
 (defn touch-components [db a->v]
   (reduce-kv (fn [acc a v]
