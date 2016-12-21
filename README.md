@@ -104,9 +104,9 @@ _Note:_ DataScript 0.11.0 and later will only work with CLJS 0.0-3196 and later
   (d/transact! conn [ { :db/id -1
                         :name  "Maksim"
                         :age   45
-                        :aka   ["Maks Otto von Stirlitz", "Jack Ryan"] } ])
+                        :aka   ["Max Otto von Stierlitz", "Jack Ryan"] } ])
   (d/q '[ :find  ?n ?a
-          :where [?e :aka "Maks Otto von Stirlitz"]
+          :where [?e :aka "Max Otto von Stierlitz"]
                  [?e :name ?n]
                  [?e :age  ?a] ]
        @conn))
