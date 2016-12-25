@@ -554,7 +554,10 @@
                          :attribute a
                          :key       :db/isComponent}))))
     (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
-    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
+    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref :db.type/string
+                                                              :db.type/long :db.type/keyword
+                                                              :db.type/boolean :db.type/int
+                                                              :db.type/float :db.type/instant})
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
   schema)
 
