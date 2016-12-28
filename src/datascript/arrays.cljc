@@ -5,6 +5,9 @@
   #?(:cljs (:require-macros datascript.arrays))
   #?(:clj  (:import [java.util Arrays])))
 
+;; Clojure will cast to a `Long` if this is attempted in a `let` block.
+#?(:clj (def ^:const zero-int (int 0)))
+
 (defn- if-cljs [env then else]
   (if (:ns env) then else))
 
@@ -58,18 +61,25 @@
           (aset ~to (+ i# ~to-start) (aget ~from (+ i# ~from-start)))))
      `(let [l# (- ~from-end ~from-start)]
         (when (pos? l#)
-          (System/arraycopy ~from ~from-start ~to ~to-start l#))))))
+          (System/arraycopy ^{:tag "[[Ljava.lang.Object;"} ~from
+                            (int ~from-start)
+                            ^{:tag "[[Ljava.lang.Object;"} ~to
+                            (int ~to-start)
+                            l#))))))
 
 (defn aclone [from]
   #?(:clj  (Arrays/copyOf ^{:tag "[[Ljava.lang.Object;"} from (alength from))
      :cljs (.slice from 0)))
 
+
 (defn aconcat [a b]
   #?(:cljs (.concat a b)
-     :clj  (let [al  (alength a)
-                 bl  (alength b)
-                 res (Arrays/copyOf ^{:tag "[[Ljava.lang.Object;"} a (+ al bl))]
-             (System/arraycopy ^{:tag "[[Ljava.lang.Object;"} b 0 res al bl)
+     :clj  (let [al (int (alength ^{:tag "[[Ljava.lang.Object;"} a))
+                 bl (int (alength ^{:tag "[[Ljava.lang.Object;"} b))
+                 res (Arrays/copyOf ^{:tag "[[Ljava.lang.Object;"} a
+                                    (unchecked-add-int al bl))]
+             (System/arraycopy ^{:tag "[[Ljava.lang.Object;"} b zero-int
+                               res al bl)
              res)))
 
 (defn amap [f arr]
