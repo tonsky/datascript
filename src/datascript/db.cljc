@@ -26,16 +26,16 @@
           data (last fragments)]
       `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
 
-(def seqable?
-  #?(:cljs cljs.core/seqable?
-     :clj (fn seqable? [x]
-            (or (seq? x)
-                (instance? clojure.lang.Seqable x)
-                (nil? x)
-                (instance? Iterable x)
-                (da/array? x)
-                (string? x)
-                (instance? java.util.Map x)))))
+(defn seqable? [x]
+  (and (not (string? x))
+  #?(:cljs (or (cljs.core/seqable? x)
+               (da/array? x))
+     :clj  (or (seq? x)
+               (instance? clojure.lang.Seqable x)
+               (nil? x)
+               (instance? Iterable x)
+               (da/array? x)
+               (instance? java.util.Map x)))))
 
 (defn- #?@(:clj  [^Boolean neg-number?]
            :cljs [^boolean neg-number?])

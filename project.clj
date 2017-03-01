@@ -10,7 +10,7 @@
   ]
   
   :plugins [
-    [lein-cljsbuild "1.1.4"]
+    [lein-cljsbuild "1.1.5"]
   ]
   
   :global-vars {
@@ -73,8 +73,8 @@
   :profiles {
     :1.8 { :dependencies [[org.clojure/clojure       "1.8.0" :scope "provided"]
                           [org.clojure/clojurescript "1.8.51" :scope "provided"]] }
-    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha12" :scope "provided"]
-                          [org.clojure/clojurescript "1.9.229" :scope "provided"]]
+    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha14" :scope "provided"]
+                          [org.clojure/clojurescript "1.9.494" :scope "provided"]]
            :global-vars  { *print-namespace-maps* false } }
     :dev { :source-paths ["bench/src" "test" "dev"] }
   }

@@ -234,8 +234,7 @@
   (let [rules (if (string? rules) (edn/read-string rules) rules)] ;; for datascript.js interop
     (group-by ffirst rules)))
 
-(defn bindable-to-seq? [x]
-  (or (db/seqable? x) (da/array? x)))
+(def bindable-to-seq? db/seqable?)
 
 (defn empty-rel [binding]
   (let [vars (->> (dp/collect-vars-distinct binding)

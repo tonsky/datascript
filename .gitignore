@@ -17,3 +17,4 @@ web/target-cljs
 release.clj
 .idea
 *.iml
+.vscode

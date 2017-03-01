@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed infinite loop in parser on CLJS 1.9.456+
+
 # 0.15.5
 
 - Add `vector`, `hash-map`, `array-map`, `list` and `set` to built-in query functions (PR #186, thx [Linus Ericsson](https://github.com/claj))

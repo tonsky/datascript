@@ -47,13 +47,14 @@
                (reduced nil))
             [] form)))
 
-(defn collect [pred form & [acc]]
-  (let [acc (or acc [])]
+(defn collect
+  ([pred form] (collect pred form []))
+  ([pred form acc]
     (cond
-      (pred form)     (conj acc form)
+      (pred form)                    (conj acc form)
       (satisfies? ITraversable form) (-collect form pred acc)
-      (db/seqable? form) (reduce (fn [acc form] (collect pred form acc)) acc form)
-      :else acc)))
+      (db/seqable? form)             (reduce (fn [acc form] (collect pred form acc)) acc form)
+      :else                          acc)))
 
 (defn distinct? [coll]
   (or (empty? coll)

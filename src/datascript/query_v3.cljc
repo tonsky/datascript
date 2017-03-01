@@ -469,8 +469,7 @@
 ;; Bindings
 
 
-(defn- bindable-to-seq? [x]
-  (or (db/seqable? x) (da/array? x)))
+(def bindable-to-seq? db/seqable?)
 
 
 (defn- bind! [tuples binding source indexes]
