@@ -82,13 +82,21 @@
                          :clj  ^{:tag "[[Ljava.lang.Object;"} idxs1)
                    t2 #?(:cljs idxs2
                          :clj  ^{:tag "[[Ljava.lang.Object;"} idxs2)]
-  (let [l1  (alength idxs1)
-        l2  (alength idxs2)
+  (let [l1  (da/alength idxs1)
+        l2  (da/alength idxs2)
         res (da/make-array (+ l1 l2))]
-    (dotimes [i l1]
-      (aset res i (#?(:cljs aget :clj get) t1 (aget idxs1 i)))) ;; FIXME aget
-    (dotimes [i l2]
-      (aset res (+ l1 i) (#?(:cljs aget :clj get) t2 (aget idxs2 i)))) ;; FIXME aget
+    (cond
+      (not (da/array? t1))   (dotimes [i l1]
+                               (da/aset res i (#?(:cljs aget :clj get) t1 (da/aget idxs1 i))))
+      (= l1 (da/alength t1)) (da/acopy t1 0 l1 res 0)
+      :else                  (dotimes [i l1]
+                               (da/aset res i (da/aget t1 (da/aget idxs1 i)))))
+    (cond
+      (not (da/array? t2))   (dotimes [i l2]
+                               (da/aset res (+ l1 i) (#?(:cljs aget :clj get) t2 (da/aget idxs2 i))))
+      (= l2 (da/alength t2)) (da/acopy t2 0 l2 res l1)
+      :else                  (dotimes [i l2]
+                               (da/aset res (+ l1 i) (da/aget t2 (da/aget idxs2 i)))))
     res))
 
 (defn sum-rel [a b]
