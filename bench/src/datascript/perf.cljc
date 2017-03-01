@@ -156,6 +156,11 @@
       (with-debug
         ~@body))))
 
+(defn printcol [& args]
+  (doseq [arg args]
+    (print (format "%10s" (str arg))))
+  (println))
+
 #?(:clj
   (defmacro bench [spec & body]
    `(let [_#       (when-not *context* (println (str "\n" ~spec)))
@@ -165,7 +170,8 @@
           min#     (reduce min results#)
           med#     (percentile results# 0.5)
           max#     (reduce max results#)]
-      (if *context*
+      (printcol ~@(vals spec) "\t" med#)
+      #_(if *context*
         (println "{ :context"   (pr-str *context*)
                  "\n  :spec   " (pr-str ~spec)
                  "\n  :env    " (pr-str (array-map :ts (inst)))

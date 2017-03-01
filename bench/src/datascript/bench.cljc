@@ -86,7 +86,7 @@
                                                [?e :last-name ?l]
                                                [?e :age ?a]
                                                [?e :sex :male]]]]
-          size [100 500 2000 20000]
+          size [20000]
           :let [db (d/db-with (d/empty-db) (take size people))]]
     (perf/bench {:test n :size size}
       (d/q q db))))
