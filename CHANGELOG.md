@@ -1,6 +1,7 @@
 # WIP
 
-- Fixed infinite loop in parser on CLJS 1.9.456+
+- Fixed infinite loop in parser on CLJS 1.9.456+ (#210)
+- Added `contains?` to built-ins (#211)
 
 # 0.15.5
 
