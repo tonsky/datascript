@@ -73,7 +73,7 @@
   :profiles {
     :1.8 { :dependencies [[org.clojure/clojure       "1.8.0" :scope "provided"]
                           [org.clojure/clojurescript "1.8.51" :scope "provided"]] }
-    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha14" :scope "provided"]
+    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha15" :scope "provided"]
                           [org.clojure/clojurescript "1.9.494" :scope "provided"]]
            :global-vars  { *print-namespace-maps* false } }
     :dev { :source-paths ["bench/src" "test" "dev"] }

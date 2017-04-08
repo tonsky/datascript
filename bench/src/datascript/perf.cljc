@@ -156,9 +156,15 @@
       (with-debug
         ~@body))))
 
+(defn left-pad [s len char]
+  (let [slen (count s)]
+    (if (>= slen len)
+      s
+      (str (str/join "" (repeat (- len slen) char)) s))))
+
 (defn printcol [& args]
   (doseq [arg args]
-    (print (format "%10s" (str arg))))
+    (print (left-pad (str arg) 10 " ")))
   (println))
 
 #?(:clj
