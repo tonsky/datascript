@@ -2,6 +2,7 @@
 
 - Fixed infinite loop in parser on CLJS 1.9.456+ (#210)
 - Added `contains?` to built-ins (#211)
+- Fixed handling of false values in entity cache (PR #198, thx [Brandon Bloom](https://github.com/brandonbloom))
 
 # 0.15.5
 

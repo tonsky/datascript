@@ -161,11 +161,11 @@
      (.-eid this)
      (if (db/reverse-ref? attr)
        (-lookup-backwards (.-db this) (.-eid this) (db/reverse-ref attr) not-found)
-       (if-let [[_ v] (find @(.-cache this) attr)]
+       (if-some [v (@(.-cache this) attr)]
          v
          (if @(.-touched this)
            not-found
-           (if-let [datoms (not-empty (db/-search (.-db this) [(.-eid this) attr]))]
+           (if-some [datoms (not-empty (db/-search (.-db this) [(.-eid this) attr]))]
              (let [value (entity-attr (.-db this) attr datoms)]
                (vreset! (.-cache this) (assoc @(.-cache this) attr value))
                value)
