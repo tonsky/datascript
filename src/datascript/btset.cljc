@@ -229,7 +229,7 @@
              i   1
              p   (da/aget arr 0)]
         (if (>= i al)
-          (into-array (persistent! acc)) ;; TODO avoid persistent?
+          (into-array #?(:clj Object) (persistent! acc)) ;; TODO avoid persistent?
           (let [e (da/aget arr i)]
             (if (== 0 (cmp e p))
               (recur acc (inc i) e)
@@ -1006,7 +1006,7 @@
                (+ shift level-shift))))))
 
 (defn -btset-from-seq [seq cmp] ;; TODO avoid array?
-  (let [arr (-> seq into-array (da/asort cmp) (sorted-arr-distinct cmp))]
+  (let [arr (-> (into-array #?(:clj Object) seq) (da/asort cmp) (sorted-arr-distinct cmp))]
     (-btset-from-sorted-arr arr cmp)))
 
 (defn btset-by
