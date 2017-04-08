@@ -187,23 +187,25 @@
    trying to stick to (min+max)/2"
   [min-len max-len arr]
   (let [chunk-len avg-len
-        len       (da/alength arr)
-        acc       (transient [])]
+        len (da/alength arr)
+        acc #?(:clj (java.util.ArrayList. ^int max-len) ;; will be ok if too large
+               :cljs (js/Array.))]
     (when (pos? len)
       (loop [pos 0]
         (let [rest (- len pos)]
           (cond
             (<= rest max-len)
-              (conj! acc (cut arr pos))
+            (#?(:clj .add :cljs .push) acc (cut arr pos))
             (>= rest (+ chunk-len min-len))
-              (do
-                (conj! acc (cut arr pos (+ pos chunk-len)))
-                (recur (+ pos chunk-len)))
+            (do
+              (#?(:clj .add :cljs .push) acc (cut arr pos (+ pos chunk-len)))
+              (recur (+ pos chunk-len)))
             :else
-              (let [piece-len (half rest)]
-                (conj! acc (cut arr pos (+ pos piece-len)))
-                (recur (+ pos piece-len)))))))
-    (to-array (persistent! acc)))) ;; TODO avoid persistent?
+            (let [piece-len (half rest)]
+              (#?(:clj .add :cljs .push) acc (cut arr pos (+ pos piece-len)))
+              (recur (+ pos piece-len)))))))
+    #?(:clj (.toArray acc)
+       :cljs acc)))
 
 (defn- sorted-arr-distinct? [arr cmp]
   (let [al (da/alength arr)]
@@ -224,16 +226,21 @@
   [arr cmp]
   (if (sorted-arr-distinct? arr cmp)
     arr
-    (let [al (da/alength arr)]
-      (loop [acc (transient [(da/aget arr 0)])
-             i   1
-             p   (da/aget arr 0)]
-        (if (>= i al)
-          (into-array (persistent! acc)) ;; TODO avoid persistent?
+    (let [al (da/alength arr)
+          acc #?(:clj  (doto (java.util.ArrayList. (count arr)) ;; will be ok if too large
+                         (.add (da/aget arr 0)))
+                 :cljs #js [(da/aget arr 0)]) ]
+      (loop [i 1
+             p (da/aget arr 0)]
+        (when-not (>= i al)
           (let [e (da/aget arr i)]
             (if (== 0 (cmp e p))
-              (recur acc (inc i) e)
-              (recur (conj! acc e) (inc i) e))))))))
+              (recur (inc i) e)
+              (do
+                (#?(:clj .add :cljs .push) acc e)
+                (recur (inc i) e))))))
+      #?(:clj  (.toArray acc)
+         :cljs acc))))
 
 (defn return-array
   "Drop non-nil references and return array of arguments"
@@ -1005,9 +1012,11 @@
                     (arr-map-inplace #(Node. (da/amap node-lim-key %) %)))
                (+ shift level-shift))))))
 
-(defn -btset-from-seq [seq cmp] ;; TODO avoid array?
-  (let [arr (-> seq into-array (da/asort cmp) (sorted-arr-distinct cmp))]
-    (-btset-from-sorted-arr arr cmp)))
+(defn -btset-from-seq [seq cmp]
+  (let [arr #?(:cljs (if (array? seq) seq (into-array seq))
+               :clj (into-array seq))
+        sorted-arr (-> (da/asort arr cmp) (sorted-arr-distinct cmp))]
+    (-btset-from-sorted-arr sorted-arr cmp)))
 
 (defn btset-by
   ([cmp] (BTSet. (Leaf. (da/array)) 0 0 cmp nil uninitialized-hash))
