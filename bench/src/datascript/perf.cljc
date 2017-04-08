@@ -156,10 +156,16 @@
       (with-debug
         ~@body))))
 
+(defn left-pad [s len char]
+  (let [slen (count s)]
+    (if (>= slen len)
+      s
+      (str (str/join "" (repeat (- len slen) char)) s))))
+
 (defn printcol [& args]
-  (doseq [arg args]
-    (print (format "%10s" (str arg))))
-  (println))
+  (->> args
+    (map #(left-pad (str %) 10 " "))
+    (apply println)))
 
 #?(:clj
   (defmacro bench [spec & body]
