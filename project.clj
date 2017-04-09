@@ -76,7 +76,8 @@
     :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha15" :scope "provided"]
                           [org.clojure/clojurescript "1.9.494" :scope "provided"]]
            :global-vars  { *print-namespace-maps* false } }
-    :dev { :source-paths ["bench/src" "test" "dev"] }
+    :dev { :source-paths ["bench/src" "test" "dev"]
+           :dependencies [[org.clojure/tools.nrepl "0.2.12"]] }
   }
   
   :clean-targets ^{:protect false} [
