@@ -4,6 +4,7 @@
 - Added `contains?` to built-ins (#211)
 - Fixed handling of false values in entity cache (PR #198, thx [Brandon Bloom](https://github.com/brandonbloom))
 - Fixed issue when string values were interpreted as lookup refs (#214)
+- Speed up rschema calculation (#192, thx [Andre R.](https://github.com/rauhs))
 
 # 0.15.5
 

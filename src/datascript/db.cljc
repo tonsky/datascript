@@ -513,27 +513,28 @@
 ;; ----------------------------------------------------------------------------
 
 (defn attr->properties [k v]
-  (cond
-    (= [k v] [:db/isComponent true]) [:db/isComponent]
-    (= v :db.type/ref)               [:db.type/ref :db/index]
-    (= v :db.cardinality/many)       [:db.cardinality/many]
-    (= v :db.unique/identity)        [:db/unique :db.unique/identity :db/index]
-    (= v :db.unique/value)           [:db/unique :db.unique/value    :db/index]
-    (= [k v] [:db/index true])       [:db/index]))
-
-(defn- multimap [e m]
-  (reduce
-   (fn [acc [k v]]
-     (update-in acc [k] (fnil conj e) v))
-   {} m))
+  (case v
+    :db.unique/identity  [:db/unique :db.unique/identity :db/index]
+    :db.unique/value     [:db/unique :db.unique/value :db/index]
+    :db.cardinality/many [:db.cardinality/many]
+    :db.type/ref         [:db.type/ref :db/index]
+    (when (true? v)
+      (case k
+        :db/isComponent [:db/isComponent]
+        :db/index       [:db/index]
+        []))))
 
 (defn- rschema [schema]
-  (->>
-   (for [[a kv] schema
-         [k v]  kv
-         prop   (attr->properties k v)]
-     [prop a])
-   (multimap #{})))
+  (reduce-kv
+    (fn [m attr keys->values]
+      (reduce-kv
+        (fn [m key value]
+          (reduce
+            (fn [m prop]
+              (assoc m prop (conj (get m prop #{}) attr)))
+            m (attr->properties key value)))
+        m keys->values))
+    {} schema))
 
 (defn- validate-schema-key [a k v expected]
   (when-not (or (nil? v)
