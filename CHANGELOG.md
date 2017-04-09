@@ -6,6 +6,7 @@
 - Fixed issue when string values were interpreted as lookup refs (#214)
 - Speed up rschema calculation (#192, thx [Andre R.](https://github.com/rauhs))
 - Optimize generated JS code by declaring fn arities (#197)
+- [ BREAKING ] Removed ^:exports from `datascript.core` to enable dead code elimination (#191). This should only affect you if you were using DataScript from JS and were importing `datascript.core` directly
 
 # 0.15.5
 

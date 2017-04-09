@@ -15,45 +15,45 @@
 ;; SUMMING UP
 
 (defn ^:declared q [q & inputs])
-(def ^:export  q dq/q)
+(def             q dq/q)
 
 (defn ^:declared entity [db eid])
-(def ^:export  entity de/entity)
+(def             entity de/entity)
 
-(defn ^:export entity-db [^Entity entity]
+(defn entity-db [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
 (defn ^:declared datom ([e a v]) ([e a v tx]) ([e a v tx added]))
-(def ^:export datom db/datom)
+(def             datom db/datom)
 
 (defn ^:declared pull [db selector eid])
-(def ^:export pull dp/pull)
+(def             pull dp/pull)
 
 (defn ^:declared pull-many [db selector eids])
-(def ^:export pull-many dp/pull-many)
+(def             pull-many dp/pull-many)
 
 (defn ^:declared touch [e])
-(def ^:export touch de/touch)
+(def             touch de/touch)
 
 (defn ^:declared empty-db ([]) ([schema]))
-(def ^:export empty-db db/empty-db)
+(def             empty-db db/empty-db)
 
 (defn ^:declared init-db ([datoms]) ([datoms schema]))
-(def ^:export init-db db/init-db)
+(def             init-db db/init-db)
 
 (defn ^:declared datom? [x])
-(def ^:export datom? db/datom?)
+(def             datom? db/datom?)
 
 (defn ^:declared db? [x])
-(def ^:export db? db/db?)
+(def             db? db/db?)
 
-(def ^:export ^:const tx0 db/tx0)
+(def ^:const tx0 db/tx0)
 
-(defn ^:export is-filtered [x]
+(defn is-filtered [x]
   (instance? FilteredDB x))
 
-(defn ^:export filter [db pred]
+(defn filter [db pred]
   {:pre [(db/db? db)]}
   (if (is-filtered db)
     (let [^FilteredDB fdb db
@@ -62,7 +62,7 @@
       (FilteredDB. orig-db #(and (orig-pred %) (pred orig-db %)) (atom 0)))
     (FilteredDB. db #(pred db %) (atom 0))))
 
-(defn ^:export with
+(defn with
   ([db tx-data] (with db tx-data nil))
   ([db tx-data tx-meta]
     {:pre [(db/db? db)]}
@@ -75,46 +75,46 @@
                                :tempids   {}
                                :tx-meta   tx-meta}) tx-data))))
 
-(defn ^:export db-with [db tx-data]
+(defn db-with [db tx-data]
   {:pre [(db/db? db)]}
   (:db-after (with db tx-data)))
 
-(defn ^:export datoms
+(defn datoms
   ([db index]             {:pre [(db/db? db)]} (db/-datoms db index []))
   ([db index c1]          {:pre [(db/db? db)]} (db/-datoms db index [c1]))
   ([db index c1 c2]       {:pre [(db/db? db)]} (db/-datoms db index [c1 c2]))
   ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3]))
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3 c4])))
 
-(defn ^:export seek-datoms
+(defn seek-datoms
   ([db index]             {:pre [(db/db? db)]} (db/-seek-datoms db index []))
   ([db index c1]          {:pre [(db/db? db)]} (db/-seek-datoms db index [c1]))
   ([db index c1 c2]       {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2]))
   ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3]))
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3 c4])))
 
-(defn ^:export index-range [db attr start end]
+(defn index-range [db attr start end]
   {:pre [(db/db? db)]}
   (db/-index-range db attr start end))
 
 (defn ^:declared entid [db eid])
-(def ^:export entid db/entid)
+(def             entid db/entid)
 
 ;; Conn
 
-(defn ^:export conn? [conn]
+(defn conn? [conn]
   (and #?(:clj  (instance? clojure.lang.IDeref conn)
           :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
-(defn ^:export conn-from-db [db]
+(defn conn-from-db [db]
   (atom db :meta { :listeners (atom {}) }))
 
-(defn ^:export conn-from-datoms
+(defn conn-from-datoms
   ([datoms]        (conn-from-db (init-db datoms)))
   ([datoms schema] (conn-from-db (init-db datoms schema))))
 
-(defn ^:export create-conn
+(defn create-conn
   ([]       (conn-from-db (empty-db)))
   ([schema] (conn-from-db (empty-db schema))))
 
@@ -127,7 +127,7 @@
                     (:db-after r))))
     @report))
 
-(defn ^:export transact!
+(defn transact!
   ([conn tx-data] (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -136,7 +136,7 @@
         (callback report))
       report)))
 
-(defn ^:export reset-conn!
+(defn reset-conn!
   ([conn db] (reset-conn! conn db nil))
   ([conn db tx-meta]
     (let [report (db/map->TxReport
@@ -151,14 +151,14 @@
         (callback report))
       db)))
 
-(defn ^:export listen!
+(defn listen!
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
      {:pre [(conn? conn)]}
      (swap! (:listeners (meta conn)) assoc key callback)
      key))
 
-(defn ^:export unlisten! [conn key]
+(defn unlisten! [conn key]
   {:pre [(conn? conn)]}
   (swap! (:listeners (meta conn)) dissoc key))
 
@@ -182,7 +182,7 @@
 
 (def ^:private last-tempid (atom -1000000))
 
-(defn ^:export tempid
+(defn tempid
   ([part]
     (if (= part :db.part/tx)
       :db/current-tx
@@ -192,14 +192,14 @@
       :db/current-tx
       x)))
 
-(defn ^:export resolve-tempid [_db tempids tempid]
+(defn resolve-tempid [_db tempids tempid]
   (get tempids tempid))
 
-(defn ^:export db [conn]
+(defn db [conn]
   {:pre [(conn? conn)]}
   @conn)
 
-(defn ^:export transact
+(defn transact
   ([conn tx-data] (transact conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -235,7 +235,7 @@
          IPending
          (-realized? [_] @realized)))))
 
-(defn ^:export transact-async
+(defn transact-async
   ([conn tx-data] (transact-async conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -253,7 +253,7 @@
         (< c l) (str (apply str (repeat (- l c) "0")) s)
         :else   s))))
 
-(defn ^:export squuid
+(defn squuid
   ([]
     (squuid #?(:clj  (System/currentTimeMillis)
                :cljs (.getTime (js/Date.)))))
@@ -278,7 +278,7 @@
                (-> (rand-bits 16) (to-hex-string 4))
                (-> (rand-bits 16) (to-hex-string 4)))))))
 
-(defn ^:export squuid-time-millis [uuid]
+(defn squuid-time-millis [uuid]
   #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
               (bit-shift-right 32)
               (* 1000))
