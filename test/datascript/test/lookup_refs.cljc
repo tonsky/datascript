@@ -233,6 +233,13 @@
                    [[:name "Ivan"] [:name "Petr"] [:name "Oleg"]])
            #{[[:name "Ivan"] [:name "Petr"]]
              [[:name "Petr"] [:name "Oleg"]]}))
+
+    ;; https://github.com/tonsky/datascript/issues/214
+    (is (= (d/q '[:find ?e
+                  :in $ [?e ...]
+                  :where [?e :friend 3]]
+                db [1 2 3 "A"])
+           #{[2]}))
     
     (let [db2 (d/db-with (d/empty-db schema)
                 [{:db/id 3 :name "Ivan" :id 3}

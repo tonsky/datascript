@@ -302,10 +302,12 @@
     (if (and (not (nil? *lookup-attrs*))
              (contains? *lookup-attrs* attr))
       (fn [tuple]
-          (let [eid (#?(:cljs aget :clj get) tuple idx)]
-            (if (number? eid) ;; quick path to avoid fn call
-              eid
-              (db/entid *lookup-source* eid))))
+        (let [eid (#?(:cljs aget :clj get) tuple idx)]
+          (cond
+            (number? eid)     eid ;; quick path to avoid fn call
+            (sequential? eid) (db/entid *lookup-source* eid)
+            (da/array? eid)   (db/entid *lookup-source* eid)
+            :else             eid)))
       (fn [tuple]
         (#?(:cljs aget :clj get) tuple idx)))))
 
