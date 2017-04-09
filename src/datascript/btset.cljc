@@ -413,7 +413,11 @@
 
 ;; BTSet
 
-(declare btset-conj btset-disj btset-iter)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared btset-conj [set key cmp])
+(defn ^:declared btset-disj [set key cmp])
+(defn ^:declared btset-iter [set])
+
 (def ^:const uninitialized-hash #?(:cljs nil :clj -1))
 
 (deftype BTSet [root shift cnt comparator meta #?(:cljs ^:mutable __hash
@@ -687,9 +691,18 @@
   ^long [^BTSet set ^long path]
   (-prev-path (.-root set) path (.-shift set)))
 
-
-
-(declare iter riter iter-first iter-next iter-chunk iter-chunked-next iter-rseq iter-reduce)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871 
+(defn ^:declared iter [set left right])
+(defn ^:declared iter-first [iter])
+(defn ^:declared iter-next [iter])
+(defn ^:declared iter-chunk [iter])
+(defn ^:declared iter-chunked-next [iter])
+(defn ^:declared iter-rseq [iter])
+(defn ^:declared iter-reduce ([iter f]) ([iter f start]))
+(defn ^:declared riter [set left right])
+(defn ^:declared riter-first [riter])
+(defn ^:declared riter-next [ri])
+(defn ^:declared riter-rseq [riter])
 
 (defn btset-iter
   "Iterator that represents whole set"
@@ -836,8 +849,6 @@
                     new-acc)))))))))
 
 ;; reverse iteration
-
-(declare riter-first riter-next riter-rseq)
 
 (deftype ReverseIter [set ^long left ^long right keys ^long idx]
   #?@(:cljs [

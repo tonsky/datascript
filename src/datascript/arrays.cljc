@@ -8,12 +8,13 @@
 (defn- if-cljs [env then else]
   (if (:ns env) then else))
 
-#?(:cljs (def make-array cljs.core/make-array)
+#?(:cljs (defn ^array make-array [size] (js/Array. size))
    :clj  (defn make-array ^{:tag "[[Ljava.lang.Object;"}
            [size]
            (clojure.core/make-array java.lang.Object size)))
 
-#?(:cljs (def into-array cljs.core/into-array)
+#?(:cljs (defn ^array into-array [aseq]
+           (reduce (fn [a x] (.push a x) a) (js/Array.) aseq))
    :clj  (defn into-array ^{:tag "[[Ljava.lang.Object;"}
            [aseq]
            (clojure.core/into-array java.lang.Object aseq)))
@@ -80,6 +81,8 @@
   #?(:cljs (.sort arr cmp)
      :clj  (doto arr (java.util.Arrays/sort cmp))))
 
-(def array?
-  #?(:cljs cljs.core/array?
-     :clj  (fn array? [^Object x] (-> x .getClass .isArray))))
+#?(:cljs (defn ^boolean array? [x]
+           (if (identical? *target* "nodejs")
+             (.isArray js/Array x)
+             (instance? js/Array x)))
+   :clj  (defn array? [^Object x] (-> x .getClass .isArray)))

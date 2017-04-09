@@ -17,7 +17,7 @@
        (reduce-kv
          (fn [m k v] (assoc m k (walk/postwalk keywordize v))) {})))
 
-(declare entities->clj)
+(defn- ^:declared entities->clj [entities])
 
 (defn- entity->clj [e]
   (cond (map? e)
@@ -90,15 +90,23 @@
 (defn ^:export entity [db eid]
   (d/entity db (js->clj eid)))
 
-(def ^:export touch       d/touch)
-(def ^:export entity_db   d/entity-db)
-(def ^:export filter      d/filter)
-(def ^:export is_filtered d/is-filtered)
+(defn ^:export ^:declared touch [e])
+(def  ^:export            touch d/touch)
+
+(defn ^:export ^:declared entity_db [entity])
+(def  ^:export            entity_db d/entity-db)
+
+(defn ^:export ^:declared filter [db pred])
+(def  ^:export            filter d/filter)
+
+(defn ^:export ^:declared is-filtered [x])
+(def  ^:export            is_filtered d/is-filtered)
 
 (defn ^:export create_conn [& [schema]]
   (d/create-conn (schema->clj schema)))
 
-(def ^:export conn_from_db d/conn-from-db)
+(defn ^:export ^:declared conn-from-db [db])
+(def  ^:export            conn_from_db d/conn-from-db)
 
 (defn ^:export conn_from_datoms
   ([datoms]        (conn_from_db (init_db datoms)))
@@ -128,9 +136,11 @@
       (callback report))
     db))
 
-(def ^:export listen d/listen!)
+(defn ^:export ^:declared listen ([conn callback]) ([conn key callback]))
+(def  ^:export            listen d/listen!)
 
-(def ^:export unlisten d/unlisten!)
+(defn ^:export ^:declared unlisten [conn key])
+(def  ^:export            unlisten d/unlisten!)
 
 (defn ^:export resolve_tempid [tempids tempid]
   (aget tempids (str tempid)))

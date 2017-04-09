@@ -21,7 +21,13 @@
       [datascript.db  Datom]
       [datascript.btset Iter])))
 
-(declare resolve-clauses collect-rel-xf collect-to)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared resolve-clauses [context clauses])
+(defn ^:declared collect-rel-xf [syms-indexed rel])
+(defn ^:declared collect-to
+  ([context syms acc])
+  ([context syms acc xfs])
+  ([context syms acc xfs specimen]))
 
 (def ^:const lru-cache-size 100)
 
@@ -468,10 +474,6 @@
 
 ;; Bindings
 
-
-(def bindable-to-seq? db/seqable?)
-
-
 (defn- bind! [tuples binding source indexes]
   (condp instance? binding
 
@@ -485,7 +487,7 @@
         tuples)
 
     BindColl
-      (if (not (bindable-to-seq? source))
+      (if (not (db/seqable? source))
         (db/raise "Cannot bind value " source " to collection " (dp/source binding)
                   {:error :query/binding, :value source, :binding (dp/source binding)})
         (let [inner-binding (:binding binding)]
@@ -500,7 +502,7 @@
 
     BindTuple
     (let [bindings (:bindings binding)]
-      (when-not (bindable-to-seq? source)
+      (when-not (db/seqable? source)
         (db/raise "Cannot bind value " source " to tuple " (dp/source binding)
                   {:error :query/binding, :value source, :binding (dp/source binding)}))
       (when (< (count source) (count bindings))
@@ -579,7 +581,7 @@
 
 
 (defn- matches-pattern? [idxs tuple] ;; TODO handle repeated vars
-;;   (when-not (bindable-to-seq? tuple)
+;;   (when-not (db/seqable? tuple)
 ;;     (db/raise "Cannot match pattern " (dp/source clause) " because tuple is not a collection: " tuple
 ;;            {:error :query/where, :value tuple, :binding (dp/source clause)}))
 ;;   (when (< (count tuple) (count (:pattern clause)))
@@ -595,7 +597,7 @@
 
 
 (defn resolve-pattern-coll [coll clause]
-  (when-not (bindable-to-seq? coll)
+  (when-not (db/seqable? coll)
     (db/raise "Cannot match by pattern " (dp/source clause) " because source is not a collection: " coll
        {:error :query/where, :value coll, :binding (dp/source clause)}))
   (let [pattern (:pattern clause)

@@ -62,8 +62,8 @@
   [key frame]
   (some-> (:kvps frame) persistent! (get key)))
 
-(def ^:private recursion-result
-  (partial single-frame-result ::recursion))
+(defn- recursion-result [frame]
+  (single-frame-result ::recursion frame))
 
 (defn- recursion-frame
   [parent eid]

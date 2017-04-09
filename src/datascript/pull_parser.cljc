@@ -55,7 +55,8 @@
           spec (reduce aggregate-specs init specs)]
       [:subpattern (update spec :attrs persistent!)])))
 
-(declare parse-pattern)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared parse-pattern [pattern])
 
 (def ^:private wildcard? #{'* :* "*"})
 

@@ -7,7 +7,11 @@
 
 ;; utils
 
-(declare collect-vars-acc)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn- ^:declared collect-vars-acc [acc form])
+(defn ^:declared parse-clause [form])
+(defn ^:declared parse-clauses [clauses])
+(defn ^:declared parse-binding [form])
 
 (defprotocol ITraversable
   (-collect      [_ pred acc])
@@ -177,8 +181,6 @@
 (deftrecord BindScalar [variable])
 (deftrecord BindTuple  [bindings])
 (deftrecord BindColl   [binding])
-
-(declare parse-binding)
 
 (defn parse-bind-ignore [form]
   (when (= '_ form)
@@ -406,7 +408,6 @@
 (deftrecord Or        [source rule-vars clauses])
 (deftrecord And       [clauses])
 
-(declare parse-clause parse-clauses)
 
 (defn parse-pattern-el [form]
   (or (parse-placeholder form)

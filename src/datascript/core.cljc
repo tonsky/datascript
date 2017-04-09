@@ -14,22 +14,38 @@
 
 ;; SUMMING UP
 
+(defn ^:declared q [q & inputs])
 (def ^:export  q dq/q)
+
+(defn ^:declared entity [db eid])
 (def ^:export  entity de/entity)
+
 (defn ^:export entity-db [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
+(defn ^:declared datom ([e a v]) ([e a v tx]) ([e a v tx added]))
 (def ^:export datom db/datom)
 
+(defn ^:declared pull [db selector eid])
 (def ^:export pull dp/pull)
+
+(defn ^:declared pull-many [db selector eids])
 (def ^:export pull-many dp/pull-many)
+
+(defn ^:declared touch [e])
 (def ^:export touch de/touch)
 
+(defn ^:declared empty-db ([]) ([schema]))
 (def ^:export empty-db db/empty-db)
+
+(defn ^:declared init-db ([datoms]) ([datoms schema]))
 (def ^:export init-db db/init-db)
 
+(defn ^:declared datom? [x])
 (def ^:export datom? db/datom?)
+
+(defn ^:declared db? [x])
 (def ^:export db? db/db?)
 
 (def ^:export ^:const tx0 db/tx0)
@@ -81,6 +97,7 @@
   {:pre [(db/db? db)]}
   (db/-index-range db attr start end))
 
+(defn ^:declared entid [db eid])
 (def ^:export entid db/entid)
 
 ;; Conn

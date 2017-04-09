@@ -26,7 +26,9 @@
           data (last fragments)]
       `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
 
-(defn seqable? [x]
+(defn #?@(:clj  [^Boolean seqable?]  
+          :cljs [^boolean seqable?])
+  [x]
   (and (not (string? x))
   #?(:cljs (or (cljs.core/seqable? x)
                (da/array? x))
@@ -115,7 +117,13 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-datom equiv-datom seq-datom val-at-datom nth-datom assoc-datom)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn- ^:declared hash-datom [d])
+(defn- ^:declared equiv-datom [a b])
+(defn- ^:declared seq-datom [d])
+(defn- ^:declared nth-datom ([d i]) ([d i nf]))
+(defn- ^:declared assoc-datom [d k v])
+(defn- ^:declared val-at-datom [d k nf])
 
 (deftype Datom [e a v tx added]
   #?@(:cljs
@@ -368,7 +376,16 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-db hash-fdb equiv-db empty-db pr-db resolve-datom validate-attr components->pattern indexing?)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn- ^:declared hash-db [db])
+(defn- ^:declared hash-fdb [db])
+(defn- ^:declared equiv-db [a b])
+(defn- ^:declared empty-db ([]) ([schema]))
+#?(:cljs (defn ^:declared pr-db [db w opts]))
+(defn- ^:declared resolve-datom [db e a v t])
+(defn- ^:declared validate-attr [attr at])
+(defn- ^:declared components->pattern [db index cs])
+(defn ^:declared indexing? [db attr])
 
 (defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema hash]
   #?@(:cljs
@@ -681,7 +698,10 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare entid-strict entid-some ref?)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared entid-strict [db eid])
+(defn ^:declared entid-some [db eid])
+(defn ^:declared ref? [db attr])
 
 (defn- resolve-datom [db e a v t]
   (when a (validate-attr a (list 'resolve-datom 'db e a v t)))
@@ -985,7 +1005,8 @@
          ~expr
          (cond-let ~@rest)))))
 
-(declare transact-tx-data)
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared transact-tx-data [report es])
 
 (defn retry-with-tempid [report es tempid upserted-eid]
   (if (contains? (:tempids report) tempid)

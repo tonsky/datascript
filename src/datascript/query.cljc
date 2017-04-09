@@ -19,7 +19,10 @@
 ;; ----------------------------------------------------------------------------
 
 (def ^:const lru-cache-size 100)
-(declare built-ins)
+
+;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
+(defn ^:declared -collect ([context symbols]) ([acc rels symbols]))
+(defn ^:declared -resolve-clause [context clause])
 
 ;; Records
 
@@ -234,8 +237,6 @@
   (let [rules (if (string? rules) (edn/read-string rules) rules)] ;; for datascript.js interop
     (group-by ffirst rules)))
 
-(def bindable-to-seq? db/seqable?)
-
 (defn empty-rel [binding]
   (let [vars (->> (dp/collect-vars-distinct binding)
                         (map :symbol))]
@@ -256,7 +257,7 @@
   BindColl
   (in->rel [binding coll]
     (cond
-      (not (bindable-to-seq? coll))
+      (not (db/seqable? coll))
         (raise "Cannot bind value " coll " to collection " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       (empty? coll)
@@ -268,7 +269,7 @@
   BindTuple
   (in->rel [binding coll]
     (cond
-      (not (bindable-to-seq? coll))
+      (not (db/seqable? coll))
         (raise "Cannot bind value " coll " to tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       (< (count coll) (count (:bindings binding)))
@@ -493,9 +494,6 @@
                   (if (source? (first clause))
                     (second clause)
                     (first clause)))))
-
-(declare -collect)
-(declare -resolve-clause)
 
 (def rule-seqid (atom 0))
 
