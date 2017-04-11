@@ -174,6 +174,8 @@
         (assoc [d k v] (assoc-datom d k v))
         ]))
 
+#?(:cljs (goog/exportSymbol "datascript.db.Datom" Datom))
+
 (defn ^Datom datom
   ([e a v]          (Datom. e a v tx0 true))
   ([e a v tx]       (Datom. e a v tx true))
