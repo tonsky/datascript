@@ -1,18 +1,26 @@
 var datascript = {};
 datascript.db = {};
-datascript.db.Datom = {};
-datascript.db.Datom.e = 0;
-datascript.db.Datom.a = "";
-datascript.db.Datom.v = "";
-datascript.db.Datom.tx = 0;
-datascript.db.Datom.added = true;
+
+/**
+ * @constructor
+ */
+datascript.db.Datom = function() {};
+datascript.db.Datom.prototype.e;
+datascript.db.Datom.prototype.a;
+datascript.db.Datom.prototype.v;
+datascript.db.Datom.prototype.tx;
+datascript.db.Datom.prototype.added;
+
 
 datascript.impl = {};
 datascript.impl.entity = {};
-datascript.impl.entity.Entity = {};
-datascript.impl.entity.Entity.db = {};
-datascript.impl.entity.Entity.eid = {};
 
+/**
+ * @constructor
+ */
+datascript.impl.entity.Entity = function() {};
+datascript.impl.entity.Entity.prototype.db;
+datascript.impl.entity.Entity.prototype.eid;
 datascript.impl.entity.Entity.prototype.keys      = function() {};
 datascript.impl.entity.Entity.prototype.entries   = function() {};
 datascript.impl.entity.Entity.prototype.values    = function() {};
