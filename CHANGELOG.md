@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed rules ignoring false arguments passed to them (#218) 
+
 # 0.16.0
 
 - Fixed infinite loop in parser on CLJS 1.9.456+ (#210)

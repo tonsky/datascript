@@ -1005,6 +1005,13 @@
          ~expr
          (cond-let ~@rest)))))
 
+#?(:clj
+(defmacro some-of
+  ([] nil)
+  ([x] x)
+  ([x & more]
+    `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
+
 ;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
 (defn ^:declared transact-tx-data [report es])
 

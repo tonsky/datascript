@@ -506,8 +506,9 @@
                 replacements (zipmap rule-args call-args)]]
       (walk/postwalk
        #(if (free-var? %)
-          (or (replacements %)
-              (symbol (str (name %) "__auto__" seqid)))
+          (db/some-of
+            (replacements %)
+            (symbol (str (name %) "__auto__" seqid)))
           %)
         clauses))))
 
