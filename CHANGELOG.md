@@ -1,4 +1,4 @@
-# WIP
+# 0.16.1
 
 - Fixed rules ignoring false arguments passed to them (#218) 
 
