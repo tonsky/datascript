@@ -11,7 +11,7 @@
   [transient-coll items]
   (reduce conj! transient-coll items))
 
-(def ^:private ^:const +default-limit+ 1000)
+;; (defonce ^:private ^:const +default-limit+ 1000)
 
 (defn- initial-frame
   [pattern eids multi?]
@@ -108,45 +108,45 @@
 
 (defn- pull-attr-datoms
   [db attr-key attr eid forward? datoms opts [parent & frames]]
-  (let [limit (get opts :limit +default-limit+)
-        found (not-empty
-               (cond->> datoms
-                 limit (into [] (take limit))))]
-    (if found
-      (let [ref?       (db/ref? db attr)
-            component? (and ref? (db/component? db attr))
-            multi?     (if forward? (db/multival? db attr) (not component?))
-            datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
-        (cond
-          (contains? opts :subpattern)
-          (->> (subpattern-frame (:subpattern opts)
-                                 (mapv datom-val found)
-                                 multi? attr-key)
-               (conj frames parent))
+  (if-let [found (not-empty
+                   (if-let [limit (get opts :limit)]
+                     (take limit datoms)
+                     datoms))]
+    (let [ref?       (db/ref? db attr)
+          component? (and ref? (db/component? db attr))
+          multi?     (if forward? (db/multival? db attr) (not component?))
+          datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
+      (cond
+        (contains? opts :subpattern)
+        (->> (subpattern-frame (:subpattern opts)
+               (mapv datom-val found)
+               multi? attr-key)
+          (conj frames parent))
 
-          (contains? opts :recursion)
-          (recurse-attr db attr-key multi?
-                        (mapv datom-val found)
-                        eid parent frames)
+        (contains? opts :recursion)
+        (recurse-attr db attr-key multi?
+          (mapv datom-val found)
+          eid parent frames)
 
-          (and component? forward?)
-          (->> found
-               (mapv datom-val)
-               (expand-frame parent eid attr-key multi?)
-               (conj frames parent))
-          
-          :else 
-          (let [as-value  (cond->> datom-val
-                            ref? (comp #(hash-map :db/id %)))
-                single?   (not multi?)]
-            (->> (cond-> (into [] (map as-value) found)
-                   single? first)
-                 (update parent :kvps assoc! attr-key)
-                 (conj frames)))))
-      (->> (cond-> parent
-             (contains? opts :default)
-             (update :kvps assoc! attr-key (:default opts)))
-           (conj frames)))))
+        (and component? forward?)
+        (->> found
+          (mapv datom-val)
+          (expand-frame parent eid attr-key multi?)
+          (conj frames parent))
+        :else 
+        (let [as-value (if ref?
+                         (comp (partial hash-map :db/id) datom-val)
+                         datom-val)]
+          (->>
+            (if-not multi?
+              (as-value (first found))
+              (map as-value found))
+            (update parent :kvps assoc! attr-key)
+            (conj frames)))))
+    (->> (cond-> parent
+           (contains? opts :default)
+           (update :kvps assoc! attr-key (:default opts)))
+      (conj frames))))
 
 (defn- pull-attr
   [db spec eid frames]
