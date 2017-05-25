@@ -54,6 +54,7 @@ Projects using DataScript:
 - [Radiant](http://www.stuttaford.me/radiant/), datalog sketchpad ([sources](https://github.com/robert-stuttaford/stuttaford.me/tree/master/src/stuttaford/radiant))
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 - [Zetawar](http://www.zetawar.com), turn-based tactical strategy game
+- [Lemmings](https://www.lemmings.io), incubator focused on art & artificial intelligence
 
 Related projects:
 
