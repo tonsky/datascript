@@ -348,6 +348,17 @@ function test_resolve_current_tx() {
     d.datoms(d.db(conn), ":eavt"));
 }
 
+function test_is_component() {
+
+  var db = d.db_with(d.empty_db({"aka": {":db/valueType": ":db.type/ref",
+                                         ":db/cardinality": ":db.cardinality/one",
+                                         ":db/isComponent": true}}),
+                     [{ ":db/id": 1, "name": "Ivan" },
+                      { ":db/id": 2, "name": "X" },
+                      { ":db/id": 1, "aka": {":db/id": 2 }}]);
+
+  assert_eq({":db/id":1,"aka":{":db/id":2,"name":"X"},"name":"Ivan"}, d.pull(db, "[*]", 1));
+}
 
 var people_db = d.db_with(d.empty_db({"age": {":db/index": true}}),
                  [{ ":db/id": 1, "name": "Ivan", "age": 15 },
@@ -497,6 +508,7 @@ function test_datascript_js() {
                     test_pull,
                     test_lookup_refs,
                     test_resolve_current_tx,
+                    test_is_component,
                     test_q_coll,
                     test_q_relation,
                     test_q_rules,

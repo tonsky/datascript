@@ -19,11 +19,14 @@
 
 (defn- ^:declared entities->clj [entities])
 
+(defn- keywordize-db-id [e]
+  (let [f (fn [[k v]] (if (= ":db/id" k) [:db/id v] [k v]))]
+    (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) e)))
+
 (defn- entity->clj [e]
-  (cond (map? e)
-    (-> e
-      (dissoc ":db/id")
-      (assoc  :db/id (e ":db/id")))
+  (cond
+    (map? e)
+      (keywordize-db-id e)
     (= (first e) ":db.fn/call")
       (let [[_ f & args] e]
         (concat [:db.fn/call (fn [& args] (entities->clj (apply f args)))] args))
