@@ -121,7 +121,7 @@
 (defn- ^:declared hash-datom [d])
 (defn- ^:declared equiv-datom [a b])
 (defn- ^:declared seq-datom [d])
-(defn- ^:declared nth-datom ([d i]) ([d i nf]))
+(defn- ^:declared nth-datom ([d ^long i]) ([d ^long i nf]))
 (defn- ^:declared assoc-datom [d k v])
 (defn- ^:declared val-at-datom [d k nf])
 

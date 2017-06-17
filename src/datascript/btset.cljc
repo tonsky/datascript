@@ -692,14 +692,14 @@
   (-prev-path (.-root set) path (.-shift set)))
 
 ;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871 
-(defn ^:declared iter [set left right])
+(defn ^:declared iter [set ^long left ^long right])
 (defn ^:declared iter-first [iter])
 (defn ^:declared iter-next [iter])
 (defn ^:declared iter-chunk [iter])
 (defn ^:declared iter-chunked-next [iter])
 (defn ^:declared iter-rseq [iter])
 (defn ^:declared iter-reduce ([iter f]) ([iter f start]))
-(defn ^:declared riter [set left right])
+(defn ^:declared riter [set ^long left ^long right])
 (defn ^:declared riter-first [riter])
 (defn ^:declared riter-next [ri])
 (defn ^:declared riter-rseq [riter])
