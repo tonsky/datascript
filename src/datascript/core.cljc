@@ -5,7 +5,8 @@
     [datascript.pull-api :as dp]
     [datascript.query :as dq]
     [datascript.impl.entity :as de]
-    [datascript.btset :as btset])
+    [datascript.btset :as btset]
+    #?(:cljs goog.async.nextTick))
   #?(:clj
     (:import
       [datascript.db FilteredDB]
@@ -226,7 +227,7 @@
    (defn- future-call [f]
      (let [res      (atom nil)
            realized (atom false)]
-       (js/setTimeout #(do (reset! res (f)) (reset! realized true)) 0)
+       (goog.async.nextTick #(do (reset! res (f)) (reset! realized true)))
        (reify
          IDeref
          (-deref [_] @res)
