@@ -677,7 +677,8 @@
 
 ;; query
 
-(deftrecord Query [find with in where])
+;; q* prefix because of https://dev.clojure.org/jira/browse/CLJS-2237
+(deftrecord Query [qfind qwith qin qwhere])
 
 (defn query->map [query]
   (loop [parsed {}, key nil, qs query]
@@ -688,10 +689,10 @@
       parsed)))
 
 (defn validate-query [q form]
-  (let [find-vars  (set (collect-vars (:find q)))
-        with-vars  (set (:with q))
-        in-vars    (set (collect-vars (:in q)))
-        where-vars (set (collect-vars (:where q)))
+  (let [find-vars  (set (collect-vars (:qfind q)))
+        with-vars  (set (:qwith q))
+        in-vars    (set (collect-vars (:qin q)))
+        where-vars (set (collect-vars (:qwhere q)))
         unknown    (set/difference (set/union find-vars with-vars)
                                    (set/union where-vars in-vars))
         shared     (set/intersection find-vars with-vars)]
@@ -702,29 +703,29 @@
       (raise ":in and :with should not use same variables: " (mapv :symbol shared)
              {:error :parser/query, :vars shared, :form form})))
   
-  (let [in-vars    (collect-vars (:in q))
-        in-sources (collect #(instance? SrcVar %) (:in q))
-        in-rules   (collect #(instance? RulesVar %) (:in q))]
+  (let [in-vars    (collect-vars (:qin q))
+        in-sources (collect #(instance? SrcVar %) (:qin q))
+        in-rules   (collect #(instance? RulesVar %) (:qin q))]
     (when-not (and (distinct? in-vars)
                    (distinct? in-sources)
                    (distinct? in-rules))
       (raise "Vars used in :in should be distinct"
              {:error :parser/query, :form form})))
   
-  (let [with-vars (collect-vars (:with q))]
+  (let [with-vars (collect-vars (:qwith q))]
     (when-not (distinct? with-vars)
       (raise "Vars used in :with should be distinct"
              {:error :parser/query, :form form})))
   
-  (let [in-sources    (collect #(instance? SrcVar %) (:in q) #{})
-        where-sources (collect #(instance? SrcVar %) (:where q) #{})
+  (let [in-sources    (collect #(instance? SrcVar %) (:qin q) #{})
+        where-sources (collect #(instance? SrcVar %) (:qwhere q) #{})
         unknown       (set/difference where-sources in-sources)]
     (when-not (empty? unknown)
       (raise "Where uses unknown source vars: " (mapv :symbol unknown)
              {:error :parser/query, :vars unknown, :form form})))
   
-  (let [rule-exprs (collect #(instance? RuleExpr %) (:where q))
-        rules-vars (collect #(instance? RulesVar %) (:in q))]
+  (let [rule-exprs (collect #(instance? RuleExpr %) (:qwhere q))
+        rules-vars (collect #(instance? RulesVar %) (:qin q))]
     (when (and (not (empty? rule-exprs))
                (empty? rules-vars))
       (raise "Missing rules var '%' in :in"
@@ -738,10 +739,10 @@
               :else (raise "Query should be a vector or a map"
                            {:error :parser/query, :form q}))
         res (map->Query {
-              :find  (parse-find (:find qm))
-              :with  (when-let [with (:with qm)]
+              :qfind (parse-find (:find qm))
+              :qwith (when-let [with (:with qm)]
                        (parse-with with))
-              :in    (parse-in (:in qm ['$]))
-              :where (parse-where (:where qm []))})]
+              :qin    (parse-in (:in qm ['$]))
+              :qwhere (parse-where (:where qm []))})]
     (validate-query res q)
     res))

@@ -753,18 +753,18 @@
 
 (defn q [q & inputs]
   (let [parsed-q      (memoized-parse-query q)
-        find          (:find parsed-q)
+        find          (:qfind parsed-q)
         find-elements (dp/find-elements find)
         find-vars     (dp/find-vars find)
         result-arity  (count find-elements)
-        with          (:with parsed-q)
+        with          (:qwith parsed-q)
         ;; TODO utilize parser
         all-vars      (concat find-vars (map :symbol with))
         q             (cond-> q
                         (sequential? q) dp/query->map)
         wheres        (:where q)
         context       (-> (Context. [] {} {})
-                        (resolve-ins (:in parsed-q) inputs))
+                        (resolve-ins (:qin parsed-q) inputs))
         resultset     (-> context
                         (-q wheres)
                         (collect all-vars))]

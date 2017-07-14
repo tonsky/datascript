@@ -992,12 +992,12 @@
                      :sources {}
                      :rules   {}
                      :default-source-symbol '$ }
-          context  (perf/measure (resolve-ins context (:in parsed-q) inputs)
+          context  (perf/measure (resolve-ins context (:qin parsed-q) inputs)
                      "resolve-ins")
-          context  (perf/measure (resolve-clauses context (:where parsed-q))
+          context  (perf/measure (resolve-clauses context (:qwhere parsed-q))
                      "resolve-clauses")
-          syms     (concat (dp/find-vars (:find parsed-q))
-                           (map :symbol (:with parsed-q)))]
+          syms     (concat (dp/find-vars (:qfind parsed-q))
+                           (map :symbol (:qwith parsed-q)))]
       (native-coll (collect-to context syms (fast-set) [(map vec)])))
     "Query" q))
 
