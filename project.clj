@@ -43,6 +43,7 @@
           :elide-asserts true
           :output-wrapper false 
           :parallel-build true
+          :checked-arrays :warn
         }
         :notify-command ["release-js/wrap_bare.sh"]}
               
@@ -55,6 +56,7 @@
           :pretty-print  true
           :recompile-dependents false
           :parallel-build true
+          :checked-arrays :warn
         }}
               
       { :id "none"
@@ -67,6 +69,7 @@
           :source-map    true
           :recompile-dependents false
           :parallel-build true
+          :checked-arrays :warn
         }}
   ]}
 

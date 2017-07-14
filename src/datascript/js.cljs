@@ -1,6 +1,7 @@
 (ns datascript.js
   (:refer-clojure :exclude [filter])
   (:require
+    [goog.object :as go]
     [datascript.core :as d]
     [clojure.walk :as walk]
     [cljs.reader]))
@@ -143,7 +144,7 @@
 (def  ^:export            unlisten d/unlisten!)
 
 (defn ^:export resolve_tempid [tempids tempid]
-  (aget tempids (str tempid)))
+  (go/get tempids (str tempid)))
 
 (defn ^:export datoms [db index & components]
   (->> (apply d/datoms db (keywordize index) components)
