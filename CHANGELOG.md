@@ -1,3 +1,7 @@
+# 0.16.2
+
+- Fixed compatibility with CLJS 1.9.660 (#233, #236)
+
 # 0.16.1
 
 - Fixed rules ignoring false arguments passed to them (#218) 
