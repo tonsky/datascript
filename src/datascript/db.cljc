@@ -744,6 +744,9 @@
           :cljs [^boolean indexing?]) [db attr]
   (is-attr? db attr :db/index))
 
+(defn treat-idents-as-eids? [db]
+  true)
+
 (defn entid [db eid]
   {:pre [(db? db)]}
   (cond
@@ -761,6 +764,7 @@
           nil
         :else
           (:e (first (-datoms db :avet eid))))
+    (and (keyword? eid) (treat-idents-as-eids? db)) (:e (first (-datoms db :avet [:db/ident eid])))
     #?@(:cljs [(array? eid) (recur db (array-seq eid))])
     :else
       (raise "Expected number or lookup ref for entity id, got " eid
@@ -1177,7 +1181,7 @@
 
 (defn transact-tx-data [{:as initial-report :keys [tx-meta]} initial-es]
   (let [middleware (or (:datascript.db/tx-middleware tx-meta) identity)]
-    (prn "tx-middleware" middleware)
+;;     (prn "tx-middleware" middleware)
     ((middleware transact-tx-data*)
      initial-report
      initial-es)))
@@ -1190,6 +1194,7 @@
 (defn ^DB replace-schema
   [db schema & {:as options :keys [validate?] :or {validate? true}}]
   ;; ???: Can we make more performant by only updating :avet datom set when :db/index becomes active, rather than doing an entire init-db?
+;;   (prn "replacing-schema" schema)
   (let [db-after (init-db (-datoms db :eavt []) schema)]
     (when validate?
       (validate-schema-change db db-after))
@@ -1197,18 +1202,40 @@
 
 (defn schema-datom? [[e a v tx add?]]
   ;; currently ignoring problematic valueTypes
-  (or (#{:db/ident :db/cardinality :db/unique :db/index :db/isComponent} a)
-      (and (= a :db/valueType) (= v :db.type/ref))))
+  (#{:db/ident :db/cardinality :db/unique :db/index :db/isComponent :db/valueType}
+    a))
+
+(defn supported-schema-value? [a v]
+  (case a
+    :db/valueType (= v :db.type/ref)
+    true))
+
+(defn resolve-ident [db ident-eid]
+  (let [resolved-eid (entid-strict db ident-eid)]
+    (-> (-search db [resolved-eid :db/ident])
+        first
+        :v)))
+
+(defn resolve-enum [db attr value]
+  ;; FIXME: hardcoded enums
+  (if (#{:db/cardinality :db/unique :db/valueType} attr)
+    (let [rident (resolve-ident db value)]
+;;       (prn "resolving to " rident " from " value " for " attr)
+      rident
+      )
+    value))
 
 (defn conj-schema-datom
   ;; TODO: handle retractions
   ([] (empty-db))
   ([db] db)
   ([db [eid attr value _ _]]
-   (let [attr-ident (-> (-search db [eid :db/ident])
-                        first
-                        :v)]
-    (assoc-in db [:schema attr-ident attr] value))))
+   (let [attr-ident (resolve-ident db eid)
+         resolved-value (resolve-enum db attr value)]
+     (if (supported-schema-value? attr resolved-value)
+       (assoc-in db [:schema attr-ident attr]
+                 resolved-value)
+       db))))
 
 (defn schema-middleware [transact]
   (fn [report txs]
