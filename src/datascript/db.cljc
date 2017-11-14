@@ -1250,3 +1250,16 @@
         (assoc report
           :db-after (replace-schema db-after (:schema db-after')))))))
 
+(defn keep-meta-middleware
+  "tx-middleware to keep any meta-data on the db-value after a transaction."
+  [transact]
+  (fn [report txs]
+    (let [{:as report :keys [db-after db-before]} (transact report txs)]
+      (update-in
+        report
+        [:db-after]
+        with-meta
+        (into
+          (or (meta db-before) {})
+          (meta db-after))))))
+
