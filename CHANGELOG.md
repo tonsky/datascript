@@ -1,3 +1,7 @@
+# WIP
+
+- Silently skip nils in transaction (was stopping processing without an error before)
+
 # 0.16.2
 
 - Fixed compatibility with CLJS 1.9.660 (#233, #236)

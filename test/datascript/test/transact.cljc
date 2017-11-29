@@ -42,7 +42,16 @@
                     (d/db-with [[:db/retract 1 :name "Ivan"]]))]
         (is (= (d/q '[:find ?v
                       :where [1 :name ?v]] db)
-               #{["Petr"]}))))))
+               #{["Petr"]})))))
+  
+  (testing "Skipping nils in tx"
+    (let [db (-> (d/empty-db)
+                 (d/db-with [[:db/add 1 :attr 2]
+                             nil
+                             [:db/add 3 :attr 4]]))]
+      (is (= [[1 :attr 2], [3 :attr 4]]
+             (map (juxt :e :a :v) (d/datoms db :eavt)))))))
+
 
 (deftest test-with-datoms
   (testing "keeps tx number"

@@ -1035,11 +1035,14 @@
     (let [[entity & entities] es
           db (:db-after report)]
       (cond
-        (nil? entity)
+        (empty? es)
           (-> report
               (assoc-in  [:tempids :db/current-tx] (current-tx report))
               (update-in [:db-after :max-tx] inc))
-        
+
+        (nil? entity)
+          (recur report entities)
+
         (map? entity)
           (let [old-eid (:db/id entity)]
             (cond-let
