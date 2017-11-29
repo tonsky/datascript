@@ -1,4 +1,4 @@
-# WIP
+# 0.16.3
 
 - Silently skip nils in transaction (was stopping processing without an error before)
 
