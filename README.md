@@ -253,7 +253,7 @@ Expected soon:
 
 * Better error reporting
 * Proper documentation
-* `not`, `not-join`, `or` and `or-join` datalog clauses
+* Query clasues: `not` / `not-join` / `or` / `or-join`
 
 ## Differences from Datomic
 
