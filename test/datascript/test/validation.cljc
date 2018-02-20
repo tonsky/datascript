@@ -12,8 +12,8 @@
   (let [db (d/empty-db {:profile { :db/valueType :db.type/ref }})]
     (are [tx] (thrown-with-msg? Throwable #"Expected number or lookup ref" (d/db-with db tx))
       [[:db/add nil :name "Ivan"]]
-      [[:db/add "aaa" :name "Ivan"]]
-      [{:db/id "aaa" :name "Ivan"}])
+      [[:db/add {} :name "Ivan"]]
+      [{:db/id #"" :name "Ivan"}])
     
     (are [tx] (thrown-with-msg? Throwable #"Bad entity attribute" (d/db-with db tx))
       [[:db/add -1 nil "Ivan"]]

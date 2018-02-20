@@ -815,6 +815,10 @@
   (or (= e :db/current-tx)
       (= e ":db/current-tx"))) ;; for datascript.js interop
 
+(defn- tempid?
+  [x]
+  (or (neg-number? x) (string? x)))
+
 (defn- advance-max-eid [db eid]
   (cond-> db
     (and (> eid (:max-eid db))
@@ -826,7 +830,7 @@
     (update-in report [:db-after] advance-max-eid eid))
   ([report e eid]
     (cond-> report
-      (neg-number? e)
+      (tempid? e)
         (assoc-in [:tempids e] eid)
       (tx-id? e)
         (assoc-in [:tempids e] eid)
@@ -894,7 +898,7 @@
   (let [[e a v] acc
         _e (:db/id entity)]
     (if (or (nil? _e)
-            (neg? _e)
+            (tempid? _e)
             (nil? acc)
             (== _e e))
       acc
@@ -1060,7 +1064,7 @@
              
               ;; upserted => explode | error
               [upserted-eid (upsert-eid db entity)]
-              (if (and (neg-number? old-eid)
+              (if (and (tempid? old-eid)
                        (contains? (:tempids report) old-eid)
                        (not= upserted-eid (get (:tempids report) old-eid)))
                 (retry-with-tempid initial-report initial-es old-eid upserted-eid)
@@ -1069,12 +1073,13 @@
              
               ;; resolved | allocated-tempid | tempid | nil => explode
               (or (number? old-eid)
-                  (nil?    old-eid))
+                  (nil?    old-eid)
+                  (string? old-eid))
               (let [new-eid (cond
-                              (nil? old-eid) (next-eid db)
-                              (neg? old-eid) (or (get (:tempids report) old-eid)
-                                                 (next-eid db))
-                              :else          old-eid)
+                              (nil? old-eid)    (next-eid db)
+                              (tempid? old-eid) (or (get (:tempids report) old-eid)
+                                                    (next-eid db))
+                              :else             old-eid)
                     new-entity (assoc entity :db/id new-eid)]                
                 (recur (allocate-eid report old-eid new-eid)
                        (concat (explode db new-entity) entities)))
@@ -1116,7 +1121,7 @@
               (and (ref? db a) (tx-id? v))
                 (recur report (cons [op e a (current-tx report)] entities))
 
-              (neg-number? e)
+              (or (neg-number? e) (string? e))
                 (if (not= op :db/add)
                   (raise "Negative entity ids are resolved for :db/add only"
                          { :error :transact/syntax
