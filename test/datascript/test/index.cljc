@@ -80,6 +80,36 @@
              [ [1 :name "Petr"]
                [3 :name "Sergey"] ])))))
 
+(deftest test-rseek-datoms
+  (let [dvec #(vector (:e %) (:a %) (:v %))
+        db (-> (d/empty-db { :name { :db/index true }
+                             :age  { :db/index true } })
+               (d/db-with [[:db/add 1 :name "Petr"]
+                           [:db/add 1 :age 44]
+                           [:db/add 2 :name "Ivan"]
+                           [:db/add 2 :age 25]
+                           [:db/add 3 :name "Sergey"]
+                           [:db/add 3 :age 11]]))]
+
+    (testing "Non-termination"
+      (is (= (map dvec (d/rseek-datoms db :avet :name "Sergey"))
+             [ [3 :name "Sergey"]
+               [1 :name "Petr"]
+               [2 :name "Ivan"]
+               [1 :age 44]
+               [2 :age 25]
+               [3 :age 11]])))
+
+    (testing "Closest value lookup"
+      (is (= (map dvec (d/rseek-datoms db :avet :age 26))
+             [ [2 :age 25]
+               [3 :age 11]])))
+
+    (testing "Exact value lookup"
+      (is (= (map dvec (d/rseek-datoms db :avet :age 25))
+             [ [2 :age 25]
+               [3 :age 11]])))))
+
 (deftest test-index-range
   (let [dvec #(vector (:e %) (:a %) (:v %))
         db    (d/db-with
