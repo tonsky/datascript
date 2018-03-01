@@ -1,0 +1,84 @@
+version: 2
+jobs:
+   test_clj:
+     working_directory: ~/datascript
+     docker:
+       - image: circleci/clojure:lein
+     steps:
+       - checkout
+       - restore_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+       - run: lein test-clj-all
+       - save_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+           paths:
+             - ~/.m2
+
+   test_clj_18:
+     working_directory: ~/datascript
+     docker:
+       - image: circleci/clojure:lein
+     steps:
+       - checkout
+       - restore_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+       - run: lein with-profile dev,1.8 test-clj-all
+       - save_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+           paths:
+             - ~/.m2
+
+   test_clj_19:
+     working_directory: ~/datascript
+     docker:
+       - image: circleci/clojure:lein
+     steps:
+       - checkout
+       - restore_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+       - run: lein with-profile dev,1.9 test-clj-all
+       - save_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+           paths:
+             - ~/.m2
+
+   build_cljs:
+     working_directory: ~/datascript
+     docker:
+       - image: circleci/clojure:lein
+     steps:
+       - checkout
+       - restore_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+       - run: lein cljsbuild once advanced release
+       - save_cache:
+           key: dependency-cache-{{ checksum "project.clj" }}
+           paths:
+             - ~/.m2
+       - persist_to_workspace:
+           root: .
+           paths:
+             - target/datascript.js
+             - release-js/datascript.js
+
+   test_cljs:
+     working_directory: ~/datascript
+     docker:
+       - image: circleci/node:8
+     steps:
+       - checkout
+       - attach_workspace:
+           at: .
+       - run: node ./test_node.js --all
+
+workflows:
+  version: 2
+  everything:
+    jobs:
+      - test_clj
+      - test_clj_18
+      - test_clj_19
+      - build_cljs
+      - test_cljs:
+          requires:
+            - build_cljs
