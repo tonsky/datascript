@@ -124,6 +124,7 @@
       [Object
        (toString [e]      (pr-str (assoc @cache :db/id eid)))
        (hashCode [e]      (hash eid)) ; db?
+       (equals [e o]      (equiv-entity e o))
 
        clojure.lang.Seqable
        (seq [e]           (touch e) (seq @cache))
