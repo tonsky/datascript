@@ -15,7 +15,7 @@ The intention with DataScript is to be a basic building block in client-side app
 - Datalog query engine to answer non-trivial questions about current app state.
 - Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
-## Latest version
+## Latest version [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 ```clj
 [datascript "0.16.4"]
@@ -83,7 +83,7 @@ Demo applications:
 - clj-crud, demo CRUD app: [sources](https://github.com/thegeez/clj-crud), [blog post](http://thegeez.net/2014/04/30/datascript_clojure_web_app.html)
 - [OmNext TodoMVC](https://github.com/madvas/todomvc-omnext-datomic-datascript)
 
-## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
+## Usage examples
 
 For more examples, see [our acceptance test suite](test/datascript/test/).
 
