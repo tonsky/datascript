@@ -1,3 +1,8 @@
+# WIP
+
+- Support string tempids (#251, PR #252, thx [Kenny Williams](https://github.com/kennyjwilli))
+- Better compatibility with JS / CLJS 1.9.946 (aget, aset on plain objects)
+
 # 0.16.3
 
 - Silently skip nils in transaction (was stopping processing without an error before)

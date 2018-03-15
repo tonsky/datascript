@@ -74,10 +74,10 @@
   ]}
 
   :profiles {
-    :1.8 { :dependencies [[org.clojure/clojure       "1.8.0" :scope "provided"]
-                          [org.clojure/clojurescript "1.8.51" :scope "provided"]] }
-    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0-alpha17" :scope "provided"]
-                          [org.clojure/clojurescript "1.9.671" :scope "provided"]]
+    :1.8 { :dependencies [[org.clojure/clojure       "1.8.0"   :scope "provided"]
+                          [org.clojure/clojurescript "1.8.51"  :scope "provided"]] }
+    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0"   :scope "provided"]
+                          [org.clojure/clojurescript "1.9.946" :scope "provided"]]
            ;; because we use printer in tests, and earlier versions don’t support it
            :global-vars  { *print-namespace-maps* false }}
     :dev { :source-paths ["bench/src" "test" "dev"]

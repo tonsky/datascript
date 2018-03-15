@@ -39,11 +39,6 @@
                (da/array? x)
                (instance? java.util.Map x)))))
 
-(defn- #?@(:clj  [^Boolean neg-number?]
-           :cljs [^boolean neg-number?])
-  [x]
-  (and (number? x) (neg? x)))
-
 ;; ----------------------------------------------------------------------------
 ;; macros and funcs to support writing defrecords and updating
 ;; (replacing) builtins, i.e., Object/hashCode, IHashEq hasheq, etc.
@@ -813,11 +808,14 @@
            :cljs [^boolean tx-id?])
   [e]
   (or (= e :db/current-tx)
-      (= e ":db/current-tx"))) ;; for datascript.js interop
+      (= e ":db/current-tx") ;; for datascript.js interop
+      (= e "datomic.tx")
+      (= e "datascript.tx")))
 
-(defn- tempid?
+(defn- #?@(:clj  [^Boolean tempid?]
+           :cljs [^boolean tempid?])
   [x]
-  (or (neg-number? x) (string? x)))
+  (or (and (number? x) (neg? x)) (string? x)))
 
 (defn- advance-max-eid [db eid]
   (cond-> db
@@ -830,9 +828,9 @@
     (update-in report [:db-after] advance-max-eid eid))
   ([report e eid]
     (cond-> report
-      (tempid? e)
-        (assoc-in [:tempids e] eid)
       (tx-id? e)
+        (assoc-in [:tempids e] eid)
+      (tempid? e)
         (assoc-in [:tempids e] eid)
       true
         (update-in [:db-after] advance-max-eid eid))))
@@ -1050,7 +1048,7 @@
         (map? entity)
           (let [old-eid (:db/id entity)]
             (cond-let
-              ;; :db/current-tx => tx
+              ;; :db/current-tx / "datomic.tx" => tx
               (tx-id? old-eid)
               (let [id (current-tx report)]
                 (recur (allocate-eid report old-eid id)
@@ -1086,7 +1084,7 @@
              
               ;; trash => error
               :else
-              (raise "Expected number or lookup ref for :db/id, got " old-eid
+              (raise "Expected number, string or lookup ref for :db/id, got " old-eid
                 { :error :entity-id/syntax, :entity entity })))
 
         (sequential? entity)
@@ -1116,14 +1114,14 @@
                                {:error :transact/cas, :old (first datoms), :expected ov, :new nv })))))
 
               (tx-id? e)
-                (recur report (cons [op (current-tx report) a v] entities))
+                (recur (allocate-eid report e (current-tx report)) (cons [op (current-tx report) a v] entities))
 
               (and (ref? db a) (tx-id? v))
-                (recur report (cons [op e a (current-tx report)] entities))
+                (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
-              (or (neg-number? e) (string? e))
+              (tempid? e)
                 (if (not= op :db/add)
-                  (raise "Negative entity ids are resolved for :db/add only"
+                  (raise "Tempids are resolved for :db/add only"
                          { :error :transact/syntax
                            :op    entity })
                   (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
@@ -1134,7 +1132,7 @@
                       (let [eid (or upserted-eid allocated-eid (next-eid db))]
                         (recur (allocate-eid report e eid) (cons [op eid a v] entities))))))
 
-              (and (ref? db a) (neg-number? v))
+              (and (ref? db a) (tempid? v))
                 (if-let [vid (get-in report [:tempids v])]
                   (recur report (cons [op e a vid] entities))
                   (recur (allocate-eid report v (next-eid db)) es))

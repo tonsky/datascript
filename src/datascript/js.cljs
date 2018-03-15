@@ -39,7 +39,7 @@
 (defn- tempids->js [tempids]
   (let [obj (js-obj)]
     (doseq [[k v] tempids]
-      (aset obj (str k) v))
+      (go/set obj (str k) v))
     obj))
 
 (defn- tx-report->js [report]
