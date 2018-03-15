@@ -92,9 +92,8 @@
                            [:db/add 3 :age 11]]))]
 
     (testing "Non-termination"
-      (is (= (map dvec (d/rseek-datoms db :avet :name "Sergey"))
-             [ [3 :name "Sergey"]
-               [1 :name "Petr"]
+      (is (= (map dvec (d/rseek-datoms db :avet :name "Petr"))
+             [ [1 :name "Petr"]
                [2 :name "Ivan"]
                [1 :age 44]
                [2 :age 25]

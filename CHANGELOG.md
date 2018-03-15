@@ -2,6 +2,7 @@
 
 - Support string tempids (#251, PR #252, thx [Kenny Williams](https://github.com/kennyjwilli))
 - Better compatibility with JS / CLJS 1.9.946 (aget, aset on plain objects)
+- Added `rseek-datoms` (#253, PR #254, thx [Jeremy Taylor](https://github.com/refset))
 
 # 0.16.3
 

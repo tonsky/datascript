@@ -94,6 +94,7 @@
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3 c4])))
 
 (defn rseek-datoms
+  "Iterates index from given point backwards, until the beginning of the index"
   ([db index]             {:pre [(db/db? db)]} (db/-rseek-datoms db index []))
   ([db index c1]          {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1]))
   ([db index c1 c2]       {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2]))
