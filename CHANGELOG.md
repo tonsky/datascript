@@ -1,8 +1,9 @@
-# WIP
+# 0.16.4
 
 - Support string tempids (#251, PR #252, thx [Kenny Williams](https://github.com/kennyjwilli))
 - Better compatibility with JS / CLJS 1.9.946 (aget, aset on plain objects)
 - Added `rseek-datoms` (#253, PR #254, thx [Jeremy Taylor](https://github.com/refset))
+- Object.equals for entites (PR #255, thx [Camilo Roca](https://github.com/carocad))
 
 # 0.16.3
 

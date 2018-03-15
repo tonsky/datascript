@@ -15,6 +15,12 @@ The intention with DataScript is to be a basic building block in client-side app
 - Datalog query engine to answer non-trivial questions about current app state.
 - Structured format to track data coming in and out of DB. Datalog queries can be run against it too.
 
+## Latest version
+
+```clj
+[datascript "0.16.4"]
+```
+
 ## Resources
 
 Support:
@@ -80,24 +86,6 @@ Demo applications:
 ## Usage examples [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 For more examples, see [our acceptance test suite](test/datascript/test/).
-
-```clj
-:dependencies [
-  [org.clojure/clojure "1.7.0"]
-  [org.clojure/clojurescript "1.7.228"]
-  [datascript "0.16.3"]
-]
-```
-
-_Note:_ Since DataScript 0.13 **main namespace to include is `datascript.core`**, not `datascript`. This was done because usage of top-level namespaces is discouraged and even generates a warning in CLJS. Old `datascript.core`, if you were using it, was renamed to `datascript.db`
-
-_WARN:_ *ClojureScript versions 1.7.48, 1.7.58 and 1.7.107 [break DataScript](https://github.com/tonsky/datascript/issues/108). Use either 1.7.28, 1.7.122 or newer*
-
-_Note:_ DataScript 0.11.3 and later requires CLJS 0.0-3291 or later
-
-_Note:_ DataScript 0.11.2 and later requires Clojure 1.7.0-beta2 or later
-
-_Note:_ DataScript 0.11.0 and later will only work with CLJS 0.0-3196 and later
 
 ```clj
 (require '[datascript.core :as d])
@@ -167,7 +155,7 @@ _Note:_ DataScript 0.11.0 and later will only work with CLJS 0.0-3196 and later
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="https://github.com/tonsky/datascript/releases/download/0.16.3/datascript-0.16.3.min.js"></script>
+<script src="https://github.com/tonsky/datascript/releases/download/0.16.4/datascript-0.16.4.min.js"></script>
 ```
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
@@ -210,7 +198,7 @@ Check out [test/js/tests.js](test/js/tests.js) for usage examples.
 
 ## Project status
 
-Beta quality. Most of the features done, expecting some API polishing (breaking) and performance optimizations. No docs at the moment, use examples & Datomic documentation.
+Stable. Most of the features done, expecting non-breaking API additions and performance optimizations. No docs at the moment, use examples & [Datomic documentation](https://docs.datomic.com/on-prem/index.html#sec-3).
 
 The following features are supported:
 
@@ -276,6 +264,6 @@ Some of the features are omitted intentionally. Different apps have different ne
 
 ## License
 
-Copyright © 2014–2015 Nikita Prokopov
+Copyright © 2014–2018 Nikita Prokopov
 
 Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
