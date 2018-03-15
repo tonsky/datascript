@@ -1,4 +1,4 @@
-<img src="http://s.tonsky.me/imgs/datascript_logo.svg">
+<img src="./extras/logo.svg">
 
 > What if creating a database would be as cheap as creating a Hashmap?
 
