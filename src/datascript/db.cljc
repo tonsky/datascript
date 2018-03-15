@@ -368,6 +368,7 @@
 (defprotocol IIndexAccess
   (-datoms [db index components])
   (-seek-datoms [db index components])
+  (-rseek-datoms [db index components])
   (-index-range [db attr start end]))
 
 (defprotocol IDB
@@ -456,6 +457,9 @@
   (-seek-datoms [db index cs]
     (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
+  (-rseek-datoms [db index cs]
+    (reverse (btset/slice (get db index) (Datom. nil nil nil nil nil) (components->pattern db index cs))))
+
   (-index-range [db attr start end]
     (when-not (indexing? db attr)
       (raise "Attribute" attr "should be marked as :db/index true"))
@@ -523,6 +527,9 @@
 
   (-seek-datoms [db index cs]
                 (filter (.-pred db) (-seek-datoms (.-unfiltered-db db) index cs)))
+
+  (-rseek-datoms [db index cs]
+                (filter (.-pred db) (-rseek-datoms (.-unfiltered-db db) index cs)))
 
   (-index-range [db attr start end]
                 (filter (.-pred db) (-index-range (.-unfiltered-db db) attr start end))))

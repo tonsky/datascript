@@ -93,6 +93,13 @@
   ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3]))
   ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3 c4])))
 
+(defn rseek-datoms
+  ([db index]             {:pre [(db/db? db)]} (db/-rseek-datoms db index []))
+  ([db index c1]          {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1]))
+  ([db index c1 c2]       {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2]))
+  ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2 c3]))
+  ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2 c3 c4])))
+
 (defn index-range [db attr start end]
   {:pre [(db/db? db)]}
   (db/-index-range db attr start end))
