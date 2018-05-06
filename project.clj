@@ -101,6 +101,8 @@
            :global-vars  { *print-namespace-maps* false }}
     :dev { :source-paths ["bench/src" "test" "dev"]
            :dependencies [[org.clojure/tools.nrepl "0.2.12"]] }
+    :deploy { :aot [#"datascript\.(?!query-v3).*"]
+              :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }
   
   :clean-targets ^{:protect false} [

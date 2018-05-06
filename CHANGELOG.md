@@ -1,5 +1,6 @@
 # WIP
 
+- Provision AOT-compiled classes in datascript.jar (closes #241) 
 - Fixed direct-linking compatibility (rolled back #197, fixed #219, closes #259)
 
 # 0.16.4
