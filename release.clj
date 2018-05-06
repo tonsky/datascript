@@ -115,6 +115,6 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
   (make-commit)
   (publish-npm)
   (github-release)
-  (sh "lein" "with-profile" "deploy" "deploy" "clojars"))
+  (sh "lein" "with-profile" "+deploy" "deploy" "clojars"))
 
 (-main)
