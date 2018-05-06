@@ -14,40 +14,21 @@
 
 ;; SUMMING UP
 
-(defn ^:declared q [q & inputs])
-(def             q dq/q)
-
-(defn ^:declared entity [db eid])
-(def             entity de/entity)
+(def ^{:arglists '([q & inputs])} q dq/q)
+(def ^{:arglists '([db eid])} entity de/entity)
 
 (defn entity-db [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
-(defn ^:declared datom ([e a v]) ([e a v tx]) ([e a v tx added]))
-(def             datom db/datom)
-
-(defn ^:declared pull [db selector eid])
-(def             pull dp/pull)
-
-(defn ^:declared pull-many [db selector eids])
-(def             pull-many dp/pull-many)
-
-(defn ^:declared touch [e])
-(def             touch de/touch)
-
-(defn ^:declared empty-db ([]) ([schema]))
-(def             empty-db db/empty-db)
-
-(defn ^:declared init-db ([datoms]) ([datoms schema]))
-(def             init-db db/init-db)
-
-(defn ^:declared datom? [x])
-(def             datom? db/datom?)
-
-(defn ^:declared db? [x])
-(def             db? db/db?)
-
+(def ^{:arglists '([e a v] [e a v tx] [e a v tx added])} datom db/datom)
+(def ^{:arglists '([db selector eid])} pull dp/pull)
+(def ^{:arglists '([db selector eids])} pull-many dp/pull-many)
+(def ^{:arglists '([e])} touch de/touch)
+(def ^{:arglists '([] [schema])} empty-db db/empty-db)
+(def ^{:arglists '([datoms] [datoms schema])} init-db db/init-db)
+(def ^{:arglists '([x])} datom? db/datom?)
+(def ^{:arglists '([x])} db? db/db?)
 (def ^:const tx0 db/tx0)
 
 (defn is-filtered [x]
@@ -105,8 +86,7 @@
   {:pre [(db/db? db)]}
   (db/-index-range db attr start end))
 
-(defn ^:declared entid [db eid])
-(def             entid db/entid)
+(def ^{:arglists '([db eid])} entid db/entid)
 
 ;; Conn
 
@@ -140,7 +120,7 @@
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
     (let [report (-transact! conn tx-data tx-meta)]
-      (doseq [[_ callback] @(:listeners (meta conn))]
+      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
         (callback report))
       report)))
 
@@ -155,19 +135,23 @@
                                  (datoms db :eavt))
                     :tx-meta   tx-meta})]
       (reset! conn db)
-      (doseq [[_ callback] @(:listeners (meta conn))]
+      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
         (callback report))
       db)))
+
+(defn- atom? [a]
+  #?(:cljs (instance? Atom a)
+     :clj  (instance? clojure.lang.IAtom a)))
 
 (defn listen!
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
-     {:pre [(conn? conn)]}
+     {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
      (swap! (:listeners (meta conn)) assoc key callback)
      key))
 
 (defn unlisten! [conn key]
-  {:pre [(conn? conn)]}
+  {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
   (swap! (:listeners (meta conn)) dissoc key))
 
 

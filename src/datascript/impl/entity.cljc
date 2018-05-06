@@ -3,12 +3,7 @@
   (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
             [datascript.db :as db]))
 
-;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
-(defn ^:declared entity [db eid])
-(defn ^:declared ->Entity [db eid touched cache])
-(defn- ^:declared equiv-entity [this that])
-(defn- ^:declared lookup-entity ([this attr]) ([this attr not-found]))
-(defn ^:declared touch [e])
+(declare entity ->Entity equiv-entity lookup-entity touch)
 
 (defn- entid [db eid]
   (when (or (number? eid)

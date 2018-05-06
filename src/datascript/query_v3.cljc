@@ -21,13 +21,7 @@
       [datascript.db  Datom]
       [datascript.btset Iter])))
 
-;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
-(defn ^:declared resolve-clauses [context clauses])
-(defn ^:declared collect-rel-xf [syms-indexed rel])
-(defn ^:declared collect-to
-  ([context syms acc])
-  ([context syms acc xfs])
-  ([context syms acc xfs specimen]))
+(declare resolve-clauses collect-rel-xf collect-to)
 
 (def ^:const lru-cache-size 100)
 

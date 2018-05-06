@@ -20,9 +20,7 @@
 
 (def ^:const lru-cache-size 100)
 
-;; using defn instead of declare because of http://dev.clojure.org/jira/browse/CLJS-1871
-(defn ^:declared -collect ([context symbols]) ([acc rels symbols]))
-(defn ^:declared -resolve-clause [context clause])
+(declare -collect -resolve-clause)
 
 ;; Records
 

@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed direct-linking compatibility (rolled back #197, fixed #219, closes #259)
+
 # 0.16.4
 
 - Support string tempids (#251, PR #252, thx [Kenny Williams](https://github.com/kennyjwilli))

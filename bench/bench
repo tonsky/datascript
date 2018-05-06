@@ -111,7 +111,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.7.0/clojure-1.7.0.jar"
     "datascript-v8"
     (do
       (when-not skip-build?
-        (run "lein" "cljsbuild" "once" "advanced"))
+        (run "lein" "cljsbuild" "once" "bench"))
       (run "node" (str rdir "/run_v8.js") bench (str dir "/target/datascript.js")))
 
     "datomic-mem"

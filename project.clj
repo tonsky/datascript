@@ -58,7 +58,22 @@
           :parallel-build true
           :checked-arrays :warn
         }}
-              
+
+      { :id "bench"
+        :source-paths ["src" "bench/src"]
+        :compiler {
+          :output-to     "target/datascript.js"
+          :optimizations :advanced
+          :source-map    "target/datascript.js.map"
+          :pretty-print  true
+          :recompile-dependents false
+          :parallel-build true
+          :checked-arrays :warn
+          :pseudo-names  true
+          :fn-invoke-direct true
+          :elide-asserts true
+        }}
+
       { :id "none"
         :source-paths ["src" "bench/src" "test" "dev"]
         :compiler {
@@ -78,6 +93,10 @@
                           [org.clojure/clojurescript "1.8.51"  :scope "provided"]] }
     :1.9 { :dependencies [[org.clojure/clojure       "1.9.0"   :scope "provided"]
                           [org.clojure/clojurescript "1.9.946" :scope "provided"]]
+           ;; because we use printer in tests, and earlier versions don’t support it
+           :global-vars  { *print-namespace-maps* false }}
+    :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-alpha4" :scope "provided"]
+                           [org.clojure/clojurescript "1.10.238" :scope "provided"]]
            ;; because we use printer in tests, and earlier versions don’t support it
            :global-vars  { *print-namespace-maps* false }}
     :dev { :source-paths ["bench/src" "test" "dev"]
