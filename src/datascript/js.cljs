@@ -4,7 +4,8 @@
     [goog.object :as go]
     [datascript.core :as d]
     [clojure.walk :as walk]
-    [cljs.reader]))
+    [cljs.reader]
+    [datascript.db :as db]))
 
 ;; Conversions
 
@@ -52,7 +53,7 @@
 (defn js->Datom [d]
   (if (array? d)
     (d/datom (aget d 0) (aget d 1) (aget d 2) (or (aget d 3) d/tx0) (or (aget d 4) true))
-    (d/datom (.-e d) (.-a d) (.-v d) (or (.-tx d) d/tx0) (or (.-added d) true))))
+    (d/datom (db/-e d) (db/-a d) (.-v d) (or (db/-tx d) d/tx0) (or (db/-added d) true))))
 
 (defn- pull-result->js
   [result]

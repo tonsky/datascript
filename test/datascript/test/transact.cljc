@@ -10,7 +10,9 @@
    (def Throwable js/Error))
 
 (deftest test-with
-  (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
+  (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many
+                                    :db/order 0}
+                             :name {:db/order 1}})
                 (d/db-with [[:db/add 1 :name "Ivan"]])
                 (d/db-with [[:db/add 1 :name "Petr"]])
                 (d/db-with [[:db/add 1 :aka  "Devil"]])
@@ -45,38 +47,45 @@
                #{["Petr"]})))))
   
   (testing "Skipping nils in tx"
-    (let [db (-> (d/empty-db)
+    (let [db (-> (d/empty-db { :attr {:db/order 0}})
                  (d/db-with [[:db/add 1 :attr 2]
                              nil
                              [:db/add 3 :attr 4]]))]
-      (is (= [[1 :attr 2], [3 :attr 4]]
+      (is (= [[1 0 2], [3 0 4]]
              (map (juxt :e :a :v) (d/datoms db :eavt)))))))
 
 
 (deftest test-with-datoms
   (testing "keeps tx number"
-    (let [db (-> (d/empty-db)
-                 (d/db-with [(d/datom 1 :name "Oleg")
-                             (d/datom 1 :age  17 (+ 1 d/tx0))
-                             [:db/add 1 :aka  "x" (+ 2 d/tx0)]]))]
-      (is (= [[1 :age  17     (+ 1 d/tx0)]
-              [1 :aka  "x"    (+ 2 d/tx0)]
-              [1 :name "Oleg" d/tx0      ]]
+    (let [db (-> (d/empty-db {:name {:db/order 0}
+                              :age {:db/order 1}
+                              :aka {:db/order 2}})
+                 (d/db-with [(d/datom 1 0 "Oleg")
+                             (d/datom 1 1  17 (- d/tx0 1))
+                             [:db/add 1 :aka  "x" (- d/tx0 2)]]))]
+      (is (= [[1 0 "Oleg" d/tx0      ]
+              [1 1  17     (- d/tx0 1)]
+              [1 2  "x"    (- d/tx0 2)]]
              (map (juxt :e :a :v :tx)
                   (d/datoms db :eavt))))))
   
   (testing "retraction"
-    (let [db (-> (d/empty-db)
-                 (d/db-with [(d/datom 1 :name "Oleg")
-                             (d/datom 1 :age  17)
-                             (d/datom 1 :name "Oleg" d/tx0 false)]))]
-      (is (= [[1 :age 17 d/tx0]]
+    (let [db (-> (d/empty-db {:name {:db/order 0}
+                              :age {:db/order 1}})
+                 (d/db-with [(d/datom 1 0 "Oleg")
+                             (d/datom 1 1  17)
+                             (d/datom 1 0 "Oleg" d/tx0 false)]))]
+      (is (= [[1 1 17 d/tx0]]
              (map (juxt :e :a :v :tx)
                   (d/datoms db :eavt)))))))
 
 (deftest test-retract-fns
-  (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
-                            :friend { :db/valueType :db.type/ref }})
+  (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many
+                                      :db/order 0}
+                            :friend { :db/valueType :db.type/ref
+                                      :db/order 1}
+                            :name {:db/order 3}
+                            :age {:db/order 4}})
                (d/db-with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2 }
                             { :db/id 2, :name  "Petr", :age 37 } ]))]
     (let [db (d/db-with db [ [:db.fn/retractEntity 1] ])]
@@ -85,7 +94,7 @@
              #{}))
       (is (= (d/q '[:find ?a ?v
                     :where [2 ?a ?v]] db)
-             #{[:name "Petr"] [:age 37]})))
+             #{[3 "Petr"] [4 37]})))
 
     (testing "Retract entitiy with incoming refs"
       (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
@@ -98,24 +107,25 @@
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :name] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
-             #{[:age 15] [:aka "X"] [:aka "Y"] [:aka "Z"] [:friend 2]}))
+             #{[4 15] [0 "X"] [0 "Y"] [0 "Z"] [1 2]}))
       (is (= (d/q '[:find ?a ?v
                     :where [2 ?a ?v]] db)
-             #{[:name "Petr"] [:age 37]})))
+             #{[3 "Petr"] [4 37]})))
 
     (let [db (d/db-with db [ [:db.fn/retractAttribute 1 :aka] ])]
       (is (= (d/q '[:find ?a ?v
                     :where [1 ?a ?v]] db)
-             #{[:name "Ivan"] [:age 15] [:friend 2]}))
+             #{[3 "Ivan"] [4 15] [1 2]}))
       (is (= (d/q '[:find ?a ?v
                     :where [2 ?a ?v]] db)
-             #{[:name "Petr"] [:age 37]})))))
+             #{[3 "Petr"] [4 37]})))))
 
 (deftest test-retract-fns-not-found
-  (let [db  (-> (d/empty-db { :name { :db/unique :db.unique/identity } })
+  (let [db  (-> (d/empty-db { :name { :db/unique :db.unique/identity
+                                      :db/order 0} })
                 (d/db-with  [[:db/add 1 :name "Ivan"]]))
         all #(vec (d/datoms % :eavt))]
-    (are [op] (= [(d/datom 1 :name "Ivan")] 
+    (are [op] (= [(d/datom 1 0 "Ivan")]
                  (all (d/db-with db [op])))
       [:db/retract             2 :name "Petr"]
       [:db.fn/retractAttribute 2 :name]
@@ -135,7 +145,9 @@
       [:db.fn/retractEntity    [:name "Ivan"]])))
 
 (deftest test-transact!
-  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})]
+  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many
+                                    :db/order 0}
+                             :name {:db/order 1}})]
     (d/transact! conn [[:db/add 1 :name "Ivan"]])
     (d/transact! conn [[:db/add 1 :name "Petr"]])
     (d/transact! conn [[:db/add 1 :aka  "Devil"]])
@@ -149,14 +161,16 @@
            #{["Devil"] ["Tupen"]}))))
 
 (deftest test-db-fn-cas
-  (let [conn (d/create-conn)]
+  (let [conn (d/create-conn {:weight {:db/order 0}
+                             :label {:db/order 1}})]
     (d/transact! conn [[:db/add 1 :weight 200]])
     (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
     (is (= (:weight (d/entity @conn 1)) 300))
     (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :weight 300\], expected 200"
                           (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
   
-  (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
+  (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many
+                                      :db/order 0}})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
     (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
@@ -164,7 +178,8 @@
     (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :label \(:x :y :z\)\], expected :s"
                           (d/transact! conn [[:db.fn/cas 1 :label :s :t]]))))
 
-  (let [conn (d/create-conn)]
+  (let [conn (d/create-conn {:name {:db/order 0}
+                             :age {:db/order 1}})]
     (d/transact! conn [[:db/add 1 :name "Ivan"]])
     (d/transact! conn [[:db.fn/cas 1 :age nil 42]])
     (is (= (:age (d/entity @conn 1)) 42))
@@ -172,7 +187,11 @@
                           (d/transact! conn [[:db.fn/cas 1 :age nil 4711]])))))
 
 (deftest test-db-fn
-  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
+  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many
+                                    :db/order 0}
+                             :age {:db/order 1}
+                             :name {:db/order 2}
+                             :had-birthday {:db/order 3}})
         inc-age (fn [db name]
                   (if-let [[eid age] (first (d/q '{:find [?e ?age]
                                                    :in [$ ?name]
@@ -200,25 +219,28 @@
       (is (:had-birthday e)))))
 
 (deftest test-resolve-eid
-  (let [conn (d/create-conn)
+  (let [conn (d/create-conn {:name {:db/order 0}
+                             :age  {:db/order 1}})
         t1   (d/transact! conn [[:db/add -1 :name "Ivan"]
                                 [:db/add -1 :age 19]
                                 [:db/add -2 :name "Petr"]
                                 [:db/add -2 :age 22]])
         t2   (d/transact! conn [[:db/add "Serg" :name "Sergey"]
                                 [:db/add "Serg" :age 30]])]
-    (is (= (:tempids t1) { -1 1, -2 2, :db/current-tx (+ d/tx0 1) }))
-    (is (= (:tempids t2) { "Serg" 3, :db/current-tx (+ d/tx0 2) }))
+    (is (= (:tempids t1) { -1 1, -2 2, :db/current-tx (- d/tx0 1) }))
+    (is (= (:tempids t2) { "Serg" 3, :db/current-tx (- d/tx0 2) }))
     (is (= (d/q '[:find  ?e ?n ?a ?t
                   :where [?e :name ?n ?t]
                          [?e :age ?a]] @conn)
-           #{[1 "Ivan" 19   (+ d/tx0 1)]
-             [2 "Petr" 22   (+ d/tx0 1)]
-             [3 "Sergey" 30 (+ d/tx0 2)]}))))
+           #{[1 "Ivan" 19   (- d/tx0 1)]
+             [2 "Petr" 22   (- d/tx0 1)]
+             [3 "Sergey" 30 (- d/tx0 2)]}))))
 
 (deftest test-resolve-eid-refs
   (let [conn (d/create-conn {:friend {:db/valueType :db.type/ref
-                                      :db/cardinality :db.cardinality/many}})
+                                      :db/cardinality :db.cardinality/many
+                                      :db/order 0}
+                             :name {:db/order 1}})
         tx   (d/transact! conn [{:name "Sergey"
                                  :friend [-1 -2]}
                                 [:db/add -1  :name "Ivan"]
@@ -232,7 +254,7 @@
             :where [?e :name ?n]
                    [?e :friend ?fe]
                    [?fe :name ?fn]]]
-    (is (= (:tempids tx) { -1 2, -2 3, "B" 4, -3 5, :db/current-tx (+ d/tx0 1) }))
+    (is (= (:tempids tx) { -1 2, -2 3, "B" 4, -3 5, :db/current-tx (- d/tx0 1) }))
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
     (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
@@ -240,28 +262,34 @@
 (deftest test-resolve-current-tx
   (doseq [tx-tempid [:db/current-tx "datomic.tx" "datascript.tx"]]
     (testing tx-tempid
-      (let [conn (d/create-conn {:created-at {:db/valueType :db.type/ref}})
+      (let [conn (d/create-conn {:created-at {:db/valueType :db.type/ref
+                                              :db/order 0}
+                                 :name {:db/order 1}
+                                 :prop1 {:db/order 2}
+                                 :prop2 {:db/order 3}
+                                 :prop3 {:db/order 4}
+                                 :prop4 {:db/order 5}})
             tx1  (d/transact! conn [{:name "X", :created-at tx-tempid}
                                     {:db/id tx-tempid, :prop1 "prop1"}
                                     [:db/add tx-tempid :prop2 "prop2"]
                                     [:db/add -1 :name "Y"]
                                     [:db/add -1 :created-at tx-tempid]])]
         (is (= (d/q '[:find ?e ?a ?v :where [?e ?a ?v]] @conn)
-              #{[1 :name "X"]
-                [1 :created-at (+ d/tx0 1)]
-                [(+ d/tx0 1) :prop1 "prop1"]
-                [(+ d/tx0 1) :prop2 "prop2"]
-                [2 :name "Y"]
-                [2 :created-at (+ d/tx0 1)]}))
-        (is (= (:tempids tx1) (assoc {-1 2, :db/current-tx (+ d/tx0 1)}
-                                     tx-tempid (+ d/tx0 1))))
+              #{[1 1 "X"]
+                [1 0 (- d/tx0 1)]
+                [(- d/tx0 1) 2 "prop1"]
+                [(- d/tx0 1) 3 "prop2"]
+                [d/tx0 1 "Y"]
+                [d/tx0 0 (- d/tx0 1)]}))
+        (is (= (:tempids tx1) (assoc {-1 d/tx0, :db/current-tx (- d/tx0 1)}
+                                     tx-tempid (- d/tx0 1))))
         (let [tx2   (d/transact! conn [[:db/add tx-tempid :prop3 "prop3"]])
               tx-id (get-in tx2 [:tempids tx-tempid])]
-          (is (= tx-id (+ d/tx0 2)))
+          (is (= tx-id (- d/tx0 2)))
           (is (= (into {} (d/entity @conn tx-id))
                  {:prop3 "prop3"})))
         (let [tx3   (d/transact! conn [{:db/id tx-tempid, :prop4 "prop4"}])
               tx-id (get-in tx3 [:tempids tx-tempid])]
-          (is (= tx-id (+ d/tx0 3)))
+          (is (= tx-id (- d/tx0 3)))
           (is (= (into {} (d/entity @conn tx-id))
                  {:prop4 "prop4"})))))))

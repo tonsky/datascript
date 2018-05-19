@@ -6,7 +6,7 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
-(def test-db (d/db-with (d/empty-db)
+(def test-db (d/db-with (d/empty-db {:name {:db/order 0} :age {:db/order 1}})
              [{:db/id 1 :name "Petr" :age 44}
               {:db/id 2 :name "Ivan" :age 25}
               {:db/id 3 :name "Oleg" :age 11}]))
@@ -58,8 +58,10 @@
            [1 [:age]  {:age 44}]})))
 
 (deftest test-multiple-sources
-  (let [db1 (d/db-with (d/empty-db) [{:db/id 1 :name "Ivan" :age 25}])
-        db2 (d/db-with (d/empty-db) [{:db/id 1 :name "Petr" :age 25}])]
+  (let [schema {:name {:db/order 0}
+                :age {:db/order 1}}
+        db1 (d/db-with (d/empty-db schema) [{:db/id 1 :name "Ivan" :age 25}])
+        db2 (d/db-with (d/empty-db schema) [{:db/id 1 :name "Petr" :age 25}])]
     (is (= (set (d/q '[:find ?e (pull $1 ?e [:name])
                        :in $1 $2
                        :where [$1 ?e :age 25]]
@@ -108,7 +110,9 @@
          {:name "Ivan"})))
 
 (deftest test-aggregates
-  (let [db (d/db-with (d/empty-db {:value {:db/cardinality :db.cardinality/many}})
+  (let [db (d/db-with (d/empty-db {:value {:db/cardinality :db.cardinality/many
+                                           :db/order 0}
+                                   :name {:db/order 1}})
              [{:db/id 1 :name "Petr" :value [10 20 30 40]}
               {:db/id 2 :name "Ivan" :value [14 16]}
               {:db/id 3 :name "Oleg" :value 1}])]
@@ -120,7 +124,9 @@
              [3 {:name "Oleg"} 1 1]}))))
 
 (deftest test-lookup-refs
-  (let [db (d/db-with (d/empty-db {:name { :db/unique :db.unique/identity }})
+  (let [db (d/db-with (d/empty-db {:name { :db/unique :db.unique/identity
+                                           :db/order 0}
+                                   :age {:db/order 1}})
              [{:db/id 1 :name "Petr" :age 44}
               {:db/id 2 :name "Ivan" :age 25}
               {:db/id 3 :name "Oleg" :age 11}])]

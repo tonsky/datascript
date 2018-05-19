@@ -7,7 +7,8 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-listen!
-  (let [conn    (d/create-conn)
+  (let [conn    (d/create-conn {:name {:db/order 0}
+                                :age {:db/order 1}})
         reports (atom [])]
     (d/transact! conn [[:db/add -1 :name "Alex"]
                        [:db/add -2 :name "Boris"]])
@@ -23,16 +24,16 @@
     (d/transact! conn [[:db/add -1 :name "Geogry"]])
     
     (is (= (:tx-data (first @reports))
-           [(db/datom 3 :name "Dima"   (+ d/tx0 2) true)
-            (db/datom 3 :age 19        (+ d/tx0 2) true)
-            (db/datom 4 :name "Evgeny" (+ d/tx0 2) true)]))
+           [(db/datom 3 0 "Dima"   (+ d/tx0 2) true)
+            (db/datom 3 1 19        (+ d/tx0 2) true)
+            (db/datom 4 0 "Evgeny" (+ d/tx0 2) true)]))
     (is (= (:tx-meta (first @reports))
            {:some-metadata 1}))
     (is (= (:tx-data (second @reports))
-           [(db/datom 5 :name "Fedor"  (+ d/tx0 3) true)
-            (db/datom 1 :name "Alex"   (+ d/tx0 3) false)  ;; update -> retract
-            (db/datom 1 :name "Alex2"  (+ d/tx0 3) true)   ;;         + add
-            (db/datom 4 :name "Evgeny" (+ d/tx0 3) false)]))
+           [(db/datom 5 0 "Fedor"  (+ d/tx0 3) true)
+            (db/datom 1 0 "Alex"   (+ d/tx0 3) false)  ;; update -> retract
+            (db/datom 1 0 "Alex2"  (+ d/tx0 3) true)   ;;         + add
+            (db/datom 4 0 "Evgeny" (+ d/tx0 3) false)]))
     (is (= (:tx-meta (second @reports))
            nil))
     ))

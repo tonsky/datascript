@@ -164,7 +164,7 @@
 
 ;; https://github.com/tonsky/datascript/issues/218
 (deftest test-false-arguments
-  (let [db    (d/db-with (d/empty-db) 
+  (let [db    (d/db-with (d/empty-db {:attr {:db/order 0}})
                 [[:db/add 1 :attr true]
                  [:db/add 2 :attr false]])
         rules '[[(is ?id ?val)

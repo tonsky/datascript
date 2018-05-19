@@ -15,7 +15,7 @@
      (def IllegalArgumentException js/Error)
      (def UnsupportedOperationException js/Error)))
 
-(def ^:const tx0 0x20000000)
+(def ^:const tx0 16777215)    ; 2^24 -1
 (def ^:const default-schema nil)
 
 ;; ----------------------------------------------------------------------------
@@ -112,123 +112,162 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-datom equiv-datom seq-datom nth-datom assoc-datom val-at-datom)
+(declare hash-datom equiv-datom seq-datom nth-datom assoc-datom val-at-datom -e -a -tx -added)
 
-(deftype Datom [e a v tx added]
+(def upper-factor #?(:cljs (js/Math.pow 2 32) :clj (Math/pow 2 32)))
+
+(def entity-bits 24)
+(def attr-bits 8)
+(def tx-bits 20)
+(def entity-mask (dec (bit-shift-left 1 entity-bits)))
+(def attr-mask (dec (bit-shift-left 1 attr-bits)))
+(def tx-mask (dec (bit-shift-left 1 tx-bits)))
+
+(deftype Datom [^double num ^Object v]
   #?@(:cljs
-       [IHash
-        (-hash [d] (or (.-__hash d)
-                       (set! (.-__hash d) (hash-datom d))))
-        IEquiv
-        (-equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
+      [IHash
+       (-hash [d] (or (.-__hash d)
+                      (set! (.-__hash d) (hash-datom d))))
+       IEquiv
+       (-equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
 
-        ISeqable
-        (-seq [d] (seq-datom d))
+       ISeqable
+       (-seq [d] (seq-datom d))
 
-        ILookup
-        (-lookup [d k] (val-at-datom d k nil))
-        (-lookup [d k nf] (val-at-datom d k nf))
+       ILookup
+       (-lookup [d k] (val-at-datom d k nil))
+       (-lookup [d k nf] (val-at-datom d k nf))
 
-        IIndexed
-        (-nth [this i] (nth-datom this i))
-        (-nth [this i not-found] (nth-datom this i not-found))
-        
-        IAssociative
-        (-assoc [d k v] (assoc-datom d k v))
+       IIndexed
+       (-nth [this i] (nth-datom this i))
+       (-nth [this i not-found] (nth-datom this i not-found))
 
-        IPrintWithWriter
-        (-pr-writer [d writer opts]
-                    (pr-sequential-writer writer pr-writer
-                                          "#datascript/Datom [" " " "]"
-                                          opts [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)]))
-        ]
-       :clj
-       [Object
-        (hashCode [d] (hash-datom d))
+       IAssociative
+       (-assoc [d k v] (assoc-datom d k v))
 
-        clojure.lang.IHashEq
-        (hasheq [d] (hash-datom d))
+       IPrintWithWriter
+       (-pr-writer [d writer opts]
+                   (pr-sequential-writer writer pr-writer
+                                         "#datascript/Datom [" " " "]"
+                                         opts [(-e d) (-a d) (.-v d) (-tx d) (-added d)]))
+       ]
+      :clj
+      [Object
+       (hashCode [d] (hash-datom d))
 
-        clojure.lang.Seqable
-        (seq [d] (seq-datom d))
+       clojure.lang.IHashEq
+       (hasheq [d] (hash-datom d))
 
-        clojure.lang.IPersistentCollection
-        (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
-        (empty [d] (throw (UnsupportedOperationException. "empty is not supported on Datom")))
-        (count [d] 5)
-        (cons [d [k v]] (assoc-datom d k v))
-        
-        clojure.lang.Indexed
-        (nth [this i]           (nth-datom this i))
-        (nth [this i not-found] (nth-datom this i not-found))
+       clojure.lang.Seqable
+       (seq [d] (seq-datom d))
 
-        clojure.lang.ILookup
-        (valAt [d k] (val-at-datom d k nil))
-        (valAt [d k nf] (val-at-datom d k nf))
+       clojure.lang.IPersistentCollection
+       (equiv [d o] (and (instance? Datom o) (equiv-datom d o)))
+       (empty [d] (throw (UnsupportedOperationException. "empty is not supported on Datom")))
+       (count [d] 5)
+       (cons [d [k v]] (assoc-datom d k v))
 
-        clojure.lang.Associative
-        (entryAt [d k] (some->> (val-at-datom d k nil) (clojure.lang.MapEntry k)))
-        (containsKey [e k] (#{:e :a :v :tx :added} k))
-        (assoc [d k v] (assoc-datom d k v))
-        ]))
+       clojure.lang.Indexed
+       (nth [this i] (nth-datom this i))
+       (nth [this i not-found] (nth-datom this i not-found))
+
+       clojure.lang.ILookup
+       (valAt [d k] (val-at-datom d k nil))
+       (valAt [d k nf] (val-at-datom d k nf))
+
+       clojure.lang.Associative
+       (entryAt [d k] (some->> (val-at-datom d k nil) (clojure.lang.MapEntry k)))
+       (containsKey [e k] (#{:e :a :v :tx :added} k))
+       (assoc [d k v] (assoc-datom d k v))
+       ]))
+
+(defn -e [^Datom d] (bit-and entity-mask (long (.-num d))))
+(defn -a [^Datom d] (bit-and (bit-shift-right (long (.-num d)) entity-bits) attr-mask))
+(defn -tx [^Datom d] (-
+                       tx0
+                       (unsigned-bit-shift-right (int (/ (.-num d) upper-factor)) 1)))
+(defn -added [^Datom d] (odd? (int (/ (.-num d) upper-factor))))
 
 (defn ^Datom datom
-  ([e a v]          (Datom. e a v tx0 true))
-  ([e a v tx]       (Datom. e a v tx true))
-  ([e a v tx added] (Datom. e a v tx added)))
-  
+  ([e a v] (datom e a v tx0 true))
+  ([e a v tx] (datom e a v tx true))
+  ([e a v tx added]
+   {:pre [(<= e entity-mask)
+          (<= a attr-mask)
+          #_(>= tx (- tx0 tx-mask))]}
+   (Datom.
+     (+ (bit-or e (bit-shift-left a entity-bits))
+        (* (bit-or (if added 1 0)
+                   (bit-shift-left (- tx0 tx) 1))
+           upper-factor))
+           v)))
+
+(defn ^Datom datom-start
+  ([e a v] (datom-start e a v tx0 true))
+  ([e a v tx] (datom-start e a v tx true))
+  ([e a v tx added] (datom (if e e 0) (if a a 0) v (if tx tx (- tx0 tx-mask)) added)))
+
+(defn ^Datom datom-end
+  ([e a v] (datom-end e a v tx0 true))
+  ([e a v tx] (datom-end e a v tx true))
+  ([e a v tx added] (datom (if e e entity-mask)
+                           (if a a attr-mask)
+                           v
+                           (if tx tx tx0)
+                           added)))
+
 (defn datom? [x] (instance? Datom x))
 
 (defn- hash-datom [^Datom d]
-  (-> (hash (.-e d))
-      (combine-hashes (hash (.-a d)))
+  (-> (hash (-e d))
+      (combine-hashes (hash (-a d)))
       (combine-hashes (hash (.-v d)))))
 
 (defn- equiv-datom [^Datom d ^Datom o]
-  (and (= (.-e d) (.-e o))
-       (= (.-a d) (.-a o))
+  (and (= (-e d) (-e o))
+       (= (-a d) (-a o))
        (= (.-v d) (.-v o))))
 
 (defn- seq-datom [^Datom d]
-  (list (.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)))
+  (list (-e d) (-a d) (.-v d) (-tx d) (-added d)))
 
 ;; keep it fast by duplicating for both keyword and string cases
 ;; instead of using sets or some other matching func
 (defn- val-at-datom [^Datom d k not-found]
   (case k
-    :e     (.-e d)        "e"     (.-e d)
-    :a     (.-a d)        "a"     (.-a d)
-    :v     (.-v d)        "v"     (.-v d)
-    :tx    (.-tx d)       "tx"    (.-tx d)
-    :added (.-added d)    "added" (.-added d)
+    :e (-e d) "e" (-e d)
+    :a (-a d) "a" (-a d)
+    :v (.-v d) "v" (.-v d)
+    :tx (-tx d) "tx" (-tx d)
+    :added (-added d) "added" (-added d)
     not-found))
 
 (defn- nth-datom
   ([^Datom d ^long i]
-    (case i
-      0 (.-e d)
-      1 (.-a d)
-      2 (.-v d)
-      3 (.-tx d)
-      4 (.-added d)
-        #?(:clj  (throw (IndexOutOfBoundsException.))
-           :cljs (throw (js/Error. (str "Datom/-nth: Index out of bounds: " i))))))
+   (case i
+     0 (-e d)
+     1 (-a d)
+     2 (.-v d)
+     3 (-tx d)
+     4 (-added d)
+     #?(:clj  (throw (IndexOutOfBoundsException.))
+        :cljs (throw (js/Error. (str "Datom/-nth: Index out of bounds: " i))))))
   ([^Datom d ^long i not-found]
-    (case i
-      0 (.-e d)
-      1 (.-a d)
-      2 (.-v d)
-      3 (.-tx d)
-      4 (.-added d)
-        not-found)))
+   (case i
+     0 (-e d)
+     1 (-a d)
+     2 (.-v d)
+     3 (-tx d)
+     4 (-added d)
+     not-found)))
 
 (defn- ^Datom assoc-datom [^Datom d k v]
   (case k
-    :e     (Datom. v       (.-a d) (.-v d) (.-tx d) (.-added d))
-    :a     (Datom. (.-e d) v       (.-v d) (.-tx d) (.-added d))
-    :v     (Datom. (.-e d) (.-a d) v       (.-tx d) (.-added d))
-    :tx    (Datom. (.-e d) (.-a d) (.-v d) v        (.-added d))
-    :added (Datom. (.-e d) (.-a d) (.-v d) (.-tx d) v)
+    :e (datom v (-a d) (.-v d) (-tx d) (-added d))
+    :a (datom (-e d) v (.-v d) (-tx d) (-added d))
+    :v (datom (-e d) (-a d) v (-tx d) (-added d))
+    :tx (datom (-e d) (-a d) (.-v d) v (-added d))
+    :added (datom (-e d) (-a d) (.-v d) (-tx d) v)
     (throw (IllegalArgumentException. (str "invalid key for #datascript/Datom: " k)))))
 
 ;; printing and reading
@@ -241,24 +280,24 @@
    (defmethod print-method Datom [^Datom d, ^java.io.Writer w]
      (.write w (str "#datascript/Datom "))
      (binding [*out* w]
-       (pr [(.-e d) (.-a d) (.-v d) (.-tx d) (.-added d)]))))
+       (pr [(-e d) (-a d) (.-v d) (-tx d) (-added d)]))))
 
 ;; ----------------------------------------------------------------------------
 ;; datom cmp macros/funcs
 ;;
 
 #?(:clj
-  (defmacro combine-cmp [& comps]
-    (loop [comps (reverse comps)
-           res   (num 0)]
-      (if (not-empty comps)
-        (recur
-          (next comps)
-          `(let [c# ~(first comps)]
-             (if (== 0 c#)
-               ~res
-               c#)))
-        res))))
+   (defmacro combine-cmp [& comps]
+     (loop [comps (reverse comps)
+            res (num 0)]
+       (if (not-empty comps)
+         (recur
+           (next comps)
+           `(let [c# ~(first comps)]
+              (if (== 0 c#)
+                ~res
+                c#)))
+         res))))
 
 #?(:clj
    (defn- -case-tree [queries variants]
@@ -295,24 +334,24 @@
 
 (defn cmp-datoms-eavt [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp-num (.-e d1) (.-e d2))
-    (cmp (.-a d1) (.-a d2))
+    (cmp-num (-e d1) (-e d2))
+    (cmp (-a d1) (-a d2))
     (cmp-val (.-v d1) (.-v d2))
-    (cmp-num (.-tx d1) (.-tx d2))))
+    (cmp-num (-tx d1) (-tx d2))))
 
 (defn cmp-datoms-aevt [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp (.-a d1) (.-a d2))
-    (cmp-num (.-e d1) (.-e d2))
+    (cmp (-a d1) (-a d2))
+    (cmp-num (-e d1) (-e d2))
     (cmp-val (.-v d1) (.-v d2))
-    (cmp-num (.-tx d1) (.-tx d2))))
+    (cmp-num (-tx d1) (-tx d2))))
 
 (defn cmp-datoms-avet [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp (.-a d1) (.-a d2))
+    (cmp (-a d1) (-a d2))
     (cmp-val (.-v d1) (.-v d2))
-    (cmp-num (.-e d1) (.-e d2))
-    (cmp-num (.-tx d1) (.-tx d2))))
+    (cmp-num (-e d1) (-e d2))
+    (cmp-num (-tx d1) (-tx d2))))
 
 
 ;; fast versions without nil checks
@@ -328,24 +367,24 @@
 
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
-    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
-    (cmp-attr-quick (.-a d1) (.-a d2))
+    (#?(:clj Long/compare :cljs -) (-e d1) (-e d2))
+    (cmp-attr-quick (-a d1) (-a d2))
     (compare (.-v d1) (.-v d2))
-    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (-tx d1) (-tx d2))))
 
 (defn cmp-datoms-aevt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp-attr-quick (.-a d1) (.-a d2))
-    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
+    (cmp-attr-quick (-a d1) (-a d2))
+    (#?(:clj Long/compare :cljs -) (-e d1) (-e d2))
     (compare (.-v d1) (.-v d2))
-    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (-tx d1) (-tx d2))))
 
 (defn cmp-datoms-avet-quick [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp-attr-quick (.-a d1) (.-a d2))
+    (cmp-attr-quick (-a d1) (-a d2))
     (compare (.-v d1) (.-v d2))
-    (#?(:clj Long/compare :cljs -) (.-e d1) (.-e d2))
-    (#?(:clj Long/compare :cljs -) (.-tx d1) (.-tx d2))))
+    (#?(:clj Long/compare :cljs -) (-e d1) (-e d2))
+    (#?(:clj Long/compare :cljs -) (-tx d1) (-tx d2))))
 
 ;; ----------------------------------------------------------------------------
 
@@ -366,87 +405,92 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare hash-db hash-fdb equiv-db empty-db resolve-datom validate-attr components->pattern indexing?)
+(declare resolve-attr hash-db hash-fdb equiv-db empty-db resolve-datom validate-attr components->pattern indexing?)
 #?(:cljs (declare pr-db))
 
-(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema hash]
-  #?@(:cljs
-      [IHash                (-hash  [db]        (hash-db db))
-       IEquiv               (-equiv [db other]  (equiv-db db other))
-       ISeqable             (-seq   [db]        (-seq  (.-eavt db)))
-       IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
-       ICounted             (-count [db]        (count (.-eavt db)))
-       IEmptyableCollection (-empty [db]        (empty-db (.-schema db)))
-       IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))]
 
-      :clj
-      [Object               (hashCode [db]      (hash-db db))
-       clojure.lang.IHashEq (hasheq [db]        (hash-db db))
-       clojure.lang.Seqable (seq [db]           (seq eavt))
-       clojure.lang.IPersistentCollection
-                            (count [db]         (count eavt))
-                            (equiv [db other]   (equiv-db db other))
-                            (empty [db]         (empty-db schema))])
+(defn slice
+  ([s k] (slice s (apply datom-start k) (apply datom-end k)))
+  ([s start end] (btset/slice s start end)))
 
-  IDB
-  (-schema [db] (.-schema db))
-  (-attrs-by [db property] ((.-rschema db) property))
+(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema attrm attrs hash]
+     #?@(:cljs
+         [IHash (-hash [db] (hash-db db))
+          IEquiv (-equiv [db other] (equiv-db db other))
+          ISeqable (-seq [db] (-seq (.-eavt db)))
+          IReversible (-rseq [db] (-rseq (.-eavt db)))
+          ICounted (-count [db] (count (.-eavt db)))
+          IEmptyableCollection (-empty [db] (empty-db (.-schema db)))
+          IPrintWithWriter (-pr-writer [db w opts] (pr-db db w opts))]
+         :clj
+         [Object (hashCode [db] (hash-db db))
+          clojure.lang.IHashEq (hasheq [db] (hash-db db))
+          clojure.lang.Seqable (seq [db] (seq eavt))
+          clojure.lang.IPersistentCollection
+          (count [db] (count eavt))
+          (equiv [db other] (equiv-db db other))
+          (empty [db] (empty-db schema))])
+     IDB
+     (-schema [db] (.-schema db))
+     (-attrs-by [db property] ((.-rschema db) property))
+     ISearch
+     (-search [^DB db pattern]
+              (let [[e a v tx] pattern
+                    eavt (.-eavt db)
+                    aevt (.-aevt db)
+                    avet (.-avet db)
+                    a (resolve-attr db a)]
+                (case-tree [e a (some? v) tx]
+                           [(slice eavt [e a v tx nil]) ;; e a v tx
+                            (slice eavt [e a v nil nil]) ;; e a v _
+                            (->> (slice eavt [e a nil nil nil]) ;; e a _ tx
+                                 (filter (fn [^Datom d] (= tx (-tx d)))))
+                            (slice eavt [e a nil nil nil]) ;; e a _ _
+                            (->> (slice eavt [e nil nil nil nil]) ;; e _ v tx
+                                 (filter (fn [^Datom d] (and (= v (.-v d))
+                                                             (= tx (-tx d))))))
+                            (->> (slice eavt [e nil nil nil nil]) ;; e _ v _
+                                 (filter (fn [^Datom d] (= v (.-v d)))))
+                            (->> (slice eavt [e nil nil nil nil]) ;; e _ _ tx
+                                 (filter (fn [^Datom d] (= tx (-tx d)))))
+                            (slice eavt [e nil nil nil nil]) ;; e _ _ _
+                            (if (indexing? db a) ;; _ a v tx
+                              (->> (slice avet [nil a v nil nil])
+                                   (filter (fn [^Datom d] (= tx (-tx d)))))
+                              (->> (slice aevt [nil a nil nil nil])
+                                   (filter (fn [^Datom d] (and (= v (.-v d))
+                                                               (= tx (-tx d)))))))
+                            (if (indexing? db a) ;; _ a v _
+                              (slice avet [nil a v nil nil])
+                              (->> (slice aevt [nil a nil nil nil])
+                                   (filter (fn [^Datom d] (= v (.-v d))))))
+                            (->> (slice aevt [nil a nil nil nil]) ;; _ a _ tx
+                                 (filter (fn [^Datom d] (= tx (-tx d)))))
+                            (slice aevt [nil a nil nil nil]) ;; _ a _ _
+                            (filter (fn [^Datom d] (and (= v (.-v d))
+                                                        (= tx (-tx d)))) eavt) ;; _ _ v tx
+                            (filter (fn [^Datom d] (= v (.-v d))) eavt) ;; _ _ v _
+                            (filter (fn [^Datom d] (= tx (-tx d))) eavt) ;; _ _ _ tx
+                            eavt])))      ;; _ _ _ _
+     IIndexAccess
+     (-datoms [db index cs]
+              (slice (get db index) (components->pattern db index cs)))
+     (-seek-datoms [db index cs]
+                   (slice (get db index)
+                          (apply datom-start (components->pattern db index cs))
+                          (datom-end nil nil nil nil nil)))
+     (-rseek-datoms [db index cs]
+                    (reverse (slice (get db index)
+                                    (datom-start nil nil nil nil nil)
+                                    (apply datom-end (components->pattern db index cs)))))
 
-  ISearch
-  (-search [db pattern]
-           (let [[e a v tx] pattern
-                 eavt (.-eavt db)
-                 aevt (.-aevt db)
-                 avet (.-avet db)]
-             (case-tree [e a (some? v) tx]
-                        [(btset/slice eavt (Datom. e a v tx nil))              ;; e a v tx
-                         (btset/slice eavt (Datom. e a v nil nil))             ;; e a v _
-                         (->> (btset/slice eavt (Datom. e a nil nil nil))      ;; e a _ tx
-                              (filter (fn [^Datom d] (= tx (.-tx d)))))
-                         (btset/slice eavt (Datom. e a nil nil nil))           ;; e a _ _
-                         (->> (btset/slice eavt (Datom. e nil nil nil nil))    ;; e _ v tx
-                              (filter (fn [^Datom d] (and (= v (.-v d))
-                                                          (= tx (.-tx d))))))
-                         (->> (btset/slice eavt (Datom. e nil nil nil nil))    ;; e _ v _
-                              (filter (fn [^Datom d] (= v (.-v d)))))
-                         (->> (btset/slice eavt (Datom. e nil nil nil nil))    ;; e _ _ tx
-                              (filter (fn [^Datom d] (= tx (.-tx d)))))
-                         (btset/slice eavt (Datom. e nil nil nil nil))         ;; e _ _ _
-                         (if (indexing? db a)                                  ;; _ a v tx
-                           (->> (btset/slice avet (Datom. nil a v nil nil))      
-                                (filter (fn [^Datom d] (= tx (.-tx d)))))
-                           (->> (btset/slice aevt (Datom. nil a nil nil nil))
-                                (filter (fn [^Datom d] (and (= v (.-v d))
-                                                            (= tx (.-tx d)))))))
-                         (if (indexing? db a)                                  ;; _ a v _
-                           (btset/slice avet (Datom. nil a v nil nil))
-                           (->> (btset/slice aevt (Datom. nil a nil nil nil))
-                                (filter (fn [^Datom d] (= v (.-v d))))))
-                         (->> (btset/slice aevt (Datom. nil a nil nil nil))    ;; _ a _ tx
-                              (filter (fn [^Datom d] (= tx (.-tx d)))))
-                         (btset/slice aevt (Datom. nil a nil nil nil))         ;; _ a _ _
-                         (filter (fn [^Datom d] (and (= v (.-v d))
-                                                     (= tx (.-tx d)))) eavt)   ;; _ _ v tx
-                         (filter (fn [^Datom d] (= v (.-v d))) eavt)           ;; _ _ v _
-                         (filter (fn [^Datom d] (= tx (.-tx d))) eavt)         ;; _ _ _ tx
-                         eavt])))                                              ;; _ _ _ _
-
-  IIndexAccess
-  (-datoms [db index cs]
-    (btset/slice (get db index) (components->pattern db index cs)))
-
-  (-seek-datoms [db index cs]
-    (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
-
-  (-rseek-datoms [db index cs]
-    (reverse (btset/slice (get db index) (Datom. nil nil nil nil nil) (components->pattern db index cs))))
-
-  (-index-range [db attr start end]
-    (when-not (indexing? db attr)
-      (raise "Attribute" attr "should be marked as :db/index true" {}))
-    (validate-attr attr (list '-index-range 'db attr start end))
-    (btset/slice (.-avet db) (resolve-datom db nil attr start nil)
-                 (resolve-datom db nil attr end nil))))
+     (-index-range [db attr start end]
+                     (when-not (indexing? db attr)
+                       (raise "Attribute" attr "should be marked as :db/index true"))
+                     (validate-attr attr (list '-index-range 'db attr start end))
+                     (slice (.-avet db)
+                            (apply datom-start (resolve-datom db nil attr start nil))
+                            (apply datom-end (resolve-datom db nil attr end nil)))))
 
 (defn db? [x]
   (and (satisfies? ISearch x)
@@ -517,6 +561,11 @@
 
 ;; ----------------------------------------------------------------------------
 
+(defn resolve-attr [^DB db a]
+  (if (number? a)
+    a
+    (get (.-attrm db) a)))
+
 (defn attr->properties [k v]
   (case v
     :db.unique/identity  [:db/unique :db.unique/identity :db/index]
@@ -564,64 +613,77 @@
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
   schema)
 
+(defn schema->attrm-attrs [schema]
+  (let [ao (for [[attr props] schema
+                 [k v] props
+                 :when (= k :db/order)]
+             [attr v])]
+    [(into {} ao)
+     (da/into-array (map first (sort-by second ao)))]))
+
 (defn ^DB empty-db
   ([] (empty-db default-schema))
   ([schema]
-    {:pre [(or (nil? schema) (map? schema))]}
-    (map->DB {
-      :schema  (validate-schema schema)
-      :eavt    (btset/btset-by cmp-datoms-eavt)
-      :aevt    (btset/btset-by cmp-datoms-aevt)
-      :avet    (btset/btset-by cmp-datoms-avet)
-      :max-eid 0
-      :max-tx  tx0
-      :rschema (rschema schema)
-      :hash    (atom 0)})))
+   {:pre [(or (nil? schema) (map? schema))]}
+   (let [[am as] (schema->attrm-attrs schema)]
+     (map->DB {:schema  (validate-schema schema)
+              :eavt    (btset/btset-by cmp-datoms-eavt)
+              :aevt    (btset/btset-by cmp-datoms-aevt)
+              :avet    (btset/btset-by cmp-datoms-avet)
+              :max-eid 0
+              :max-tx  tx0
+              :rschema (rschema schema)
+              :hash    (atom 0)
+              :attrm   am
+              :attrs   as}))))
 
-(defn- init-max-eid [eavt]
-  (if-let [slice (btset/slice
+(defn- init-max-eid [eavt max-tx]
+  (if-let [slice (slice
                    eavt
-                   (Datom. nil nil nil nil nil)
-                   (Datom. (dec tx0) nil nil nil nil))]
-    (-> slice rseq first :e) ;; :e of last datom in slice
+                   (datom-start nil nil nil nil nil)
+                   (datom-end (dec max-tx) nil nil nil nil))]
+    (-> slice rseq first :e)                                ;; :e of last datom in slice
     0))
 
 (defn ^DB init-db
   ([datoms] (init-db datoms default-schema))
   ([datoms schema]
-    (if (empty? datoms)
-      (empty-db schema)
-      (let [_ (validate-schema schema)
-            rschema (rschema schema)
-            indexed (:db/index rschema)
-            #?@(:cljs
-                [ds-arr  (if (array? datoms) datoms (da/into-array datoms))
-                 eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
-                 aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
-                 avet-datoms (-> (reduce (fn [arr d]
-                                           (when (contains? indexed (.-a d))
-                                             (.push arr d))
-                                           arr)
-                                         #js [] datoms)
-                                 (.sort cmp-datoms-avet-quick))
-                 avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
-                 max-eid (init-max-eid eavt)]
-                :clj
-                [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
-                 aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
-                 avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-                 avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
-                 max-eid     (init-max-eid eavt)])
-            max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
-        (map->DB {
-          :schema  schema
-          :eavt    eavt
-          :aevt    aevt
-          :avet    avet
-          :max-eid max-eid
-          :max-tx  max-tx
-          :rschema rschema
-          :hash    (atom 0)})))))
+   (if (empty? datoms)
+     (empty-db schema)
+     (let [_ (validate-schema schema)
+           [attrm attrs] (schema->attrm-attrs schema)
+           rschema (rschema schema)
+           indexed (into #{} (map #(get attrm %) (:db/index rschema)))
+           #?@(:cljs
+               [ds-arr (if (array? datoms) datoms (da/into-array datoms))
+                eavt (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
+                aevt (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
+                avet-datoms (-> (reduce (fn [arr d]
+                                          (when (contains? indexed (-a d))
+                                            (.push arr d))
+                                          arr)
+                                        #js [] datoms)
+                                (.sort cmp-datoms-avet-quick))
+                avet (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
+                max-tx (transduce (map (fn [^Datom d] (-tx d))) min tx0 eavt)
+                max-eid (init-max-eid eavt max-tx)]
+               :clj
+               [eavt (apply btset/btset-by cmp-datoms-eavt datoms)
+                aevt (apply btset/btset-by cmp-datoms-aevt datoms)
+                avet-datoms (filter (fn [^Datom d] (contains? indexed (-a d))) datoms)
+                avet (apply btset/btset-by cmp-datoms-avet avet-datoms)
+                max-tx (transduce (map (fn [^Datom d] (-tx d))) min tx0 eavt)
+                max-eid (init-max-eid eavt max-tx)])]
+       (map->DB {:schema  schema
+                 :eavt    eavt
+                 :aevt    aevt
+                 :avet    avet
+                 :max-eid max-eid
+                 :max-tx  max-tx
+                 :rschema rschema
+                 :hash    (atom 0)
+                 :attrm attrm
+                 :attrs attrs})))))
 
 (defn- equiv-db-index [x y]
   (loop [xs (seq x)
@@ -660,7 +722,7 @@
      (-write w ", :datoms ")
      (pr-sequential-writer w
                            (fn [d w opts]
-                             (pr-sequential-writer w pr-writer "[" " " "]" opts [(.-e d) (.-a d) (.-v d) (.-tx d)]))
+                             (pr-sequential-writer w pr-writer "[" " " "]" opts [(-e d) (-a d) (.-v d) (-tx d)]))
                            "[" " " "]" opts (-datoms db :eavt []))
      (-write w "}")))
 
@@ -672,7 +734,7 @@
        (binding [*out* w]
          (pr (-schema db))
          (.write w ", :datoms [")
-         (apply pr (map (fn [^Datom d] [(.-e d) (.-a d) (.-v d) (.-tx d)]) (-datoms db :eavt []))))
+         (apply pr (map (fn [^Datom d] [(-e d) (-a d) (.-v d) (-tx d)]) (-datoms db :eavt []))))
        (.write w "]}"))
 
      (defmethod print-method DB [db, ^java.io.Writer w]
@@ -682,24 +744,24 @@
        (pr-db db w))))
 
 (defn db-from-reader [{:keys [schema datoms]}]
-  (init-db (map (fn [[e a v tx]] (Datom. e a v tx true)) datoms) schema))
+  (init-db (map (fn [[e a v tx]] (datom e a v tx true)) datoms) schema))
 
 ;; ----------------------------------------------------------------------------
 
 (declare entid-strict entid-some ref?)
 
-(defn- resolve-datom [db e a v t]
+(defn resolve-datom [db e a v t]
   (when a (validate-attr a (list 'resolve-datom 'db e a v t)))
-  (Datom.
-    (entid-some db e)               ;; e
-    a                               ;; a
-    (if (and (some? v) (ref? db a)) ;; v
+  (vector
+    (entid-some db e)                                       ;; e
+    (resolve-attr db a)                                     ;; a
+    (if (and (some? v) (ref? db a))                         ;; v
       (entid-strict db v)
       v)
-    (entid-some db t)               ;; t
+    (entid-some db t)                                       ;; t
     nil))
 
-(defn- components->pattern [db index [c0 c1 c2 c3]]
+(defn components->pattern [db index [c0 c1 c2 c3]]
   (case index
     :eavt (resolve-datom db c0 c1 c2 c3)
     :aevt (resolve-datom db c1 c0 c2 c3)
@@ -710,8 +772,14 @@
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])
 
 (defn #?@(:clj  [^Boolean is-attr?]
-          :cljs [^boolean is-attr?]) [db attr property]
-  (contains? (-attrs-by db property) attr))
+          :cljs [^boolean is-attr?]) [^DB db attr property]
+  (contains? (-attrs-by db property)
+             (if (number? attr)
+               #?(:clj (try (aget ^objects (.-attrs db) attr)
+                            (catch IndexOutOfBoundsException e
+                              nil))
+                  :cljs (aget (.-attrs db) attr))
+               attr)))
 
 (defn #?@(:clj  [^Boolean multival?]
           :cljs [^boolean multival?]) [db attr]
@@ -755,7 +823,7 @@
 (defn entid-strict [db eid]
   (or (entid db eid)
       (raise "Nothing found for entity id " eid
-             {:error :entity-id/missing
+             {:error     :entity-id/missing
               :entity-id eid})))
 
 (defn entid-some [db eid]
@@ -765,13 +833,13 @@
 ;;;;;;;;;; Transacting
 
 (defn validate-datom [db ^Datom datom]
-  (when (and (.-added datom)
-             (is-attr? db (.-a datom) :db/unique))
-    (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
+  (when (and (-added datom)
+             (is-attr? db (-a datom) :db/unique))
+    (when-let [found (not-empty (-datoms db :avet [(-a datom) (.-v datom)]))]
       (raise "Cannot add " datom " because of unique constraint: " found
-             {:error :transact/unique
-              :attribute (.-a datom)
-              :datom datom}))))
+             {:error     :transact/unique
+              :attribute (-a datom)
+              :datom     datom}))))
 
 (defn- validate-eid [eid at]
   (when-not (number? eid)
@@ -779,8 +847,8 @@
            {:error :transact/syntax, :entity-id eid, :context at})))
 
 (defn- validate-attr [attr at]
-  (when-not (or (keyword? attr) (string? attr))
-    (raise "Bad entity attribute " attr " at " at ", expected keyword or string"
+  (when-not (or (keyword? attr) (string? attr) (number? attr))
+    (raise "Bad entity attribute " attr " at " at ", expected keyword, integer or string"
            {:error :transact/syntax, :attribute attr, :context at})))
 
 (defn- validate-val [v at]
@@ -789,7 +857,7 @@
            {:error :transact/syntax, :value v, :context at})))
 
 (defn- current-tx [report]
-  (inc (get-in report [:db-before :max-tx])))
+  (dec (get-in report [:db-before :max-tx])))
 
 (defn- next-eid [db]
   (inc (:max-eid db)))
@@ -809,13 +877,13 @@
 
 (defn- advance-max-eid [db eid]
   (cond-> db
-    (and (> eid (:max-eid db))
-         (< eid tx0)) ;; do not trigger advance if transaction id was referenced
-      (assoc :max-eid eid)))
+          (and (> eid (:max-eid db))
+               (< eid tx0))                                 ;; do not trigger advance if transaction id was referenced
+          (assoc :max-eid eid)))
 
 (defn- allocate-eid
   ([report eid]
-    (update-in report [:db-after] advance-max-eid eid))
+   (update-in report [:db-after] advance-max-eid eid))
   ([report e eid]
     (cond-> report
       (tx-id? e)
@@ -830,20 +898,20 @@
 
 (defn- with-datom [db ^Datom datom]
   (validate-datom db datom)
-  (let [indexing? (indexing? db (.-a datom))]
-    (if (.-added datom)
+  (let [indexing? (indexing? db (-a datom))]
+    (if (-added datom)
       (cond-> db
-        true      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
-        true      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
-        indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
-        true      (advance-max-eid (.-e datom))
-        true      (assoc :hash (atom 0)))
-      (if-let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
+              true (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
+              true (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
+              indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
+              true (advance-max-eid (-e datom))
+              true (assoc :hash (atom 0)))
+      (if-let [removing (first (-search db [(-e datom) (-a datom) (.-v datom)]))]
         (cond-> db
-          true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
-          true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)
-          true      (assoc :hash (atom 0)))
+                true (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
+                true (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
+                indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)
+                true (assoc :hash (atom 0)))
         db))))
 
 (defn- transact-report [report datom]
@@ -871,13 +939,13 @@
       (keyword (namespace attr) (subs (name attr) 1))
       (keyword (namespace attr) (str "_" (name attr))))
 
-   (string? attr)
-   (let [[_ ns name] (re-matches #"(?:([^/]+)/)?([^/]+)" attr)]
-     (if (= \_ (nth name 0))
-       (if ns (str ns "/" (subs name 1)) (subs name 1))
-       (if ns (str ns "/_" name) (str "_" name))))
-   
-   :else
+    (string? attr)
+    (let [[_ ns name] (re-matches #"(?:([^/]+)/)?([^/]+)" attr)]
+      (if (= \_ (nth name 0))
+        (if ns (str ns "/" (subs name 1)) (subs name 1))
+        (if ns (str ns "/_" name) (str "_" name))))
+
+    :else
     (raise "Bad attribute type: " attr ", expected keyword or string"
            {:error :transact/syntax, :attribute attr})))
 
@@ -892,35 +960,35 @@
       acc
       (raise "Conflicting upsert: " [a v] " resolves to " e
              ", but entity already has :db/id " _e
-             { :error :transact/upsert
-               :entity entity
-               :assertion acc }))))
+             {:error     :transact/upsert
+              :entity    entity
+              :assertion acc}))))
 
 
 (defn- upsert-eid [db entity]
   (when-let [idents (not-empty (-attrs-by db :db.unique/identity))]
     (->>
       (reduce-kv
-        (fn [acc a v] ;; acc = [e a v]
+        (fn [acc a v]                                       ;; acc = [e a v]
           (if (contains? idents a)
             (if-let [e (:e (first (-datoms db :avet [a v])))]
               (cond
-                (nil? acc)        [e a v] ;; first upsert
-                (= (get acc 0) e) acc     ;; second+ upsert, but does not conflict
+                (nil? acc) [e a v]                          ;; first upsert
+                (= (get acc 0) e) acc                       ;; second+ upsert, but does not conflict
                 :else
                 (let [[_e _a _v] acc]
                   (raise "Conflicting upserts: " [_a _v] " resolves to " _e
                          ", but " [a v] " resolves to " e
-                         { :error     :transact/upsert
-                           :entity    entity
-                           :assertion [e a v]
-                           :conflict  [_e _a _v] })))
-              acc) ;; upsert attr, but resolves to nothing
-            acc)) ;; non-upsert attr
+                         {:error     :transact/upsert
+                          :entity    entity
+                          :assertion [e a v]
+                          :conflict  [_e _a _v]})))
+              acc)                                          ;; upsert attr, but resolves to nothing
+            acc))                                           ;; non-upsert attr
         nil
         entity)
-     (check-upsert-conflict entity)
-     first))) ;; getting eid from acc
+      (check-upsert-conflict entity)
+      first)))                                              ;; getting eid from acc
 
 
 ;; multivals/reverse can be specified as coll or as a single value, trying to guess
@@ -947,62 +1015,64 @@
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
     (for [[a vs] entity
-          :when  (not= a :db/id)
-          :let   [_          (validate-attr a {:db/id eid, a vs})
-                  reverse?   (reverse-ref? a)
-                  straight-a (if reverse? (reverse-ref a) a)
-                  _          (when (and reverse? (not (ref? db straight-a)))
-                               (raise "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"
-                                      {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}}))]
-          v      (maybe-wrap-multival db a vs)]
-      (if (and (ref? db straight-a) (map? v)) ;; another entity specified as nested map
+          :when (not= a :db/id)
+          :let [_ (validate-attr a {:db/id eid, a vs})
+                reverse? (reverse-ref? a)
+                straight-a (if reverse? (reverse-ref a) a)
+                _ (when (and reverse? (not (ref? db straight-a)))
+                    (raise "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"
+                           {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}}))]
+          v (maybe-wrap-multival db a vs)]
+      (if (and (ref? db straight-a) (map? v))               ;; another entity specified as nested map
         (assoc v (reverse-ref a) eid)
         (if reverse?
-          [:db/add v   straight-a eid]
+          [:db/add v straight-a eid]
           [:db/add eid straight-a v])))))
 
 (defn- transact-add [report [_ e a v tx :as ent]]
   (validate-attr a ent)
-  (validate-val  v ent)
-  (let [tx    (or tx (current-tx report))
-        db    (:db-after report)
-        e     (entid-strict db e)
-        v     (if (ref? db a) (entid-strict db v) v)
-        datom (Datom. e a v tx true)]
+  (validate-val v ent)
+  (let [tx (or tx (current-tx report))
+        db (:db-after report)
+        e (entid-strict db e)
+        v (if (ref? db a) (entid-strict db v) v)
+        a (resolve-attr db a)
+        dat (datom e a v tx true)]
+    ;(prn dat e v)
     (if (multival? db a)
       (if (empty? (-search db [e a v]))
-        (transact-report report datom)
+        (transact-report report dat)
         report)
       (if-let [^Datom old-datom (first (-search db [e a]))]
         (if (= (.-v old-datom) v)
           report
           (-> report
-            (transact-report (Datom. e a (.-v old-datom) tx false))
-            (transact-report datom)))
-        (transact-report report datom)))))
+              (transact-report (datom e a (.-v old-datom) tx false))
+              (transact-report dat)))
+        (transact-report report dat)))))
 
 (defn- transact-retract-datom [report ^Datom d]
   (let [tx (current-tx report)]
-    (transact-report report (Datom. (.-e d) (.-a d) (.-v d) tx false))))
+    (transact-report report (datom (-e d) (-a d) (.-v d) tx false))))
 
 (defn- retract-components [db datoms]
   (into #{} (comp
-              (filter (fn [^Datom d] (component? db (.-a d))))
+              (filter (fn [^Datom d] (component? db (-a d))))
               (map (fn [^Datom d] [:db.fn/retractEntity (.-v d)]))) datoms))
 
 #?(:clj
-  (defmacro cond-let [& clauses]
-    (when-let [[test expr & rest] clauses]
-      `(~(if (vector? test) 'if-let 'if) ~test
-         ~expr
-         (cond-let ~@rest)))))
+   (defmacro cond-let [& clauses]
+     (when-let [[test expr & rest] clauses]
+       `(~(if (vector? test) 'if-let 'if) ~test
+          ~expr
+          (cond-let ~@rest)))))
 
 #?(:clj
-(defmacro some-of
-  ([] nil)
-  ([x] x)
-  ([x & more]
-    `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
+   (defmacro some-of
+     ([] nil)
+     ([x] x)
+     ([x & more]
+      `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
 
 (declare transact-tx-data)
 
@@ -1010,7 +1080,7 @@
   (if (contains? (:tempids report) tempid)
     (raise "Conflicting upsert: " tempid " resolves"
            " both to " upserted-eid " and " (get (:tempids report) tempid)
-      { :error :transact/upsert })
+           {:error :transact/upsert})
     ;; try to re-run from the beginning
     ;; but remembering that `old-eid` will resolve to `upserted-eid`
     (transact-tx-data (assoc-in report [:tempids tempid] upserted-eid)
@@ -1022,14 +1092,14 @@
     (raise "Bad transaction data " initial-es ", expected sequential collection"
            {:error :transact/syntax, :tx-data initial-es}))
   (loop [report initial-report
-         es     initial-es]
+         es initial-es]
     (let [[entity & entities] es
           db (:db-after report)]
       (cond
         (empty? es)
           (-> report
               (assoc-in  [:tempids :db/current-tx] (current-tx report))
-              (update-in [:db-after :max-tx] inc))
+              (update-in [:db-after :max-tx] dec))
 
         (nil? entity)
           (recur report entities)
@@ -1077,8 +1147,13 @@
                 { :error :entity-id/syntax, :entity entity })))
 
         (sequential? entity)
-          (let [[op e a v] entity]
+          (let [[op e a v tx] entity]
             (cond
+              (and (= op :db/add) (keyword? a))
+              (let [a' (get (.-attrm ^DB (get report :db-after)) a)]
+                ;(prn :keyword-attr a a')
+                (recur report (cons [op e a' v tx] entities)))
+
               (= op :db.fn/call)
                 (let [[_ f & args] entity]
                   (recur report (concat (apply f db args) entities)))
@@ -1169,4 +1244,3 @@
          (raise "Bad entity type at " entity ", expected map or vector"
                 {:error :transact/syntax, :tx-data entity})
        ))))
-

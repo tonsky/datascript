@@ -11,8 +11,11 @@
 
 
 (deftest test-lookup-refs
-  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
-                                   :email { :db/unique :db.unique/value }})
+  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity
+                                            :db/order 0}
+                                   :email { :db/unique :db.unique/value
+                                            :db/order 1}
+                                   :age {:db/order 2}})
                       [{:db/id 1 :name "Ivan" :email "@1" :age 35}
                        {:db/id 2 :name "Petr" :email "@2" :age 22}])]
     
@@ -28,8 +31,11 @@
       [:age 10]   #"Lookup ref attribute should be marked as :db/unique")))
 
 (deftest test-lookup-refs-transact
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
-                                   :friend  { :db/valueType :db.type/ref }})
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity
+                                              :db/order 0}
+                                   :friend  { :db/valueType :db.type/ref
+                                              :db/order 1}
+                                   :age {:db/order 2}})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}])]
     (are [tx res] (= (tdc/entity-map (d/db-with db tx) 1) res)
@@ -94,9 +100,11 @@
     ))
 
 (deftest test-lookup-refs-transact-multi
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity
+                                              :db/order 0}
                                    :friends { :db/valueType :db.type/ref
-                                              :db/cardinality :db.cardinality/many }})
+                                              :db/cardinality :db.cardinality/many
+                                              :db/order 1}})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}
                        {:db/id 3 :name "Oleg"}
@@ -137,33 +145,35 @@
     )))
 
 (deftest lookup-refs-index-access
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
+  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity
+                                              :db/order 0}
                                    :friends { :db/valueType :db.type/ref
-                                              :db/cardinality :db.cardinality/many}})
+                                              :db/cardinality :db.cardinality/many
+                                              :db/order 1}})
                       [{:db/id 1 :name "Ivan" :friends [2 3]}
                        {:db/id 2 :name "Petr" :friends 3}
                        {:db/id 3 :name "Oleg"}])]
      (are [index attrs datoms] (= (map (juxt :e :a :v) (apply d/datoms db index attrs)) datoms)
        :eavt [[:name "Ivan"]]
-       [[1 :friends 2] [1 :friends 3] [1 :name "Ivan"]]
+       [[1 0 "Ivan"] [1 1 2] [1 1 3]]
        
        :eavt [[:name "Ivan"] :friends]
-       [[1 :friends 2] [1 :friends 3]]
+       [[1 1 2] [1 1 3]]
           
        :eavt [[:name "Ivan"] :friends [:name "Petr"]]
-       [[1 :friends 2]]
+       [[1 1 2]]
        
        :aevt [:friends [:name "Ivan"]]
-       [[1 :friends 2] [1 :friends 3]]
+       [[1 1 2] [1 1 3]]
           
        :aevt [:friends [:name "Ivan"] [:name "Petr"]]
-       [[1 :friends 2]]
+       [[1 1 2]]
        
        :avet [:friends [:name "Oleg"]]
-       [[1 :friends 3] [2 :friends 3]]
+       [[1 1 3] [2 1 3]]
        
        :avet [:friends [:name "Oleg"] [:name "Ivan"]]
-       [[1 :friends 3]])
+       [[1 1 3]])
     
      (are [index attrs resolved-attrs] (= (vec (apply d/seek-datoms db index attrs))
                                           (vec (apply d/seek-datoms db index resolved-attrs)))
@@ -180,18 +190,22 @@
     
     (are [attr start end datoms] (= (map (juxt :e :a :v) (d/index-range db attr start end)) datoms)
        :friends [:name "Oleg"] [:name "Oleg"]
-       [[1 :friends 3] [2 :friends 3]]
+       [[1 1 3] [2 1 3]]
        
        :friends [:name "Petr"] [:name "Petr"]
-       [[1 :friends 2]]
+       [[1 1 2]]
        
        :friends [:name "Petr"] [:name "Oleg"]
-       [[1 :friends 2] [1 :friends 3] [2 :friends 3]])
+       [[1 1 2] [1 1 3] [2 1 3]])
 ))
 
 (deftest test-lookup-refs-query
-  (let [schema {:name   { :db/unique :db.unique/identity }
-                :friend { :db/valueType :db.type/ref }}
+  (let [schema {:name   { :db/unique :db.unique/identity
+                          :db/order 0}
+                :friend { :db/valueType :db.type/ref
+                          :db/order 1}
+                :age {:db/order 2}
+                :id {:db/order 3}}
         db (d/db-with (d/empty-db schema)
                     [{:db/id 1 :id 1 :name "Ivan" :age 11 :friend 2}
                      {:db/id 2 :id 2 :name "Petr" :age 22 :friend 3}

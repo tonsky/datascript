@@ -11,7 +11,8 @@
 
 (def test-db
   (delay
-    (d/db-with (d/empty-db)
+    (d/db-with (d/empty-db {:name {:db/order 0}
+                            :age {:db/order 1}})
       [ {:db/id 1 :name "Ivan" :age 10}
         {:db/id 2 :name "Ivan" :age 20}
         {:db/id 3 :name "Oleg" :age 10}
@@ -72,10 +73,10 @@
       #{1 2 3 4 5 6})))
 
 (deftest test-default-source
-  (let [db1 (d/db-with (d/empty-db)
+  (let [db1 (d/db-with (d/empty-db {:name {:db/order 0}})
              [ [:db/add 1 :name "Ivan" ]
                [:db/add 2 :name "Oleg"] ])
-        db2 (d/db-with (d/empty-db)
+        db2 (d/db-with (d/empty-db {:age {:db/order 1}})
              [ [:db/add 1 :age 10 ]
                [:db/add 2 :age 20] ])]
     (are [q res] (= (q/q (concat '[:find ?e :in $ $2 :where] (quote q)) db1 db2)

@@ -55,7 +55,11 @@
 ;; Core tests
 
 (deftest test-protocols
-  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+  (let [schema {:aka {:db/cardinality :db.cardinality/many
+                      :db/order 0}
+                :name {:db/order 1}
+                :age {:db/order 2}
+                :huh? {:db/order 3}}
         db (d/db-with (d/empty-db schema)
                       [{:db/id 1 :name "Ivan" :aka ["IV" "Terrible"]}
                        {:db/id 2 :name "Petr" :age 37 :huh? false}])]
@@ -63,10 +67,10 @@
            (empty db)))
     (is (= 6 (count db)))
     (is (= (set (seq db))
-           #{(d/datom 1 :aka "IV")
-             (d/datom 1 :aka "Terrible")
-             (d/datom 1 :name "Ivan")
-             (d/datom 2 :age 37)
-             (d/datom 2 :name "Petr")
-             (d/datom 2 :huh? false)}))
+           #{(d/datom 1 0 "IV")
+             (d/datom 1 0 "Terrible")
+             (d/datom 1 1 "Ivan")
+             (d/datom 2 2 37)
+             (d/datom 2 1 "Petr")
+             (d/datom 2 3 false)}))
     ))

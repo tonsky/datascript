@@ -4,63 +4,78 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
     [datascript.db :as db]
+    [datascript.pull-api :as tp]
     [datascript.test.core :as tdc]))
 
 (def ^:private test-schema
-  {:aka    { :db/cardinality :db.cardinality/many }
+  {:aka    {:db/cardinality :db.cardinality/many
+            :db/order 0}
    :child  { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
+             :db/valueType :db.type/ref
+            :db/order 1}
    :friend { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
+             :db/valueType :db.type/ref
+            :db/order 2}
    :enemy  { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
-   :father { :db/valueType :db.type/ref }
+             :db/valueType :db.type/ref
+            :db/order 3}
+   :father { :db/valueType :db.type/ref
+            :db/order 4}
 
    :part   { :db/valueType :db.type/ref
              :db/isComponent true
-             :db/cardinality :db.cardinality/many }
+             :db/cardinality :db.cardinality/many
+            :db/order 5}
    :spec   { :db/valueType :db.type/ref
              :db/isComponent true
-             :db/cardinality :db.cardinality/one }})
+             :db/cardinality :db.cardinality/one
+            :db/order 6}
+   :name {:db/order 7}
+   :foo {:db/order 8}})
 
 (def test-datoms
   (->>
-    [[1 :name  "Petr"]
-     [1 :aka   "Devil"]
-     [1 :aka   "Tupen"]
-     [2 :name  "David"]
-     [3 :name  "Thomas"]
-     [4 :name  "Lucy"]
-     [5 :name  "Elizabeth"]
-     [6 :name  "Matthew"]
-     [7 :name  "Eunan"]
-     [8 :name  "Kerri"]
-     [9 :name  "Rebecca"]
-     [1 :child 2]
-     [1 :child 3]
-     [2 :father 1]
-     [3 :father 1]
-     [6 :father 3]
-     [10 :name  "Part A"]
-     [11 :name  "Part A.A"]
-     [10 :part 11]
-     [12 :name  "Part A.A.A"]
-     [11 :part 12]
-     [13 :name  "Part A.A.A.A"]
-     [12 :part 13]
-     [14 :name  "Part A.A.A.B"]
-     [12 :part 14]
-     [15 :name  "Part A.B"]
-     [10 :part 15]
-     [16 :name  "Part A.B.A"]
-     [15 :part 16]
-     [17 :name  "Part A.B.A.A"]
-     [16 :part 17]
-     [18 :name  "Part A.B.A.B"]
-     [16 :part 18]]
+    [[1 7  "Petr"]
+     [1 0   "Devil"]
+     [1 0   "Tupen"]
+     [2 7  "David"]
+     [3 7  "Thomas"]
+     [4 7  "Lucy"]
+     [5 7  "Elizabeth"]
+     [6 7  "Matthew"]
+     [7 7  "Eunan"]
+     [8 7  "Kerri"]
+     [9 7  "Rebecca"]
+     [1 1 2]
+     [1 1 3]
+     [2 4 1]
+     [3 4 1]
+     [6 4 3]
+     [10 7  "Part A"]
+     [11 7  "Part A.A"]
+     [10 5 11]
+     [12 7  "Part A.A.A"]
+     [11 5 12]
+     [13 7  "Part A.A.A.A"]
+     [12 5 13]
+     [14 7  "Part A.A.A.B"]
+     [12 5 14]
+     [15 7  "Part A.B"]
+     [10 5 15]
+     [16 7  "Part A.B.A"]
+     [15 5 16]
+     [17 7  "Part A.B.A.A"]
+     [16 5 17]
+     [18 7  "Part A.B.A.B"]
+     [16 5 18]]
    (map #(apply d/datom %))))
 
-(def ^:private test-db (d/init-db test-datoms test-schema))
+(def ^:private test-db (db/init-db test-datoms test-schema))
+
+;(d/pull test-db '[:_child] 2)
+;(:avet test-db)
+;(db/-search test-db [nil :child 2])
+;(db/-datoms test-db :avet )
 
 (deftest test-pull-attr-spec
   (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
@@ -115,14 +130,14 @@
         rpart (update-in parts [:part 0 :part 0 :part]
                          (partial into [{:db/id 10}]))
         recdb (d/init-db
-               (concat test-datoms [(d/datom 12 :part 10)])
+               (concat test-datoms [(d/datom 12 5 10)])
                test-schema)
 
         mutdb (d/init-db
-               (concat test-datoms [(d/datom 12 :part 10)
-                                    (d/datom 12 :spec 10)
-                                    (d/datom 10 :spec 13)
-                                    (d/datom 13 :spec 12)])
+               (concat test-datoms [(d/datom 12 5 10)
+                                    (d/datom 12 6 10)
+                                    (d/datom 10 6 13)
+                                    (d/datom 13 6 12)])
                test-schema)]
     
     (testing "Component entities are expanded recursively"
@@ -150,12 +165,12 @@
   (let [db (d/init-db
              (concat
                test-datoms
-               [(d/datom 4 :friend 5)
-                (d/datom 4 :friend 6)
-                (d/datom 4 :friend 7)
-                (d/datom 4 :friend 8)]
+               [(d/datom 4 2 5)
+                (d/datom 4 2 6)
+                (d/datom 4 2 7)
+                (d/datom 4 2 8)]
                (for [idx (range 2000)]
-                 (d/datom 8 :aka (str "aka-" idx))))
+                 (d/datom 8 0 (str "aka-" idx))))
               test-schema)]
 
     (testing "Without an explicit limit, the default is 1000"
@@ -270,8 +285,10 @@
                (d/pull db '[:db/id :name {:friend ...}] 4)))))))
 
 (deftest test-dual-recursion
-  (let [empty (d/empty-db {:part { :db/valueType :db.type/ref }
-                           :spec { :db/valueType :db.type/ref }})]
+  (let [empty (d/empty-db {:part { :db/valueType :db.type/ref
+                                   :db/order 0}
+                           :spec { :db/valueType :db.type/ref
+                                   :db/order 1}})]
     (let [db (d/db-with empty [[:db/add 1 :part 2]
                                [:db/add 2 :part 3]
                                [:db/add 3 :part 1]
@@ -298,12 +315,12 @@
         depth 1500
         txd   (mapcat
                (fn [idx]
-                 [(d/datom idx :name (str "Person-" idx))
-                  (d/datom (dec idx) :friend idx)])
+                 [(d/datom idx 7 (str "Person-" idx))
+                  (d/datom (dec idx) 2 idx)])
                (range (inc start) depth))
         db    (d/init-db (concat
                            test-datoms
-                           [(d/datom start :name (str "Person-" start))]
+                           [(d/datom start 7 (str "Person-" start))]
                            txd)
                          test-schema)
         pulled (d/pull db '[:name {:friend ...}] start)

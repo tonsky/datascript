@@ -4,7 +4,7 @@
     [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])
     #?(:clj
       (:import
-        [datascript.db Datom]
+        [datascript.db Datom DB]
         [datascript.pull_parser PullSpec])))
 
 (defn- into!
@@ -116,7 +116,7 @@
       (let [ref?       (db/ref? db attr)
             component? (and ref? (db/component? db attr))
             multi?     (if forward? (db/multival? db attr) (not component?))
-            datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (.-e d)))]
+            datom-val  (if forward? (fn [^Datom d] (.-v d)) (fn [^Datom d] (db/-e d)))]
         (cond
           (contains? opts :subpattern)
           (->> (subpattern-frame (:subpattern opts)
@@ -161,6 +161,7 @@
             results  (if forward?
                        (db/-datoms db :eavt [eid attr])
                        (db/-datoms db :avet [attr eid]))]
+        ;(prn :avet attr eid)
         (pull-attr-datoms db attr-key attr eid forward?
                           results opts frames)))))
 
@@ -207,12 +208,17 @@
              (conj frames frame)))
       (expand-result frames (:kvps frame)))))
 
+#?(:cljs (enable-console-print!))
+
 (defn- pull-wildcard-expand
-  [db frame frames eid pattern]
-  (let [datoms (group-by (fn [^Datom d] (.-a d)) (db/-datoms db :eavt [eid]))
+  [#?@(:clj [^DB db] :cljs [^db/DB db]) frame frames eid pattern]
+  (let [^objects attrs (.-attrs db)
+        datoms (group-by (fn [^Datom d] (let [k (aget attrs (db/-a d))]
+                                          #?(:cljs (js/console.log k)) k)) (db/-datoms db :eavt [eid]))
         {:keys [attr recursion]} frame
         rec (cond-> recursion
               (some? attr) (push-recursion attr eid))]
+    #?(:cljs (apply js/console.log (seq (.-attrs db))))
     (->> {:state :expand :kvps (transient {:db/id eid})
           :eid eid :pattern pattern :datoms (seq datoms)
           :recursion rec}

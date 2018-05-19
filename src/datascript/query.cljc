@@ -30,7 +30,7 @@
 ;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
 ;;    [ #js [1 "Ivan" 5 14] ... ]
-;; or [ (Datom. 2 "Oleg" 1 55) ... ]
+;; or [ (datom 2 "Oleg" 1 55) ... ]
 (defrecord Relation [attrs tuples])
 
 
@@ -87,9 +87,9 @@
         l2  (alength idxs2)
         res (da/make-array (+ l1 l2))]
     (dotimes [i l1]
-      (aset res i (#?(:cljs da/aget :clj get) t1 (aget idxs1 i)))) ;; FIXME aget
+      (aset res i (get t1 (aget idxs1 i)))) ;; FIXME aget
     (dotimes [i l2]
-      (aset res (+ l1 i) (#?(:cljs da/aget :clj get) t2 (aget idxs2 i)))) ;; FIXME aget
+      (aset res (+ l1 i) (get t2 (aget idxs2 i)))) ;; FIXME aget
     res))
 
 (defn sum-rel [a b]
@@ -301,14 +301,14 @@
     (if (and (not (nil? *lookup-attrs*))
              (contains? *lookup-attrs* attr))
       (fn [tuple]
-        (let [eid (#?(:cljs da/aget :clj get) tuple idx)]
+        (let [eid (get tuple idx)]
           (cond
             (number? eid)     eid ;; quick path to avoid fn call
             (sequential? eid) (db/entid *lookup-source* eid)
             (da/array? eid)   (db/entid *lookup-source* eid)
             :else             eid)))
       (fn [tuple]
-        (#?(:cljs da/aget :clj get) tuple idx)))))
+        (get tuple idx)))))
 
 (defn tuple-key-fn [getters]
   (if (== (count getters) 1)
@@ -410,7 +410,7 @@
 (defn- context-resolve-val [context sym]
   (when-let [rel (rel-with-attr context sym)]
     (when-let [tuple (first (:tuples rel))]
-      (#?(:cljs da/aget :clj get) tuple ((:attrs rel) sym)))))
+      (get tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
   (not (empty? (set/intersection (set attrs) (set (keys (:attrs rel)))))))
@@ -437,7 +437,7 @@
       ;; TODO raise if not all args are bound
       (dotimes [i len]
         (when-let [tuple-idx (aget tuples-args i)]
-          (let [v (#?(:cljs da/aget :clj get) tuple tuple-idx)]
+          (let [v (get tuple tuple-idx)]
             (da/aset static-args i v))))
       (apply f static-args))))
 
@@ -659,7 +659,7 @@
                      (let [res (aclone t1)]
                        (dotimes [i len]
                          (when-let [idx (aget copy-map i)]
-                           (aset res i (#?(:cljs da/aget :clj get) t2 idx))))
+                           (aset res i (get t2 idx))))
                        res))
                    (next rels)
                    symbols))))

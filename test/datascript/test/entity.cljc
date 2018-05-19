@@ -12,7 +12,14 @@
 
 
 (deftest test-entity
-  (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
+  (let [db (-> (d/empty-db {:aka  {:db/cardinality :db.cardinality/many
+                                   :db/order       0}
+                            :name {:db/order 1}
+                            :age  {:db/order 2}
+                            :huh? {:db/order 3}
+                            :sex  {:db/order 4}
+                            :not-found {:db/order 5}
+                            :unknown {:db/order 6}})
                (d/db-with [{:db/id 1, :name "Ivan", :age 19, :aka ["X" "Y"]}
                            {:db/id 2, :name "Ivan", :sex "male", :aka ["Z"]}
                            [:db/add 3 :huh? false]]))
@@ -42,9 +49,11 @@
            (edn/read-string "{:name \"Ivan\", :db/id 1}")))))
 
 (deftest test-entity-refs
-  (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref}
+  (let [db (-> (d/empty-db {:father   {:db/valueType   :db.type/ref
+                                       :db/order 0}
                             :children {:db/valueType   :db.type/ref
-                                       :db/cardinality :db.cardinality/many}})
+                                       :db/cardinality :db.cardinality/many
+                                       :db/order 1}})
                (d/db-with
                  [{:db/id 1, :children [10]}
                   {:db/id 10, :father 1, :children [100 101]}
@@ -81,7 +90,8 @@
     )))
 
 (deftest test-entity-misses
-  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity
+                                   :db/order 0}})
              (d/db-with [{:db/id 1, :name "Ivan"}
                          {:db/id 2, :name "Oleg"}]))]
     (is (nil? (d/entity db nil)))
