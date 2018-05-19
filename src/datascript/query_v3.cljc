@@ -18,7 +18,7 @@
         Constant DefaultSrc Pattern RulesVar SrcVar Variable
         Not Or And Predicate PlainSymbol]
       [clojure.lang     IReduceInit Counted]
-      [datascript.db  Datom]
+      [datascript.db Datom]
       [datascript.btset Iter])))
 
 (declare resolve-clauses collect-rel-xf collect-to)

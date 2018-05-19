@@ -16,7 +16,11 @@
                   :where [(> 2 1)]] [:a :b :c])
            #{[:a] [:b] [:c]})))
 
-  (let [db (-> (d/empty-db {:parent {:db/valueType :db.type/ref}})
+  (let [db (-> (d/empty-db {:parent {:db/order 0
+                                     :db/valueType :db.type/ref}
+                            :age {:db/order 1}
+                            :name {:db/order 2}
+                            :height {:db/order 3}})
                (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
                             { :db/id 2, :name  "Petr",  :age   22, :height 240, :parent 1}
                             { :db/id 3, :name  "Slava", :age   37, :parent 2}]))]
@@ -41,9 +45,9 @@
       (is (= (d/q '[:find ?e ?a ?v
                     :where [?e :name _]
                            [(get-some $ ?e :height :age) [?a ?v]]] db)
-             #{[1 :age 15]
-               [2 :height 240]
-               [3 :age 37]})))
+             #{[1 1 15]
+               [2 3 240]
+               [3 1 37]})))
 
     (testing "missing?"
       (is (= (q/q '[:find ?e ?age
@@ -207,7 +211,9 @@
                   {:db/id 2 :name "Ivan" :age 20}
                   {:db/id 3 :name "Oleg" :age 10}
                   {:db/id 4 :name "Oleg" :age 20}]
-        db (d/db-with (d/empty-db) entities)]
+        db (d/db-with (d/empty-db {:name {:db/order 0}
+                                   :age {:db/order 1}})
+                      entities)]
     (are [q res] (= (q/q (quote q) db) res)
       ;; plain predicate
       [:find  ?e ?a
@@ -278,7 +284,9 @@
                 :where [_ :pred ?pred]
                        [?e :age ?a]
                        [(?pred ?a)]]
-              (d/db-with (d/empty-db) [[:db/add 1 :age 20]])))))
+              (d/db-with (d/empty-db {:age {:db/order 0}
+                                      :pred {:db/order 1}})
+                         [[:db/add 1 :age 20]])))))
 
 (defn sample-query-fn [] 42)
 

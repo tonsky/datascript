@@ -7,6 +7,8 @@
   :dependencies [
     [org.clojure/clojure "1.7.0" :scope "provided"]
     [org.clojure/clojurescript "1.7.228" :scope "provided"]
+   ;[org.clojure/clojure "1.9.0"]
+   ;[org.clojure/clojurescript "1.10.217"]
   ]
   
   :plugins [
@@ -30,7 +32,7 @@
                                  ["run" "-m" "datascript.test/test-node" "--all"]]
             "test-1.8"     ["with-profile" "dev,1.8" "test-all"]
             "test-1.9"     ["with-profile" "dev,1.9" "test-all"]}
-  
+
   :cljsbuild { 
     :builds [
       { :id "release"

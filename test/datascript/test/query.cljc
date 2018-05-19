@@ -12,7 +12,8 @@
 
 
 (deftest test-joins
-  (let [db (-> (d/empty-db)
+  (let [db (-> (d/empty-db {:name {:db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
                             { :db/id 2, :name  "Petr", :age   37 }
                             { :db/id 3, :name  "Ivan", :age   37 }
@@ -39,7 +40,9 @@
 
 
 (deftest test-q-many
-  (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
+  (let [db (-> (d/empty-db {:name {:db/order 0}
+                            :aka {:db/cardinality :db.cardinality/many
+                                  :db/order 1}})
                (d/db-with [ [:db/add 1 :name "Ivan"]
                             [:db/add 1 :aka  "ivolga"]
                             [:db/add 1 :aka  "pi"]
@@ -80,24 +83,25 @@
 
 
 (deftest test-q-in
-  (let [db (-> (d/empty-db)
+  (let [db (-> (d/empty-db {:name {:db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
                             { :db/id 2, :name  "Petr", :age   37 }
                             { :db/id 3, :name  "Ivan", :age   37 }]))
         query '{:find  [?e]
                 :in    [$ ?attr ?value]
                 :where [[?e ?attr ?value]]}]
-    (is (= (d/q query db :name "Ivan")
+    (is (= (d/q query db 0 "Ivan")
            #{[1] [3]}))
-    (is (= (d/q query db :age 37)
+    (is (= (d/q query db 1 37)
            #{[2] [3]}))
 
     (testing "Named DB"
       (is (= (d/q '[:find  ?a ?v
                     :in    $db ?e
                     :where [$db ?e ?a ?v]] db 1)
-             #{[:name "Ivan"]
-               [:age 15]})))
+             #{[0 "Ivan"]
+               [1 15]})))
 
     (testing "DB join with collection"
       (is (= (d/q '[:find  ?e ?email
@@ -118,7 +122,8 @@
              #{[10 20]})))))
 
 (deftest test-bindings
-  (let [db (-> (d/empty-db)
+  (let [db (-> (d/empty-db {:name {:db/order 0}
+                            :age {:db/order 1}})
              (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
                           { :db/id 2, :name  "Petr", :age   37 }
                           { :db/id 3, :name  "Ivan", :age   37 }]))]
@@ -133,20 +138,20 @@
                [2 "petr@gmail.com"]
                [3 "ivan@mail.ru"]})))
 
-    (testing "Tuple binding"
-      (is (= (q/q '[:find  ?e
-                    :in    $ [?name ?age]
-                    :where [?e :name ?name]
-                           [?e :age ?age]]
-                  db ["Ivan" 37])
-             #{[3]})))
+                (testing "Tuple binding"
+                  (is (= (q/q '[:find  ?e
+                                :in    $ [?name ?age]
+                                :where [?e :name ?name]
+                                [?e :age ?age]]
+                              db ["Ivan" 37])
+                         #{[3]})))
 
-    (testing "Collection binding"
-      (is (= (q/q '[:find  ?attr ?value
-                    :in    $ ?e [?attr ...]
-                    :where [?e ?attr ?value]]
-                  db 1 [:name :age])
-             #{[:name "Ivan"] [:age 15]})))
+                (testing "Collection binding"
+                  (is (= (q/q '[:find  ?attr ?value
+                                :in    $ ?e [?attr ...]
+                                :where [?e ?attr ?value]]
+                              db 1 [0 1])
+                         #{[0 "Ivan"] [1 15]})))
 
     (testing "Empty coll handling"
       (is (= (q/q '[:find ?id

@@ -6,9 +6,12 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
-(def schema { :aka { :db/cardinality :db.cardinality/many }})
-(def datoms #{(d/datom 1 :age  17)
-              (d/datom 1 :name "Ivan")})
+(def schema { :aka { :db/cardinality :db.cardinality/many :db/order 0 }
+             :name {:db/order 1}
+             :age {:db/order 2}
+             :sex {:db/order 3}})
+(def datoms #{(d/datom 1 0  17)
+              (d/datom 1 1 "Ivan")})
 
 (deftest test-ways-to-create-conn
   (let [conn (d/create-conn)]
@@ -39,8 +42,8 @@
   (let [conn    (d/conn-from-datoms datoms schema)
         report  (atom nil)
         _       (d/listen! conn #(reset! report %))
-        datoms' #{(d/datom 1 :age 20)
-                  (d/datom 1 :sex :male)}
+        datoms' #{(d/datom 1 2 20)
+                  (d/datom 1 3 :male)}
         schema' { :email { :db/unique :db.unique/identity }}
         db'     (d/init-db datoms' schema')]
     (d/reset-conn! conn db' :meta)
@@ -53,10 +56,10 @@
       (is (= datoms' (set (d/datoms db-after :eavt))))
       (is (= schema' (:schema db-after)))
       (is (= :meta   tx-meta))
-      (is (= [[1 :age  17     false]
-              [1 :name "Ivan" false]
-              [1 :age  20     true]
-              [1 :sex  :male  true]]
-             (map (juxt :e :a :v :added) tx-data))))))
+      (is (= [[1 0  17     false]
+              [1 1 "Ivan" false]
+              [1 2  20     true]
+              [1 3  :male  true]]
+             (mapv (juxt :e :a :v :added) tx-data))))))
   
   

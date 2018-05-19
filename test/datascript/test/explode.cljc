@@ -16,8 +16,12 @@
                 '("Devil" "Tupen")
                 (da/into-array ["Devil" "Tupen"])]]
     (testing coll
-      (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
-                                 :also { :db/cardinality :db.cardinality/many} })]
+      (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many
+                                        :db/order 0}
+                                 :also { :db/cardinality :db.cardinality/many
+                                        :db/order 1}
+                                 :name {:db/order 2}
+                                 :age {:db/order 3}})]
         (d/transact! conn [{:db/id -1
                             :name  "Ivan"
                             :age   16
@@ -36,7 +40,9 @@
 
 (deftest test-explode-ref
   (let [db0 (d/empty-db { :children { :db/valueType :db.type/ref
-                                      :db/cardinality :db.cardinality/many } })]
+                                      :db/cardinality :db.cardinality/many
+                                     :db/order 0}
+                         :name {:db/order 1}})]
     (let [db (d/db-with db0 [{:db/id -1, :name "Ivan", :children [-2 -3]}
                              {:db/id -2, :name "Petr"} 
                              {:db/id -3, :name "Evgeny"}])]
@@ -57,80 +63,94 @@
       (d/db-with db0 [{:name "Sergey" :_parent 1}])))))
 
 (deftest test-explode-nested-maps
-  (let [schema { :profile { :db/valueType :db.type/ref }}
+  (let [schema { :profile { :db/valueType :db.type/ref
+                           :db/order 0}
+                :email {:db/order 1}
+                :name {:db/order 2}}
         db     (d/empty-db schema)]
     (are [tx res] (= (d/q '[:find ?e ?a ?v
                             :where [?e ?a ?v]]
                           (d/db-with db tx)) res)
       [ {:db/id 5 :name "Ivan" :profile {:db/id 7 :email "@2"}} ]
-      #{ [5 :name "Ivan"] [5 :profile 7] [7 :email "@2"] }
+      #{ [5 2 "Ivan"] [5 0 7] [7 1 "@2"] }
          
       [ {:name "Ivan" :profile {:email "@2"}} ]
-      #{ [1 :name "Ivan"] [1 :profile 2] [2 :email "@2"] }
+      #{ [1 2 "Ivan"] [1 0 2] [2 1 "@2"] }
          
       [ {:profile {:email "@2"}} ] ;; issue #59
-      #{ [1 :profile 2] [2 :email "@2"] }
+      #{ [1 0 2] [2 1 "@2"] }
          
       [ {:email "@2" :_profile {:name "Ivan"}} ]
-      #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] }
+      #{ [1 1 "@2"] [2 2 "Ivan"] [2 0 1] }
     ))
   
   (testing "multi-valued"
     (let [schema { :profile { :db/valueType :db.type/ref
-                              :db/cardinality :db.cardinality/many }}
+                              :db/cardinality :db.cardinality/many
+                             :db/order 0}
+                  :name {:db/order 1}
+                  :email {:db/order 2}}
           db     (d/empty-db schema)]
       (are [tx res] (= (d/q '[:find ?e ?a ?v
                               :where [?e ?a ?v]]
                             (d/db-with db tx)) res)
         [ {:db/id 5 :name "Ivan" :profile {:db/id 7 :email "@2"}} ]
-        #{ [5 :name "Ivan"] [5 :profile 7] [7 :email "@2"] }
+        #{ [5 1 "Ivan"] [5 0 7] [7 2 "@2"] }
            
         [ {:db/id 5 :name "Ivan" :profile [{:db/id 7 :email "@2"} {:db/id 8 :email "@3"}]} ]
-        #{ [5 :name "Ivan"] [5 :profile 7] [7 :email "@2"] [5 :profile 8] [8 :email "@3"] }
+        #{ [5 1 "Ivan"] [5 0 7] [7 2 "@2"] [5 0 8] [8 2 "@3"] }
 
         [ {:name "Ivan" :profile {:email "@2"}} ]
-        #{ [1 :name "Ivan"] [1 :profile 2] [2 :email "@2"] }
+        #{ [1 1 "Ivan"] [1 0 2] [2 2 "@2"] }
 
         [ {:name "Ivan" :profile [{:email "@2"} {:email "@3"}]} ]
-        #{ [1 :name "Ivan"] [1 :profile 2] [2 :email "@2"] [1 :profile 3] [3 :email "@3"] }
+        #{ [1 1 "Ivan"] [1 0 2] [2 2 "@2"] [1 0 3] [3 2 "@3"] }
            
         [ {:email "@2" :_profile {:name "Ivan"}} ]
-        #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] }
+        #{ [1 2 "@2"] [2 1 "Ivan"] [2 0 1] }
 
         [ {:email "@2" :_profile [{:name "Ivan"} {:name "Petr"} ]} ]
-        #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] [3 :name "Petr"] [3 :profile 1] }
+        #{ [1 2 "@2"] [2 1 "Ivan"] [2 0 1] [3 1 "Petr"] [3 0 1] }
       ))))
 
 (deftest test-circular-refs
   (let [schema {:comp {:db/valueType   :db.type/ref
                        :db/cardinality :db.cardinality/many
-                       :db/isComponent true}}
+                       :db/isComponent true
+                       :db/order 0}
+                :name {:db/order 1}}
         db     (d/db-with (d/empty-db schema)
                  [{:db/id 1, :comp [{:name "C"}]}])]
     (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+           [ [ 1 0 2  ]
+             [ 2 1 "C"] ])))
   
   (let [schema {:comp {:db/valueType   :db.type/ref
-                       :db/cardinality :db.cardinality/many}}
+                       :db/cardinality :db.cardinality/many
+                       :db/order 0}
+                :name {:db/order 1}}
         db     (d/db-with (d/empty-db schema)
                  [{:db/id 1, :comp [{:name "C"}]}])]
     (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+           [ [ 1 0 2  ]
+             [ 2 1 "C"] ])))
   
   (let [schema {:comp {:db/valueType   :db.type/ref
-                       :db/isComponent true}}
+                       :db/isComponent true
+                       :db/order 0}
+                :name {:db/order 1}}
         db     (d/db-with (d/empty-db schema)
                  [{:db/id 1, :comp {:name "C"}}])]
     (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+           [ [ 1 0 2  ]
+             [ 2 1 "C"] ])))
   
-  (let [schema {:comp {:db/valueType   :db.type/ref}}
+  (let [schema {:comp {:db/valueType   :db.type/ref
+                       :db/order 0}
+                :name {:db/order 1}}
         db     (d/db-with (d/empty-db schema)
                  [{:db/id 1, :comp {:name "C"}}])]
     (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ]))))
+           [ [ 1 0 2  ]
+             [ 2 1 "C"] ]))))
  

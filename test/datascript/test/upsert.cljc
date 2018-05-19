@@ -10,8 +10,11 @@
    (def Throwable js/Error))
 
 (deftest test-upsert
-  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
-                                   :email { :db/unique :db.unique/identity }})
+  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity
+                                            :db/order 0}
+                                   :email { :db/unique :db.unique/identity
+                                            :db/order 1}
+                                   :age {:db/order 2}})
                       [{:db/id 1 :name "Ivan" :email "@1"}
                        {:db/id 2 :name "Petr" :email "@2"}])
         touched (fn [tx e] (into {} (d/touch (d/entity (:db-after tx) e))))
@@ -136,16 +139,20 @@
 
 
 (deftest test-redefining-ids
-  (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity
+                                    :db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [{:db/id -1 :name "Ivan"}]))]
     (let [tx (d/with db [{:db/id -1 :age 35}
                          {:db/id -1 :name "Ivan" :age 36}])]
-      (is (= #{[1 :age 36] [1 :name "Ivan"]}
+      (is (= #{[1 1 36] [1 0 "Ivan"]}
              (tdc/all-datoms (:db-after tx))))
-      (is (= {-1 1, :db/current-tx (+ d/tx0 2)}
+      (is (= {-1 1, :db/current-tx (- d/tx0 2)}
              (:tempids tx)))))
   
-  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity
+                                     :db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [{:db/id -1 :name "Ivan"}
                            {:db/id -2 :name "Oleg"}]))]
     (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"
@@ -154,18 +161,22 @@
 
 
 (deftest test-vector-upsert
-  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity
+                                   :db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [{:db/id -1, :name "Ivan"}]))]
     (are [tx res] (= res (tdc/all-datoms (d/db-with db tx)))
       [[:db/add -1 :name "Ivan"]
        [:db/add -1 :age 12]]
-      #{[1 :age 12] [1 :name "Ivan"]}
+      #{[1 1 12] [1 0 "Ivan"]}
          
       [[:db/add -1 :age 12]
        [:db/add -1 :name "Ivan"]]
-      #{[1 :age 12] [1 :name "Ivan"]}))
+      #{[1 1 12] [1 0 "Ivan"]}))
   
-  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity
+                                     :db/order 0}
+                            :age {:db/order 1}})
                (d/db-with [[:db/add -1 :name "Ivan"]
                            [:db/add -2 :name "Oleg"]]))]
     (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"

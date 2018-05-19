@@ -1,7 +1,8 @@
 (ns datascript.impl.entity
   (:refer-clojure :exclude [keys get])
   (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
-            [datascript.db :as db]))
+            [datascript.db :as db])
+  #?(:clj (:import [datascript.db DB])))
 
 (declare entity ->Entity equiv-entity lookup-entity touch)
 
@@ -182,11 +183,12 @@
                    v)))
              {} a->v))
 
-(defn- datoms->cache [db datoms]
-  (reduce (fn [acc part]
-    (let [a (:a (first part))]
-      (assoc acc a (entity-attr db a part))))
-    {} (partition-by :a datoms)))
+(defn- datoms->cache [^DB db datoms]
+  (let [^objects attrs (.-attrs db)]
+    (reduce (fn [acc part]
+             (let [a (aget attrs (:a (first part)))]
+               (assoc acc a (entity-attr db a part))))
+           {} (partition-by :a datoms))))
 
 (defn touch [^Entity e]
   {:pre [(entity? e)]}

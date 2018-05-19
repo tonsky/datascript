@@ -7,7 +7,8 @@
     [datascript.test.core :as tdc]))
 
 (def test-db (d/db-with
-               (d/empty-db)
+               (d/empty-db {:name {:db/order 0}
+                            :age {:db/order 1}})
                [[:db/add 1 :name "Petr"]
                 [:db/add 1 :age 44]
                 [:db/add 2 :name "Ivan"]
