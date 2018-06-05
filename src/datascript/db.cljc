@@ -1083,7 +1083,8 @@
                 (let [[_ f & args] entity]
                   (recur report (concat (apply f db args) entities)))
 
-              (= op :db.fn/cas)
+              (or (= op :db.fn/cas)
+                  (= op :db/cas))
                 (let [[_ e a ov nv] entity
                       e (entid-strict db e)
                       _ (validate-attr a entity)
@@ -1147,7 +1148,8 @@
                            (concat (retract-components db datoms) entities)))
                   (recur report entities))
 
-              (= op :db.fn/retractEntity)
+              (or (= op :db.fn/retractEntity)
+                  (= op :db/retractEntity))
                 (if-let [e (entid db e)]
                   (let [e-datoms (-search db [e])
                         v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]

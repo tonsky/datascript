@@ -87,6 +87,9 @@
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))
 
+    (is (= (d/db-with db [[:db.fn/retractEntity 1]])
+           (d/db-with db [[:db/retractEntity 1]])))
+
     (testing "Retract entitiy with incoming refs"
       (is (= (d/q '[:find ?e :where [1 :friend ?e]] db)
              #{[2]}))
@@ -120,6 +123,7 @@
       [:db/retract             2 :name "Petr"]
       [:db.fn/retractAttribute 2 :name]
       [:db.fn/retractEntity    2]
+      [:db/retractEntity       2]
       [:db/retract             [:name "Petr"] :name "Petr"]
       [:db.fn/retractAttribute [:name "Petr"] :name]
       [:db.fn/retractEntity    [:name "Petr"]])
@@ -130,6 +134,7 @@
       [:db/retract             1 :name "Ivan"]
       [:db.fn/retractAttribute 1 :name]
       [:db.fn/retractEntity    1]
+      [:db/retractEntity       1]
       [:db/retract             [:name "Ivan"] :name "Ivan"]
       [:db.fn/retractAttribute [:name "Ivan"] :name]
       [:db.fn/retractEntity    [:name "Ivan"]])))
@@ -153,7 +158,9 @@
     (d/transact! conn [[:db/add 1 :weight 200]])
     (d/transact! conn [[:db.fn/cas 1 :weight 200 300]])
     (is (= (:weight (d/entity @conn 1)) 300))
-    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :weight 300\], expected 200"
+    (d/transact! conn [[:db/cas 1 :weight 300 400]])
+    (is (= (:weight (d/entity @conn 1)) 400))
+    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :weight 400\], expected 200"
                           (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
   
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
