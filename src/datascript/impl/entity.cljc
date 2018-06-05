@@ -142,8 +142,7 @@
        (invoke [e k]      (lookup-entity e k))
        (invoke [e k not-found] (lookup-entity e k not-found))
        ]))
-:db.fn/retractEntity
-:db.fn/cas
+
 (defn entity? [x] (instance? Entity x))
 
 #?(:clj
