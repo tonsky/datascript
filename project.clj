@@ -1,4 +1,4 @@
-(defproject datascript "0.16.5"
+(defproject datascript "0.16.6"
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

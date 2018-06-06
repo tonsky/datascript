@@ -1,3 +1,7 @@
+# 0.16.6
+
+- Add support for renamed DB functions :db/retractEntity and :db/cas (#265, PR #256, thx [Kenny Williams](https://github.com/kennyjwilli))
+
 # 0.16.5
 
 - Provision AOT-compiled classes in datascript.jar (closes #241) 
