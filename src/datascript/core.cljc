@@ -21,7 +21,7 @@
 
   Usage:
   (q '[:find ?value
-       :where [_ :likes ?value]
+       :where [_ :likes ?value]]
        db)
   ; -> #{[:pizza]}"
   dq/q)
