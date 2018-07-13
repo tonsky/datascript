@@ -17,7 +17,7 @@
 (defn ^:declared q [q & inputs])
 (def q
   "Query the given database.
-  (For full docs see Datom reference: https://docs.datomic.com/query.html)
+  (For full docs see Datomic reference: https://docs.datomic.com/query.html)
 
   Usage:
   (q '[:find ?value
@@ -70,7 +70,7 @@
 (defn ^:declared pull-many [db selector eids])
 (def pull-many
   "Pull entities from the database using Datomic pull syntax.
-   (For full docs see Datom reference: http://docs.datomic.com/pull.html)
+   (For full docs see Datomic reference: http://docs.datomic.com/pull.html)
 
    Usage:
    (pull-many db [:likes :dislikes] [1 2])
