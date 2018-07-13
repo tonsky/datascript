@@ -15,45 +15,122 @@
 ;; SUMMING UP
 
 (defn ^:declared q [q & inputs])
-(def             q dq/q)
+(def q
+  "Query the given database.
+  (For full docs see Datom reference: https://docs.datomic.com/query.html)
+
+  Usage:
+  (q '[:find ?value
+       :where [_ :likes ?value]
+       db)
+  ; -> #{[:pizza]}"
+  dq/q)
 
 (defn ^:declared entity [db eid])
-(def             entity de/entity)
+(def entity
+  "Retrieves a single entity by its id from the given database.
+   Retrieve using the internal db id:
+   (entity db 1)
+   Retrieve using a user defined id:
+   (entity db [:db/ident :a-unique-key])"
+  de/entity)
 
 (defn entity-db [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
 (defn ^:declared datom ([e a v]) ([e a v tx]) ([e a v tx added]))
-(def             datom db/datom)
+(def datom
+  "Creates a single datom that can be added to any database.
+   A datom consists of [entity-id relation object] where:
+   - entity-id - the entity's unique id within the db
+   - attribute - the relation that the entity has to the value
+   - value - the value that the attribute applies to.
+   This can be a primitive value or refer to another entity.
+
+   For example:
+   To asserts a single fact:
+   (datom [1 :likes :pizza])
+   To assert with transaction data:
+   (datom [1 :likes :pizza 17])
+   Add true to assert the fact (default), false to retract it:
+   (datom [1 :likes :pizza 17 false]) "
+  db/datom)
 
 (defn ^:declared pull [db selector eid])
-(def             pull dp/pull)
+(def pull
+  "Pull a single entity from the database using Datomic pull syntax.
+   (For full docs see Datom reference: http://docs.datomic.com/pull.html)
+
+   Usage:
+   (pull db [:likes :dislikes] 1)
+   ; -> {:likes :pizza :dislikes :ice-cream}"
+  dp/pull)
 
 (defn ^:declared pull-many [db selector eids])
-(def             pull-many dp/pull-many)
+(def pull-many
+  "Pull entities from the database using Datomic pull syntax.
+   (For full docs see Datom reference: http://docs.datomic.com/pull.html)
+
+   Usage:
+   (pull-many db [:likes :dislikes] [1 2])
+   ; -> [{:likes :pizza :dislikes :ice-cream} {:likes :pie}]"
+  dp/pull-many)
 
 (defn ^:declared touch [e])
-(def             touch de/touch)
+(def touch
+  "Retrieves all attributes for a given entity as a single map.
+
+  Usage:
+  (touch (entity db 1)) ; -> {:dislikes :pie, :likes :pizza, :db/id 1}"
+  de/touch)
 
 (defn ^:declared empty-db ([]) ([schema]))
-(def             empty-db db/empty-db)
+(def empty-db
+  "Creates an empty database with an optional schema.
+
+   Usage:
+   (empty-db)
+   With schema:
+   (empty-db {:likes {:db/cardinality :db.cardinality/many}})"
+  db/empty-db)
 
 (defn ^:declared init-db ([datoms]) ([datoms schema]))
-(def             init-db db/init-db)
+(def init-db
+  "Creates a database from a given collection of datoms.
+  Takes an optional schema.
+
+  Usage:
+  (init-db
+    [(datom 1 :likes :pizza)])
+  With a schema:
+  (init-db
+    [(datom 1 :likes :pizza)]
+    {:likes {:db/cardinality :db.cardinality/many}})"
+  db/init-db)
 
 (defn ^:declared datom? [x])
-(def             datom? db/datom?)
+(def datom?
+  "Returns true if the given value is a datom, false otherwise."
+  db/datom?)
 
 (defn ^:declared db? [x])
-(def             db? db/db?)
+(def db?
+  "Return true if the given value is a database
+  (but not a database connection), false otherwise."
+  db/db?)
 
 (def ^:const tx0 db/tx0)
 
-(defn is-filtered [x]
+(defn is-filtered
+  "Returns true if this is an instance of a filtered database, false otherwise."
+  [x]
   (instance? FilteredDB x))
 
-(defn filter [db pred]
+(defn filter
+  "Returns a database including only the datoms for which the (pred db datom)
+  holds true."
+  [db pred]
   {:pre [(db/db? db)]}
   (if (is-filtered db)
     (let [^FilteredDB fdb db
@@ -63,6 +140,11 @@
     (FilteredDB. db #(pred db %) (atom 0))))
 
 (defn with
+  "Apply the given transaction to the given database returning a
+  transaction report map with :db-before, :db-after, :tx-data, :tempids
+  and :tx-meta.
+  Note that this function has no side-effects and the given database
+  remains untouched."
   ([db tx-data] (with db tx-data nil))
   ([db tx-data tx-meta]
     {:pre [(db/db? db)]}
@@ -75,7 +157,9 @@
                                :tempids   {}
                                :tx-meta   tx-meta}) tx-data))))
 
-(defn db-with [db tx-data]
+(defn db-with
+  "Same as (with db tx-data) but will only return the new database (i.e. :db-after)."
+  [db tx-data]
   {:pre [(db/db? db)]}
   (:db-after (with db tx-data)))
 
@@ -110,19 +194,27 @@
 
 ;; Conn
 
-(defn conn? [conn]
+(defn conn?
+  "Returns true if this is a connection to a db, false otherwise."
+  [conn]
   (and #?(:clj  (instance? clojure.lang.IDeref conn)
           :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
-(defn conn-from-db [db]
-  (atom db :meta { :listeners (atom {}) }))
+(defn conn-from-db
+  "Given a database creates a connection to said database."
+  [db]
+  (atom db :meta {:listeners (atom {}) }))
 
 (defn conn-from-datoms
+  "Creates a database for the given datoms and returns a connection
+   to said database. Takes an optional schema."
   ([datoms]        (conn-from-db (init-db datoms)))
   ([datoms schema] (conn-from-db (init-db datoms schema))))
 
 (defn create-conn
+  "Creates a connection to an empty database.
+   Takes an optional schema."
   ([]       (conn-from-db (empty-db)))
   ([schema] (conn-from-db (empty-db schema))))
 
@@ -136,6 +228,14 @@
     @report))
 
 (defn transact!
+  "Applies the given transaction data to the database connection.
+   The database under the connection now refers to the updated
+   database that has the transaction applied to it.
+   The result of the transaction is returned containing report map of
+   :db-before, :db-after, :tx-data, :tempids and :tx-meta.
+
+   Usage:
+   (transact! conn1 [{:db/id -1 :likes :pizza}])"
   ([conn tx-data] (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
     {:pre [(conn? conn)]}
@@ -160,13 +260,19 @@
       db)))
 
 (defn listen!
+  "Listen for changes on the given database connection.
+   Whenever a transaction is applied to the database the callback is called
+   with the transaction report.
+   Returns the key under which this listener is registered."
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
      {:pre [(conn? conn)]}
      (swap! (:listeners (meta conn)) assoc key callback)
      key))
 
-(defn unlisten! [conn key]
+(defn unlisten!
+  "Removes the listener under de given key from the database connection."
+  [conn key]
   {:pre [(conn? conn)]}
   (swap! (:listeners (meta conn)) dissoc key))
 
@@ -179,8 +285,10 @@
 ;;  (clojure.edn/read-string {:readers datascript/data-readers} "...")
 ;;
 
-(def data-readers {'datascript/Datom db/datom-from-reader
-                   'datascript/DB    db/db-from-reader})
+(def ^{:doc "data-readers available for parsing datascript values with clojure.edn/read-string.
+             Usage: (clojure.edn/read-string {:readers datascript/data-readers} \"...\")"}
+  data-readers {'datascript/Datom db/datom-from-reader
+                'datascript/DB    db/db-from-reader})
 
 #?(:cljs
    (doseq [[tag cb] data-readers] (cljs.reader/register-tag-parser! tag cb)))
@@ -203,7 +311,9 @@
 (defn resolve-tempid [_db tempids tempid]
   (get tempids tempid))
 
-(defn db [conn]
+(defn db
+  "Extracts the current database (as a value) from the connection."
+  [conn]
   {:pre [(conn? conn)]}
   @conn)
 
