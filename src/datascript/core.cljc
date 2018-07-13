@@ -138,7 +138,8 @@
                                :tx-meta   tx-meta}) tx-data))))
 
 (defn db-with
-  "Same as (with db tx-data) but will only return the new database (i.e. :db-after)."
+  "Same as (with db tx-data) but will only return the new database
+  (i.e. :db-after)."
   [db tx-data]
   {:pre [(db/db? db)]}
   (:db-after (with db tx-data)))
@@ -268,7 +269,8 @@
 ;;  (clojure.edn/read-string {:readers datascript/data-readers} "...")
 ;;
 
-(def ^{:doc "data-readers available for parsing datascript values with clojure.edn/read-string.
+(def ^{:doc "data-readers available for parsing datascript values with
+            clojure.edn/read-string.
             Usage: (clojure.edn/read-string {:readers datascript/data-readers} \"...\")"}
   data-readers {'datascript/Datom db/datom-from-reader
                 'datascript/DB    db/db-from-reader})
