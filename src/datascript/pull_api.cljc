@@ -141,7 +141,7 @@
                 single?   (not multi?)]
             (->> (cond-> (into [] (map as-value) found)
                    single? first)
-                 (update parent :kvps assoc! attr-key)
+                 (update parent :kvps assoc! (or (:as opts) attr-key))
                  (conj frames)))))
       (->> (cond-> parent
              (contains? opts :default)
