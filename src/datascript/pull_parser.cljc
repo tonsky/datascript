@@ -29,6 +29,12 @@
     (-> (-as-spec attr)
         (assoc-in [1 :default] value))))
 
+(defrecord PullAsExpr [attr value]
+  IPullSpecComponent
+  (-as-spec [this]
+    (-> (-as-spec attr)
+        (assoc-in [1 :as] value))))
+
 (defrecord PullWildcard [])
 
 (defrecord PullRecursionLimit [limit]
@@ -111,6 +117,18 @@
         (raise "Expected [\"default\" attr-name any-value]"
                {:error :parser/pull, :fragment spec})))))
 
+(def ^:private as? #{'as :as "as"})
+
+(defn- parse-as-expr
+  [spec]
+  (let [[as-sym attr-name-spec as-key] spec]
+    (when (as? as-sym)
+      (if-let [attr-name (and (as? as-sym)
+                              (parse-attr-name attr-name-spec))]
+        (PullAsExpr. attr-name as-key)
+        (raise "Expected [\"as\" attr-name as-key]"
+               {:error :parser/pull, :fragment spec})))))
+
 (defn- parse-map-spec-entry
   [[k v]]
   (if-let [attr-name (or (parse-attr-name k)
@@ -134,7 +152,8 @@
   [spec]
   (when (maybe-attr-expr? spec)
     (or (parse-limit-expr spec)
-        (parse-default-expr spec))))
+        (parse-default-expr spec)
+        (parse-as-expr spec))))
 
 (defn- parse-attr-spec
   [spec]
