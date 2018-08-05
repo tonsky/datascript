@@ -1,0 +1,8 @@
+{:paths ["src" "bench/src"]
+
+ :deps
+ {org.clojure/clojure   {:mvn/version "1.9.0"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["dev" "test"]}}}
