@@ -550,7 +550,7 @@
     (size        [_]      cnt)
     (isEmpty     [_]      (== 0 cnt))
     (toArray     [this]   (clojure.lang.RT/seqToArray (.seq this)))
-    (toArray     [this a] (clojure.lang.RT/seqToPassedArray (.seq this) a))
+    (^"[Ljava.lang.Object;" toArray [this ^"[Ljava.lang.Object;" a] (clojure.lang.RT/seqToPassedArray (.seq this) a))
 
     java.util.Set
     java.io.Serializable

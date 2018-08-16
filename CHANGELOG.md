@@ -1,6 +1,7 @@
 # WIP
 
 - Removed references to `perf` from `datascript.query-v3` (closes #272)
+- Fixed compile error under java 11 (PR #273, thx [Ryan Belohlavek](https://github.com/rbelohlavek))
 
 # 0.16.6
 
