@@ -21,6 +21,10 @@ The intention with DataScript is to be a basic building block in client-side app
 [datascript "0.16.6"]
 ```
 
+## Support us
+
+<a href="https://patreon.com/tonsky" target="_blank"><img src="./datascript_patreon.png"></a>
+
 ## Resources
 
 Support:
