@@ -1142,8 +1142,8 @@
               (and (ref? db a) (tx-id? v))
                 (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
-              (tempid? e)
-                (if (not= op :db/add)
+              (and (tempid? e) (some #(= op %) [:db/add :db.fn/call :db.fn/cas :db/cas :db/retract :db.fn/retractAttribute :db.fn/retractEntity]))
+                (if (some #(= op %) [:db.fn/call :db.fn/cas :db/cas :db/retract :db.fn/retractAttribute :db.fn/retractEntity])
                   (raise "Tempids are resolved for :db/add only"
                          { :error :transact/syntax
                            :op    entity })
@@ -1191,8 +1191,13 @@
                   (recur report entities))
 
              :else
-               (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute or :db.fn/retractEntity"
-                      {:error :transact/syntax, :operation op, :tx-data entity})))
+             (let [[ident & args] entity]
+               (let [{e :e v :v} (first (-datoms db :avet [:db/ident ident]))
+                     f (:v (first (-search db [e :db/fn])))]
+                 (if (and (= v ident) (fn? f))
+                   (recur report (concat (apply f db args) entities))
+                   (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute, :db.fn/retractEntity or an ident corresponding to an installed transaction function (e.g. {:db/ident <keyword> :db/fn <Ifn>}, usage of :db/ident requires {:db/unique :db.unique/identity} in schema)"
+                          {:error :transact/syntax, :operation op, :tx-data entity}))))))
        
        (datom? entity)
          (let [[e a v tx added] entity]
