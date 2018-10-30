@@ -9,8 +9,7 @@
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable
                                                  Not Or And Predicate PlainSymbol]])]
-    [datascript.btset :as btset #?@(:cljs [:refer [Iter]])]
-    [datascript.perf :as perf])
+    [datascript.btset :as btset #?@(:cljs [:refer [Iter]])])
   #?(:clj
     (:import 
       [datascript.parser
@@ -378,29 +377,27 @@
     arr))
 
 (defn product [rel1 rel2]
-  (perf/measure
-    (let [idxs1  (-indexes rel1 (-symbols rel1))
-          idxs2  (-indexes rel2 (-symbols rel2))
-          arity1 (-arity rel1)
-          arity2 (-arity rel2)
-          arity  (+ arity1 arity2)
-          target-idxs1 (arange 0 arity1)
-          target-idxs2 (arange arity1 arity)
-          coll   (-fold rel1
-                        (fn [acc t1]
-                          (-fold rel2
-                                 (fn [acc t2]
-                                   (conj! acc (join-tuples rel1 t1 idxs1
-                                                           rel2 t2 idxs2
-                                                           arity
-                                                           target-idxs1
-                                                           target-idxs2)))
-                                 acc))
-                        (fast-arr))]
-      (array-rel
-        (concatv (-symbols rel1) (-symbols rel2))
-        (persistent! coll)))
-    "product of" (-symbols rel1) (str "(" (-size rel1) " tuples)") "and" (-symbols rel2) (str "(" (-size rel2) " tuples)")))
+  (let [idxs1  (-indexes rel1 (-symbols rel1))
+        idxs2  (-indexes rel2 (-symbols rel2))
+        arity1 (-arity rel1)
+        arity2 (-arity rel2)
+        arity  (+ arity1 arity2)
+        target-idxs1 (arange 0 arity1)
+        target-idxs2 (arange arity1 arity)
+        coll   (-fold rel1
+                      (fn [acc t1]
+                        (-fold rel2
+                                (fn [acc t2]
+                                  (conj! acc (join-tuples rel1 t1 idxs1
+                                                          rel2 t2 idxs2
+                                                          arity
+                                                          target-idxs1
+                                                          target-idxs2)))
+                                acc))
+                      (fast-arr))]
+    (array-rel
+      (concatv (-symbols rel1) (-symbols rel2))
+      (persistent! coll))))
 
 
 (defn product-all [rels]
@@ -610,22 +607,16 @@
   (let [syms   (clause-syms clause)
         consts (:consts context)]
     (if (some #(contains? consts %) syms)
-      (perf/measure
-        (dp/postwalk
-          clause
-          (fn [form]
-            (if (instance? Variable form)
-              (let [sym (:symbol form)]
-                (if-let [subs (get (:consts context) (:symbol form))]
-                  (Constant. subs)
-                  form))
-              form)))
-        "substitute-constants" (->> syms
-                                    (filter #(contains? consts %))
-                                    (map #(vector % (consts %)))
-                                    (into {})))
+      (dp/postwalk
+        clause
+        (fn [form]
+          (if (instance? Variable form)
+            (let [sym (:symbol form)]
+              (if-let [subs (get (:consts context) (:symbol form))]
+                (Constant. subs)
+                form))
+            form)))
       clause)))
-
 
 (defn related-rels [context syms]
   (let [syms (set syms)]
@@ -647,9 +638,7 @@
 (defn join-unrelated [context rel]
   (case (long (-size rel))
     0 empty-context
-    1 (do
-        (perf/debug "Promoting to :consts" (rel->consts rel))
-        (update context :consts merge (rel->consts rel)))
+    1 (update context :consts merge (rel->consts rel))
     (update context :rels conj rel)))
 
 
@@ -660,30 +649,21 @@
           [related-rels context*] (extract-rels context syms)]
       (if (empty? related-rels)
         (join-unrelated context rel)
-        (perf/measure
-          (let [related-rel (product-all related-rels)
-                join-syms   (set/intersection syms (set (-symbols related-rel)))
-                _           (perf/debug (-symbols rel)
-                                        "to" (-symbols related-rel)
-                                        "over" join-syms)
-                hash        (perf/measure (hash-map-rel related-rel join-syms)
-                                          "hash calculated with" (count %) "keys")
-                 ;; TODO choose between hash-join and lookup-join
-                rel*        (perf/measure (hash-join related-rel hash join-syms rel)
-                                          "hash-join" (-size %) "tuples")]
-            (join-unrelated context* rel*))
-          "hash-join-rel")))))
+        (let [related-rel (product-all related-rels)
+              join-syms   (set/intersection syms (set (-symbols related-rel)))
+              hash        (hash-map-rel related-rel join-syms)
+              ;; TODO choose between hash-join and lookup-join
+              rel*        (hash-join related-rel hash join-syms rel)]
+          (join-unrelated context* rel*))))))
 
 
 (defn resolve-pattern [context clause]
-  (perf/measure
-    (let [clause* (substitute-constants clause context)
-          rel     (let [source (get-source context (:source clause))]
-                    (if (satisfies? db/ISearch source)
-                      (resolve-pattern-db   source clause*)
-                      (resolve-pattern-coll source clause*)))]
-      (hash-join-rel context rel))
-    "resolve-pattern" (dp/source clause)))
+  (let [clause* (substitute-constants clause context)
+        rel     (let [source (get-source context (:source clause))]
+                  (if (satisfies? db/ISearch source)
+                    (resolve-pattern-db   source clause*)
+                    (resolve-pattern-coll source clause*)))]
+    (hash-join-rel context rel)))
 
 
 (defn project-rel [rel syms]
@@ -723,12 +703,9 @@
 
 
 (defn subtract-from-rel [rel syms exclude-key-set]
-  (perf/measure
-    (let [key-fn1 (key-fn rel syms)
-          pred    (fn [t1] (contains? exclude-key-set (key-fn1 t1)))]
-      (-alter-coll rel #(into (fast-arr) (remove pred) %)))
-    "From"        (-symbols rel) (str "(" (-size rel) " tuples)")
-    "subtracting" (count exclude-key-set) "tuples by" syms))
+  (let [key-fn1 (key-fn rel syms)
+        pred    (fn [t1] (contains? exclude-key-set (key-fn1 t1)))]
+    (-alter-coll rel #(into (fast-arr) (remove pred) %))))
 
 
 (defn subtract-contexts [context1 context2 syms]
@@ -767,39 +744,35 @@
                            
 
 (defn resolve-not [context clause]
-  (perf/measure
-    (let [{:keys [source vars clauses]} clause
-          syms      (into #{} (map :symbol) vars)
-          _         (check-bound context syms (dp/source clause))
-          context*  (-> context
-                      (project-context syms) ;; sub-context will only see symbols Not is joined by
-                      (upd-default-source clause)
-                      (resolve-clauses clauses))]
-      (subtract-contexts context context* syms))
-    "resolve-not" (dp/source clause)))
+  (let [{:keys [source vars clauses]} clause
+        syms      (into #{} (map :symbol) vars)
+        _         (check-bound context syms (dp/source clause))
+        context*  (-> context
+                    (project-context syms) ;; sub-context will only see symbols Not is joined by
+                    (upd-default-source clause)
+                    (resolve-clauses clauses))]
+    (subtract-contexts context context* syms)))
 
 
 (defn resolve-or [context clause]
-  (perf/measure
-    (let [{:keys [source rule-vars clauses]} clause
-          {:keys [required free]}            rule-vars
-          _    (check-bound context (map :symbol required) (dp/source clause))
-          syms (into #{} (map :symbol) (concat required free))
-          context*  (-> context
-                      (project-context syms)
-                      (upd-default-source clause))
-          contexts  (->> clauses
-                         (map #(-resolve-clause % context*))
-                         (remove :empty?))]
-      (if (empty? contexts)
-        empty-context ;; everything resolved to empty rel, short-circuit
-        (let [non-consts (set/difference syms (set (keys (:consts context))))]
-          (if (empty? non-consts)
-            context ;; join was by constants only, nothing changes
-            (let [arrays (map #(collect-to % non-consts (fast-arr)) contexts)
-                  rel    (array-rel non-consts (into (first arrays) cat (next arrays)))]
-              (hash-join-rel context rel))))))
-    "resolve-or" (dp/source clause)))
+  (let [{:keys [source rule-vars clauses]} clause
+        {:keys [required free]}            rule-vars
+        _    (check-bound context (map :symbol required) (dp/source clause))
+        syms (into #{} (map :symbol) (concat required free))
+        context*  (-> context
+                    (project-context syms)
+                    (upd-default-source clause))
+        contexts  (->> clauses
+                        (map #(-resolve-clause % context*))
+                        (remove :empty?))]
+    (if (empty? contexts)
+      empty-context ;; everything resolved to empty rel, short-circuit
+      (let [non-consts (set/difference syms (set (keys (:consts context))))]
+        (if (empty? non-consts)
+          context ;; join was by constants only, nothing changes
+          (let [arrays (map #(collect-to % non-consts (fast-arr)) contexts)
+                rel    (array-rel non-consts (into (first arrays) cat (next arrays)))]
+            (hash-join-rel context rel)))))))
 
 
 (defn collect-args! [context args target form]
@@ -832,50 +805,48 @@
 
 
 (defn resolve-predicate [context clause]
-  (perf/measure
-    (let [{fun :fn, args :args} clause
-          form      (dp/source clause)
-          f         (get-f context fun form)
-          args-arr  (da/make-array (count args))
-          _         (collect-args! context args args-arr form)
-          consts    (:consts context)
-          sym+idx   (for [[arg i] (zip args (range))
-                          :when   (instance? Variable arg)
-                          :let    [sym (:symbol arg)]
-                          :when   (not (contains? consts sym))]
-                      [sym i])
-          args-syms (map first sym+idx)
-          args-idxs (mapa second sym+idx)
-          _         (check-bound context args-syms form)]
-      (if (empty? args-syms) ;; only constants
-        (if (apply f (vec args-arr))
-          context
-          empty-context)
-        (let [[rels context*] (extract-rels context args-syms)]
-          (if (== 1 (count rels))
-            (let [rel  (first rels)
-                  idxs (-indexes rel args-syms)
-                  pred (fn [tuple]
-                         (-copy-tuple rel tuple idxs args-arr args-idxs)
-                         (apply f (vec args-arr)))
-                  rel* (-alter-coll rel #(filterv pred %))]
-              (join-unrelated context* rel*))
-            (let [prod-syms    (mapcat -symbols rels)
-                  prod-sym+idx (zip prod-syms (range))
-                  xfs          (map #(collect-rel-xf prod-sym+idx %) rels)
-                  prod-rel     (array-rel prod-syms [])
+  (let [{fun :fn, args :args} clause
+        form      (dp/source clause)
+        f         (get-f context fun form)
+        args-arr  (da/make-array (count args))
+        _         (collect-args! context args args-arr form)
+        consts    (:consts context)
+        sym+idx   (for [[arg i] (zip args (range))
+                        :when   (instance? Variable arg)
+                        :let    [sym (:symbol arg)]
+                        :when   (not (contains? consts sym))]
+                    [sym i])
+        args-syms (map first sym+idx)
+        args-idxs (mapa second sym+idx)
+        _         (check-bound context args-syms form)]
+    (if (empty? args-syms) ;; only constants
+      (if (apply f (vec args-arr))
+        context
+        empty-context)
+      (let [[rels context*] (extract-rels context args-syms)]
+        (if (== 1 (count rels))
+          (let [rel  (first rels)
+                idxs (-indexes rel args-syms)
+                pred (fn [tuple]
+                        (-copy-tuple rel tuple idxs args-arr args-idxs)
+                        (apply f (vec args-arr)))
+                rel* (-alter-coll rel #(filterv pred %))]
+            (join-unrelated context* rel*))
+          (let [prod-syms    (mapcat -symbols rels)
+                prod-sym+idx (zip prod-syms (range))
+                xfs          (map #(collect-rel-xf prod-sym+idx %) rels)
+                prod-rel     (array-rel prod-syms [])
 
-                  idxs         (-indexes prod-rel args-syms)
-                  pred         (fn [tuple]
-                                 (-copy-tuple prod-rel tuple idxs args-arr args-idxs)
-                                 (apply f (vec args-arr)))
+                idxs         (-indexes prod-rel args-syms)
+                pred         (fn [tuple]
+                                (-copy-tuple prod-rel tuple idxs args-arr args-idxs)
+                                (apply f (vec args-arr)))
 
-                  array        (into (fast-arr)
-                                 (apply comp (concat xfs [(filter pred)]))
-                                 [(da/make-array (count prod-syms))])
-                  prod-rel*    (array-rel prod-syms array)]
-          (join-unrelated context* prod-rel*))))))
-    "resolve-predicate" (dp/source clause)))
+                array        (into (fast-arr)
+                                (apply comp (concat xfs [(filter pred)]))
+                                [(da/make-array (count prod-syms))])
+                prod-rel*    (array-rel prod-syms array)]
+        (join-unrelated context* prod-rel*)))))))
 
 
 (extend-protocol IClause
@@ -930,7 +901,6 @@
                       [sym i])
         idxs        (-indexes rel (map first sym+idx))
         target-idxs (mapa second sym+idx)]
-    (perf/debug "will collect" (-symbols rel) "with" (-size rel) "tuples")
     (fn [rf]
       (fn
         ([] (rf))
@@ -951,16 +921,14 @@
    (collect-to context syms acc xfs (da/make-array (count syms))))
   ([context syms acc xfs specimen]
     ;; TODO don't collect if array-rel and matches symbols
-    (perf/measure
-      (if (:empty? context)
-        acc
-        (let [syms-indexed (vec (zip syms (range)))
-              _            (collect-consts syms-indexed specimen (:consts context))
-              related-rels (related-rels context syms)
-              xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
-                               (concat xfs))]
-          (into acc (apply comp xfs) [specimen])))
-     "collect-to")))
+    (if (:empty? context)
+      acc
+      (let [syms-indexed (vec (zip syms (range)))
+            _            (collect-consts syms-indexed specimen (:consts context))
+            related-rels (related-rels context syms)
+            xfs          (-> (map #(collect-rel-xf syms-indexed %) related-rels)
+                              (concat xfs))]
+        (into acc (apply comp xfs) [specimen])))))
 
 
 ;; Query
@@ -978,66 +946,58 @@
 
 
 (defn q [q & inputs]
-  (perf/measure
-    (let [parsed-q (perf/measure (parse-query q)
-                            "parse-query")
-          context  { :rels    []
-                     :consts  {}
-                     :sources {}
-                     :rules   {}
-                     :default-source-symbol '$ }
-          context  (perf/measure (resolve-ins context (:qin parsed-q) inputs)
-                     "resolve-ins")
-          context  (perf/measure (resolve-clauses context (:qwhere parsed-q))
-                     "resolve-clauses")
-          syms     (concat (dp/find-vars (:qfind parsed-q))
-                           (map :symbol (:qwith parsed-q)))]
-      (native-coll (collect-to context syms (fast-set) [(map vec)])))
-    "Query" q))
+  (let [parsed-q (parse-query q)
+        context  { :rels    []
+                    :consts  {}
+                    :sources {}
+                    :rules   {}
+                    :default-source-symbol '$ }
+        context  (resolve-ins context (:qin parsed-q) inputs)
+        context  (resolve-clauses context (:qwhere parsed-q))
+        syms     (concat (dp/find-vars (:qfind parsed-q))
+                          (map :symbol (:qwith parsed-q)))]
+    (native-coll (collect-to context syms (fast-set) [(map vec)]))))
 
-
-
-
-
-;; (let [query   '[ :find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
-;;                  :in    $ ?tid ?week ?list
-;;                  :where [?lid :lesson/teacherid ?tid]
-;;                         [?lid :lesson/week ?week]
-;;                         [?lid :lesson/lessongroupid ?lgid]
-;;                         [?eid :enrollment/lessongroup_id ?lgid]
-;;                         [?eid :enrollment/student_id ?sid]
-;;                         [?iid :invoice/enrollment_id ?eid]
-;;                         [?sid :student/firstname ?fname]
-;;                         [?sid :student/lastname ?lname]
-;;                         [?iid :invoice/paid ?paid]
-;;                         [?lid :lesson/status ?status]
-;;                         [?lid :lesson/starttime ?starttime]
-;;                         [?lid :lesson/endtime ?endtime]
-;;                         [(?list ?sid ?fname ?lname) ?studentinfo]]
-;;       parsed (dp/parse-query query)]
-;;   (perf/minibench "postwalk"
-;;     (dp/postwalk parsed identity))
-;;   (perf/minibench "parse-query"
-;;     (dp/parse-query query))
-;;   (perf/minibench "substitute-constants"
-;;     (substitute-constants (first (:where parsed)) {:consts {'?tid 7}})))
-
-;; (t/test-ns 'datascript.test.query-v3)
-
-(defn random-man []
-  {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
-   :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
-   :sex       (rand-nth [:male :female])
-   :age       (rand-int 10)
-   :salary    (rand-int 100000)})
-
-(defn bench [name q & args]
-  (println "\n---\n")
-  (perf/minibench (str "OLD " name) (apply d/q q args))
-  (perf/minibench (str "NEW " name) (apply datascript.query-v3/q q args))
-  nil)
 
 (comment
+  (t/test-ns 'datascript.test.query-v3)
+
+  (let [query   '[ :find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
+                  :in    $ ?tid ?week ?list
+                  :where [?lid :lesson/teacherid ?tid]
+                          [?lid :lesson/week ?week]
+                          [?lid :lesson/lessongroupid ?lgid]
+                          [?eid :enrollment/lessongroup_id ?lgid]
+                          [?eid :enrollment/student_id ?sid]
+                          [?iid :invoice/enrollment_id ?eid]
+                          [?sid :student/firstname ?fname]
+                          [?sid :student/lastname ?lname]
+                          [?iid :invoice/paid ?paid]
+                          [?lid :lesson/status ?status]
+                          [?lid :lesson/starttime ?starttime]
+                          [?lid :lesson/endtime ?endtime]
+                          [(?list ?sid ?fname ?lname) ?studentinfo]]
+        parsed (dp/parse-query query)]
+    (perf/minibench "postwalk"
+      (dp/postwalk parsed identity))
+    (perf/minibench "parse-query"
+      (dp/parse-query query))
+    (perf/minibench "substitute-constants"
+      (substitute-constants (first (:where parsed)) {:consts {'?tid 7}})))
+
+  (defn random-man []
+    {:name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
+     :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+     :sex       (rand-nth [:male :female])
+     :age       (rand-int 10)
+     :salary    (rand-int 100000)})
+
+  (defn bench [name q & args]
+    (println "\n---\n")
+    (perf/minibench (str "OLD " name) (apply d/q q args))
+    (perf/minibench (str "NEW " name) (apply datascript.query-v3/q q args))
+    nil)
+
    (do
     #_(require '[datascript.query-v3 :as q] :reload)
 

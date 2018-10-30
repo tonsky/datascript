@@ -1,3 +1,7 @@
+# WIP
+
+- Removed references to `perf` from `datascript.query-v3` (closes #272)
+
 # 0.16.6
 
 - Add support for renamed DB functions :db/retractEntity and :db/cas (#265, PR #256, thx [Kenny Williams](https://github.com/kennyjwilli))
