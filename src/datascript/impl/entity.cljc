@@ -1,4 +1,4 @@
-(ns datascript.impl.entity
+(ns ^:no-doc datascript.impl.entity
   (:refer-clojure :exclude [keys get])
   (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
             [datascript.db :as db]))

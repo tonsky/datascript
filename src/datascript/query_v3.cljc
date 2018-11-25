@@ -1,4 +1,4 @@
-(ns datascript.query-v3
+(ns ^:no-doc datascript.query-v3
   (:require
     [clojure.set :as set]
     [datascript.core :as d]

@@ -1,4 +1,4 @@
-(ns datascript.pull-parser
+(ns ^:no-doc datascript.pull-parser
   (:require
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]))
 

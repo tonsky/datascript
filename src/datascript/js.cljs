@@ -1,4 +1,4 @@
-(ns datascript.js
+(ns ^:no-doc datascript.js
   (:refer-clojure :exclude [filter])
   (:require
     [goog.object :as go]

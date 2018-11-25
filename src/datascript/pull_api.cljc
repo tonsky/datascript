@@ -1,4 +1,4 @@
-(ns datascript.pull-api
+(ns ^:no-doc datascript.pull-api
   (:require
     [datascript.db :as db]
     [datascript.pull-parser :as dpp #?@(:cljs [:refer [PullSpec]])])

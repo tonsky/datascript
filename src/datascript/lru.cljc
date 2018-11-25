@@ -1,4 +1,4 @@
-(ns datascript.lru)
+(ns ^:no-doc datascript.lru)
 
 (declare assoc-lru cleanup-lru)
 

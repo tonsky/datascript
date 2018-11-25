@@ -27,8 +27,8 @@
             right     :: Right bound path (exclusive)
             keys      :: Cached ref for keys array for a leaf
             idx       :: Cached idx in keys array
-  Keys and idx are cached for fast iteration inside a leaf
-"
+  Keys and idx are cached for fast iteration inside a leaf"
+  :no-doc true
   :author "Nikita Prokopov"}
   datascript.btset
   (:refer-clojure :exclude [iter])

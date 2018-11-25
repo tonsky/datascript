@@ -1,3 +1,7 @@
+# WIP
+
+- Docstrings for https://cljdoc.org/d/datascript/datascript
+
 # 0.16.7
 
 - Removed references to `perf` from `datascript.query-v3` (closes #272)

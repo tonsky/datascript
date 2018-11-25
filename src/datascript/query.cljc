@@ -1,4 +1,4 @@
-(ns datascript.query
+(ns ^:no-doc datascript.query
   (:require
    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
    [clojure.set :as set]

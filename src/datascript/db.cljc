@@ -1,4 +1,4 @@
-(ns datascript.db
+(ns ^:no-doc datascript.db
   (:require
     #?(:cljs [goog.array :as garray])
      clojure.walk

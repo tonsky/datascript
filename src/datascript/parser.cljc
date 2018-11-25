@@ -1,4 +1,4 @@
-(ns datascript.parser
+(ns ^:no-doc datascript.parser
   (:refer-clojure :exclude [distinct?])
   #?(:cljs (:require-macros [datascript.parser :refer [deftrecord]]))
   (:require

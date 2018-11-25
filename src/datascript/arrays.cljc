@@ -1,4 +1,4 @@
-(ns datascript.arrays
+(ns ^:no-doc datascript.arrays
   (:require
     [clojure.string :as str])
   (:refer-clojure :exclude [make-array into-array array amap aget aset alength array? aclone])

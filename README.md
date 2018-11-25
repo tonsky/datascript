@@ -37,6 +37,7 @@ Books:
 
 Docs:
 
+- API Docs [![cljdoc badge](https://cljdoc.org/badge/datascript/datascript)](https://cljdoc.org/d/datascript/datascript/CURRENT)
 - [Getting started](https://github.com/tonsky/datascript/wiki/Getting-started)
 - [Tutorials](https://github.com/kristianmandrup/datascript-tutorial)
 - [DataScript 101](http://udayv.com/clojurescript/clojure/2016/04/28/datascript101/)
