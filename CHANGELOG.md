@@ -1,4 +1,4 @@
-# WIP
+# 0.16.8
 
 - Docstrings for https://cljdoc.org/d/datascript/datascript
 
