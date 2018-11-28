@@ -1,3 +1,7 @@
+# WIP
+
+- AOT artifacts are now deployed with classifiers (`0.16.9-aot1.7`, `0.16.9-aot1.8`, `0.16.9-aot1.9`). Main DataScript artifact has no AOTed code (related: #241, #279, #280)
+
 # 0.16.8
 
 - Docstrings for https://cljdoc.org/d/datascript/datascript

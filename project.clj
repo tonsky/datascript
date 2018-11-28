@@ -1,4 +1,6 @@
-(defproject datascript "0.16.8"
+(def version "0.16.8")
+
+(defproject datascript (str version (System/getenv "DATASCRIPT_CLASSIFIER"))
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
   :license {:name "Eclipse"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -95,14 +97,14 @@
                           [org.clojure/clojurescript "1.9.946" :scope "provided"]]
            ;; because we use printer in tests, and earlier versions don’t support it
            :global-vars  { *print-namespace-maps* false }}
-    :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-alpha4" :scope "provided"]
+    :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-RC2" :scope "provided"]
                            [org.clojure/clojurescript "1.10.238" :scope "provided"]]
            ;; because we use printer in tests, and earlier versions don’t support it
            :global-vars  { *print-namespace-maps* false }}
     :dev { :source-paths ["bench/src" "test" "dev"]
            :dependencies [[org.clojure/tools.nrepl "0.2.12"]] }
-    :deploy { :aot [#"datascript\.(?!query-v3).*"]
-              :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
+    :aot { :aot [#"datascript\.(?!query-v3).*"]
+           :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }
   
   :clean-targets ^{:protect false} [

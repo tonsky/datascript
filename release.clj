@@ -18,7 +18,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
   (println "OK"))
 
 (defn current-version []
-  (second (re-find #"defproject datascript \"([0-9\.]+)\"" (slurp "project.clj"))))
+  (second (re-find #"def version \"([0-9\.]+)\"" (slurp "project.clj"))))
 
 (defn sh [& args]
   (apply println "Running" args)
@@ -115,6 +115,9 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
   (make-commit)
   (publish-npm)
   (github-release)
-  (sh "lein" "with-profile" "+deploy" "deploy" "clojars"))
+  (sh "lein" "deploy" "clojars")
+  (sh "lein" "with-profile" "+aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.7"})
+  (sh "lein" "with-profile" "+1.8,aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.8"})
+  (sh "lein" "with-profile" "+1.9,aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.9"}))
 
 (-main)
