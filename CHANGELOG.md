@@ -1,4 +1,4 @@
-# WIP
+# 0.16.9
 
 - AOT artifacts are now deployed with classifiers (`0.16.9-aot1.7`, `0.16.9-aot1.8`, `0.16.9-aot1.9`). Main DataScript artifact has no AOTed code (related: #241, #279, #280)
 
