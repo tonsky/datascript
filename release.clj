@@ -20,9 +20,11 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
 (defn current-version []
   (second (re-find #"def version \"([0-9\.]+)\"" (slurp "project.clj"))))
 
+(def ^:dynamic *env* {})
+
 (defn sh [& args]
-  (apply println "Running" args)
-  (let [res (apply sh/sh args)]
+  (apply println "Running" (when-not (empty? *env*) (str :env " " *env*)) args)
+  (let [res (apply sh/sh (concat args [:env (merge (into {} (System/getenv)) *env*)]))]
     (if (== 0 (:exit res))
       (do
         (println (:out res))
@@ -116,8 +118,11 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
   (publish-npm)
   (github-release)
   (sh "lein" "deploy" "clojars")
-  (sh "lein" "with-profile" "+aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.7"})
-  (sh "lein" "with-profile" "+1.8,aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.8"})
-  (sh "lein" "with-profile" "+1.9,aot" "deploy" "clojars" :env {"DATASCRIPT_CLASSIFIER" "-aot1.9"}))
+  (binding [*env* {"DATASCRIPT_CLASSIFIER" "-aot1.7"}]
+    (sh "lein" "with-profile" "+aot" "deploy" "clojars"))
+  (binding [*env* {"DATASCRIPT_CLASSIFIER" "-aot1.8"}]
+    (sh "lein" "with-profile" "+1.8,+aot" "deploy" "clojars"))
+  (binding [*env* {"DATASCRIPT_CLASSIFIER" "-aot1.9"}]
+    (sh "lein" "with-profile" "+1.9,+aot" "deploy" "clojars")))
 
 (-main)
