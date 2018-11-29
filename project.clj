@@ -7,8 +7,8 @@
   :url "https://github.com/tonsky/datascript"
   
   :dependencies [
-    [org.clojure/clojure "1.7.0" :scope "provided"]
-    [org.clojure/clojurescript "1.7.228" :scope "provided"]
+    [org.clojure/clojure       "1.9.0"   :scope "provided"]
+    [org.clojure/clojurescript "1.9.946" :scope "provided"]
   ]
   
   :plugins [
@@ -16,7 +16,8 @@
   ]
   
   :global-vars {
-    *warn-on-reflection* true
+    *warn-on-reflection*   true
+    *print-namespace-maps* false
 ;;     *unchecked-math* :warn-on-boxed
   }
   
@@ -29,9 +30,7 @@
             "test-all"     ["do" ["clean"]
                                  ["test-clj-all"]
                                  ["cljsbuild" "once" "release" "advanced"]
-                                 ["run" "-m" "datascript.test/test-node" "--all"]]
-            "test-1.8"     ["with-profile" "dev,1.8" "test-all"]
-            "test-1.9"     ["with-profile" "dev,1.9" "test-all"]}
+                                 ["run" "-m" "datascript.test/test-node" "--all"]]}
   
   :cljsbuild { 
     :builds [
@@ -91,20 +90,12 @@
   ]}
 
   :profiles {
-    :1.8 { :dependencies [[org.clojure/clojure       "1.8.0"   :scope "provided"]
-                          [org.clojure/clojurescript "1.8.51"  :scope "provided"]] }
-    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0"   :scope "provided"]
-                          [org.clojure/clojurescript "1.9.946" :scope "provided"]]
-           ;; because we use printer in tests, and earlier versions don’t support it
-           :global-vars  { *print-namespace-maps* false }}
     :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-RC2" :scope "provided"]
-                           [org.clojure/clojurescript "1.10.238" :scope "provided"]]
-           ;; because we use printer in tests, and earlier versions don’t support it
-           :global-vars  { *print-namespace-maps* false }}
-    :dev { :source-paths ["bench/src" "test" "dev"]
-           :dependencies [[org.clojure/tools.nrepl "0.2.12"]] }
-    :aot { :aot [#"datascript\.(?!query-v3).*"]
-           :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
+                           [org.clojure/clojurescript "1.10.439"   :scope "provided"]] }
+    :dev  { :source-paths ["bench/src" "test" "dev"]
+            :dependencies [[org.clojure/tools.nrepl "0.2.12"]] }
+    :aot  { :aot [#"datascript\.(?!query-v3).*"]
+            :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }
   
   :clean-targets ^{:protect false} [
