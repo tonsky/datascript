@@ -109,6 +109,7 @@
 (defn- pull-attr-datoms
   [db attr-key attr eid forward? datoms opts [parent & frames]]
   (let [limit (get opts :limit +default-limit+)
+        attr-key (or (:as opts) attr-key)
         found (not-empty
                (cond->> datoms
                  limit (into [] (take limit))))]
@@ -141,7 +142,7 @@
                 single?   (not multi?)]
             (->> (cond-> (into [] (map as-value) found)
                    single? first)
-                 (update parent :kvps assoc! (or (:as opts) attr-key))
+                 (update parent :kvps assoc! attr-key)
                  (conj frames)))))
       (->> (cond-> parent
              (contains? opts :default)

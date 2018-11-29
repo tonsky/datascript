@@ -3,6 +3,7 @@
 - Implement `clojure.data/diff` on `datascript/DB` (#281)
 - Drop Clojure 1.7 and 1.8 support
 - Fix externs.js syntax (PR #216, thx @thheller)
+- Support `:as` in Pull API an attr-with-opts syntax (#270, PR #271, thx @Jumblemuddle)
 
 # 0.16.9
 
