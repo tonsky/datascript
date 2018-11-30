@@ -9,10 +9,12 @@
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
 
+
 (def readers
   { #?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
         :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
                "clojure.core/read-string" read-string]) })
+
 
 (deftest test-pr-read
   (doseq [[r read-fn] readers]
@@ -38,21 +40,6 @@
                       "[2 :name \"Ivan\" 536870914]"
                     "]}")))
         (is (= db (read-fn (pr-str db))))))))
-
-#?(:clj
-  (deftest test-reader-literals
-    (is (= #datascript/Datom [1 :name "Oleg"]
-                    (db/datom 1 :name "Oleg")))
-    (is (= #datascript/Datom [1 :name "Oleg" 100 false]
-                    (db/datom 1 :name "Oleg" 100 false)))
-    ;; not supported because IRecord print method is hard-coded into Compiler
-    #_(is (= #datascript/DB {:schema {:name {:db/unique :db.unique/identity}}
-                           :datoms [[1 :name "Oleg" 100] [1 :age 14 100] [2 :name "Petr" 101]]}
-           (d/init-db 
-             [ (db/datom 1 :name "Oleg" 100)
-               (db/datom 1 :age 14 100)
-               (db/datom 2 :name "Petr" 101) ]
-             {:name {:db/unique :db.unique/identity}})))))
 
 
 (def data

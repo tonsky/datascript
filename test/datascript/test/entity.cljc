@@ -86,7 +86,7 @@
                          {:db/id 2, :name "Oleg"}]))]
     (is (nil? (d/entity db nil)))
     (is (nil? (d/entity db "abc")))
-    (is (thrown-with-msg? ExceptionInfo #"You must have :db/ident marked as :db/unique in your schema to use keyword refs" (d/entity db :keyword)))
+    (is (nil? (d/entity db :keyword)))
     (is (nil? (d/entity db [:name "Petr"])))
     (is (= 777 (:db/id (d/entity db 777))))
     (is (thrown-with-msg? ExceptionInfo #"Lookup ref attribute should be marked as :db/unique"

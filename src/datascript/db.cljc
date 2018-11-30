@@ -18,7 +18,7 @@
      (def UnsupportedOperationException js/Error)))
 
 (def ^:const tx0 0x20000000)
-(def ^:const default-schema nil)
+(def ^:const implicit-schema {:db/ident {:db/unique :db.unique/identity}})
 
 ;; ----------------------------------------------------------------------------
 
@@ -590,22 +590,22 @@
                          :key       :db/isComponent}))))
     (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
     (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
-    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many}))
-  schema)
+    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})))
 
 (defn ^DB empty-db
-  ([] (empty-db default-schema))
+  ([] (empty-db nil))
   ([schema]
     {:pre [(or (nil? schema) (map? schema))]}
-    (map->DB {
-      :schema  (validate-schema schema)
-      :eavt    (btset/btset-by cmp-datoms-eavt)
-      :aevt    (btset/btset-by cmp-datoms-aevt)
-      :avet    (btset/btset-by cmp-datoms-avet)
-      :max-eid 0
-      :max-tx  tx0
-      :rschema (rschema schema)
-      :hash    (atom 0)})))
+    (validate-schema schema)
+    (map->DB
+      {:schema  schema
+       :rschema (rschema (merge implicit-schema schema))
+       :eavt    (btset/btset-by cmp-datoms-eavt)
+       :aevt    (btset/btset-by cmp-datoms-aevt)
+       :avet    (btset/btset-by cmp-datoms-avet)
+       :max-eid 0
+       :max-tx  tx0
+       :hash    (atom 0)})))
 
 (defn- init-max-eid [eavt]
   (if-let [slice (btset/slice
@@ -616,41 +616,39 @@
     0))
 
 (defn ^DB init-db
-  ([datoms] (init-db datoms default-schema))
+  ([datoms] (init-db datoms nil))
   ([datoms schema]
-    (if (empty? datoms)
-      (empty-db schema)
-      (let [_ (validate-schema schema)
-            rschema (rschema schema)
-            indexed (:db/index rschema)
-            #?@(:cljs
-                [ds-arr  (if (array? datoms) datoms (da/into-array datoms))
-                 eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
-                 aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
-                 avet-datoms (-> (reduce (fn [arr d]
-                                           (when (contains? indexed (.-a d))
-                                             (.push arr d))
-                                           arr)
-                                         #js [] datoms)
-                                 (.sort cmp-datoms-avet-quick))
-                 avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
-                 max-eid (init-max-eid eavt)]
-                :clj
-                [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
-                 aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
-                 avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-                 avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
-                 max-eid     (init-max-eid eavt)])
-            max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
-        (map->DB {
-          :schema  schema
-          :eavt    eavt
-          :aevt    aevt
-          :avet    avet
-          :max-eid max-eid
-          :max-tx  max-tx
-          :rschema rschema
-          :hash    (atom 0)})))))
+    (validate-schema schema)
+    (let [rschema (rschema (merge implicit-schema schema))
+          indexed (:db/index rschema)
+          #?@(:cljs
+              [ds-arr  (if (array? datoms) datoms (da/into-array datoms))
+               eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
+               aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
+               avet-datoms (-> (reduce (fn [arr d]
+                                         (when (contains? indexed (.-a d))
+                                           (.push arr d))
+                                         arr)
+                                       #js [] datoms)
+                               (.sort cmp-datoms-avet-quick))
+               avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
+               max-eid (init-max-eid eavt)]
+              :clj
+              [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
+               aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
+               avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
+               avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
+               max-eid     (init-max-eid eavt)])
+          max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
+      (map->DB {
+        :schema  schema
+        :rschema rschema
+        :eavt    eavt
+        :aevt    aevt
+        :avet    avet
+        :max-eid max-eid
+        :max-tx  max-tx
+        :hash    (atom 0)}))))
 
 (defn- equiv-db-index [x y]
   (loop [xs (seq x)
@@ -761,29 +759,31 @@
 (defn entid [db eid]
   {:pre [(db? db)]}
   (cond
-    (number? eid) eid
+    (number? eid)
+    eid
+    
     (sequential? eid)
+    (let [[attr value] eid]
       (cond
         (not= (count eid) 2)
           (raise "Lookup ref should contain 2 elements: " eid
-                 {:error :lookup-ref/syntax, :entity-id eid})
-        (not (is-attr? db (first eid) :db/unique))
-          (if (= :db/ident (first eid))
-            (raise "You must have :db/ident marked as :db/unique in your schema to use keyword refs" {:error :lookup-ref/db-ident
-                                                                                                      :entity-id eid})
-            (raise "Lookup ref attribute should be marked as :db/unique: " eid
-                   {:error :lookup-ref/unique
-                    :entity-id eid}))
-        (nil? (second eid))
+            {:error :lookup-ref/syntax, :entity-id eid})
+        (not (is-attr? db attr :db/unique))
+          (raise "Lookup ref attribute should be marked as :db/unique: " eid
+            {:error :lookup-ref/unique, :entity-id eid})
+        (nil? value)
           nil
         :else
-          (:e (first (-datoms db :avet eid))))
+          (-> (-datoms db :avet eid) first :e)))
+    
     #?@(:cljs [(array? eid) (recur db (array-seq eid))])
-    (keyword? eid) (recur db [:db/ident eid])
+    
+    (keyword? eid)
+    (-> (-datoms db :avet [:db/ident eid]) first :e)
+    
     :else
-      (raise "Expected number or lookup ref for entity id, got " eid
-              {:error :entity-id/syntax
-               :entity-id eid})))
+    (raise "Expected number or lookup ref for entity id, got " eid
+      {:error :entity-id/syntax, :entity-id eid})))
 
 (defn entid-strict [db eid]
   (or (entid db eid)
@@ -1204,4 +1204,3 @@
          (raise "Bad entity type at " entity ", expected map or vector"
                 {:error :transact/syntax, :tx-data entity})
        ))))
-

@@ -272,34 +272,3 @@
 
       )
 ))
-
-(deftest test-keyword-refs
-  (let [schema {:db/ident     {:db/unique    :db.unique/identity}
-                :db/valueType {:db/valueType :db.type/ref}}
-        db (d/db-with (d/empty-db schema)
-                      [{:db/id 1
-                        :db/ident :db.type/string}
-                       {:db/id 2
-                        :db/ident :name
-                        :db/valueType 1}])]
-    (is (= (d/q '[:find ?v
-                  :where [2 :db/valueType ?v]] db)
-           #{[1]}))
-    (is (= (d/q '[:find ?v
-                  :where [[:db/ident :name] :db/valueType ?v]] db)
-           #{[1]}))
-    (is (= (d/q '[:find ?v
-                  :where [:name :db/valueType ?v]] db)
-           #{[1]}))
-
-    (is (= (d/q '[:find ?f
-                  :where [?f :db/valueType 1]] db)
-           #{[2]}))
-    (is (= (d/q '[:find ?f
-                  :where [?f :db/valueType [:db/ident :db.type/string]]] db)
-           #{[2]}))
-    (is (= (d/q '[:find ?f
-                  :where [?f :db/valueType :db.type/string]] db)
-           #{[2]}))))
-
-#_(test-lookup-refs-query)

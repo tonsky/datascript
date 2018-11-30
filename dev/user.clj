@@ -1,5 +1,7 @@
 (ns user
   (:require
+    clojure.test
+    clojure.tools.namespace.repl
     cljs.repl
     cljs.build.api
     cljs.repl.node
@@ -35,3 +37,23 @@
 
 (defn node-repl []
   (repl 'datascript (cljs.repl.node/repl-env)))
+
+;; tests
+
+(defmacro reset-env [& body]
+  `(binding [*print-namespace-maps* false
+             *data-readers* (merge *data-readers* @(resolve 'datascript.core/data-readers))]
+     ~@body))
+
+(defn test-var [var]
+  (binding [clojure.test/*report-counters* (ref clojure.test/*initial-report-counters*)]
+    (reset-env
+      (clojure.test/test-vars [var]))
+    @clojure.test/*report-counters*))
+
+(defn retest-all []
+  (clojure.tools.namespace.repl/refresh)
+  (reset-env
+    (clojure.test/run-all-tests #"datascript\.test\.(?!btset).*")))
+
+#_(retest-all)

@@ -12,6 +12,7 @@
     datascript.test.entity
     datascript.test.explode
     datascript.test.filter
+    datascript.test.ident
     datascript.test.index
     datascript.test.listen
     datascript.test.lookup-refs
