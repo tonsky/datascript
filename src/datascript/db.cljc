@@ -768,14 +768,18 @@
           (raise "Lookup ref should contain 2 elements: " eid
                  {:error :lookup-ref/syntax, :entity-id eid})
         (not (is-attr? db (first eid) :db/unique))
-          (raise "Lookup ref attribute should be marked as :db/unique: " eid
-                 {:error :lookup-ref/unique
-                  :entity-id eid})
+          (if (= :db/ident (first eid))
+            (raise "You must have :db/ident marked as :db/unique in your schema to use keyword refs" {:error :lookup-ref/db-ident
+                                                                                                      :entity-id eid})
+            (raise "Lookup ref attribute should be marked as :db/unique: " eid
+                   {:error :lookup-ref/unique
+                    :entity-id eid}))
         (nil? (second eid))
           nil
         :else
           (:e (first (-datoms db :avet eid))))
     #?@(:cljs [(array? eid) (recur db (array-seq eid))])
+    (keyword? eid) (recur db [:db/ident eid])
     :else
       (raise "Expected number or lookup ref for entity id, got " eid
               {:error :entity-id/syntax

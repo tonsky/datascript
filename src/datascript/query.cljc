@@ -594,9 +594,9 @@
   (if (satisfies? db/IDB source)
     (let [[e a v tx] pattern]
       (->
-        [(if (lookup-ref? e) (db/entid-strict source e) e)
+        [(if (or (lookup-ref? e) (attr? e)) (db/entid-strict source e) e)
          a
-         (if (and v (attr? a) (db/ref? source a) (lookup-ref? v)) (db/entid-strict source v) v)
+         (if (and v (attr? a) (db/ref? source a) (or (lookup-ref? v) (attr? v))) (db/entid-strict source v) v)
          (if (lookup-ref? tx) (db/entid-strict source tx) tx)]
         (subvec 0 (count pattern))))
     pattern))

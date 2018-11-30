@@ -7,7 +7,8 @@
 
 (defn- entid [db eid]
   (when (or (number? eid)
-            (sequential? eid))
+            (sequential? eid)
+            (keyword? eid))
     (db/entid db eid)))
 
 (defn entity [db eid]
