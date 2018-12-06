@@ -17,3 +17,5 @@ web/target-cljs
 .idea
 *.iml
 .vscode
+.cpcache
+dev/playground.clj
