@@ -119,9 +119,20 @@ function test_db_with() {
 function test_nested_maps() {
   var q = '[:find ?e ?a ?v :where [?e ?a ?v]]';
   
-  var db0 = d.empty_db({"profile": {":db/valueType": ":db.type/ref"}});
+  var db0 = d.empty_db({"profile": {":db/valueType": ":db.type/ref"},
+                        "friend": {":db/valueType": ":db.type/ref",
+                                   ":db/cardinality": ":db.cardinality/many"}});
   var db = d.db_with(db0, [{"name": "Igor", "profile": {"email": "@2"} }]);
   assert_eq_set([[1, "name", "Igor"], [1, "profile", 2], [2, "email", "@2"]], d.q(q, db));
+
+  db = d.db_with(db0, [{":db/id": 1, "name": "Igor"},
+                       {":db/id": 2, "name": "Oleg", "profile": {":db/id": 1}}]);
+  assert_eq_set([[1, "name", "Igor"], [2, "name", "Oleg"], [2, "profile", 1]], d.q(q, db));
+
+  db = d.db_with(db0, [{":db/id": 1, "name": "Igor"},
+                       {":db/id": 2, "name": "Ivan"},
+                       {":db/id": 3, "name": "Oleg", "friend": [{":db/id": 1}, {":db/id": 2}]}]);
+  assert_eq_set([[1, "name", "Igor"], [2, "name", "Ivan"], [3, "friend", 1], [3, "friend", 2], [3, "name", "Oleg"]], d.q(q, db));
   
   db = d.db_with(db0, [{"email": "@2", "_profile": {"name": "Igor"}}]);
   assert_eq_set([[1, "email", "@2"], [2, "name", "Igor"], [2, "profile", 1]], d.q(q, db));

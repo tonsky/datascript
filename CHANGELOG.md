@@ -5,6 +5,7 @@
 - Fix externs.js syntax (PR #216, thx @thheller)
 - Support `:as` in Pull API an attr-with-opts syntax (#270, PR #271, thx @Jumblemuddle)
 - Support idents expansion (PR #245, thx bamarco)
+- JS API correctly handles nested maps with `{":db/id"}` in transactions (#228, thx @serebrianyi)
 
 # 0.16.9
 

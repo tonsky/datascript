@@ -20,17 +20,28 @@
 
 (declare entities->clj)
 
+(defn- entity-map->clj [e]
+  (walk/postwalk
+    (fn [form]
+      (if (and (map? form) (contains? form ":db/id"))
+        (-> form
+            (dissoc ":db/id")
+            (assoc  :db/id (get form ":db/id")))
+        form))
+    e))
+
 (defn- entity->clj [e]
-  (cond (map? e)
-    (-> e
-      (dissoc ":db/id")
-      (assoc  :db/id (e ":db/id")))
+  (cond
+    (map? e)
+    (entity-map->clj e)
+
     (= (first e) ":db.fn/call")
-      (let [[_ f & args] e]
-        (concat [:db.fn/call (fn [& args] (entities->clj (apply f args)))] args))
+    (let [[_ f & args] e]
+      (concat [:db.fn/call (fn [& args] (entities->clj (apply f args)))] args))
+
     (sequential? e)
-      (let [[op & entity] e]
-        (concat [(keywordize op)] entity))))
+    (let [[op & entity] e]
+      (concat [(keywordize op)] entity))))
 
 (defn- entities->clj [entities]
   (->> (js->clj entities)
