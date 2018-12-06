@@ -28,6 +28,12 @@
         "-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"
       ]
     }
+
+    :datomic {
+      :extra-deps {
+        com.datomic/datomic-free {:mvn/version  "0.9.5703"}
+      }
+    }
   }
 }
 
