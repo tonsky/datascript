@@ -1,4 +1,4 @@
-# WIP
+# 0.17.0
 
 - Implement `clojure.data/diff` on `datascript/DB` (#281)
 - Drop Clojure 1.7 and 1.8 support
