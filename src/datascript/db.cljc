@@ -1049,6 +1049,16 @@
     (transact-tx-data (assoc-in report [:tempids tempid] upserted-eid)
                       es)))
 
+(def builtin-fn?
+  #{:db.fn/call
+    :db.fn/cas
+    :db/cas
+    :db/add
+    :db/retract
+    :db.fn/retractAttribute
+    :db.fn/retractEntity
+    :db/retractEntity})
+
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
                 (sequential? initial-es))
@@ -1115,6 +1125,18 @@
               (= op :db.fn/call)
                 (let [[_ f & args] entity]
                   (recur report (concat (apply f db args) entities)))
+              
+              (and (keyword? op)
+                   (not (builtin-fn? op)))
+                (if-some [ident (entid db op)]
+                  (let [fun  (-> (-search db [ident :db/fn]) first :v)
+                        args (next entity)]
+                    (if (fn? fun)
+                      (recur report (concat (apply fun db args) entities))
+                      (raise "Entity " op " expected to have :db/fn attribute with fn? value"
+                             {:error :transact/syntax, :operation :db.fn/call, :tx-data entity})))
+                  (raise "Can’t find entity for transaction fn " op
+                         {:error :transact/syntax, :operation :db.fn/call, :tx-data entity}))
 
               (or (= op :db.fn/cas)
                   (= op :db/cas))
@@ -1142,8 +1164,8 @@
               (and (ref? db a) (tx-id? v))
                 (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
-              (and (tempid? e) (some #(= op %) [:db/add :db.fn/call :db.fn/cas :db/cas :db/retract :db.fn/retractAttribute :db.fn/retractEntity]))
-                (if (some #(= op %) [:db.fn/call :db.fn/cas :db/cas :db/retract :db.fn/retractAttribute :db.fn/retractEntity])
+              (tempid? e)
+                (if (not= op :db/add)
                   (raise "Tempids are resolved for :db/add only"
                          { :error :transact/syntax
                            :op    entity })
@@ -1191,13 +1213,7 @@
                   (recur report entities))
 
              :else
-             (let [[ident & args] entity]
-               (let [{e :e v :v} (first (-datoms db :avet [:db/ident ident]))
-                     f (:v (first (-search db [e :db/fn])))]
-                 (if (and (= v ident) (fn? f))
-                   (recur report (concat (apply f db args) entities))
-                   (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute, :db.fn/retractEntity or an ident corresponding to an installed transaction function (e.g. {:db/ident <keyword> :db/fn <Ifn>}, usage of :db/ident requires {:db/unique :db.unique/identity} in schema)"
-                          {:error :transact/syntax, :operation op, :tx-data entity}))))))
+             (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute, :db.fn/retractEntity or an ident corresponding to an installed transaction function (e.g. {:db/ident <keyword> :db/fn <Ifn>}, usage of :db/ident requires {:db/unique :db.unique/identity} in schema)" {:error :transact/syntax, :operation op, :tx-data entity})))
        
        (datom? entity)
          (let [[e a v tx added] entity]

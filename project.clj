@@ -90,7 +90,7 @@
   ]}
 
   :profiles {
-    :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-RC2" :scope "provided"]
+    :1.10 { :dependencies [[org.clojure/clojure       "1.10.0-RC4" :scope "provided"]
                            [org.clojure/clojurescript "1.10.439"   :scope "provided"]] }
     :dev  { :source-paths ["bench/src" "test" "dev"]
             :dependencies [[org.clojure/tools.nrepl "0.2.13"]

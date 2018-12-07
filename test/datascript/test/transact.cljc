@@ -207,32 +207,27 @@
       (is (:had-birthday e)))))
 
 (deftest test-db-ident-fn
-  (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }
-                             :db/ident { :db/unique :db.unique/identity}})
+  (let [conn    (d/create-conn {:name {:db/unique :db.unique/identity}})
         inc-age (fn [db name]
-                  (if-let [[eid age] (first (d/q '{:find [?e ?age]
-                                                   :in [$ ?name]
-                                                   :where [[?e :name ?name]
-                                                           [?e :age ?age]]}
-                                                 db name))]
-                    (do (println eid age) [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]])
+                  (if-some [ent (d/entity db [:name name])]
+                    [{:db/id (:db/id ent)
+                      :age   (inc (:age ent))}
+                     [:db/add (:db/id ent) :had-birthday true]]
                     (throw (new Throwable (str "No entity with name: " name)))))]
-    (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
-    (d/transact! conn [[:db/add 1 :name "Petr"]])
-    (d/transact! conn [[:db/add 1 :aka  "Devil"]])
-    (d/transact! conn [[:db/add 1 :aka  "Tupen"]])
-    (d/transact! conn [{:db/ident :inc-age :db/fn inc-age}])
-    (is (= (d/q '[:find ?v ?a
-                  :where [?e :name ?v]
-                  [?e :age ?a]] @conn)
-           #{["Petr" 31]}))
-    (is (= (d/q '[:find ?v
-                  :where [?e :aka ?v]] @conn)
-           #{["Devil"] ["Tupen"]}))
+    (d/transact! conn [{:db/id    1
+                        :name     "Petr"
+                        :age      31
+                        :db/ident :Petr}
+                       {:db/ident :inc-age
+                        :db/fn    inc-age}])
+    (is (thrown-with-msg? Throwable #"Can’t find entity for transaction fn :unknown-fn"
+                          (d/transact! conn [[:unknown-fn]])))
+    (is (thrown-with-msg? Throwable #"Entity :Petr expected to have :db/fn attribute with fn\? value"
+                          (d/transact! conn [[:Petr]])))
     (is (thrown-with-msg? Throwable #"No entity with name: Bob"
                           (d/transact! conn [[:inc-age "Bob"]])))
-    (let [{:keys [db-after]} (d/transact! conn [[:inc-age "Petr"]])
-          e (d/entity db-after 1)]
+    (d/transact! conn [[:inc-age "Petr"]])
+    (let [e (d/entity @conn 1)]
       (is (= (:age e) 32))
       (is (:had-birthday e)))))
 

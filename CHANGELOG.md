@@ -6,6 +6,7 @@
 - Support `:as` in Pull API an attr-with-opts syntax (#270, PR #271, thx @Jumblemuddle)
 - Support idents expansion (PR #245, thx bamarco)
 - JS API correctly handles nested maps with `{":db/id"}` in transactions (#228, thx @serebrianyi)
+- Calling transaction fns through idents directly (PR #185, thx @refset)
 
 # 0.16.9
 
