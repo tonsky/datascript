@@ -21,7 +21,7 @@
 
 (deftest test-or
   (let [db @test-db]
-    (are [q res] (= (q/q (concat '[:find ?e :where] (quote q)) db)
+    (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) db)
                     (into #{} (map vector) res))
 
       ;; intersecting results
@@ -95,7 +95,7 @@
        ($2 or [?e :age 10])]
       #{1}
       
-      ;; even with another defaul source, it can reference any other source explicitly
+      ;; even with another default source, it can reference any other source explicitly
       [[?e :name]
        ($2 or [$ ?e :name "Ivan"])]
       #{1}
@@ -115,4 +115,5 @@
     (is (thrown-with-msg? ExceptionInfo #"Insufficient bindings: #\{\?e} not bound in \(or-join \[\[\?e]] \[\?e :name \"Ivan\"]\)"
           (q/q '[:find ?e
                  :where (or-join [[?e]]
-                          [?e :name "Ivan"])] db)))))
+                          [?e :name "Ivan"])]
+               db)))))

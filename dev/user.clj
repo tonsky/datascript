@@ -51,6 +51,10 @@
       (clojure.test/test-vars [var]))
     @clojure.test/*report-counters*))
 
+(defn test-ns [ns]
+  (reset-env
+    (clojure.test/test-ns ns)))
+
 (defn retest-all []
   (clojure.tools.namespace.repl/refresh)
   (reset-env
