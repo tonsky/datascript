@@ -110,7 +110,7 @@
       (supermap? attrs-a attrs-b)
       (let [idxb->idxa (vec (for [[sym idx-b] attrs-b]
                               [idx-b (attrs-a sym)]))
-            tlen    (count (attrs-a))
+            tlen    (count attrs-a)
             tuples' (persistent!
                       (reduce
                         (fn [acc tuple-b]
@@ -330,19 +330,23 @@
 
 ;;
 
-(def ^:dynamic *lookup-attrs* nil)
-(def ^:dynamic *lookup-source* nil)
+(def ^{:dynamic true
+       :doc "List of symbols in current pattern that might potentiall be resolved to refs"}
+  *lookup-attrs* nil)
+
+(def ^{:dynamic true
+       :doc "Default pattern source. Lookup refs, patterns, rules will be resolved with it"}
+  *implicit-source* nil)
 
 (defn getter-fn [attrs attr]
   (let [idx (attrs attr)]
-    (if (and (not (nil? *lookup-attrs*))
-             (contains? *lookup-attrs* attr))
+    (if (contains? *lookup-attrs* attr)
       (fn [tuple]
         (let [eid (#?(:cljs da/aget :clj get) tuple idx)]
           (cond
             (number? eid)     eid ;; quick path to avoid fn call
-            (sequential? eid) (db/entid *lookup-source* eid)
-            (da/array? eid)   (db/entid *lookup-source* eid)
+            (sequential? eid) (db/entid *implicit-source* eid)
+            (da/array? eid)   (db/entid *implicit-source* eid)
             :else             eid)))
       (fn [tuple]
         (#?(:cljs da/aget :clj get) tuple idx)))))
@@ -651,47 +655,46 @@
 (defn -resolve-clause [context clause]
   (condp looks-like? clause
     [[symbol? '*]] ;; predicate [(pred ?a ?b ?c)]
-      (filter-by-pred context clause)
+    (filter-by-pred context clause)
 
     [[symbol? '*] '_] ;; function [(fn ?a ?b) ?res]
-      (bind-by-fn context clause)
+    (bind-by-fn context clause)
 
-    '[or *] ;; (or ...)
-      (recur context (cons '$ clause))
+    [source? '*] ;; source + anything
+    (let [[source-sym & rest] clause]
+      (binding [*implicit-source* (get (:sources context) source-sym)]
+        (-resolve-clause context rest)))
 
-    '[_ or *] ;; ($ or ...)
-      ;; TODO resolve source-sym!
-      (let [[source-sym _ & branches] clause
-            contexts (map #(resolve-clause context %) branches)
-            rels     (map #(reduce hash-join (:rels %)) contexts)]
-        (assoc (first contexts) :rels [(reduce sum-rel rels)]))
+    ['or '*] ;; (or ...)
+    (let [[_ & branches] clause
+          contexts (map #(resolve-clause context %) branches)
+          rels     (map #(reduce hash-join (:rels %)) contexts)]
+      (assoc (first contexts) :rels [(reduce sum-rel rels)]))
 
-    '[and *] ;; (and ...)
-      (let [[_ & clauses] clause]
-        (reduce resolve-clause context clauses))
+    ['and '*] ;; (and ...)
+    (let [[_ & clauses] clause]
+      (reduce resolve-clause context clauses))
 
-    '[*] ;; pattern
-      (let [[source-sym & pattern] (normalize-pattern-clause clause)
-            source   (get (:sources context) source-sym)
-            pattern  (resolve-pattern-lookup-refs source pattern)
-            relation (lookup-pattern source pattern)
-            lookup-source? (satisfies? db/IDB source)]
-        (binding [*lookup-source* (when lookup-source? source)
-                  *lookup-attrs*  (when lookup-source? (dynamic-lookup-attrs source pattern))]
-          (update context :rels collapse-rels relation)))))
+    ['*] ;; pattern
+    (let [source   *implicit-source*
+          pattern  (resolve-pattern-lookup-refs source clause)
+          relation (lookup-pattern source pattern)]
+      (binding [*lookup-attrs* (if (satisfies? db/IDB source)
+                                 (dynamic-lookup-attrs source pattern)
+                                 *lookup-attrs*)]
+        (update context :rels collapse-rels relation)))))
 
 (defn resolve-clause [context clause]
   (if (rule? context clause)
-    (let [[source rule] (if (source? (first clause))
-                          [(first clause) (next clause)]
-                          ['$ clause])
-          source (get-in context [:sources source])
-          rel    (solve-rule (assoc context :sources {'$ source}) rule)]
-      (update context :rels collapse-rels rel))
+    (if (source? (first clause))
+      (binding [*implicit-source* (get (:sources context) (first clause))]
+        (resolve-clause context (next clause)))
+      (update context :rels collapse-rels (solve-rule context clause)))
     (-resolve-clause context clause)))
 
 (defn -q [context clauses]
-  (reduce resolve-clause context clauses))
+  (binding [*implicit-source* (get (:sources context) '$)]
+    (reduce resolve-clause context clauses)))
 
 (defn -collect
   ([context symbols]

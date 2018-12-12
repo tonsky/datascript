@@ -52,6 +52,22 @@
            (and [?e :name "Oleg"]
                 [2  :age  ?a]))]
       #{1 5 4}
+
+      ;; OR introduces vars
+      [(or (and [?e :name "Ivan"]
+                [1  :age  ?a])
+           (and [?e :name "Oleg"]
+                [2  :age  ?a]))
+       [?e :age ?a]]
+      #{1 5 4}
+
+      ;; OR introduces vars in different order
+      [(or (and [?e :name "Ivan"]
+                [1  :age  ?a])
+           (and [2  :age  ?a]
+                [?e :name "Oleg"]))
+       [?e :age ?a]]
+      #{1 5 4}
 )))
 
 (deftest test-or-join
@@ -78,7 +94,7 @@
         db2 (d/db-with (d/empty-db)
              [ [:db/add 1 :age 10 ]
                [:db/add 2 :age 20] ])]
-    (are [q res] (= (q/q (concat '[:find ?e :in $ $2 :where] (quote q)) db1 db2)
+    (are [q res] (= (d/q (concat '[:find ?e :in $ $2 :where] (quote q)) db1 db2)
                     (into #{} (map vector) res))
       ;; OR inherits default source
       [[?e :name]
@@ -110,10 +126,15 @@
        ($2 or ($ or [?e :name "Ivan"]))]
       #{1})))
 
-(deftest test-insufficient-bindings
-  (let [db @test-db]
-    (is (thrown-with-msg? ExceptionInfo #"Insufficient bindings: #\{\?e} not bound in \(or-join \[\[\?e]] \[\?e :name \"Ivan\"]\)"
-          (q/q '[:find ?e
-                 :where (or-join [[?e]]
-                          [?e :name "Ivan"])]
-               db)))))
+(deftest test-errors
+  (is (thrown-with-msg? ExceptionInfo #"Join variable not declared inside clauses: \[\?a\]"
+        (d/q '[:find ?e
+               :where (or [?e :name _]
+                          [?e :age ?a])]
+             @test-db)))
+
+  (is (thrown-with-msg? ExceptionInfo #"Insufficient bindings: #\{\?e} not bound in \(or-join \[\[\?e]] \[\?e :name \"Ivan\"]\)"
+        (q/q '[:find ?e
+               :where (or-join [[?e]]
+                        [?e :name "Ivan"])]
+             @test-db))))

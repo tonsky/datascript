@@ -148,10 +148,10 @@
 
 
   (testing "Specifying db to rule"
-    (is (= (d/q '[ :find ?n
-                    :in   $sexes $ages %
-                    :where ($sexes male ?n)
-                           ($ages adult ?n) ]
+    (is (= (d/q '[:find ?n
+                  :in   $sexes $ages %
+                  :where ($sexes male ?n)
+                         ($ages adult ?n) ]
                   [["Ivan" :male] ["Darya" :female] ["Oleg" :male] ["Igor" :male]]
                   [["Ivan" 15] ["Oleg" 66] ["Darya" 32]]
                   '[[(male ?x)
