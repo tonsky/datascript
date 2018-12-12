@@ -20,72 +20,92 @@
         {:db/id 6 :name "Ivan" :age 20} ])))
 
 (deftest test-or
-  (let [db @test-db]
-    (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) db)
-                    (into #{} (map vector) res))
+  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
+                  (into #{} (map vector) res))
 
-      ;; intersecting results
-      [(or [?e :name "Oleg"]
-           [?e :age 10])]
-      #{1 3 4 5}
+    ;; intersecting results
+    [(or [?e :name "Oleg"]
+         [?e :age 10])]
+    #{1 3 4 5}
          
-      ;; one branch empty
-      [(or [?e :name "Oleg"]
-           [?e :age 30])]
-      #{3 4}
+    ;; one branch empty
+    [(or [?e :name "Oleg"]
+         [?e :age 30])]
+    #{3 4}
         
-      ;; both empty
-      [(or [?e :name "Petr"]
-           [?e :age 30])]
-      #{}
+    ;; both empty
+    [(or [?e :name "Petr"]
+         [?e :age 30])]
+    #{}
          
-      ;; join with 1 var
-      [[?e :name "Ivan"]
-       (or [?e :name "Oleg"]
-           [?e :age 10])]
-      #{1 5}
+    ;; join with 1 var
+    [[?e :name "Ivan"]
+     (or [?e :name "Oleg"]
+         [?e :age 10])]
+    #{1 5}
       
-      ;; join with 2 vars
-      [[?e :age ?a]
-       (or (and [?e :name "Ivan"]
-                [1  :age  ?a])
-           (and [?e :name "Oleg"]
-                [2  :age  ?a]))]
-      #{1 5 4}
+    ;; join with 2 vars
+    [[?e :age ?a]
+     (or (and [?e :name "Ivan"]
+              [1  :age  ?a])
+         (and [?e :name "Oleg"]
+              [2  :age  ?a]))]
+    #{1 5 4}
 
-      ;; OR introduces vars
-      [(or (and [?e :name "Ivan"]
-                [1  :age  ?a])
-           (and [?e :name "Oleg"]
-                [2  :age  ?a]))
-       [?e :age ?a]]
-      #{1 5 4}
+    ;; OR introduces vars
+    [(or (and [?e :name "Ivan"]
+              [1  :age  ?a])
+         (and [?e :name "Oleg"]
+              [2  :age  ?a]))
+     [?e :age ?a]]
+    #{1 5 4}
 
-      ;; OR introduces vars in different order
-      [(or (and [?e :name "Ivan"]
-                [1  :age  ?a])
-           (and [2  :age  ?a]
-                [?e :name "Oleg"]))
-       [?e :age ?a]]
-      #{1 5 4}
-)))
+    ;; OR introduces vars in different order
+    [(or (and [?e :name "Ivan"]
+              [1  :age  ?a])
+         (and [2  :age  ?a]
+              [?e :name "Oleg"]))
+     [?e :age ?a]]
+    #{1 5 4}))
 
 (deftest test-or-join
-  (let [db @test-db]
-    (are [q res] (= (q/q (concat '[:find ?e :where] (quote q)) db)
-                    (into #{} (map vector) res))
-      [(or-join [?e]
-         [?e :name ?n]
-         (and [?e :age ?a]
-              [?e :name ?n]))]
-      #{1 2 3 4 5 6}
-         
-      [[?e  :name ?a]
-       [?e2 :name ?a]
-       (or-join [?e]
-         (and [?e  :age ?a]
-              [?e2 :age ?a]))]
-      #{1 2 3 4 5 6})))
+  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
+                  (into #{} (map vector) res))
+    [(or-join [?e]
+       [?e :name ?n]
+       (and [?e :age ?a]
+            [?e :name ?n]))]
+    #{1 2 3 4 5 6}
+       
+    [[?e  :name ?a]
+     [?e2 :name ?a]
+     (or-join [?e]
+       (and [?e  :age ?a]
+            [?e2 :age ?a]))]
+    #{1 2 3 4 5 6})
+
+  (is (= #{[:a1 :b1 :c1]
+           [:a2 :b2 :c2]}
+         (d/q '[:find ?a ?b ?c
+                :in $xs $ys
+                :where [$xs ?a ?b ?c] ;; check join by ?a, ignoring ?b, dropping ?c ?d
+                       (or-join [?a]
+                         [$ys ?a ?b ?d])]
+           [[:a1 :b1 :c1]
+            [:a2 :b2 :c2]
+            [:a3 :b3 :c3]]
+           [[:a1 :b1  :d1] ;; same ?a, same ?b
+            [:a2 :b2* :d2] ;; same ?a, different ?b. Should still be joined
+            [:a4 :b4 :c4]]))) ;; different ?a, should be dropped
+
+  (is (= #{[:a1 :c1] [:a2 :c2]}
+        (d/q '[:find ?a ?c
+               :in $xs $ys
+               :where (or-join [?a ?c]
+                        [$xs ?a ?b ?c] ; rel with hole (?b gets dropped, leaving {?a 0 ?c 2} and 3-element tuples)
+                        [$ys ?a ?c])]
+             [[:a1 :b1 :c1]]
+             [[:a2 :c2]]))))
 
 (deftest test-default-source
   (let [db1 (d/db-with (d/empty-db)
@@ -126,6 +146,7 @@
        ($2 or ($ or [?e :name "Ivan"]))]
       #{1})))
 
+
 (deftest test-errors
   (is (thrown-with-msg? ExceptionInfo #"Join variable not declared inside clauses: \[\?a\]"
         (d/q '[:find ?e
@@ -134,7 +155,7 @@
              @test-db)))
 
   (is (thrown-with-msg? ExceptionInfo #"Insufficient bindings: #\{\?e} not bound in \(or-join \[\[\?e]] \[\?e :name \"Ivan\"]\)"
-        (q/q '[:find ?e
+        (d/q '[:find ?e
                :where (or-join [[?e]]
                         [?e :name "Ivan"])]
              @test-db))))

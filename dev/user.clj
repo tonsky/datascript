@@ -65,6 +65,10 @@
 
 ;; Fix clojure.test exception printing to only print user stack elements & demunge names
 
+(defn file-name [e]
+  (when-some [file (.getFileName e)]
+    (->> (str/split file #"/") (last))))
+
 (defn print-trace-element
   "Prints a Clojure-oriented view of one element in a stack trace."
   {:added "1.1"}
@@ -79,7 +83,7 @@
         (if (and ns fun (#{"invoke" "invokeStatic" "doInvoke"} method))
 	        (printf "%s/%s" (clojure.lang.Compiler/demunge ns) (clojure.lang.Compiler/demunge fun))
 	        (printf "%s.%s" class method)))
-      (printf " (%s:%d)\n" (or (.getFileName e) "") (.getLineNumber e)))))
+      (printf " (%s:%d)\n" (or (file-name e) "") (.getLineNumber e)))))
 
 (defn print-throwable
   "Prints the class and message of a Throwable."
