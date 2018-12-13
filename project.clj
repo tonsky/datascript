@@ -12,7 +12,7 @@
   ]
   
   :plugins [
-    [lein-cljsbuild "1.1.5"]
+    [lein-cljsbuild "1.1.7"]
   ]
   
   :global-vars {

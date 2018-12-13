@@ -4,7 +4,6 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
     [datascript.db :as db]
-    [datascript.query-v3 :as q]
     [datascript.test.core :as tdc])
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
