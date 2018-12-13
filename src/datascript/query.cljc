@@ -166,7 +166,7 @@
   [db e a else-val]
   (when (nil? else-val)
     (raise "get-else: nil default value is not supported" {:error :query/where}))
-  (if-let [datom (first (db/-search db [e a]))]
+  (if-some [datom (first (db/-search db [e a]))]
     (:v datom)
     else-val))
 
@@ -174,7 +174,7 @@
   [db e & as]
   (reduce
    (fn [_ a]
-     (when-let [datom (first (db/-search db [e a]))]
+     (when-some [datom (first (db/-search db [e a]))]
        (reduced [(:a datom) (:v datom)])))
    nil
    as))
@@ -369,7 +369,7 @@
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples
          hash-table (transient {})]
-    (if-let [tuple (first tuples)]
+    (if-some [tuple (first tuples)]
       (let [key (key-fn tuple)]
         (recur (next tuples)
                (assoc! hash-table key (conj (get hash-table key '()) tuple))))
@@ -393,7 +393,7 @@
         new-tuples    (->>
                         (reduce (fn [acc tuple2]
                                   (let [key (key-fn2 tuple2)]
-                                    (if-let [tuples1 (get hash key)]
+                                    (if-some [tuples1 (get hash key)]
                                       (reduce (fn [acc tuple1]
                                                 (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
                                               acc tuples1)
@@ -458,7 +458,7 @@
   (loop [rels    rels
          new-rel new-rel
          acc     []]
-    (if-let [rel (first rels)]
+    (if-some [rel (first rels)]
       (if (not-empty (intersect-keys (:attrs new-rel) (:attrs rel)))
         (recur (next rels) (hash-join rel new-rel) acc)
         (recur (next rels) new-rel (conj acc rel)))
@@ -468,8 +468,8 @@
   (some #(when (contains? (:attrs %) sym) %) (:rels context)))
 
 (defn- context-resolve-val [context sym]
-  (when-let [rel (rel-with-attr context sym)]
-    (when-let [tuple (first (:tuples rel))]
+  (when-some [rel (rel-with-attr context sym)]
+    (when-some [tuple (first (:tuples rel))]
       (#?(:cljs da/aget :clj get) tuple ((:attrs rel) sym)))))
 
 (defn- rel-contains-attrs? [rel attrs]
@@ -489,14 +489,14 @@
     (dotimes [i len]
       (let [arg (nth args i)]
         (if (symbol? arg) 
-          (if-let [source (get sources arg)]
+          (if-some [source (get sources arg)]
             (da/aset static-args i source)
             (da/aset tuples-args i (get attrs arg)))
           (da/aset static-args i arg))))
     (fn [tuple]
       ;; TODO raise if not all args are bound
       (dotimes [i len]
-        (when-let [tuple-idx (aget tuples-args i)]
+        (when-some [tuple-idx (aget tuples-args i)]
           (let [v (#?(:cljs da/aget :clj get) tuple tuple-idx)]
             (da/aset static-args i v))))
       (apply f static-args))))
@@ -504,7 +504,7 @@
 (defn- resolve-sym [sym]
   #?(:cljs nil
      :clj (when (namespace sym)
-            (when-let [v (resolve sym)] @v))))
+            (when-some [v (resolve sym)] @v))))
 
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
@@ -611,7 +611,7 @@
                         :used-args      {}
                         :pending-guards {}})
            rel   (Relation. final-attrs-map [])]
-      (if-let [frame (first stack)]
+      (if-some [frame (first stack)]
         (let [[clauses [rule-clause & next-clauses]] (split-with #(not (rule? context %)) (:clauses frame))]
           (if (nil? rule-clause)
 
@@ -786,7 +786,7 @@
     (let [rels (:rels context)]
       (-collect [(da/make-array (count symbols))] rels symbols)))
   ([acc rels symbols]
-    (if-let [rel (first rels)]
+    (if-some [rel (first rels)]
       (let [keep-attrs (select-keys (:attrs rel) symbols)]
         (if (empty? keep-attrs)
           (recur acc (next rels) symbols)
@@ -797,7 +797,7 @@
                          t2 (:tuples rel)]
                      (let [res (aclone t1)]
                        (dotimes [i len]
-                         (when-let [idx (aget copy-map i)]
+                         (when-some [idx (aget copy-map i)]
                            (aset res i (#?(:cljs da/aget :clj get) t2 idx))))
                        res))
                    (next rels)
@@ -882,7 +882,7 @@
 (def ^:private query-cache (volatile! (datascript.lru/lru lru-cache-size)))
 
 (defn memoized-parse-query [q]
-  (if-let [cached (get @query-cache q nil)]
+  (if-some [cached (get @query-cache q nil)]
     cached
     (let [qp (dp/parse-query q)]
       (vswap! query-cache assoc q qp)

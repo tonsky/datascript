@@ -11,9 +11,9 @@
    (def Throwable js/Error))
 
 (deftest test-components
-  (is (thrown-with-msg? Throwable #"Bad attribute specification for :profile"
+  (is (thrown-with-msg? Throwable (tdc/re-quote "Bad attribute specification for :profile")
         (d/empty-db {:profile {:db/isComponent true}})))
-  (is (thrown-with-msg? Throwable #"Bad attribute specification for [{]:profile [{]:db/isComponent \"aaa\"}}"
+  (is (thrown-with-msg? Throwable (tdc/re-quote "Bad attribute specification for {:profile {:db/isComponent \"aaa\"}}")
         (d/empty-db {:profile {:db/isComponent "aaa" :db/valueType :db.type/ref}})))
   
   (let [db (d/db-with

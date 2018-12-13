@@ -4,7 +4,6 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
     [datascript.db :as db]
-    [datascript.query-v3 :as q]
     [datascript.test.core :as tdc])
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
@@ -123,7 +122,7 @@
                           { :db/id 2, :name  "Petr", :age   37 }
                           { :db/id 3, :name  "Ivan", :age   37 }]))]
     (testing "Relation binding"
-      (is (= (q/q '[:find  ?e ?email
+      (is (= (d/q '[:find  ?e ?email
                     :in    $ [[?n ?email]]
                     :where [?e :name ?n]]
                   db
@@ -134,7 +133,7 @@
                [3 "ivan@mail.ru"]})))
 
     (testing "Tuple binding"
-      (is (= (q/q '[:find  ?e
+      (is (= (d/q '[:find  ?e
                     :in    $ [?name ?age]
                     :where [?e :name ?name]
                            [?e :age ?age]]
@@ -142,21 +141,21 @@
              #{[3]})))
 
     (testing "Collection binding"
-      (is (= (q/q '[:find  ?attr ?value
+      (is (= (d/q '[:find  ?attr ?value
                     :in    $ ?e [?attr ...]
                     :where [?e ?attr ?value]]
                   db 1 [:name :age])
              #{[:name "Ivan"] [:age 15]})))
 
     (testing "Empty coll handling"
-      (is (= (q/q '[:find ?id
+      (is (= (d/q '[:find ?id
                     :in $ [?id ...]
                     :where [?id :age _]]
                [[1 :name "Ivan"]
                 [2 :name "Petr"]]
                [])
              #{}))
-      (is (= (q/q '[:find ?id
+      (is (= (d/q '[:find ?id
                     :in $ [[?id]]
                     :where [?id :age _]]
                [[1 :name "Ivan"]
@@ -165,27 +164,27 @@
              #{})))
     
     (testing "Placeholders"
-      (is (= (q/q '[:find ?x ?z
+      (is (= (d/q '[:find ?x ?z
                     :in [?x _ ?z]]
                   [:x :y :z])
              #{[:x :z]}))
-      (is (= (q/q '[:find ?x ?z
+      (is (= (d/q '[:find ?x ?z
                     :in [[?x _ ?z]]]
                   [[:x :y :z] [:a :b :c]])
              #{[:x :z] [:a :c]})))
     
     (testing "Error reporting"
       (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to tuple \[\?a \?b\]"
-            (q/q '[:find ?a ?b :in [?a ?b]] :a)))
+            (d/q '[:find ?a ?b :in [?a ?b]] :a)))
       (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to collection \[\?a \.\.\.\]"
-            (q/q '[:find ?a :in [?a ...]] :a)))
+            (d/q '[:find ?a :in [?a ...]] :a)))
       (is (thrown-with-msg? ExceptionInfo #"Not enough elements in a collection \[:a\] to bind tuple \[\?a \?b\]"
-            (q/q '[:find ?a ?b :in [?a ?b]] [:a]))))
+            (d/q '[:find ?a ?b :in [?a ?b]] [:a]))))
 
 ))
         
 (deftest test-nested-bindings
-  (is (= (q/q '[:find  ?k ?v
+  (is (= (d/q '[:find  ?k ?v
                 :in    [[?k ?v] ...]
                 :where [(> ?v 1)]]
               {:a 1, :b 2, :c 3})

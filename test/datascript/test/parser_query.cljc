@@ -12,37 +12,37 @@
 
 
 (deftest validation
-  (are [q msg] (thrown-with-msg? ExceptionInfo msg (dp/parse-query q))
+  (are [q msg] (thrown-with-msg? ExceptionInfo (tdc/re-quote msg) (dp/parse-query q))
     '[:find ?e :where [?x]]
-    #"Query for unknown vars: \[\?e\]"
+    "Query for unknown vars: [?e]"
 
     '[:find ?e :with ?f :where [?e]]
-    #"Query for unknown vars: \[\?f\]"
+    "Query for unknown vars: [?f]"
        
     '[:find ?e ?x ?t :in ?x :where [?e]]
-    #"Query for unknown vars: \[\?t\]"
+    "Query for unknown vars: [?t]"
        
     '[:find ?x ?e :with ?y ?e :where [?x ?e ?y]]
-    #":in and :with should not use same variables: \[\?e\]"
+    ":in and :with should not use same variables: [?e]"
        
     '[:find ?e :in $ $ ?x :where [?e]]
-    #"Vars used in :in should be distinct"
+    "Vars used in :in should be distinct"
        
     '[:find ?e :in ?x $ ?x :where [?e]]
-    #"Vars used in :in should be distinct"
+    "Vars used in :in should be distinct"
 
     '[:find ?e :in $ % ?x % :where [?e]]
-    #"Vars used in :in should be distinct"
+    "Vars used in :in should be distinct"
        
     '[:find ?n :with ?e ?f ?e :where [?e ?f ?n]]
-    #"Vars used in :with should be distinct"
+    "Vars used in :with should be distinct"
        
     '[:find ?x :where [$1 ?x]]
-    #"Where uses unknown source vars: \[\$1\]"
+    "Where uses unknown source vars: [$1]"
        
     '[:find ?x :in $1 :where [$2 ?x]]
-    #"Where uses unknown source vars: \[\$2\]"
+    "Where uses unknown source vars: [$2]"
        
     '[:find ?e :where (rule ?e)]
-    #"Missing rules var '%' in :in"
+    "Missing rules var '%' in :in"
     ))

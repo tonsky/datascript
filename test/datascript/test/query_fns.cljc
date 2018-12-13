@@ -4,14 +4,13 @@
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
     [datascript.db :as db]
-    [datascript.query-v3 :as q]
     [datascript.test.core :as tdc])
 #?(:clj
    (:import [clojure.lang ExceptionInfo])))
 
 (deftest test-query-fns
   (testing "predicate without free variables"
-    (is (= (q/q '[:find ?x
+    (is (= (d/q '[:find ?x
                   :in [?x ...]
                   :where [(> 2 1)]] [:a :b :c])
            #{[:a] [:b] [:c]})))
@@ -46,21 +45,21 @@
                [3 :age 37]})))
 
     (testing "missing?"
-      (is (= (q/q '[:find ?e ?age
+      (is (= (d/q '[:find ?e ?age
                     :in $
                     :where [?e :age ?age]
                            [(missing? $ ?e :height)]] db)
              #{[1 15] [3 37]})))
 
     (testing "missing? back-ref"
-      (is (= (q/q '[:find ?e
+      (is (= (d/q '[:find ?e
                     :in $
                     :where [?e :age ?age]
                     [(missing? $ ?e :_parent)]] db)
              #{[3]})))
 
     (testing "Built-ins"
-      (is (= (q/q '[:find  ?e1 ?e2
+      (is (= (d/q '[:find  ?e1 ?e2
                     :where [?e1 :age ?a1]
                            [?e2 :age ?a2]
                            [(< ?a1 18 ?a2)]] db)
@@ -86,7 +85,7 @@
 
 
     (testing "Passing predicate as source"
-      (is (= (q/q '[:find  ?e
+      (is (= (d/q '[:find  ?e
                     :in    $ ?adult
                     :where [?e :age ?a]
                            [(?adult ?a)]]
@@ -208,7 +207,7 @@
                   {:db/id 3 :name "Oleg" :age 10}
                   {:db/id 4 :name "Oleg" :age 20}]
         db (d/db-with (d/empty-db) entities)]
-    (are [q res] (= (q/q (quote q) db) res)
+    (are [q res] (= (d/q (quote q) db) res)
       ;; plain predicate
       [:find  ?e ?a
        :where [?e :age ?a]
@@ -251,7 +250,7 @@
       #{})
     (let [pred (fn [db e a]
                  (= a (:age (d/entity db e))))]
-      (is (= (q/q '[:find ?e
+      (is (= (d/q '[:find ?e
                     :in $ ?pred
                     :where [?e :age ?a]
                            [(?pred $ ?e 10)]]

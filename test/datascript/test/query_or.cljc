@@ -147,13 +147,13 @@
 
 
 (deftest test-errors
-  (is (thrown-with-msg? ExceptionInfo #"Join variable not declared inside clauses: \[\?a\]"
+  (is (thrown-with-msg? ExceptionInfo (tdc/re-quote "Join variable not declared inside clauses: [?a]")
         (d/q '[:find ?e
                :where (or [?e :name _]
                           [?e :age ?a])]
              @test-db)))
 
-  (is (thrown-with-msg? ExceptionInfo #"Insufficient bindings: #\{\?e} not bound in \(or-join \[\[\?e]] \[\?e :name \"Ivan\"]\)"
+  (is (thrown-with-msg? ExceptionInfo (tdc/re-quote "Insufficient bindings: #{?e} not bound in (or-join [[?e]] [?e :name \"Ivan\"])")
         (d/q '[:find ?e
                :where (or-join [[?e]]
                         [?e :name "Ivan"])]
