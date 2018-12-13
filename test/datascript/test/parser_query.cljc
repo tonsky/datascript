@@ -12,7 +12,7 @@
 
 
 (deftest validation
-  (are [q msg] (thrown-with-msg? ExceptionInfo (tdc/re-quote msg) (dp/parse-query q))
+  (are [q msg] (thrown-msg? msg (dp/parse-query q))
     '[:find ?e :where [?x]]
     "Query for unknown vars: [?e]"
 

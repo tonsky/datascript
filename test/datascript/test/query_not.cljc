@@ -181,7 +181,7 @@
 
 
 (deftest test-insufficient-bindings
-  (are [q msg] (thrown-with-msg? ExceptionInfo (tdc/re-quote msg)
+  (are [q msg] (thrown-msg? msg
                  (d/q (concat '[:find ?e :where] (quote q)) @test-db))
     [(not [?e :name "Ivan"])
      [?e :name]]

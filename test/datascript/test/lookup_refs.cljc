@@ -22,10 +22,10 @@
       [:name "Sergey"] nil
       [:name nil]      nil)
     
-    (are [eid msg] (thrown-with-msg? ExceptionInfo (tdc/re-quote msg) (d/entity db eid))
-      [:name]     "Lookup ref should contain 2 elements"
-      [:name 1 2] "Lookup ref should contain 2 elements"
-      [:age 10]   "Lookup ref attribute should be marked as :db/unique")))
+    (are [eid msg] (thrown-msg? msg (d/entity db eid))
+      [:name]     "Lookup ref should contain 2 elements: [:name]"
+      [:name 1 2] "Lookup ref should contain 2 elements: [:name 1 2]"
+      [:age 10]   "Lookup ref attribute should be marked as :db/unique: [:age 10]")))
 
 (deftest test-lookup-refs-transact
   (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
@@ -85,7 +85,7 @@
       [[:db.fn/retractEntity [:name "Ivan"]]]
       {:db/id 1})
     
-    (are [tx msg] (thrown-with-msg? ExceptionInfo (tdc/re-quote msg) (d/db-with db tx))
+    (are [tx msg] (thrown-msg? msg (d/db-with db tx))
       [{:db/id [:name "Oleg"], :age 10}]
       "Nothing found for entity id [:name \"Oleg\"]"
          
@@ -265,7 +265,7 @@
                   db)
              #{[1]}))
       
-      (is (thrown-with-msg? ExceptionInfo #"Nothing found"
+      (is (thrown-msg? "Nothing found for entity id [:name \"Valery\"]"
             (d/q '[:find ?e
                    :where [[:name "Valery"] :friend ?e]]
                   db)))
