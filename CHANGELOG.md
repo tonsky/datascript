@@ -1,3 +1,7 @@
+# 0.17.1
+
+- `or`, `or-join`, `not` and `not-jon` support in queries (#238, #50)
+
 # 0.17.0
 
 - Implement `clojure.data/diff` on `datascript/DB` (#281)
