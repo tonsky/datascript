@@ -29,6 +29,7 @@
     datascript.test.query-find-specs
     datascript.test.query-fns
     datascript.test.query-not
+    datascript.test.query-or
     datascript.test.query-pull
     datascript.test.query-rules
     datascript.test.query-v3

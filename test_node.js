@@ -45,8 +45,12 @@ else if ("--btset" === process.argv[2])
   var res = datascript.test.test_btset();
 else if ("--js" === process.argv[2])
   var res = tests_js.test_all();
-else
+else {
+  var t0 = global.performance.now();
   var res = datascript.test.test_most();
+  var t1 = global.performance.now();
+  console.log("Time: " + (t1-t0) + "msec");
+}
 
 if (res.fail + res.error > 0)
   process.exit(1);

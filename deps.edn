@@ -7,14 +7,19 @@
   
     :1.10 {
       :override-deps {
-        org.clojure/clojure {:mvn/version "1.10.0-RC4"}
+        org.clojure/clojure {:mvn/version "1.10.0"}
       }
     }
-
-    :test {
-      :extra-paths ["test" "dev" "bench/src"]
+    :dev {
+      :extra-paths ["dev"]
       :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.9.946"}
+        org.clojure/tools.namespace {:mvn/version "0.2.11"}
+      }
+    }
+    :test {
+      :extra-paths ["test"]
+      :extra-deps {
+        org.clojure/clojurescript {:mvn/version "1.10.439"}
       }
     }
 

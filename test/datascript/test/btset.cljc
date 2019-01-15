@@ -47,8 +47,8 @@
   (let [iters 5]
     (dotimes [i iters]
       (let [xs        (vec (repeatedly (+ 1 (rand-int 10000)) #(rand-int 10000)))
-            xs-sorted (distinct (sort xs))
-            rm        (repeatedly (rand-int 50000) #(rand-nth xs))
+            xs-sorted (vec (distinct (sort xs)))
+            rm        (vec (repeatedly (rand-int 50000) #(rand-nth xs)))
             full-rm   (shuffle (concat xs rm))
             xs-rm     (reduce disj (into (sorted-set) xs) rm)]
         #_(println "Checking btset" (str (inc i)  "/" iters ":")
@@ -67,12 +67,11 @@
               (is (= (count set0) (count xs-sorted))))
             (testing "doseq"
               (is (= (into-via-doseq [] set0) xs-sorted)))
-            (testing rm
-              (testing "disj"
-                (is (= (vec set1) (vec xs-rm)))
-                (is (= (count set1) (count xs-rm)))
-                (is (= set1 xs-rm))
-                (is (= set2 #{})))))
+            (testing "disj"
+              (is (= (vec set1) (vec xs-rm)))
+              (is (= (count set1) (count xs-rm)))
+              (is (= set1 xs-rm))
+              (is (= set2 #{}))))
           ))))
     #_(println "[ OK ] btset checked"))
 
