@@ -231,7 +231,7 @@
     'median   median
     'variance variance
     'stddev   stddev
-    'distinct (comp vec distinct)
+    'distinct set
     'min      (fn
                 ([coll] (reduce (fn [acc x]
                                   (if (neg? (compare x acc))
