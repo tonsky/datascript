@@ -10,12 +10,14 @@
         org.clojure/clojure {:mvn/version "1.10.0"}
       }
     }
+
     :dev {
       :extra-paths ["dev"]
       :extra-deps {
         org.clojure/tools.namespace {:mvn/version "0.2.11"}
       }
     }
+
     :test {
       :extra-paths ["test"]
       :extra-deps {
@@ -25,8 +27,8 @@
 
     :repl {
       :extra-deps {
-        cider/cider-nrepl           {:mvn/version "0.18.0"}
-        nrepl/nrepl                 {:mvn/version "0.5.1"}
+        cider/cider-nrepl           {:mvn/version "0.19.0"}
+        nrepl/nrepl                 {:mvn/version "0.5.3"}
         org.clojure/tools.namespace {:mvn/version "0.2.11"}
       }
       :main-opts [
