@@ -4,6 +4,7 @@
      clojure.walk
      clojure.data
      clojure.set
+    #?(:clj [clojure.pprint :as pp])
     [datascript.arrays :as da]
     [datascript.btset :as btset])
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond-let]]))
@@ -702,11 +703,49 @@
          (apply pr (map (fn [^Datom d] [(.-e d) (.-a d) (.-v d) (.-tx d)]) (-datoms db :eavt []))))
        (.write w "]}"))
 
-     (defmethod print-method DB [db, ^java.io.Writer w]
-       (pr-db db w))
+     (defmethod print-method DB [db w] (pr-db db w))
+     (defmethod print-method FilteredDB [db w] (pr-db db w))
 
-     (defmethod print-method FilteredDB [db, ^java.io.Writer w]
-       (pr-db db w))))
+     (defmethod pp/simple-dispatch Datom [^Datom d]
+       (pp/pprint-logical-block :prefix "#datascript/Datom [" :suffix "]"
+         (pp/write-out (.-e d))
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/write-out (.-a d))
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/write-out (.-v d))
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/write-out (.-tx d))))
+
+     (defn- pp-db [db ^java.io.Writer w]
+       (pp/pprint-logical-block :prefix "#datascript/DB {" :suffix "}"
+         (pp/pprint-logical-block
+           (pp/write-out :schema)
+           (.write w " ")
+           (pp/pprint-newline :linear)
+           (pp/write-out (:schema db)))
+         (.write w ", ")
+         (pp/pprint-newline :linear)
+
+         (pp/pprint-logical-block
+           (pp/write-out :datoms)
+           (.write w " ")
+           (pp/pprint-newline :linear)
+           (pp/pprint-logical-block :prefix "[" :suffix "]"
+             (pp/print-length-loop [aseq (seq db)]
+               (when aseq
+                 (let [^Datom d (first aseq)]
+                   (pp/write-out [(.-e d) (.-a d) (.-v d) (.-tx d)])
+                   (when (next aseq)
+                     (.write w " ")
+                     (pp/pprint-newline :linear)
+                     (recur (next aseq))))))))))
+
+     (defmethod pp/simple-dispatch DB [db] (pp-db db *out*))
+     (defmethod pp/simple-dispatch FilteredDB [db] (pp-db db *out*))
+))
 
 (defn db-from-reader [{:keys [schema datoms]}]
   (init-db (map (fn [[e a v tx]] (Datom. e a v tx true)) datoms) schema))
