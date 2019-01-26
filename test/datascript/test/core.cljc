@@ -4,6 +4,7 @@
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [clojure.string :as str]
+    #?(:clj [kaocha.stacktrace])
     [datascript.core :as d]
     [datascript.impl.entity :as de]
     [datascript.db :as db #?@(:cljs [:refer-macros [defrecord-updatable]]
@@ -68,6 +69,11 @@
 (defn no-namespace-maps [t]
   (binding [*print-namespace-maps* false]
     (t))) 
+
+;; Filter Kaocha frames from exceptions
+
+#?(:clj
+   (alter-var-root #'kaocha.stacktrace/*stacktrace-filters* (constantly ["java." "clojure." "kaocha." "orchestra."])))
 
 ;; Core tests
 
