@@ -19,3 +19,4 @@ web/target-cljs
 .vscode
 .cpcache
 dev/playground.clj
+.DS_Store

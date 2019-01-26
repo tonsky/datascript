@@ -1078,15 +1078,17 @@
 
 (declare transact-tx-data)
 
-(defn retry-with-tempid [report es tempid upserted-eid]
-  (if (contains? (:tempids report) tempid)
+(defn- retry-with-tempid [initial-report report es tempid upserted-eid]
+  (if (contains? (:tempids initial-report) tempid)
     (raise "Conflicting upsert: " tempid " resolves"
-           " both to " upserted-eid " and " (get (:tempids report) tempid)
+           " both to " upserted-eid " and " (get-in initial-report [:tempids tempid])
       { :error :transact/upsert })
     ;; try to re-run from the beginning
-    ;; but remembering that `old-eid` will resolve to `upserted-eid`
-    (transact-tx-data (assoc-in report [:tempids tempid] upserted-eid)
-                      es)))
+    ;; but remembering that `tempid` will resolve to `upserted-eid`
+    (let [tempids' (-> (:tempids report)
+                     (assoc tempid upserted-eid))
+          report'  (assoc initial-report :tempids tempids')]
+      (transact-tx-data report' es))))
 
 (def builtin-fn?
   #{:db.fn/call
@@ -1106,7 +1108,8 @@
   (loop [report initial-report
          es     initial-es]
     (let [[entity & entities] es
-          db (:db-after report)]
+          db (:db-after report)
+          {:keys [tempids]} report]
       (cond
         (empty? es)
           (-> report
@@ -1134,9 +1137,9 @@
               ;; upserted => explode | error
               [upserted-eid (upsert-eid db entity)]
               (if (and (tempid? old-eid)
-                       (contains? (:tempids report) old-eid)
-                       (not= upserted-eid (get (:tempids report) old-eid)))
-                (retry-with-tempid initial-report initial-es old-eid upserted-eid)
+                       (contains? tempids old-eid)
+                       (not= upserted-eid (get tempids old-eid)))
+                (retry-with-tempid initial-report report initial-es old-eid upserted-eid)
                 (recur (allocate-eid report old-eid upserted-eid)
                        (concat (explode db (assoc entity :db/id upserted-eid)) entities)))
              
@@ -1146,7 +1149,7 @@
                   (string? old-eid))
               (let [new-eid (cond
                               (nil? old-eid)    (next-eid db)
-                              (tempid? old-eid) (or (get (:tempids report) old-eid)
+                              (tempid? old-eid) (or (get tempids old-eid)
                                                     (next-eid db))
                               :else             old-eid)
                     new-entity (assoc entity :db/id new-eid)]                
@@ -1210,14 +1213,14 @@
                            :op    entity })
                   (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
                                         (:e (first (-datoms db :avet [a v]))))
-                        allocated-eid (get-in report [:tempids e])]
+                        allocated-eid (get tempids e)]
                     (if (and upserted-eid allocated-eid (not= upserted-eid allocated-eid))
-                      (retry-with-tempid initial-report initial-es e upserted-eid)
+                      (retry-with-tempid initial-report report initial-es e upserted-eid)
                       (let [eid (or upserted-eid allocated-eid (next-eid db))]
                         (recur (allocate-eid report e eid) (cons [op eid a v] entities))))))
 
               (and (ref? db a) (tempid? v))
-                (if-let [vid (get-in report [:tempids v])]
+                (if-let [vid (get tempids v)]
                   (recur report (cons [op e a vid] entities))
                   (recur (allocate-eid report v (next-eid db)) es))
 

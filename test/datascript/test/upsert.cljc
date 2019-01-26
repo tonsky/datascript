@@ -152,6 +152,23 @@
           (d/with db [{:db/id -1 :name "Ivan" :age 35}
                       {:db/id -1 :name "Oleg" :age 36}])))))
 
+;; https://github.com/tonsky/datascript/issues/285
+(deftest test-retries-order
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+               (d/db-with [[:db/add -1 :age 42]
+                           [:db/add -2 :likes "Pizza"]
+                           [:db/add -1 :name "Bob"]
+                           [:db/add -2 :name "Bob"]]))]
+    (is (= {:db/id 1, :name "Bob", :likes "Pizza", :age 42}
+           (tdc/entity-map db 1))))
+
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+               (d/db-with [[:db/add -1 :age 42]
+                           [:db/add -2 :likes "Pizza"]
+                           [:db/add -2 :name "Bob"]
+                           [:db/add -1 :name "Bob"]]))]
+    (is (= {:db/id 2, :name "Bob", :likes "Pizza", :age 42}
+           (tdc/entity-map db 2)))))
 
 (deftest test-vector-upsert
   (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})

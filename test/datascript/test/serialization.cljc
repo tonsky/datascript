@@ -9,12 +9,13 @@
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
 
+(t/use-fixtures :once tdc/no-namespace-maps)
 
 (def readers
   { #?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
         :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
-               "clojure.core/read-string" read-string]) })
-
+               "clojure.core/read-string" #(binding [*data-readers* (merge *data-readers* d/data-readers)]
+                                             (read-string %))]) })
 
 (deftest test-pr-read
   (doseq [[r read-fn] readers]

@@ -1,0 +1,5 @@
+#kaocha/v1
+{:tests [{:id          :most
+          :ns-patterns ["datascript\\.test\\.(?!btset).*"]}
+         {:id          :btset
+          :ns-patterns ["datascript\\.test\\.btset"]}]}

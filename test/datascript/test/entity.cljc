@@ -9,7 +9,7 @@
     #?(:clj
       (:import [clojure.lang ExceptionInfo])))
 
-
+(t/use-fixtures :once tdc/no-namespace-maps)
 
 (deftest test-entity
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})

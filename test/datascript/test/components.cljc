@@ -7,6 +7,8 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
+(t/use-fixtures :once tdc/no-namespace-maps)
+
 #?(:cljs
    (def Throwable js/Error))
 

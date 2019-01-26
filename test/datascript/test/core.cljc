@@ -65,6 +65,10 @@
 (defn all-datoms [db]
   (into #{} (map (juxt :e :a :v)) (d/datoms db :eavt)))
 
+(defn no-namespace-maps [t]
+  (binding [*print-namespace-maps* false]
+    (t))) 
+
 ;; Core tests
 
 (deftest test-protocols

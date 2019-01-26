@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed cases when upsert resolves to tempid (#285)
+
 # 0.17.1
 
 - `or`, `or-join`, `not` and `not-jon` support in queries (#238, #50)
