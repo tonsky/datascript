@@ -6,9 +6,6 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
-#?(:cljs
-   (def Throwable js/Error))
-
 (deftest test-with
   (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
                 (d/db-with [[:db/add 1 :name "Ivan"]])
@@ -160,23 +157,28 @@
     (is (= (:weight (d/entity @conn 1)) 300))
     (d/transact! conn [[:db/cas 1 :weight 300 400]])
     (is (= (:weight (d/entity @conn 1)) 400))
-    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :weight 400\], expected 200"
-                          (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
+    (is (thrown-msg? ":db.fn/cas failed on datom [1 :weight 400], expected 200"
+          (d/transact! conn [[:db.fn/cas 1 :weight 200 210]]))))
   
   (let [conn (d/create-conn {:label { :db/cardinality :db.cardinality/many }})]
     (d/transact! conn [[:db/add 1 :label :x]])
     (d/transact! conn [[:db/add 1 :label :y]])
     (d/transact! conn [[:db.fn/cas 1 :label :y :z]])
     (is (= (:label (d/entity @conn 1)) #{:x :y :z}))
-    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :label \(:x :y :z\)\], expected :s"
-                          (d/transact! conn [[:db.fn/cas 1 :label :s :t]]))))
+    (is (thrown-msg? ":db.fn/cas failed on datom [1 :label (:x :y :z)], expected :s"
+          (d/transact! conn [[:db.fn/cas 1 :label :s :t]]))))
 
   (let [conn (d/create-conn)]
     (d/transact! conn [[:db/add 1 :name "Ivan"]])
     (d/transact! conn [[:db.fn/cas 1 :age nil 42]])
     (is (= (:age (d/entity @conn 1)) 42))
-    (is (thrown-with-msg? Throwable #":db.fn/cas failed on datom \[1 :age 42\], expected nil"
-                          (d/transact! conn [[:db.fn/cas 1 :age nil 4711]])))))
+    (is (thrown-msg? ":db.fn/cas failed on datom [1 :age 42], expected nil"
+          (d/transact! conn [[:db.fn/cas 1 :age nil 4711]]))))
+
+  (let [conn (d/create-conn)]
+    (is (thrown-msg? "Can't use tempid in '[:db.fn/cas -1 :attr nil :val]'. Tempids are allowed in :db/add only"
+          (d/transact! conn [[:db/add    -1 :name "Ivan"]
+                             [:db.fn/cas -1 :attr nil :val]])))))
 
 (deftest test-db-fn
   (let [conn (d/create-conn {:aka { :db/cardinality :db.cardinality/many }})
@@ -199,8 +201,8 @@
     (is (= (d/q '[:find ?v
                   :where [?e :aka ?v]] @conn)
            #{["Devil"] ["Tupen"]}))
-    (is (thrown-with-msg? Throwable #"No entity with name: Bob"
-                          (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
+    (is (thrown-msg? "No entity with name: Bob"
+          (d/transact! conn [[:db.fn/call inc-age "Bob"]])))
     (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
           e (d/entity db-after 1)]
       (is (= (:age e) 32))
@@ -220,12 +222,12 @@
                         :db/ident :Petr}
                        {:db/ident :inc-age
                         :db/fn    inc-age}])
-    (is (thrown-with-msg? Throwable #"Can’t find entity for transaction fn :unknown-fn"
-                          (d/transact! conn [[:unknown-fn]])))
-    (is (thrown-with-msg? Throwable #"Entity :Petr expected to have :db/fn attribute with fn\? value"
-                          (d/transact! conn [[:Petr]])))
-    (is (thrown-with-msg? Throwable #"No entity with name: Bob"
-                          (d/transact! conn [[:inc-age "Bob"]])))
+    (is (thrown-msg? "Can’t find entity for transaction fn :unknown-fn"
+          (d/transact! conn [[:unknown-fn]])))
+    (is (thrown-msg? "Entity :Petr expected to have :db/fn attribute with fn? value"
+          (d/transact! conn [[:Petr]])))
+    (is (thrown-msg? "No entity with name: Bob"
+          (d/transact! conn [[:inc-age "Bob"]])))
     (d/transact! conn [[:inc-age "Petr"]])
     (let [e (d/entity @conn 1)]
       (is (= (:age e) 32))

@@ -1,6 +1,7 @@
 # WIP
 
 - Fixed cases when upsert resolves to tempid (#285)
+- Throw on tempid in `:db.fn/cas` (closes #264)
 
 # 0.17.1
 

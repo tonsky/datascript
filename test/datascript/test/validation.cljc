@@ -30,7 +30,7 @@
     
     (is (thrown-with-msg? Throwable #"Unknown operation" (d/db-with db [["aaa" :name "Ivan"]])))
     (is (thrown-with-msg? Throwable #"Bad entity type at" (d/db-with db [:db/add "aaa" :name "Ivan"])))
-    (is (thrown-with-msg? Throwable #"Tempids are resolved for :db/add only" (d/db-with db [[:db/retract -1 :name "Ivan"]])))
+    (is (thrown-with-msg? Throwable #"Tempids are allowed in :db/add only" (d/db-with db [[:db/retract -1 :name "Ivan"]])))
     (is (thrown-with-msg? Throwable #"Bad transaction data" (d/db-with db {:profile "aaa"})))))
 
 (deftest test-unique

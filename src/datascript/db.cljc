@@ -798,7 +798,7 @@
 (defn entid [db eid]
   {:pre [(db? db)]}
   (cond
-    (number? eid)
+    (and (number? eid) (pos? eid))
     eid
     
     (sequential? eid)
@@ -819,7 +819,7 @@
     
     (keyword? eid)
     (-> (-datoms db :avet [:db/ident eid]) first :e)
-    
+
     :else
     (raise "Expected number or lookup ref for entity id, got " eid
       {:error :entity-id/syntax, :entity-id eid})))
@@ -1179,6 +1179,10 @@
                              {:error :transact/syntax, :operation :db.fn/call, :tx-data entity})))
                   (raise "Can’t find entity for transaction fn " op
                          {:error :transact/syntax, :operation :db.fn/call, :tx-data entity}))
+              
+              (and (tempid? e) (not= op :db/add))
+                (raise "Can't use tempid in '" entity "'. Tempids are allowed in :db/add only"
+                  { :error :transact/syntax, :op entity })
 
               (or (= op :db.fn/cas)
                   (= op :db/cas))
@@ -1207,17 +1211,13 @@
                 (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
               (tempid? e)
-                (if (not= op :db/add)
-                  (raise "Tempids are resolved for :db/add only"
-                         { :error :transact/syntax
-                           :op    entity })
-                  (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
-                                        (:e (first (-datoms db :avet [a v]))))
-                        allocated-eid (get tempids e)]
-                    (if (and upserted-eid allocated-eid (not= upserted-eid allocated-eid))
-                      (retry-with-tempid initial-report report initial-es e upserted-eid)
-                      (let [eid (or upserted-eid allocated-eid (next-eid db))]
-                        (recur (allocate-eid report e eid) (cons [op eid a v] entities))))))
+                (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
+                                      (:e (first (-datoms db :avet [a v]))))
+                      allocated-eid (get tempids e)]
+                  (if (and upserted-eid allocated-eid (not= upserted-eid allocated-eid))
+                    (retry-with-tempid initial-report report initial-es e upserted-eid)
+                    (let [eid (or upserted-eid allocated-eid (next-eid db))]
+                      (recur (allocate-eid report e eid) (cons [op eid a v] entities)))))
 
               (and (ref? db a) (tempid? v))
                 (if-let [vid (get tempids v)]
