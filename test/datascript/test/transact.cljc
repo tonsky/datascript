@@ -189,7 +189,7 @@
                                                            [?e :age ?age]]}
                                                   db name))]
                     [{:db/id eid :age (inc age)} [:db/add eid :had-birthday true]]
-                    (throw (new Throwable (str "No entity with name: " name)))))]
+                    (throw (ex-info (str "No entity with name: " name) {}))))]
     (d/transact! conn [{:db/id 1 :name "Ivan" :age 31}])
     (d/transact! conn [[:db/add 1 :name "Petr"]])
     (d/transact! conn [[:db/add 1 :aka  "Devil"]])
@@ -215,7 +215,7 @@
                     [{:db/id (:db/id ent)
                       :age   (inc (:age ent))}
                      [:db/add (:db/id ent) :had-birthday true]]
-                    (throw (new Throwable (str "No entity with name: " name)))))]
+                    (throw (ex-info (str "No entity with name: " name) {}))))]
     (d/transact! conn [{:db/id    1
                         :name     "Petr"
                         :age      31
