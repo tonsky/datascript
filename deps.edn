@@ -22,7 +22,7 @@
       :extra-paths ["test"]
       :extra-deps {
         org.clojure/clojurescript {:mvn/version "1.10.439"}
-        lambdaisland/kaocha {:mvn/version "0.0-367"}
+        lambdaisland/kaocha {:mvn/version "0.0-389"}
       }
     }
 

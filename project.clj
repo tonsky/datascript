@@ -95,7 +95,7 @@
     :dev { :source-paths ["bench/src" "test" "dev"]
            :dependencies [[org.clojure/tools.nrepl "0.2.13"]
                           [org.clojure/tools.namespace "0.2.11"]
-                          [lambdaisland/kaocha "0.0-367"]] }
+                          [lambdaisland/kaocha "0.0-389"]] }
     :aot { :aot [#"datascript\.(?!query-v3).*"]
            :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }
