@@ -10,16 +10,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.LongStream;
 
 /**
-* SmallTransientSet + linear search in small arrays
+* LinearSearchSet + flat iterator
 */
 
-public class LinearSearchSet implements IPersistentSet {
+public class FlatIterSet implements IPersistentSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
   Comparator cmp;
   Leaf root;
-  int size;
+  int size,
+      depth;
   AtomicReference<Thread> edit;
   int minLen = 64,
       maxLen = 128,
@@ -35,25 +36,27 @@ public class LinearSearchSet implements IPersistentSet {
     return new Leaf[]{l1, l2};
   }
 
-  public LinearSearchSet() { this(Comparator.naturalOrder()); }
+  public FlatIterSet() { this(Comparator.naturalOrder()); }
   
-  public LinearSearchSet(int maxLen) { 
+  public FlatIterSet(int maxLen) { 
     this(Comparator.naturalOrder());
     this.maxLen = maxLen;
     this.minLen = maxLen / 2;
   }
 
-  public LinearSearchSet(Comparator cmp) {
+  public FlatIterSet(Comparator cmp) {
     this.cmp = cmp;
     edit = new AtomicReference<Thread>(null);
     root = new Leaf(new Object[]{}, 0, edit);
     size = 0;
+    depth = 1;
   }
 
-  LinearSearchSet(Comparator cmp, Leaf root, int size, AtomicReference<Thread> edit, int minLen, int maxLen) {
+  FlatIterSet(Comparator cmp, Leaf root, int size, int depth, AtomicReference<Thread> edit, int minLen, int maxLen) {
     this.cmp = cmp;
     this.root = root;
     this.size = size;
+    this.depth = depth;
     this.edit = edit;
     this.minLen = minLen;
     this.maxLen = maxLen;
@@ -77,44 +80,12 @@ public class LinearSearchSet implements IPersistentSet {
     return -high-1;
   }
 
-  class NodeIter implements Iterator {
-    Object[] keys;
-    Leaf[] children;
-    int len;
-    int pos;
-    Iterator childIter;
-
-    NodeIter(Object[] keys, Leaf[] children, int len, int pos) {
-      this.keys = keys;
-      this.children = children;
-      this.len = len;
-      this.pos = pos;
-      if (pos < len)
-        childIter = children[pos].iterator();
-    }
-
-    public Object next() {
-      if (childIter.hasNext())
-        return childIter.next();
-      childIter = children[++pos].iterator();
-      return childIter.next();
-    }
-
-    public boolean hasNext() {
-      return childIter.hasNext() || pos+1 < len;
-    }
-  }
-
   class Node extends Leaf {
     Leaf[] children;
     
     Node(Object[] keys, Leaf[] children, int len, AtomicReference<Thread> edit) {
       super(keys, len, edit);
       this.children = children;
-    }
-
-    public Iterator iterator() {
-      return new NodeIter(keys, children, len, 0);
     }
 
     boolean contains(Object o) {
@@ -219,33 +190,9 @@ public class LinearSearchSet implements IPersistentSet {
       return twoLeaves(new Node(keys1, children1, half1, edit),
                        new Node(keys2, children2, half2, edit));
     }
-
-    public String toString() {
-      String res = "";
-      for (int i=0; i<len; ++i)
-        res += children[i].toString();
-      return res;
-    }
   }
 
-  class LeafIter implements Iterator {
-    Object [] keys;
-    int len;
-    int pos;
-    LeafIter(Object [] keys, int len, int pos) {
-      this.keys = keys;
-      this.len = len;
-      this.pos = pos;
-    }
-    public Object next() {
-      return keys[pos++];
-    }
-    public boolean hasNext() {
-      return pos < len;
-    }
-  }
-
-  class Leaf implements Iterable {
+  class Leaf {
     Object[] keys;
     int len;
     AtomicReference<Thread> edit;
@@ -265,10 +212,6 @@ public class LinearSearchSet implements IPersistentSet {
         return new Leaf(new Object[Math.min(maxLen, len + extraLen)], len, edit);
       else
         return new Leaf(new Object[len], len, edit);
-    }
-
-    public Iterator iterator() {
-      return new LeafIter(keys, len, 0);
     }
 
     boolean contains(Object o) {
@@ -328,49 +271,44 @@ public class LinearSearchSet implements IPersistentSet {
       System.arraycopy(keys, ins, n2.keys, ins-half1+1, len-ins);
       return twoLeaves(n1, n2);
     }
-
-    public String toString() {
-      String res = "";
-      for (int i=0; i<len; ++i)
-        res += keys[i].toString() + ", ";
-      return res;
-    }
   }
 
-  public LinearSearchSet asTransient() {
-    return new LinearSearchSet(cmp, root, size, new AtomicReference<Thread>(Thread.currentThread()), minLen, maxLen);
+  public FlatIterSet asTransient() {
+    return new FlatIterSet(cmp, root, size, depth, new AtomicReference<Thread>(Thread.currentThread()), minLen, maxLen);
   }
 
-  public LinearSearchSet persistent() {
+  public FlatIterSet persistent() {
     edit.set(null);
     return this;
   }
 
-    public LinearSearchSet add(Object key) {
-      Leaf nodes[] = root.add(key, edit);
+  public FlatIterSet add(Object key) {
+    Leaf nodes[] = root.add(key, edit);
 
-      if (null == nodes)
-        return this;
+    if (null == nodes)
+      return this;
 
-      if (editable(edit)) {
-        if (1 == nodes.length)
-          root = nodes[0];
-        if (2 == nodes.length)
-          root = new Node(new Object[]{nodes[0].maxKey(), nodes[1].maxKey()}, nodes, 2, edit);
-        size++;
-        return this;
-      }
-
-      if (0 == nodes.length)
-        return new LinearSearchSet(cmp, root, size+1, edit, minLen, maxLen);
-
+    if (editable(edit)) {
       if (1 == nodes.length)
-        return new LinearSearchSet(cmp, nodes[0], size+1, edit, minLen, maxLen);
-      
-      Object keys[] = new Object[]{nodes[0].maxKey(), nodes[1].maxKey()};
-      Leaf newRoot = new Node(keys, nodes, 2, edit);
-      return new LinearSearchSet(cmp, newRoot, size+1, edit, minLen, maxLen);
+        root = nodes[0];
+      if (2 == nodes.length) {
+        root = new Node(new Object[]{nodes[0].maxKey(), nodes[1].maxKey()}, nodes, 2, edit);
+        depth++;
+      }
+      size++;
+      return this;
     }
+
+    if (0 == nodes.length)
+      return new FlatIterSet(cmp, root, size+1, depth, edit, minLen, maxLen);
+
+    if (1 == nodes.length)
+      return new FlatIterSet(cmp, nodes[0], size+1, depth, edit, minLen, maxLen);
+    
+    Object keys[] = new Object[]{nodes[0].maxKey(), nodes[1].maxKey()};
+    Leaf newRoot = new Node(keys, nodes, 2, edit);
+    return new FlatIterSet(cmp, newRoot, size+1, depth+1, edit, minLen, maxLen);
+  }
 
   public int size() {
     return size;
@@ -380,11 +318,66 @@ public class LinearSearchSet implements IPersistentSet {
     return root.contains(o);
   }
 
+  class Iter implements Iterator {
+    int[]  indexes; // root at 0 .. leaf at depth-1
+    Leaf[] leaves;
+    int maxIdx = depth-1;
+
+    Iter() {
+      indexes = new int[depth];
+      leaves  = new Leaf[depth];
+      leaves[0] = root;
+      for (int d = 1; d <= maxIdx; ++d)
+        leaves[d] = ((Node)leaves[d-1]).children[0];
+    }
+
+    Object get() {
+      return leaves[maxIdx].keys[indexes[maxIdx]];
+    }
+
+    void advance() {
+      // fast path
+      if (indexes[maxIdx]+1 < leaves[maxIdx].len) {
+        indexes[maxIdx]++;
+        return;
+      }
+
+      // leaf overflow
+      for (int d = maxIdx-1; d >= 0; --d) {
+        if (indexes[d]+1 < leaves[d].len) {
+          indexes[d]++;
+          Arrays.fill(indexes, d+1, depth, 0);
+          for (int dd = d+1; dd < depth; ++dd)
+            leaves[dd] = ((Node)leaves[dd-1]).children[indexes[dd-1]];
+          return;
+        }
+      }
+
+      // end of root
+      indexes[0] = leaves[0].len;
+    }
+
+    public Object next() {
+      Object res = get();
+      advance();
+      return res;
+    }
+
+    public boolean hasNext() {
+      return indexes[0] < leaves[0].len;
+    }
+  }
+
   public Iterator iterator() {
-    return root.iterator();
+    return new Iter();
   }
 
   public String toString() {
-    return "#{" + root.toString() + "}";
+    StringBuilder sb = new StringBuilder("#{");
+    for(Object o: this)
+      sb.append(o).append(" ");
+    sb.delete(sb.length()-1, sb.length());
+    sb.append("}");
+    return sb.toString();
   }
 }

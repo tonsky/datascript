@@ -4,89 +4,160 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.LongStream;
 import java.util.stream.Collectors;
 
-interface ISetFactory {
-  IPersistentSet create(int maxLen);
-}
+abstract class ABench {
+  Class<? extends IPersistentSet> setClass;
+  Collection source;
+  int maxLen;
+  
+  ABench(Class<? extends IPersistentSet> setClass, Collection source, int maxLen) {
+    this.setClass = setClass;
+    this.source = source;
+    this.maxLen = maxLen;
+  }
 
-interface IBenchRunner {
-  long run(IPersistentSet target);
-}
+  IPersistentSet newSet() {
+    try {
+      return setClass.getDeclaredConstructor(int.class).newInstance(maxLen);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 
-public class Bench {
-
-  public static IPersistentSet addAll(IPersistentSet target, Collection source) {
-    IPersistentSet result = target;
+  IPersistentSet newSet(Collection source) {
+    IPersistentSet set = newSet().asTransient();
     for (Object o: source)
-      result = result.add(o);
-    return result;
+      set = set.add(o);
+    return set.persistent();
   }
 
-  public static long benchAdd(IPersistentSet target) {
-    long t0 = System.currentTimeMillis();
-    addAll(target, source);
-    return System.currentTimeMillis() - t0;
+  abstract void run();
+}
+
+
+class AddBench extends ABench {
+  AddBench(Class<? extends IPersistentSet> setClass, Collection source, int maxLen) {
+    super(setClass, source, maxLen);
   }
 
-  public static long benchContains(IPersistentSet set) {
-    long t0 = System.currentTimeMillis();
-    // System.out.println("checking " + source.size() + " contains");
+  void run() {
+    newSet(source);
+  }
+}
+
+
+class ContainsBench extends ABench {
+  IPersistentSet set;
+
+  ContainsBench(Class<? extends IPersistentSet> setClass, Collection source, int maxLen) {
+    super(setClass, source, maxLen);
+    set = newSet(source);
+  }
+
+  void run() {
     for (Object o: source)
       if (false == set.contains(o))
         throw new RuntimeException("Must contain " + o);
-    return System.currentTimeMillis() - t0;
+  }
+}
+
+class IterateBench extends ABench {
+  IPersistentSet set;
+
+  IterateBench(Class<? extends IPersistentSet> setClass, Collection source, int maxLen) {
+    super(setClass, source, maxLen);
+    set = newSet(source);
   }
 
+  void run() {
+    long expected = 0;
+    for (Object o: set)
+      if (((Long) o).longValue() != expected++)
+        throw new RuntimeException("Expected " + expected + ", got " + o);
+  }
+}
+
+public class Bench {
   // static Integer[] maxLens = new Integer[]{8,16,32,64,128,256,512,1024};
   static Integer[] maxLens = new Integer[]{32, 64, 128};
   static int warmups = 20;
   static int runs = 40;
 
-  static ArrayList<Long> source = new ArrayList<Long>();
-  static {
-    LongStream.range(0, 100000).forEach((long l) -> source.add(l));
-    Collections.shuffle(source);
+  public static IPersistentSet addAll(IPersistentSet target, Collection source) {
+    IPersistentSet result = target.asTransient();
+    for (Object o: source)
+      result = result.add(o);
+    return result.persistent();
+  }
+
+  public static ArrayList<Long> randomList(int size) {
+    ArrayList<Long> res = new ArrayList<Long>();
+    LongStream.range(0, size).forEach((long l) -> res.add(l));
+    Collections.shuffle(res);
+    return res;
   }
 
   public static String range(Collection<Long> coll) {
-    return "" + coll.stream().reduce(Long.MAX_VALUE, (Long a, Long b) -> a<b?a:b)
-           + ".." + coll.stream().reduce(0L, (a,b) -> a<b?b:a) + "ms";
+    long min = coll.stream().reduce(Long.MAX_VALUE, (a, b) -> a<b?a:b),
+         max = coll.stream().reduce(0L, (a,b) -> a<b?b:a);
+    return String.format("%2d..%2dms", min, max);
   }
 
-  public static void runBench(String type, ISetFactory f, IBenchRunner r) {
-    System.out.print(type + ": ");
+  public static void runBench(Class<? extends IPersistentSet> setClass, Collection source, Class<? extends ABench> benchClass) throws Exception {
+    System.out.print(String.format("%-20s", setClass.getSimpleName()));
     for(int maxLen: maxLens) {
-      for(int i=0; i < warmups; ++i) {
-        r.run(f.create(maxLen));
-      }
+      ABench bench = benchClass.getDeclaredConstructor(Class.class, Collection.class, int.class).newInstance(setClass, source, maxLen);
+      for(int i=0; i < warmups; ++i)
+        bench.run();
+
       ArrayList<Long> measurments = new ArrayList<Long>();
       for(int i=0; i < runs; ++i) {
-        measurments.add(Long.valueOf(r.run(f.create(maxLen))));
+        long t0 = System.currentTimeMillis();
+        bench.run();
+        measurments.add(Long.valueOf(System.currentTimeMillis() - t0));
       }
-      System.out.print("\t" + range(measurments));
+      System.out.print(String.format("%-12s", range(measurments)));
     }
     System.out.println();
   }
 
-  public static void main(String args[]) {
-    System.out.println("Lengths:   \t" + String.join("\t", Arrays.stream(maxLens).map((ml)-> ml.toString() + " max    ").collect(Collectors.toList())));
+  public static void main(String args[]) throws Exception {
+    System.out.println("Lengths             " + String.join("      ", Arrays.stream(maxLens).map((ml)-> ml.toString() + " max").collect(Collectors.toList())));
 
-    System.out.println("BENCH ADD");
-    IBenchRunner r = (s) -> benchAdd(s);
-    // runBench("Persistent", (int ml)-> new PersistentBTSet(ml), r);
-    // runBench("Transient.tr", (int ml)-> new TransientBTSet(ml).asTransient(), r);
-    // runBench("TwoNodes.tr", (int ml)-> new TwoNodesSet(ml).asTransient(), r);
-    // runBench("ExtraLeaf", (int ml)-> new ExtraLeafSet(ml), r);
-    // runBench("ExtraLeaf.tr", (int ml)-> new ExtraLeafSet(ml).asTransient(), r);
-    // runBench("EarlyExit.tr", (int ml)-> new EarlyExitSet(ml).asTransient(), r);
-    runBench("SmallTrans.tr", (int ml)-> new SmallTransientSet(ml).asTransient(), r);
-    runBench("LinSearch.tr", (int ml)-> new LinearSearchSet(ml).asTransient(), r);
+    ArrayList<Long> source = randomList(100000);
+    ArrayList<Long> bigSource = randomList(1000000);
 
-    System.out.println("\n\nBENCH CONTAINS");
-    IBenchRunner rc = (s) -> benchContains(s);
-    runBench("SmallTrans", (int ml) -> addAll(new SmallTransientSet(ml).asTransient(), source).persistent(), rc);
-    runBench("LinSearch", (int ml) -> addAll(new LinearSearchSet(ml).asTransient(), source).persistent(), rc);
+    System.out.println("\n                === 100K ADDs ===");
+    runBench(PersistentBTSet.class,    source, AddBench.class);
+    // runBench(TransientBTSet.class,     source, AddBench.class);
+    // runBench(TwoNodesSet.class,        source, AddBench.class);
+    // runBench(ExtraLeafSet.class,       source, AddBench.class);
+    // runBench(EarlyExitSet.class,       source, AddBench.class);
+    runBench(SmallTransientSet.class,  source, AddBench.class);
+    runBench(LinearSearchSet.class,    source, AddBench.class);
+    // runBench(FlatIterSet.class,        source, AddBench.class);
+    // runBench(ReverseFlatIterSet.class, source, AddBench.class);
+
+    
+    System.out.println("\n                === 100K CONTAINS ===");
+    runBench(SmallTransientSet.class,  source, ContainsBench.class);
+    runBench(LinearSearchSet.class,    source, ContainsBench.class);
+    // runBench(FlatIterSet.class,        source, ContainsBench.class);
+    // runBench(ReverseFlatIterSet.class, source, ContainsBench.class);
+
+    System.out.println("\n                === ITERATE over 1M ===");
+    runBench(LinearSearchSet.class,    bigSource, IterateBench.class);    
+    runBench(FlatIterSet.class,        bigSource, IterateBench.class);
+    runBench(ReverseFlatIterSet.class, bigSource, IterateBench.class);
+
+    // IPersistentSet s = addAll(new ReverseFlatIterSet(4), randomList(20));
+    // System.out.println(s);
+    // for(Object l : s)
+    //   System.out.println(l);
   }
 }
