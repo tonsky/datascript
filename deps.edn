@@ -21,7 +21,7 @@
     :test {
       :extra-paths ["test"]
       :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.10.439"}
+        org.clojure/clojurescript {:mvn/version "1.10.516"}
         lambdaisland/kaocha {:mvn/version "0.0-389"}
       }
     }
