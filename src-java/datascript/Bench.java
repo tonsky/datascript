@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -176,31 +177,45 @@ public class Bench {
     // runBench(AddBench.class, source, ReverseFlatIterSet.class, true);
     // runBench(AddBench.class, source, AtomicBooleanSet.class,   false);
     // runBench(AddBench.class, source, AtomicBooleanSet.class,   true);
+    // runBench(AddBench.class, source, CleanupSet.class,    false);
+    // runBench(AddBench.class, source, CleanupSet.class,    true);
     
     System.out.println("\n                === 100K CONTAINS ===");
     // runBench(ContainsBench.class, source, SmallTransientSet.class );
     // runBench(ContainsBench.class, source, LinearSearchSet.class   );
     // runBench(ContainsBench.class, source, FlatIterSet.class       );
     // runBench(ContainsBench.class, source, ReverseFlatIterSet.class);
-    // runBench(ContainsBench.class, source, AtomicBooleanSet.class  );
+    // runBench(ContainsBench.class, source, AtomicBooleanSet.class);
+    // runBench(ContainsBench.class, source, CleanupSet.class);
 
     System.out.println("\n                === ITERATE over 1M ===");
     // runBench(IterateBench.class, bigSource, LinearSearchSet.class   );
     // runBench(IterateBench.class, bigSource, FlatIterSet.class       );
     // runBench(IterateBench.class, bigSource, ReverseFlatIterSet.class);
     // runBench(IterateBench.class, bigSource, AtomicBooleanSet.class  );
+    runBench(IterateBench.class, bigSource, CleanupSet.class  );
+    runBench(IterateBench.class, bigSource, SliceSet.class  );
 
     System.out.println("\n                === 100K REMOVEs ===");
-    runBench(RemoveBench.class, source, DisjoinSet.class,   false);
-    runBench(RemoveBench.class, source, DisjoinSet.class,   true);
-    runBench(RemoveBench.class, source, EarlyExitDisjSet.class, false);
-    runBench(RemoveBench.class, source, EarlyExitDisjSet.class, true);
+    // runBench(RemoveBench.class, source, DisjoinSet.class,   false);
+    // runBench(RemoveBench.class, source, DisjoinSet.class,   true);
+    // runBench(RemoveBench.class, source, EarlyExitDisjSet.class, false);
+    // runBench(RemoveBench.class, source, EarlyExitDisjSet.class, true);
+    // runBench(RemoveBench.class, source, CleanupSet.class, false);
+    // runBench(RemoveBench.class, source, CleanupSet.class, true);
 
-    // DisjoinSet.setMaxLen(4);
-    // DisjoinSet s = new DisjoinSet();
-    // s = (DisjoinSet) addAll(s, randomList(20));
-    // s = s.asTransient();
-    // System.out.println(s);
+    // SliceSet.setMaxLen(4);
+    // SliceSet s = new SliceSet().asTransient();
+    // for (int i=0; i<100; ++i)
+    //   s = s.add(Integer.valueOf(i));
+    // s = s.persistent();
+
+    // System.out.println("SET " + s);
+    // System.out.println("STRUCTURE " + s.str());
+
+    // for (Iterator i = s.iterator(1000, 1000, (a, b) -> (((Integer) a)/10) - (((Integer) b)/10)); i.hasNext();)
+    //   System.out.println(i.next());
+
     // for(Long l: randomList(20)) {
     //   System.out.println("Removing " + l);
     //   s = s.remove(l);
