@@ -13,7 +13,8 @@ import java.util.stream.LongStream;
 * SmallTransientSet + linear search in small arrays
 */
 
-public class LinearSearchSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class LinearSearchSet implements ISortedSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
@@ -346,7 +347,7 @@ public class LinearSearchSet implements IPersistentSet {
     return this;
   }
 
-    public LinearSearchSet add(Object key) {
+    public LinearSearchSet with(Object key) {
       Leaf nodes[] = root.add(key, edit);
 
       if (null == nodes)

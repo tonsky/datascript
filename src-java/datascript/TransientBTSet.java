@@ -12,7 +12,8 @@ import java.util.stream.LongStream;
 * PersistentBTSet + in-place key+child update in non-leafs
 */
 
-public class TransientBTSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class TransientBTSet implements ISortedSet {
   Comparator cmp;
   Node root;
   AtomicReference<Thread> edit;
@@ -207,7 +208,7 @@ public class TransientBTSet implements IPersistentSet {
     return this;
   }
 
-  public TransientBTSet add(Object key) {
+  public TransientBTSet with(Object key) {
     Node nodes[] = root.add(key);
     if (null == nodes)
       return this;

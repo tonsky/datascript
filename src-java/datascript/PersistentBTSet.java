@@ -10,7 +10,8 @@ import java.util.concurrent.atomic.AtomicReference;
 * Java rewrite of Clojure btset.clj impl
 */
 
-public class PersistentBTSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class PersistentBTSet implements ISortedSet {
   Comparator cmp;
   Node root;
   int minLen = 64;
@@ -181,7 +182,7 @@ public class PersistentBTSet implements IPersistentSet {
     }
   }
 
-  public PersistentBTSet add(Object key) {
+  public PersistentBTSet with(Object key) {
     Node nodes[] = root.add(key);
     if (null == nodes)
       return this;

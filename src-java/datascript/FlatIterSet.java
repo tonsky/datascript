@@ -13,7 +13,8 @@ import java.util.stream.LongStream;
 * LinearSearchSet + flat iterator
 */
 
-public class FlatIterSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class FlatIterSet implements ISortedSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
@@ -282,7 +283,7 @@ public class FlatIterSet implements IPersistentSet {
     return this;
   }
 
-  public FlatIterSet add(Object key) {
+  public FlatIterSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
 
     if (null == nodes)

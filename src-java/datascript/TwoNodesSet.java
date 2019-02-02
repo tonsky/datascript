@@ -12,7 +12,8 @@ import java.util.stream.LongStream;
 * TransientBTSet + separate classes for leaf + node
 */
 
-public class TwoNodesSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class TwoNodesSet implements ISortedSet {
   public static int cnt = 0;
 
   Comparator cmp;
@@ -228,7 +229,7 @@ public class TwoNodesSet implements IPersistentSet {
     return this;
   }
 
-  public TwoNodesSet add(Object key) {
+  public TwoNodesSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
     if (null == nodes)
       return this;

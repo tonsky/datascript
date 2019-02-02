@@ -14,7 +14,8 @@ import java.util.stream.LongStream;
 * EarlyExitDisjSet + cleanup
 */
 
-public class CleanupSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class CleanupSet implements ISortedSet {
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
   static int minLen = 32, maxLen = 64, extraLen = 8;
@@ -102,7 +103,7 @@ public class CleanupSet implements IPersistentSet {
     return this;
   }
 
-  public CleanupSet add(Object key) {
+  public CleanupSet with(Object key) {
     Leaf nodes[] = root.add(key, setEdit);
 
     if (UNCHANGED == nodes)
@@ -128,7 +129,7 @@ public class CleanupSet implements IPersistentSet {
     return new CleanupSet(newRoot, size+1, depth+1, setEdit);
   }
 
-  public CleanupSet remove(Object key) {
+  public CleanupSet without(Object key) {
     Leaf nodes[] = root.remove(key, null, null, setEdit);
 
     if (UNCHANGED == nodes) // not in set
@@ -489,7 +490,7 @@ public class CleanupSet implements IPersistentSet {
 
       // split
       int half1 = (len+1) >> 1;
-      if (ins+1 == half1) --half1;
+      if (ins+1 == half1) ++half1;
       int half2 = len+1-half1;
 
       // add to first half

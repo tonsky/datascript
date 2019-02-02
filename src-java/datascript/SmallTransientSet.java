@@ -12,7 +12,8 @@ import java.util.stream.LongStream;
 * EarlyExitSet + increase transients in small chunks
 */
 
-public class SmallTransientSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class SmallTransientSet implements ISortedSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
@@ -282,7 +283,7 @@ public class SmallTransientSet implements IPersistentSet {
     return this;
   }
 
-  public SmallTransientSet add(Object key) {
+  public SmallTransientSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
 
     if (null == nodes)

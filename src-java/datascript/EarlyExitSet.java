@@ -12,7 +12,8 @@ import java.util.stream.LongStream;
 * ExtraLeafSet + early exit if nothing to update upstream
 */
 
-public class EarlyExitSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class EarlyExitSet implements ISortedSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
@@ -260,7 +261,7 @@ public class EarlyExitSet implements IPersistentSet {
     return this;
   }
 
-  public EarlyExitSet add(Object key) {
+  public EarlyExitSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
 
     if (null == nodes)

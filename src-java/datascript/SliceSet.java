@@ -14,7 +14,8 @@ import java.util.stream.LongStream;
 * CleanupSet + slice
 */
 
-public class SliceSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class SliceSet implements ISortedSet {
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
   static int minLen = 32, maxLen = 64, extraLen = 8;
@@ -102,7 +103,7 @@ public class SliceSet implements IPersistentSet {
     return this;
   }
 
-  public SliceSet add(Object key) {
+  public SliceSet with(Object key) {
     Leaf nodes[] = root.add(key, setEdit);
 
     if (UNCHANGED == nodes)
@@ -128,7 +129,7 @@ public class SliceSet implements IPersistentSet {
     return new SliceSet(newRoot, size+1, depth+1, setEdit);
   }
 
-  public SliceSet remove(Object key) {
+  public SliceSet without(Object key) {
     Leaf nodes[] = root.remove(key, null, null, setEdit);
 
     if (UNCHANGED == nodes) // not in set

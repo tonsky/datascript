@@ -14,7 +14,8 @@ import java.util.stream.LongStream;
 * AtomicBooleanSet + disjoin
 */
 
-public class DisjoinSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class DisjoinSet implements ISortedSet {
   static Leaf[] noLeaves = new Leaf[0];
   static int minLen = 32, maxLen = 64, extraLen = 8;
 
@@ -92,7 +93,7 @@ public class DisjoinSet implements IPersistentSet {
     return this;
   }
 
-  public DisjoinSet add(Object key) {
+  public DisjoinSet with(Object key) {
     Leaf nodes[] = root.add(key, setEdit);
 
     if (null == nodes)
@@ -118,7 +119,7 @@ public class DisjoinSet implements IPersistentSet {
     return new DisjoinSet(newRoot, size+1, depth+1, setEdit);
   }
 
-  public DisjoinSet remove(Object key) {
+  public DisjoinSet without(Object key) {
     Leaf nodes[] = root.remove(key, null, null, setEdit);
 
     if (null == nodes) // not in set
@@ -488,7 +489,7 @@ public class DisjoinSet implements IPersistentSet {
 
       // split
       int half1 = (len+1) >> 1;
-      if (ins+1 == half1) --half1;
+      if (ins+1 == half1) ++half1;
       int half2 = len+1-half1;
 
       // add to first half

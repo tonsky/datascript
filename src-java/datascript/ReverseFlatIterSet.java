@@ -13,7 +13,8 @@ import java.util.stream.LongStream;
 * FlatIterSet + reverse iterator indexing
 */
 
-public class ReverseFlatIterSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class ReverseFlatIterSet implements ISortedSet {
   public static int cnt=0;
   private static Leaf[] leaves0 = new Leaf[0];
 
@@ -282,7 +283,7 @@ public class ReverseFlatIterSet implements IPersistentSet {
     return this;
   }
 
-  public ReverseFlatIterSet add(Object key) {
+  public ReverseFlatIterSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
 
     if (null == nodes)

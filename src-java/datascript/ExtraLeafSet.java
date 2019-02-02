@@ -12,7 +12,8 @@ import java.util.stream.LongStream;
 * TwoNodesSet + allocates extra place ahead in leaves
 */
 
-public class ExtraLeafSet implements IPersistentSet {
+@SuppressWarnings("unchecked")
+public class ExtraLeafSet implements ISortedSet {
   public static int cnt=0;
   Comparator cmp;
   Leaf root;
@@ -249,7 +250,7 @@ public class ExtraLeafSet implements IPersistentSet {
     return this;
   }
 
-  public ExtraLeafSet add(Object key) {
+  public ExtraLeafSet with(Object key) {
     Leaf nodes[] = root.add(key, edit);
     if (null == nodes)
       return this;
