@@ -23,7 +23,7 @@
     "Query for unknown vars: [?t]"
        
     '[:find ?x ?e :with ?y ?e :where [?x ?e ?y]]
-    ":in and :with should not use same variables: [?e]"
+    ":find and :with should not use same variables: [?e]"
        
     '[:find ?e :in $ $ ?x :where [?e]]
     "Vars used in :in should be distinct"

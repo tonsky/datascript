@@ -696,7 +696,7 @@
       (raise "Query for unknown vars: " (mapv :symbol unknown)
              {:error :parser/query, :vars unknown, :form form}))
     (when-not (empty? shared)
-      (raise ":in and :with should not use same variables: " (mapv :symbol shared)
+      (raise ":find and :with should not use same variables: " (mapv :symbol shared)
              {:error :parser/query, :vars shared, :form form})))
   
   (let [in-vars    (collect-vars (:qin q))
