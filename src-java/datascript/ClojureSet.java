@@ -193,11 +193,11 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
   }
 
   // ISortedSet
-  public ClojureSet(int ml) { this(); setMaxLen(ml); }
-  public ClojureSet with(Object key) { return cons(key); }
-  public ClojureSet without(Object key) { return disjoin(key); }
-  public ClojureSet toTransient() { return (ClojureSet) asTransient(); }
-  public ClojureSet toPersistent() { return (ClojureSet) persistent(); }
+  // public ClojureSet(int ml) { this(); setMaxLen(ml); }
+  // public ClojureSet with(Object key) { return cons(key); }
+  // public ClojureSet without(Object key) { return disjoin(key); }
+  // public ClojureSet toTransient() { return (ClojureSet) asTransient(); }
+  // public ClojureSet toPersistent() { return (ClojureSet) persistent(); }
 
   // ===== LEAF =====
 

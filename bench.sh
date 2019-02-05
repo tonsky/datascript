@@ -1,0 +1,1 @@
+javac -d target/classes -cp `clojure -A:datomic -Spath` -Xlint:unchecked src-java/datascript/*.java && java -ea -cp `clojure -A:datomic -Spath`:target/classes datascript.Bench
