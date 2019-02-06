@@ -30,6 +30,7 @@
   (into {} (map-indexed #?(:clj #(clojure.lang.MapEntry. %2 %1)
                            :cljs #(cljs.core/MapEntry. %2 %1 nil)))
         xs))
+
 (defn mapa [f coll]
   (da/into-array (map f coll)))
 
