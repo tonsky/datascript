@@ -50,7 +50,7 @@
 (defn has? [coll el]
   (reduce #(when (= %2 el)
              (reduced true))
-          false
+          nil
           coll))
 
 (defprotocol NativeColl
