@@ -24,6 +24,12 @@
 
 (def ^:const lru-cache-size 100)
 
+(defn indexed-map
+  "Equivalent of (zipmap xs (range))"
+  [xs]
+  (into {} (map-indexed #?(:clj #(clojure.lang.MapEntry. %2 %1)
+                           :cljs #(cljs.core/MapEntry. %2 %1 nil)))
+        xs))
 (defn mapa [f coll]
   (da/into-array (map f coll)))
 
@@ -259,7 +265,7 @@
      (pr-rel rel w)))
 
 (defn array-rel [symbols coll]
-  (->ArrayRelation (zipmap symbols (range)) coll))
+  (->ArrayRelation (indexed-map symbols) coll))
 
 
 ;;; CollRelation
@@ -303,7 +309,7 @@
                            (assoc acc e i)
                          :else acc))
                      {}
-                     (zipmap symbols (range)))]
+                     (indexed-map symbols))]
     (->CollRelation offset-map coll)))
 
 #?(:clj
@@ -511,7 +517,7 @@
 
 (defn bind [binding source]
   (let [syms    (map :symbol (dp/collect-vars-distinct binding))
-        indexes (zipmap syms (range))
+        indexes (indexed-map syms)
         tuples  (bind! [(da/make-array (count syms))] binding source indexes)]
     (array-rel syms tuples)))
 
