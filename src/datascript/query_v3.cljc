@@ -48,7 +48,10 @@
   ([a b & rest] (apply map vector a b rest)))
 
 (defn has? [coll el]
-  (some #(= el %) coll))
+  (reduce #(when (= %2 el)
+             (reduced true))
+          false
+          coll))
 
 (defprotocol NativeColl
   (-native-coll [_]))
