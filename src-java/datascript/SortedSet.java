@@ -4,8 +4,6 @@ import java.util.*;
 import clojure.lang.*;
 
 /**
-* CleanupSet + clojure interfaces
-*
 *   8 max      16 max      32 max      64 max      128 max      256 max      512 max      1024 max
 *   
 *   100K ADDs
@@ -22,11 +20,10 @@ import clojure.lang.*;
 *   
 *   100K REMOVEs
 *   27..31ms    21..22ms    19..21ms    18..19ms    18..20ms    18..21ms    18..19ms    20..29ms    
-*
 */
 
 @SuppressWarnings("unchecked")
-public class ClojureSet extends ASortedSet implements IEditableCollection, ITransientCollection {
+public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible {
 
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
@@ -49,43 +46,98 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
   int _count;
   final Edit _edit;
 
-  public ClojureSet() { this(null, RT.DEFAULT_COMPARATOR); }
-  public ClojureSet(Comparator cmp) { this(null, cmp); }
-  public ClojureSet(IPersistentMap meta, Comparator cmp) {
+  public SortedSet() { this(null, RT.DEFAULT_COMPARATOR); }
+  public SortedSet(Comparator cmp) { this(null, cmp); }
+  public SortedSet(IPersistentMap meta, Comparator cmp) {
     super(meta, cmp);
     _edit  = new Edit(false);
     _root  = new Leaf(new Object[]{}, 0, _edit);
     _count = 0;
   }
 
-  ClojureSet(IPersistentMap meta, Comparator cmp, Leaf root, int count, Edit edit) {
+  SortedSet(IPersistentMap meta, Comparator cmp, Leaf root, int count, Edit edit) {
     super(meta, cmp);
     _root  = root;
     _count = count;
     _edit  = edit;
   }
 
-  public Seq slice(Object from, Object to) {
-    return slice(from, to, _cmp);
-  }
-
+  public Seq slice(Object from, Object to) { return slice(from, to, _cmp); }
   public Seq slice(Object from, Object to, Comparator cmp) {
-    if (_count == 0) return null;
+    assert from == null || to == null || cmp.compare(from, to) <= 0 : "From " + from + " after to " + to;
     Seq seq = null;
     Leaf node = _root;
+
+    if (_count == 0) return null;
+
+    if (from == null) {
+      while (true) {
+        if (node instanceof Node) {
+          seq = new Seq(null, seq, node, 0, null, null, true);
+          node = seq.child();
+        } else {
+          seq = new Seq(null, seq, node, 0, to, cmp, true);
+          return seq.over() ? null : seq;
+        }
+      }
+    }
+
     while (true) {
-      int idx = from == null ? 0 : node.search(from, cmp);
+      int idx = node.searchFirst(from, cmp);
       if (idx < 0) idx = -idx-1;
       if (idx == node._len) return null;
       if (node instanceof Node) {
-        seq = new Seq(null, seq, node, idx, null, null);
+        seq = new Seq(null, seq, node, idx, null, null, true);
         node = seq.child();
-      } else {
-        seq = new Seq(null, seq, node, idx, to, cmp);
-        break;
+      } else { // Leaf
+        seq = new Seq(null, seq, node, idx, to, cmp, true);
+        return seq.over() ? null : seq;
       }
     }
-    return seq;
+  }
+
+  public Seq rslice(Object from, Object to) { return rslice(from, to, _cmp); }
+  public Seq rslice(Object from, Object to, Comparator cmp) {
+    assert from == null || to == null || cmp.compare(from, to) >= 0 : "From " + from + " before to " + to;
+    Seq seq = null;
+    Leaf node = _root;
+
+    if (_count == 0) return null;
+
+    if (from == null) {
+      while (true) {
+        int idx = node._len-1;
+        if (node instanceof Node) {
+          seq = new Seq(null, seq, node, idx, null, null, false);
+          node = seq.child();
+        } else {
+          seq = new Seq(null, seq, node, idx, to, cmp, false);
+          return seq.over() ? null : seq;
+        }
+      }
+    }
+
+    while (true) {
+      if (node instanceof Node) {
+        int idx = node.searchFirstBigger(from, cmp);
+        if (idx == node._len) --idx;   // beyond last, clamp to last 
+        if (idx == -1)        idx = 0; // smaller than 0.maxKey, still could be first
+        seq = new Seq(null, seq, node, idx, null, null, false);
+        node = seq.child();
+      } else { // Leaf
+        int idx = node.searchLast(from, cmp);
+        if (idx == -1) { // not in this, so definitely in prev
+          seq = new Seq(null, seq, node, 0, to, cmp, false);
+          return seq.advance() ? seq : null;
+        } else if (idx < 0) { // one before insertion point
+          seq = new Seq(null, seq, node, (-idx-1)-1, to, cmp, false);
+          return seq.over() ? null : seq;
+        } else { // exact match
+          seq = new Seq(null, seq, node, idx, to, cmp, false);
+          return seq.over() ? null : seq;
+        }
+      }
+    }
   }
 
   public String toString() {
@@ -102,26 +154,36 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
 
 
   // IObj
-  public ClojureSet withMeta(IPersistentMap meta) {
+  public SortedSet withMeta(IPersistentMap meta) {
     if(_meta == meta) return this;
-    return new ClojureSet(meta, _cmp, _root, _count, _edit);
+    return new SortedSet(meta, _cmp, _root, _count, _edit);
   }
 
   // Counted
   public int count() { return _count; }
 
   //  Seqable
-  public Seq seq() {
-    return slice(null, null, _cmp);
-  }
+  public Seq seq() { return slice(null, null, _cmp); }
+
+  // Reversible
+  public ISeq rseq() { return rslice(null, null, _cmp); }
+
+  // IChunkedSeq
+  // public IChunk chunkedFirst() {}
+  // public ISeq chunkedNext() {}
+  // public ISeq chunkedMore() {}
 
   // IPersistentCollection
-  public ClojureSet empty() {
-    return new ClojureSet(_meta, _cmp);
+  public SortedSet empty() {
+    return new SortedSet(_meta, _cmp);
   }
 
-  public ClojureSet cons(Object key) {
-    Leaf nodes[] = _root.add(key, _cmp, _edit);
+  public SortedSet cons(Object key) {
+    return cons(key, _cmp);
+  }
+
+  public SortedSet cons(Object key, Comparator cmp) {
+    Leaf nodes[] = _root.add(key, cmp, _edit);
 
     if (UNCHANGED == nodes)
       return this;
@@ -138,16 +200,20 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
     }
 
     if (1 == nodes.length)
-      return new ClojureSet(_meta, _cmp, nodes[0], _count+1, _edit);
+      return new SortedSet(_meta, _cmp, nodes[0], _count+1, _edit);
     
     Object keys[] = new Object[] { nodes[0].maxKey(), nodes[1].maxKey() };
     Leaf newRoot = new Node(keys, nodes, 2, _edit);
-    return new ClojureSet(_meta, _cmp, newRoot, _count+1, _edit);
+    return new SortedSet(_meta, _cmp, newRoot, _count+1, _edit);
   }
 
   // IPersistentSet
-  public ClojureSet disjoin(Object key) { 
-    Leaf nodes[] = _root.remove(key, null, null, _cmp, _edit);
+  public SortedSet disjoin(Object key) {
+    return disjoin(key, _cmp);
+  }
+
+  public SortedSet disjoin(Object key, Comparator cmp) { 
+    Leaf nodes[] = _root.remove(key, null, null, cmp, _edit);
 
     // not in set
     if (UNCHANGED == nodes) return this;
@@ -163,9 +229,9 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
     }
     if (newRoot instanceof Node && newRoot._len == 1) {
       newRoot = ((Node) newRoot)._children[0];
-      return new ClojureSet(_meta, _cmp, newRoot, _count-1, _edit);
+      return new SortedSet(_meta, _cmp, newRoot, _count-1, _edit);
     }
-    return new ClojureSet(_meta, _cmp, newRoot, _count-1, _edit);
+    return new SortedSet(_meta, _cmp, newRoot, _count-1, _edit);
   }
 
   public boolean contains(Object key) {
@@ -173,16 +239,16 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
   }
 
   // IEditableCollection
-  public ClojureSet asTransient() {
-    return new ClojureSet(_meta, _cmp, _root, _count, new Edit(true));
+  public SortedSet asTransient() {
+    return new SortedSet(_meta, _cmp, _root, _count, new Edit(true));
   }
 
   // ITransientCollection
-  public ClojureSet conj(Object key) {
+  public SortedSet conj(Object key) {
     return cons(key);
   }
 
-  public ClojureSet persistent() {
+  public SortedSet persistent() {
     _edit.setEditable(false);
     return this;
   }
@@ -192,12 +258,6 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
     return new JavaIter(seq());
   }
 
-  // ISortedSet
-  // public ClojureSet(int ml) { this(); setMaxLen(ml); }
-  // public ClojureSet with(Object key) { return cons(key); }
-  // public ClojureSet without(Object key) { return disjoin(key); }
-  // public ClojureSet toTransient() { return (ClojureSet) asTransient(); }
-  // public ClojureSet toPersistent() { return (ClojureSet) persistent(); }
 
   // ===== LEAF =====
 
@@ -235,13 +295,37 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
 
       // linear search
       for(int i = low; i < high; ++i) {
-        final int d = cmp.compare(_keys[i], key);
+        int d = cmp.compare(_keys[i], key);
         if (d == 0) return i;
-        else if (d > 0) return -i-1;
+        else if (d > 0) return -i-1; // i
       }
-      return -high-1;
+      return -high-1; // high
     }
 
+    int searchFirst(Object key, Comparator cmp) {
+      for(int i = 0; i < _len; ++i) {
+        int d = cmp.compare(_keys[i], key);
+        if (d == 0) return i;
+        else if (d > 0) return -i-1; // i
+      }
+      return -_len-1; // _len
+    }
+
+    int searchFirstBigger(Object key, Comparator cmp) {
+      for(int i = _len-1; i >= 0; --i)
+        if (cmp.compare(_keys[i], key) <= 0)
+          return i+1;
+      return -1;
+    }
+
+    int searchLast(Object key, Comparator cmp) {
+      for(int i = _len-1; i >= 0; --i) {
+        int d = cmp.compare(_keys[i], key);
+        if (d == 0) return i;
+        else if (d < 0) return -i-2; // i+1
+      }
+      return -1; // 0
+    }
 
     boolean contains(Object key, Comparator cmp) {
       return search(key, cmp) >= 0;
@@ -788,19 +872,21 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
 
   // ===== SEQ =====
 
-  static class Seq extends ASeq implements IReduce {
+  class Seq extends ASeq implements IReduce, Reversible {
     Seq  _parent;
     Leaf _node;
     int  _idx;
     final Object _keyTo;
     final Comparator _cmp;
+    boolean _asc = true;
 
-    Seq(IPersistentMap meta, Seq parent, Leaf node, int idx, Object keyTo, Comparator cmp) {
+    Seq(IPersistentMap meta, Seq parent, Leaf node, int idx, Object keyTo, Comparator cmp, boolean asc) {
       _parent = parent;
       _node   = node;
       _idx    = idx;
       _keyTo  = keyTo;
       _cmp    = cmp;
+      _asc    = asc;
     }
 
     Leaf child() {
@@ -808,50 +894,67 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
       return ((Node) _node)._children[_idx];
     }
 
+    boolean over() {
+      if (_keyTo == null) return false;
+      int d = _cmp.compare(first(), _keyTo);
+      return _asc ? d > 0 : d < 0;
+    }
+
     boolean advance() {
-      if (_idx < _node._len-1) {
-        _idx++;
-        return _keyTo == null || _cmp.compare(first(), _keyTo) <= 0;
-      } else if (_parent != null) {
-        if (_parent.advance()) {
-          _node = _parent.child();
-          _idx = 0;
-          return _keyTo == null || _cmp.compare(first(), _keyTo) <= 0;
+      if (_asc) {
+        if (_idx < _node._len-1) {
+          _idx++;
+          return !over();
+        } else if (_parent != null) {
+          _parent = _parent.next();
+          if (_parent != null) {
+            _node = _parent.child();
+            _idx = 0;
+            return !over();
+          }
+        }
+      } else { // !_asc
+        if (_idx > 0) {
+          _idx--;
+          return !over();
+        } else if (_parent != null) {
+          _parent = _parent.next();
+          if (_parent != null) {
+            _node = _parent.child();
+            _idx = _node._len - 1;
+            return !over();
+          }
         }
       }
       return false;
     }
 
+    protected Seq clone() {
+      return new Seq(meta(), _parent, _node, _idx, _keyTo, _cmp, _asc);
+    }
+
     // ASeq
     public Object first() {
-      assert !(_node instanceof Node);
+      // assert !(_node instanceof Node);
       return _node._keys[_idx];
     }
 
     public Seq next() {
-      Seq res = null;
-      if (_idx < _node._len-1)
-        res = new Seq(meta(), _parent, _node, _idx+1, _keyTo, _cmp);
-      else if (_parent != null) {
-          Seq nextParent = _parent.next();
-          if (nextParent != null)
-            res = new Seq(meta(), nextParent, nextParent.child(), 0, _keyTo, _cmp);
-        }
-      if (res != null && (_keyTo == null || _cmp.compare(res.first(), _keyTo) <= 0))
-        return res;
-      return null;
+      Seq next = clone();
+      return next.advance() ? next : null;
     }
 
     public Obj withMeta(IPersistentMap meta) {
       if(meta() == meta) return this;
-      return new Seq(meta, _parent, _node, _idx, _keyTo, _cmp);
+      return new Seq(meta, _parent, _node, _idx, _keyTo, _cmp, _asc);
     }
 
     // IReduce
     public Object reduce(IFn f) {
-      Object ret = first();
-      while (advance()) {
-        ret = f.invoke(ret, first());
+      Seq clone = clone();
+      Object ret = clone.first();
+      while (clone.advance()) {
+        ret = f.invoke(ret, clone.first());
         if (ret instanceof Reduced)
           return ((Reduced) ret).deref();
       }
@@ -859,13 +962,37 @@ public class ClojureSet extends ASortedSet implements IEditableCollection, ITran
     }
 
     public Object reduce(IFn f, Object start) {
+      Seq clone = clone();
       Object ret = start;
       do {
-        ret = f.invoke(ret, first());
+        ret = f.invoke(ret, clone.first());
         if (ret instanceof Reduced)
           return ((Reduced) ret).deref();
-      } while (advance());
+      } while (clone.advance());
       return ret;
+    }
+
+    // Iterable
+    public Iterator iterator() { return new JavaIter(clone()); }
+
+    // clojure.lang.IChunkedSeq
+    // (chunkedFirst [this] (iter-chunk this))
+    // (chunkedNext  [this] (iter-chunked-next this))
+    // (chunkedMore  [this] (or (.chunkedNext this) ()))
+
+    boolean atBeginning() {
+      return _idx == 0 && (_parent == null || _parent.atBeginning());
+    }
+
+    boolean atEnd() {
+      return _idx == _node._len-1 && (_parent == null || _parent.atEnd());
+    }
+
+    public Seq rseq() {
+      if (_asc)
+        return rslice(_keyTo, atBeginning() ? null : first(), _cmp);
+      else
+        return slice(_keyTo, atEnd() ? null : first(), _cmp);
     }
   }
 }

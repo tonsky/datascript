@@ -13,6 +13,7 @@
   
   :plugins [
     [lein-cljsbuild "1.1.7"]
+    ; [lein-virgil "0.1.9"]
   ]
   
   :global-vars {
@@ -20,7 +21,7 @@
     *print-namespace-maps* false
 ;;     *unchecked-math* :warn-on-boxed
   }
-  
+  :java-source-paths ["src-java"]  
   :jvm-opts ["-Xmx2g" "-server"]
 
   :aliases {"test-clj"     ["run" "-m" "datascript.test/test-most"]

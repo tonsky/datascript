@@ -86,3 +86,16 @@
              (.isArray js/Array x)
              (instance? js/Array x)))
    :clj  (defn array? [^Object x] (-> x .getClass .isArray)))
+
+#?(:clj
+    (defmacro alast [arr]
+      `(let [arr# ~arr]
+         (aget arr# (dec (alength arr#))))))
+
+#?(:clj
+  (defmacro half [x]
+    `(unsigned-bit-shift-right ~x 1)))
+
+#?(:clj
+  (defmacro not== [x y]
+    `(not (== ~x ~y))))

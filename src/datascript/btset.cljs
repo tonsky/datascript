@@ -34,20 +34,12 @@
   (:refer-clojure :exclude [iter])
   (:require
     [datascript.arrays :as da])
-  #?(:clj  (:import [java.util Arrays]))
-  #?(:cljs (:require-macros [datascript.btset :refer [half not==]])))
-
-#?(:clj
-  (defmacro half [x]
-    `(unsigned-bit-shift-right ~x 1)))
-
-#?(:clj
-  (defmacro not== [x y]
-    `(not (== ~x ~y))))
+  (:require-macros
+    [datascript.arrays :as da]))
 
 (def ^:const min-len 16)
 (def ^:const max-len 32)
-(def ^:const avg-len (half (+ max-len min-len)))
+(def ^:const avg-len (da/half (+ max-len min-len)))
 (def ^:const level-shift (->> (range 31 -1 -1)
                               (filter #(bit-test max-len %))
                               first
@@ -67,19 +59,18 @@
   (loop [l 0
          r (long r)]
     (if (<= l r)
-      (let [m  (half (+ l r))
+      (let [m  (da/half (+ l r))
             mk (da/aget arr m)]
         (if (neg? (cmp mk k))
           (recur (inc m) r)
           (recur l (dec m))))
       l)))
 
-
 (defn binary-search-r ^long [cmp arr ^long r k]
   (loop [l 0
          r (long r)]
     (if (<= l r)
-      (let [m  (half (+ l r))
+      (let [m  (da/half (+ l r))
             mk (da/aget arr m)]
         (if (pos? (cmp mk k))
           (recur l (dec m))
@@ -103,9 +94,6 @@
 
 ;; Array operations
 
-(defn alast [arr]
-  (da/aget arr (dec (da/alength arr))))
-
 (defn cut-n-splice [arr cut-from cut-to splice-from splice-to xs]
   (let [xs-l (da/alength xs)
         l1   (- splice-from cut-from)
@@ -117,18 +105,6 @@
     (da/acopy arr splice-to cut-to new-arr l1xs)
     new-arr))
 
-(defn cut
-  ([arr cut-from]
-    #?(:cljs (.slice arr cut-from)
-       :clj  (Arrays/copyOfRange ^{:tag "[[Ljava.lang.Object;"} arr
-                                 (int cut-from)
-                                 (da/alength arr))))
-  ([arr cut-from cut-to]
-    #?(:cljs (.slice arr cut-from cut-to)
-       :clj  (Arrays/copyOfRange ^{:tag "[[Ljava.lang.Object;"} arr
-                                 (int cut-from)
-                                 (int cut-to)))))
-
 (defn splice [arr splice-from splice-to xs]
   (cut-n-splice arr 0 (da/alength arr) splice-from splice-to xs))
 
@@ -139,7 +115,7 @@
   (let [a1-l    (da/alength a1)
         a2-l    (da/alength a2)
         total-l (+ a1-l a2-l)
-        r1-l    (half total-l)
+        r1-l    (da/half total-l)
         r2-l    (- total-l r1-l)
         r1      (da/make-array r1-l)
         r2      (da/make-array r2-l)]
@@ -163,7 +139,7 @@
         (cond
           (== i len)
             true
-          (not== 0 (cmp (da/aget a1 (+ i a1-from))
+          (da/not== 0 (cmp (da/aget a1 (+ i a1-from))
                              (da/aget a2 (+ i a2-from))))
             false
           :else
@@ -194,14 +170,14 @@
         (let [rest (- len pos)]
           (cond
             (<= rest max-len)
-              (conj! acc (cut arr pos))
+              (conj! acc (.slice arr pos))
             (>= rest (+ chunk-len min-len))
               (do
-                (conj! acc (cut arr pos (+ pos chunk-len)))
+                (conj! acc (.slice arr pos (+ pos chunk-len)))
                 (recur (+ pos chunk-len)))
             :else
-              (let [piece-len (half rest)]
-                (conj! acc (cut arr pos (+ pos piece-len)))
+              (let [piece-len (da/half rest)]
+                (conj! acc (.slice arr pos (+ pos piece-len)))
                 (recur (+ pos piece-len)))))))
     (to-array (persistent! acc)))) ;; TODO avoid persistent?
 
@@ -229,7 +205,7 @@
              i   1
              p   (da/aget arr 0)]
         (if (>= i al)
-          (into-array #?(:clj Object) (persistent! acc)) ;; TODO avoid persistent?
+          (into-array (persistent! acc)) ;; TODO avoid persistent?
           (let [e (da/aget arr i)]
             (if (== 0 (cmp e p))
               (recur acc (inc i) e)
@@ -303,7 +279,7 @@
 (deftype Node [keys pointers]
   INode
   (node-lim-key [_]
-    (alast keys))
+    (da/alast keys))
   
   (node-len [_]
     (da/alength keys))
@@ -333,12 +309,12 @@
             ;; ok as is
             (da/array (Node. new-keys new-pointers))
             ;; gotta split it up
-            (let [middle  (half (da/alength new-pointers))]
+            (let [middle  (da/half (da/alength new-pointers))]
               (da/array
-                (Node. (cut new-keys     0 middle)
-                       (cut new-pointers 0 middle))
-                (Node. (cut new-keys     middle)
-                       (cut new-pointers middle)))))))))
+                (Node. (.slice new-keys     0 middle)
+                       (.slice new-pointers 0 middle))
+                (Node. (.slice new-keys     middle)
+                       (.slice new-pointers middle)))))))))
 
   (node-disj [_ cmp key root? left right]
     (let [idx (lookup-range cmp keys key)]
@@ -359,7 +335,7 @@
 (deftype Leaf [keys]
   INode
   (node-lim-key [_]
-    (alast keys))
+    (da/alast keys))
 ;;   Object
 ;;   (toString [_] (pr-str* (vec keys)))
   
@@ -390,16 +366,16 @@
       
         ;; splitting
         (== keys-l max-len)
-          (let [middle (half (inc keys-l))]
+          (let [middle (da/half (inc keys-l))]
             (if (> idx middle)
               ;; new key goes to the second half
               (da/array
-                (Leaf. (cut keys 0 middle))
+                (Leaf. (.slice keys 0 middle))
                 (Leaf. (cut-n-splice keys middle keys-l idx idx (da/array key))))
               ;; new key goes to the first half
               (da/array
                 (Leaf. (cut-n-splice keys 0 middle idx idx (da/array key)))
-                (Leaf. (cut keys middle keys-l)))))
+                (Leaf. (.slice keys middle keys-l)))))
        
         ;; ok as is
         :else
@@ -415,152 +391,73 @@
 
 (declare btset-conj btset-disj btset-iter)
 
-(def ^:const uninitialized-hash #?(:cljs nil :clj -1))
+(def ^:const uninitialized-hash nil)
 
-(deftype BTSet [root shift cnt comparator meta #?(:cljs ^:mutable __hash
-                                                  :clj  ^:unsynchronized-mutable ^int _hasheq)]
-  #?@(:cljs [
-    Object
-    (toString [this]
-      (pr-str* this))
+(deftype BTSet [root shift cnt comparator meta ^:mutable __hash]
+  Object
+  (toString [this] (pr-str* this))
 
-    ICloneable
-    (-clone [_] (BTSet. root shift cnt comparator meta __hash))
+  ICloneable
+  (-clone [_] (BTSet. root shift cnt comparator meta __hash))
 
-    IWithMeta
-    (-with-meta [_ new-meta] (BTSet. root shift cnt comparator new-meta __hash))
+  IWithMeta
+  (-with-meta [_ new-meta] (BTSet. root shift cnt comparator new-meta __hash))
 
-    IMeta
-    (-meta [_] meta)
+  IMeta
+  (-meta [_] meta)
 
-    IEmptyableCollection
-    (-empty [_] (BTSet. (Leaf. (da/array)) 0 0 comparator meta uninitialized-hash))
+  IEmptyableCollection
+  (-empty [_] (BTSet. (Leaf. (da/array)) 0 0 comparator meta uninitialized-hash))
 
-    IEquiv
-    (-equiv [this other]
-      (and
-        (set? other)
-        (== cnt (count other))
-        (every? #(contains? this %) other)))
+  IEquiv
+  (-equiv [this other]
+    (and
+      (set? other)
+      (== cnt (count other))
+      (every? #(contains? this %) other)))
 
-    IHash
-    (-hash [this] (caching-hash this hash-unordered-coll __hash))
+  IHash
+  (-hash [this] (caching-hash this hash-unordered-coll __hash))
 
-    ICollection
-    (-conj [this key] (btset-conj this key comparator))
+  ICollection
+  (-conj [this key] (btset-conj this key comparator))
 
-    ISet
-    (-disjoin [this key] (btset-disj this key comparator))
+  ISet
+  (-disjoin [this key] (btset-disj this key comparator))
 
-    ILookup 
-    (-lookup [_ k]
-      (node-lookup root comparator k))
-    (-lookup [_ k not-found]
-      (or (node-lookup root comparator k) not-found))
+  ILookup 
+  (-lookup [_ k]
+    (node-lookup root comparator k))
+  (-lookup [_ k not-found]
+    (or (node-lookup root comparator k) not-found))
 
-    ISeqable
-    (-seq [this] (btset-iter this))
+  ISeqable
+  (-seq [this] (btset-iter this))
 
-    IReduce
-    (-reduce [this f]
-      (if-let [i (btset-iter this)]
-        (-reduce i f)
-        (f)))
-    (-reduce [this f start]
-      (if-let [i (btset-iter this)]
-        (-reduce i f start)
-        start))
-             
-    IReversible
-    (-rseq [this] (rseq (btset-iter this)))
+  IReduce
+  (-reduce [this f]
+    (if-let [i (btset-iter this)]
+      (-reduce i f)
+      (f)))
+  (-reduce [this f start]
+    (if-let [i (btset-iter this)]
+      (-reduce i f start)
+      start))
+           
+  IReversible
+  (-rseq [this] (rseq (btset-iter this)))
 
-    ICounted
-    (-count [_] cnt)
+  ICounted
+  (-count [_] cnt)
 
-    IFn
-    (-invoke [this k] (-lookup this k))
-    (-invoke [this k not-found] (-lookup this k not-found))
+  IFn
+  (-invoke [this k] (-lookup this k))
+  (-invoke [this k not-found] (-lookup this k not-found))
 
-    IPrintWithWriter
-    (-pr-writer [this writer opts]
-      (pr-sequential-writer writer pr-writer "#{" " " "}" opts (seq this)))]
-
-  :clj [
-    clojure.lang.IMeta
-    (meta [_] meta)
-        
-    clojure.lang.IObj
-    (withMeta [_ new-meta] (BTSet. root shift cnt comparator new-meta _hasheq))
-    
-    clojure.lang.Reversible
-    (rseq [this] (rseq (btset-iter this)))
-        
-    clojure.lang.Seqable
-    (seq [this] (btset-iter this))
-
-    clojure.lang.IReduce
-    (reduce [this f]
-      (if-let [i (btset-iter this)]
-        (.reduce ^clojure.lang.IReduce i f)
-        (f)))
-
-    clojure.lang.IReduceInit
-    (reduce [this f start]
-      (if-let [i (btset-iter this)]
-        (.reduce ^clojure.lang.IReduceInit i f start)
-        start))
-        
-    clojure.lang.IPersistentCollection
-    (empty [_] (BTSet. (Leaf. (da/array)) 0 0 comparator meta uninitialized-hash))
-    (cons  [this key] (btset-conj this key comparator))
-    (equiv [this other]
-      (and
-        (instance? java.util.Set other)
-        (== cnt (.size ^java.util.Collection other))
-        (.containsAll this ^java.util.Collection other)))
-        
-    clojure.lang.Counted
-    (count [_] cnt)
-
-    clojure.lang.IPersistentSet
-    (disjoin  [this key] (btset-disj this key comparator))
-    (contains [this key] (not (nil? (.get this key))))
-    (get [_ key]
-      (node-lookup root comparator key))
-        
-    clojure.lang.ILookup
-    (valAt [this key] (.get this key))
-    (valAt [this key not-found] (or (.get this key) not-found))
-    
-    clojure.lang.IHashEq
-    (hasheq [this]
-      (when (== -1 _hasheq)
-        (set! _hasheq (clojure.lang.Murmur3/hashUnordered this)))
-      _hasheq)
-
-    clojure.lang.IFn
-    (invoke [this k] (.get this k))
-    (invoke [this k not-found] (or (.get this k) not-found))
-
-    java.lang.Iterable
-    (iterator [this] (clojure.lang.SeqIterator. (btset-iter this)))
-
-    java.util.Collection
-    (containsAll [this c] (every? #(.contains this %) c))
-    (size        [_]      cnt)
-    (isEmpty     [_]      (== 0 cnt))
-    (toArray     [this]   (clojure.lang.RT/seqToArray (.seq this)))
-    (^"[Ljava.lang.Object;" toArray [this ^"[Ljava.lang.Object;" a] (clojure.lang.RT/seqToPassedArray (.seq this) a))
-
-    java.util.Set
-    java.io.Serializable
-    java.lang.Object
-    (toString [this] (clojure.lang.RT/printString this))
-    (hashCode [this] (.hasheq this))
-    (equals   [this other] (.equiv this other))
-        
-  ]))
-
+  IPrintWithWriter
+  (-pr-writer [this writer opts]
+    (pr-sequential-writer writer pr-writer "#{" " " "}" opts (seq this))))
+  
 (defn alter-btset [^BTSet set root shift cnt]
   (BTSet. root shift cnt (.-comparator set) (.-meta set) uninitialized-hash))
 
@@ -652,7 +549,7 @@
          level level]
     (if (pos? level)
       ;; inner node
-      (recur (alast (.-pointers ^Node node))
+      (recur (da/alast (.-pointers ^Node node))
              (path-set path level (dec (da/alength (.-pointers ^Node node))))
              (- level level-shift))
       ;; leaf
@@ -699,57 +596,40 @@
       (iter set left right))))
 
 (deftype Iter [set ^long left ^long right keys ^long idx]
-  #?@(:cljs [
-    ISeqable
-    (-seq [this] (when keys this))
+  IEquiv
+  (-equiv [this other] (equiv-sequential this other))
 
-    ISeq
-    (-first [this] (iter-first this))
-    (-rest [this]  (or (iter-next this) ()))
+  ISequential
+  ISeqable
+  (-seq [this] (when keys this))
 
-    INext
-    (-next [this] (iter-next this))
+  ISeq
+  (-first [this] (iter-first this))
+  (-rest [this]  (or (iter-next this) ()))
 
-    IChunkedSeq
-    (-chunked-first [this] (iter-chunk this))
-    (-chunked-rest  [this] (or (-chunked-next this) ()))
+  INext
+  (-next [this] (iter-next this))
 
-    IChunkedNext
-    (-chunked-next  [this] (iter-chunked-next this))
-             
-    IReduce
-    (-reduce [this f] (iter-reduce this f))
-    (-reduce [this f start] (iter-reduce this f start))
+  IChunkedSeq
+  (-chunked-first [this] (iter-chunk this))
+  (-chunked-rest  [this] (or (-chunked-next this) ()))
 
-    IReversible
-    (-rseq [this] (iter-rseq this))]
-  :clj [
-    clojure.lang.Sequential
-    clojure.lang.Seqable
-    (seq [this] (when keys this))
+  IChunkedNext
+  (-chunked-next  [this] (iter-chunked-next this))
+           
+  IReduce
+  (-reduce [this f] (iter-reduce this f))
+  (-reduce [this f start] (iter-reduce this f start))
 
-    clojure.lang.ISeq
-    (first [this] (iter-first this))
-    (next  [this] (iter-next this))
-    (more  [this] (or (iter-next this) ()))
-        
-    clojure.lang.IChunkedSeq
-    (chunkedFirst [this] (iter-chunk this))
-    (chunkedNext  [this] (iter-chunked-next this))
-    (chunkedMore  [this] (or (.chunkedNext this) ()))
+  IReversible
+  (-rseq [this] (iter-rseq this))
 
-    clojure.lang.IReduce
-    (reduce [this f] (iter-reduce this f))
+  Object
+  (toString [this] (pr-str* this))
 
-    clojure.lang.IReduceInit
-    (reduce [this f start] (iter-reduce this f start))
-        
-    clojure.lang.Reversible
-    (rseq [this] (iter-rseq this))
-
-    java.lang.Iterable
-    (iterator [this] (clojure.lang.SeqIterator. this))
-  ]))
+  IPrintWithWriter
+  (-pr-writer [this writer opts]
+    (pr-sequential-writer writer pr-writer "(" " " ")" opts (seq this))))
 
 (defn iter [set ^long left ^long right]
   (Iter. set left right (keys-for set left) (path-get left 0)))
@@ -782,8 +662,7 @@
                        (bit-or right path-mask))
                   (bit-and right path-mask)
                   (da/alength keys))]
-      (#?(:clj clojure.lang.ArrayChunk.
-          :cljs array-chunk) keys idx end-idx)))
+      (array-chunk keys idx end-idx)))
 
 (defn iter-chunked-next [^Iter iter]
   (let [set   (.-set iter)
@@ -830,48 +709,36 @@
                   new-acc)
               :else
                 (let [new-left (next-path set left)]
-                  (if (and (not== -1 new-left) (< new-left right))
+                  (if (and (da/not== -1 new-left) (< new-left right))
                     (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
                     new-acc)))))))))
 
 ;; reverse iteration
 
 (deftype ReverseIter [set ^long left ^long right keys ^long idx]
-  #?@(:cljs [
-    ISeqable
-    (-seq [this] (when keys this))
+  IEquiv
+  (-equiv [this other] (equiv-sequential this other))
 
-    ISeq
-    (-first [this] (riter-first this))
-    (-rest [this]  (or (riter-next this) ()))
+  ISequential
+  ISeqable
+  (-seq [this] (when keys this))
 
-    INext
-    (-next [this] (riter-next this))
+  ISeq
+  (-first [this] (riter-first this))
+  (-rest [this]  (or (riter-next this) ()))
 
-    IReversible
-    (-rseq [this] (riter-rseq this))]
-  :clj [
-    clojure.lang.Seqable
-    (seq [this] (when keys this))
+  INext
+  (-next [this] (riter-next this))
 
-    clojure.lang.ISeq
-    (first [this] (riter-first this))
-    (next  [this] (riter-next this))
-    (more  [this] (or (riter-next this) ()))
+  IReversible
+  (-rseq [this] (riter-rseq this))
 
-    ;; TODO
-;;     clojure.lang.IReduce
-;;     (reduce [this f] (riter-reduce this f))
+  Object
+  (toString [this] (pr-str* this))
 
-;;     clojure.lang.IReduceInit
-;;     (reduce [this f start] (riter-reduce this f start))
-        
-    clojure.lang.Reversible
-    (rseq [this] (riter-rseq this))
-
-    java.lang.Iterable
-    (iterator [this] (clojure.lang.SeqIterator. this))
-  ]))
+  IPrintWithWriter
+  (-pr-writer [this writer opts]
+    (pr-sequential-writer writer pr-writer "(" " " ")" opts (seq this))))
 
 (defn riter [set ^long left ^long right]
   (ReverseIter. set left right (keys-for set right) (path-get right 0)))
@@ -986,6 +853,12 @@
   ([^BTSet set key-from key-to]
     (-slice set key-from key-to)))
 
+(defn rslice
+  "`(rslice set from to)` returns backwards iterator for all Xs where from <= X <= to.
+   `(rslice set from nil)` returns backwards iterator for all Xs where X <= from."
+  [^BTSet set key-from key-to]
+  (some-> (-slice set key-to key-from) rseq))
+
 ;; public interface
 
 (defn -btset-from-sorted-arr [arr cmp]
@@ -1003,7 +876,7 @@
                (+ shift level-shift))))))
 
 (defn -btset-from-seq [seq cmp] ;; TODO avoid array?
-  (let [arr (-> (into-array #?(:clj Object) seq) (da/asort cmp) (sorted-arr-distinct cmp))]
+  (let [arr (-> (into-array seq) (da/asort cmp) (sorted-arr-distinct cmp))]
     (-btset-from-sorted-arr arr cmp)))
 
 (defn btset-by
@@ -1020,7 +893,7 @@
   (defn- pp-node [n offset]
     (print (apply str (repeat offset " ")))
     (when (instance? Leaf n) (print "- "))
-    (print "[" (alength (.-keys n)) "nodes:" (aget (.-keys n) 0) ".." (alast (.-keys n)) "]")
+    (print "[" (alength (.-keys n)) "nodes:" (aget (.-keys n) 0) ".." (da/alast (.-keys n)) "]")
     (println)
     (when (instance? Node n)
       (doseq [p (.-pointers n)]

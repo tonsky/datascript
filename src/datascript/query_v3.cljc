@@ -17,8 +17,7 @@
         Constant DefaultSrc Pattern RulesVar SrcVar Variable
         Not Or And Predicate PlainSymbol]
       [clojure.lang     IReduceInit Counted]
-      [datascript.db  Datom]
-      [datascript.btset Iter])))
+      [datascript.db  Datom])))
 
 (declare resolve-clauses collect-rel-xf collect-to)
 
@@ -273,9 +272,7 @@
   (-symbols [_]        (keys offset-map))
   (-arity   [_]        (count offset-map))
   (-fold    [_ f init] (reduce f init coll))
-  (-size    [_]        (if (instance? Iter coll)
-                         (count coll);; (btset/est-count coll)
-                         (count coll)))
+  (-size    [_]        (count coll)) ;; (if (instance? Iter coll) (btset/est-count coll) (count coll))
   (-getter  [_ symbol]
     (let [idx (offset-map symbol)]
       (fn [tuple]

@@ -148,6 +148,7 @@
        :clj
        [Object
         (hashCode [d] (hash-datom d))
+        (toString [d] (pr-str d))
 
         clojure.lang.IHashEq
         (hasheq [d] (hash-datom d))
@@ -462,7 +463,7 @@
     (btset/slice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
   (-rseek-datoms [db index cs]
-    (reverse (btset/slice (get db index) (Datom. nil nil nil nil nil) (components->pattern db index cs))))
+    (btset/rslice (get db index) (components->pattern db index cs) (Datom. nil nil nil nil nil)))
 
   (-index-range [db attr start end]
     (when-not (indexing? db attr)
@@ -609,10 +610,10 @@
        :hash    (atom 0)})))
 
 (defn- init-max-eid [eavt]
-  (if-let [slice (btset/slice
-                   eavt
-                   (Datom. nil nil nil nil nil)
-                   (Datom. (dec tx0) nil nil nil nil))]
+  (if-some [slice (btset/slice
+                    eavt
+                    (Datom. nil nil nil nil nil)
+                    (Datom. (dec tx0) nil nil nil nil))]
     (-> slice rseq first :e) ;; :e of last datom in slice
     0))
 
@@ -1045,7 +1046,7 @@
       (if (empty? (-search db [e a v]))
         (transact-report report datom)
         report)
-      (if-let [^Datom old-datom (first (-search db [e a]))]
+      (if-some [^Datom old-datom (first (-search db [e a]))]
         (if (= (.-v old-datom) v)
           report
           (-> report

@@ -3,11 +3,8 @@ package datascript;
 import java.util.*;
 import clojure.lang.*;
 
-//  clojure.lang.Reversible
-//  (rseq [this] (rseq (btset-iter this)))
-
 @SuppressWarnings("unchecked")
-public abstract class ASortedSet implements IObj, IPersistentSet, ILookup, Iterable, Set, java.io.Serializable, IHashEq {
+public abstract class ASortedSet implements IObj, Counted, IPersistentSet, ILookup, Iterable, Set, java.io.Serializable, IHashEq {
   int _hash;
   int _hasheq;
   final IPersistentMap _meta;

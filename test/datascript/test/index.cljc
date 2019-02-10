@@ -8,7 +8,7 @@
 
 (deftest test-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
-        db (-> (d/empty-db { :age  { :db/index true } })
+        db (-> (d/empty-db {:age {:db/index true}})
                (d/db-with [ [:db/add 1 :name "Petr"]
                             [:db/add 1 :age 44]
                             [:db/add 2 :name "Ivan"]
@@ -16,39 +16,39 @@
                             [:db/add 3 :name "Sergey"]
                             [:db/add 3 :age 11] ]))]
     (testing "Main indexes, sort order"
-      (is (= (map dvec (d/datoms db :aevt))
-             [ [1 :age 44]
+      (is (= [ [1 :age 44]
                [2 :age 25]
                [3 :age 11]
                [1 :name "Petr"]
                [2 :name "Ivan"]
-               [3 :name "Sergey"] ]))
+               [3 :name "Sergey"] ]
+             (map dvec (d/datoms db :aevt))))
 
-      (is (= (map dvec (d/datoms db :eavt))
-             [ [1 :age 44]
+      (is (= [ [1 :age 44]
                [1 :name "Petr"]
                [2 :age 25]
                [2 :name "Ivan"]
                [3 :age 11]
-               [3 :name "Sergey"] ]))
+               [3 :name "Sergey"] ]
+             (map dvec (d/datoms db :eavt))))
 
-      (is (= (map dvec (d/datoms db :avet))
-             [ [3 :age 11]
+      (is (= [ [3 :age 11]
                [2 :age 25]
-               [1 :age 44] ]))) ;; name non-indexed, excluded from avet
+               [1 :age 44] ]
+             (map dvec (d/datoms db :avet))))) ;; name non-indexed, excluded from avet
 
     (testing "Components filtration"
-      (is (= (map dvec (d/datoms db :eavt 1))
-             [ [1 :age 44]
-               [1 :name "Petr"] ]))
+      (is (= [ [1 :age 44]
+               [1 :name "Petr"] ]
+             (map dvec (d/datoms db :eavt 1))))
 
-      (is (= (map dvec (d/datoms db :eavt 1 :age))
-             [ [1 :age 44] ]))
+      (is (= [ [1 :age 44] ]
+             (map dvec (d/datoms db :eavt 1 :age))))
 
-      (is (= (map dvec (d/datoms db :avet :age))
-             [ [3 :age 11]
+      (is (= [ [3 :age 11]
                [2 :age 25]
-               [1 :age 44] ])))))
+               [1 :age 44] ]
+             (map dvec (d/datoms db :avet :age)))))))
 
 (deftest test-seek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
