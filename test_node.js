@@ -45,6 +45,8 @@ else if ("--btset" === process.argv[2])
   var res = datascript.test.test_btset();
 else if ("--js" === process.argv[2])
   var res = tests_js.test_all();
+else if ("--unit" === process.argv[2])
+  var res = merge(datascript.test.test_most(), datascript.test.test_btset());
 else {
   var t0 = global.performance.now();
   var res = datascript.test.test_most();

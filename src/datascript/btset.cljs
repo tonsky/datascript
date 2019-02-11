@@ -45,17 +45,17 @@
                               first
                               inc))
 (def ^:const path-mask (dec (bit-shift-left 1 level-shift)))
-(def ^:const ^long empty-path 0)
+(def ^:const empty-path 0)
 
-(defn path-get ^long [^long path ^long level]
+(defn path-get [path level]
   (bit-and path-mask
            (unsigned-bit-shift-right path level)))
 
-(defn path-set ^long [^long path ^long level ^long idx]
+(defn path-set [path level idx]
   (bit-or path 
           (bit-shift-left idx level)))
 
-(defn binary-search-l ^long [cmp arr ^long r k]
+(defn binary-search-l [cmp arr r k]
   (loop [l 0
          r (long r)]
     (if (<= l r)
@@ -66,7 +66,7 @@
           (recur l (dec m))))
       l)))
 
-(defn binary-search-r ^long [cmp arr ^long r k]
+(defn binary-search-r [cmp arr r k]
   (loop [l 0
          r (long r)]
     (if (<= l r)
@@ -77,7 +77,7 @@
           (recur (inc m) r)))
       l)))
 
-(defn lookup-exact ^long [cmp arr key]
+(defn lookup-exact [cmp arr key]
   (let [arr-l (da/alength arr)
         idx   (binary-search-l cmp arr (dec arr-l) key)]
     (if (and (< idx arr-l)
@@ -85,7 +85,7 @@
       idx
       -1)))
 
-(defn lookup-range ^long [cmp arr key]
+(defn lookup-range [cmp arr key]
   (let [arr-l (da/alength arr)
         idx   (binary-search-l cmp arr (dec arr-l) key)]
     (if (== idx arr-l)
@@ -179,7 +179,7 @@
               (let [piece-len (da/half rest)]
                 (conj! acc (.slice arr pos (+ pos piece-len)))
                 (recur (+ pos piece-len)))))))
-    (to-array (persistent! acc)))) ;; TODO avoid persistent?
+    (to-array (persistent! acc))))
 
 (defn- sorted-arr-distinct? [arr cmp]
   (let [al (da/alength arr)]
@@ -205,7 +205,7 @@
              i   1
              p   (da/aget arr 0)]
         (if (>= i al)
-          (into-array (persistent! acc)) ;; TODO avoid persistent?
+          (into-array (persistent! acc))
           (let [e (da/aget arr i)]
             (if (== 0 (cmp e p))
               (recur acc (inc i) e)
@@ -251,30 +251,30 @@
   (cond
     ;; root never merges
     root?
-      (return-array node)
+    (return-array node)
 
     ;; enough keys, nothing to merge
     (> (node-len node) min-len)
-      (return-array left node right)
+    (return-array left node right)
 
     ;; left and this can be merged to one
     (and left (<= (node-len left) min-len))
-      (return-array (node-merge left node) right)
+    (return-array (node-merge left node) right)
 
     ;; right and this can be merged to one
     (and right (<= (node-len right) min-len))
-      (return-array left (node-merge node right))
+    (return-array left (node-merge node right))
 
     ;; left has fewer nodes, redestribute with it
     (and left (or (nil? right)
                   (< (node-len left) (node-len right))))
-      (let [nodes (node-merge-n-split left node)]
-        (return-array (da/aget nodes 0) (da/aget nodes 1) right))
+    (let [nodes (node-merge-n-split left node)]
+      (return-array (da/aget nodes 0) (da/aget nodes 1) right))
 
     ;; right has fewer nodes, redestribute with it
     :else
-      (let [nodes (node-merge-n-split node right)]
-        (return-array left (da/aget nodes 0) (da/aget nodes 1)))))
+    (let [nodes (node-merge-n-split node right)]
+      (return-array left (da/aget nodes 0) (da/aget nodes 1)))))
 
 (deftype Node [keys pointers]
   INode
@@ -285,12 +285,12 @@
     (da/alength keys))
   
   (node-merge [_ next]
-    (Node. (da/aconcat keys (.-keys ^Node next))
-           (da/aconcat pointers (.-pointers ^Node next))))
+    (Node. (da/aconcat keys (.-keys next))
+           (da/aconcat pointers (.-pointers next))))
   
   (node-merge-n-split [_ next]
-    (let [ks (merge-n-split keys     (.-keys ^Node next))
-          ps (merge-n-split pointers (.-pointers ^Node next))]
+    (let [ks (merge-n-split keys     (.-keys next))
+          ps (merge-n-split pointers (.-pointers next))]
       (return-array (Node. (da/aget ks 0) (da/aget ps 0))
                     (Node. (da/aget ks 1) (da/aget ps 1)))))
 
@@ -343,10 +343,10 @@
     (da/alength keys))
   
   (node-merge [_ next]
-    (Leaf. (da/aconcat keys (.-keys ^Leaf next))))
+    (Leaf. (da/aconcat keys (.-keys next))))
   
   (node-merge-n-split [_ next]
-    (let [ks (merge-n-split keys (.-keys ^Leaf next))]
+    (let [ks (merge-n-split keys (.-keys next))]
       (return-array (Leaf. (da/aget ks 0))
                     (Leaf. (da/aget ks 1)))))
   
@@ -450,6 +450,16 @@
   ICounted
   (-count [_] cnt)
 
+  IEditableCollection
+  (-as-transient [this] this)
+
+  ITransientCollection
+  (-conj! [this key] (btset-conj this key comparator))
+  (-persistent! [this] this)
+
+  ITransientSet
+  (-disjoin! [this key] (btset-disj this key comparator))
+
   IFn
   (-invoke [this k] (-lookup this k))
   (-invoke [this k not-found] (-lookup this k not-found))
@@ -458,19 +468,19 @@
   (-pr-writer [this writer opts]
     (pr-sequential-writer writer pr-writer "#{" " " "}" opts (seq this))))
   
-(defn alter-btset [^BTSet set root shift cnt]
-  (BTSet. root shift cnt (.-comparator set) (.-meta set) uninitialized-hash))
-
-(defn keys-for [^BTSet set path]
+(defn keys-for [set path]
   (loop [level (.-shift set)
          node  (.-root set)]
     (if (pos? level)
       (recur (- level level-shift)
-             (da/aget (.-pointers ^Node node)
+             (da/aget (.-pointers node)
                    (path-get path level)))
-      (.-keys ^Leaf node))))
+      (.-keys node))))
 
-(defn btset-conj [^BTSet set key cmp]
+(defn alter-btset [set root shift cnt]
+  (BTSet. root shift cnt (.-comparator set) (.-meta set) uninitialized-hash))
+
+(defn btset-conj [set key cmp]
   (let [roots (node-conj (.-root set) cmp key)]
     (cond
       ;; tree not changed
@@ -491,17 +501,17 @@
           (+ (.-shift set) level-shift)
           (inc (.-cnt set))))))
 
-(defn btset-disj [^BTSet set key cmp]
+(defn btset-disj [set key cmp]
   (let [new-roots (node-disj (.-root set) cmp key true nil nil)]
     (if (nil? new-roots) ;; nothing changed, key wasn't in the set
       set
       (let [new-root (da/aget new-roots 0)]
         (if (and (instance? Node new-root)
-                 (== 1 (da/alength (.-pointers ^Node new-root))))
+                 (== 1 (da/alength (.-pointers new-root))))
           
           ;; root has one child, make him new root
           (alter-btset set
-            (da/aget (.-pointers ^Node new-root) 0)
+            (da/aget (.-pointers new-root) 0)
             (- (.-shift set) level-shift)
             (dec (.-cnt set)))
           
@@ -514,14 +524,14 @@
 
 ;; iteration
 
-(defn -next-path ^long [node ^long path ^long level]
+(defn -next-path [node path level]
   (let [idx (path-get path level)]
     (if (pos? level)
       ;; inner node
-      (let [sub-path (-next-path (da/aget (.-pointers ^Node node) idx) path (- level level-shift))]
+      (let [sub-path (-next-path (da/aget (.-pointers node) idx) path (- level level-shift))]
         (if (== -1 sub-path)
           ;; nested node overflow
-          (if (< (inc idx) (da/alength (.-pointers ^Node node)))
+          (if (< (inc idx) (da/alength (.-pointers node)))
             ;; advance current node idx, reset subsequent indexes
             (path-set empty-path level (inc idx))
             ;; current node overflow
@@ -529,7 +539,7 @@
           ;; keep current idx
           (path-set sub-path level idx)))
       ;; leaf
-      (if (< (inc idx) (da/alength (.-keys ^Leaf node)))
+      (if (< (inc idx) (da/alength (.-keys node)))
         ;; advance leaf idx
         (path-set empty-path 0 (inc idx))
         ;; leaf overflow
@@ -538,35 +548,35 @@
 (defn next-path
   "Returns path representing next item after `path` in natural traversal order,
    or -1 if end of tree has been reached"
-  ^long [^BTSet set ^long path]
+  [set path]
   (-next-path (.-root set) path (.-shift set)))
 
 (defn -rpath
   "Returns rightmost path possible starting from node and going deeper"
-  ^long [node ^long level]
+  [node level]
   (loop [node  node
          path  empty-path
          level level]
     (if (pos? level)
       ;; inner node
-      (recur (da/alast (.-pointers ^Node node))
-             (path-set path level (dec (da/alength (.-pointers ^Node node))))
+      (recur (da/alast (.-pointers node))
+             (path-set path level (dec (da/alength (.-pointers node))))
              (- level level-shift))
       ;; leaf
-      (path-set path 0 (dec (da/alength (.-keys ^Leaf node)))))))
+      (path-set path 0 (dec (da/alength (.-keys node)))))))
 
-(defn -prev-path ^long [node ^long path ^long level]
+(defn -prev-path [node path level]
   (let [idx (path-get path level)]
     (if (pos? level)
       ;; inner node
       (let [sub-level (- level level-shift)
-            sub-path  (-prev-path (da/aget (.-pointers ^Node node) idx) path sub-level)]
+            sub-path  (-prev-path (da/aget (.-pointers node) idx) path sub-level)]
         (if (== -1 sub-path)
           ;; nested node overflow
           (if (>= (dec idx) 0)
             ;; advance current node idx, reset subsequent indexes
             (let [idx      (dec idx)
-                  sub-path (-rpath (da/aget (.-pointers ^Node node) idx) sub-level)]
+                  sub-path (-rpath (da/aget (.-pointers node) idx) sub-level)]
               (path-set sub-path level idx))
             ;; current node overflow
             -1)
@@ -582,20 +592,27 @@
 (defn prev-path
   "Returns path representing previous item before `path` in natural traversal order,
    or -1 if `path` was already beginning of a tree"
-  ^long [^BTSet set ^long path]
+  [set path]
   (-prev-path (.-root set) path (.-shift set)))
 
-(declare iter iter-first iter-next iter-chunk iter-chunked-next iter-rseq iter-reduce riter riter-first riter-next riter-rseq)
+(declare iter riter)
 
 (defn btset-iter
-  "Iterator that represents whole set"
-  [^BTSet set]
+  "Iterator that represents the whole set"
+  [set]
   (when (pos? (node-len (.-root set)))
     (let [left   empty-path
           right  (inc (-rpath (.-root set) (.-shift set)))]
       (iter set left right))))
 
-(deftype Iter [set ^long left ^long right keys ^long idx]
+(defprotocol IIter
+  (-copy [this left right]))
+
+(deftype Iter [set left right keys idx]
+  IIter
+  (-copy [_ l r]
+    (Iter. set l r (keys-for set l) (path-get l 0)))
+
   IEquiv
   (-equiv [this other] (equiv-sequential this other))
 
@@ -604,46 +621,14 @@
   (-seq [this] (when keys this))
 
   ISeq
-  (-first [this] (iter-first this))
-  (-rest [this]  (or (iter-next this) ()))
+  (-first [this]
+    (when keys
+      (da/aget keys idx)))
+
+  (-rest [this] (or (-next this) ()))
 
   INext
-  (-next [this] (iter-next this))
-
-  IChunkedSeq
-  (-chunked-first [this] (iter-chunk this))
-  (-chunked-rest  [this] (or (-chunked-next this) ()))
-
-  IChunkedNext
-  (-chunked-next  [this] (iter-chunked-next this))
-           
-  IReduce
-  (-reduce [this f] (iter-reduce this f))
-  (-reduce [this f start] (iter-reduce this f start))
-
-  IReversible
-  (-rseq [this] (iter-rseq this))
-
-  Object
-  (toString [this] (pr-str* this))
-
-  IPrintWithWriter
-  (-pr-writer [this writer opts]
-    (pr-sequential-writer writer pr-writer "(" " " ")" opts (seq this))))
-
-(defn iter [set ^long left ^long right]
-  (Iter. set left right (keys-for set left) (path-get left 0)))
-
-(defn iter-first [^Iter iter]
-  (when (.-keys iter)
-    (da/aget (.-keys iter) (.-idx iter))))
-
-(defn iter-next [^Iter iter]
-  (let [set   (.-set iter)
-        left  (.-left iter)
-        right (.-right iter)
-        keys  (.-keys iter)
-        idx   (.-idx iter)]
+  (-next [this]
     (when keys
       (if (< (inc idx) (da/alength keys))
         ;; can use cached array to move forward
@@ -651,87 +636,61 @@
           (Iter. set (inc left) right keys (inc idx)))
         (let [left (next-path set left)]
           (when (and (not= -1 left) (< left right))
-            (datascript.btset/iter set left right)))))))
+            (-copy this left right))))))
 
-(defn iter-chunk [^Iter iter]
-  (let [left  (.-left iter)
-        right (.-right iter)
-        keys  (.-keys iter)
-        idx   (.-idx iter)
-        end-idx (if (= (bit-or left path-mask)
-                       (bit-or right path-mask))
-                  (bit-and right path-mask)
-                  (da/alength keys))]
+  IChunkedSeq
+  (-chunked-first [this]
+    (let [end-idx (if (= (bit-or left path-mask)
+                        (bit-or right path-mask))
+                    (bit-and right path-mask)
+                    (da/alength keys))]
       (array-chunk keys idx end-idx)))
 
-(defn iter-chunked-next [^Iter iter]
-  (let [set   (.-set iter)
-        left  (.-left iter)
-        right (.-right iter)
-        keys  (.-keys iter)
-        idx   (.-idx iter)]
+  (-chunked-rest [this]
+    (or (-chunked-next this) ()))
+
+  IChunkedNext
+  (-chunked-next [this]
     (let [left (next-path set (+ left (- (da/alength keys) idx 1)))]
       (when (and (not= -1 left) (< left right))
-        (datascript.btset/iter set left right)))))
-
-(defn iter-rseq [^Iter iter]
-  (let [set   (.-set iter)
-        left  (.-left iter)
-        right (.-right iter)]
-    (when (.-keys iter)
-      (riter set (prev-path set left) (prev-path set right)))))
-
-(defn iter-reduce
-  ([^Iter iter f]
-    (if (nil? (.-keys iter))
+        (-copy this left right))))
+           
+  IReduce
+  (-reduce [this f]
+    (if (nil? keys)
       (f)
-      (let [first (iter-first iter)]
-        (if-let [next (iter-next iter)]
-          (iter-reduce next f first)
+      (let [first (-first this)]
+        (if-some [next (-next this)]
+          (-reduce next f first)
           first))))
-        
-  ([^Iter iter f start]
-    (let [set   (.-set iter)
-          right (.-right iter)]
-      (loop [left (.-left iter)
-             keys (.-keys iter)
-             idx  (.-idx iter)
-             acc  start]
-        (if (nil? keys)
-          acc
-          (let [new-acc (f acc (da/aget keys idx))]
-            (cond
-              (reduced? new-acc)
-                @new-acc
-              (< (inc idx) (da/alength keys)) ;; can use cached array to move forward
-                (if (< (inc left) right)
-                  (recur (inc left) keys (inc idx) new-acc)
-                  new-acc)
-              :else
-                (let [new-left (next-path set left)]
-                  (if (and (da/not== -1 new-left) (< new-left right))
-                    (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
-                    new-acc)))))))))
 
-;; reverse iteration
+  (-reduce [this f start]
+    (loop [left left
+           keys keys
+           idx  idx
+           acc  start]
+      (if (nil? keys)
+        acc
+        (let [new-acc (f acc (da/aget keys idx))]
+          (cond
+            (reduced? new-acc)
+            @new-acc
 
-(deftype ReverseIter [set ^long left ^long right keys ^long idx]
-  IEquiv
-  (-equiv [this other] (equiv-sequential this other))
+            (< (inc idx) (da/alength keys)) ;; can use cached array to move forward
+            (if (< (inc left) right)
+              (recur (inc left) keys (inc idx) new-acc)
+              new-acc)
 
-  ISequential
-  ISeqable
-  (-seq [this] (when keys this))
-
-  ISeq
-  (-first [this] (riter-first this))
-  (-rest [this]  (or (riter-next this) ()))
-
-  INext
-  (-next [this] (riter-next this))
+            :else
+            (let [new-left (next-path set left)]
+              (if (and (da/not== -1 new-left) (< new-left right))
+                (recur new-left (keys-for set new-left) (path-get new-left 0) new-acc)
+                new-acc)))))))
 
   IReversible
-  (-rseq [this] (riter-rseq this))
+  (-rseq [this]
+    (when keys
+      (riter set (prev-path set left) (prev-path set right))))
 
   Object
   (toString [this] (pr-str* this))
@@ -740,19 +699,32 @@
   (-pr-writer [this writer opts]
     (pr-sequential-writer writer pr-writer "(" " " ")" opts (seq this))))
 
-(defn riter [set ^long left ^long right]
-  (ReverseIter. set left right (keys-for set right) (path-get right 0)))
+(defn iter [set left right]
+  (Iter. set left right (keys-for set left) (path-get left 0)))
 
-(defn riter-first [^ReverseIter riter]
-  (when (.-keys riter)
-    (da/aget (.-keys riter) (.-idx riter))))
+;; reverse iteration
 
-(defn riter-next [^ReverseIter ri]
-  (let [set   (.-set   ri)
-        left  (.-left  ri)
-        right (.-right ri)
-        keys  (.-keys  ri)
-        idx   (.-idx   ri)]
+(deftype ReverseIter [set left right keys idx]
+  IIter
+  (-copy [_ l r]
+    (ReverseIter. set l r (keys-for set r) (path-get r 0)))
+
+  IEquiv
+  (-equiv [this other] (equiv-sequential this other))
+
+  ISequential
+  ISeqable
+  (-seq [this] (when keys this))
+
+  ISeq
+  (-first [this]
+    (when keys
+      (da/aget keys idx)))
+
+  (-rest [this]  (or (-next this) ()))
+
+  INext
+  (-next [this]
     (when keys
       (if (>= (dec idx) 0)
         ;; can use cached array to advance
@@ -760,28 +732,35 @@
           (ReverseIter. set left (dec right) keys (dec idx)))
         (let [right (prev-path set right)]
           (when (and (not= -1 right) (> right left))
-            (riter set left right)))))))
+            (-copy this left right))))))
 
-(defn riter-rseq [^ReverseIter riter]
-  (let [set   (.-set   riter)
-        left  (.-left  riter)
-        right (.-right riter)]
+  IReversible
+  (-rseq [this]
     (when keys
       (let [new-left  (if (== left -1) 0 (next-path set left))
             new-right (next-path set right)
             new-right (if (== new-right -1) (inc right) new-right)]
-        (iter set new-left new-right)))))
+        (iter set new-left new-right))))
 
+  Object
+  (toString [this] (pr-str* this))
+
+  IPrintWithWriter
+  (-pr-writer [this writer opts]
+    (pr-sequential-writer writer pr-writer "(" " " ")" opts (seq this))))
+
+(defn riter [set left right]
+  (ReverseIter. set left right (keys-for set right) (path-get right 0)))
 
 ;; distance
 
-(defn -distance [node ^long left ^long right ^long level]
+(defn -distance [node left right level]
   (let [idx-l (path-get left level)
         idx-r (path-get right level)]
     (if (pos? level)
       ;; inner node
       (if (== idx-l idx-r)
-        (-distance (da/aget (.-pointers ^Node node) idx-l) left right (- level level-shift))
+        (-distance (da/aget (.-pointers node) idx-l) left right (- level level-shift))
         (loop [level level
                res   (- idx-r idx-l)]
           (if (== 0 level)
@@ -789,14 +768,14 @@
             (recur (- level level-shift) (* res avg-len)))))
       (- idx-r idx-l))))
 
-(defn distance [^BTSet set ^long path-l ^long path-r]
+(defn distance [set path-l path-r]
   (cond
     (== path-l path-r) 0
     (== (inc path-l) path-r) 1
     (== (next-path set path-l) path-r) 1
     :else (-distance (.-root set) path-l path-r (.-shift set))))
 
-(defn est-count [^Iter iter]
+(defn est-count [iter]
   (distance (.-set iter) (.-left iter) (.-right iter)))
 
 
@@ -805,18 +784,18 @@
 (defn -seek
   "Returns path to first element >= key,
    or -1 if all elements in a set < key"
-  [^BTSet set key]
+  [set key]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
     (let [keys-l (node-len node)]
       (if (== 0 level)
-        (let [keys (.-keys ^Leaf node)
+        (let [keys (.-keys node)
               idx  (binary-search-l (.-comparator set) keys (dec keys-l) key)]
           (if (== keys-l idx) -1 (path-set path 0 idx)))
-        (let [keys (.-keys ^Node node)
+        (let [keys (.-keys node)
               idx  (binary-search-l (.-comparator set) keys (- keys-l 2) key)]
-          (recur (da/aget (.-pointers ^Node node) idx)
+          (recur (da/aget (.-pointers node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
 
@@ -824,18 +803,18 @@
   "Returns path to the first element that is > key.
    If all elements in a set are <= key, returns `(-rpath set) + 1`.
    It’s a virtual path that is bigger than any path in a tree"
-  [^BTSet set key]
+  [set key]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
     (let [keys-l (node-len node)]
       (if (== 0 level)
-        (let [keys (.-keys ^Leaf node)
+        (let [keys (.-keys node)
               idx  (binary-search-r (.-comparator set) keys (dec keys-l) key)]
           (path-set path 0 idx))
-        (let [keys (.-keys ^Node node)
+        (let [keys (.-keys node)
               idx  (binary-search-r (.-comparator set) keys (- keys-l 2) key)]
-          (recur (da/aget (.-pointers ^Node node) idx)
+          (recur (da/aget (.-pointers node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
 
@@ -850,13 +829,13 @@
   "When called with single key, returns iterator over set that contains all elements equal to the key.
    When called with two keys (range), returns iterator for all X where key-from <= X <= key-to"
   ([set key] (slice set key key))
-  ([^BTSet set key-from key-to]
+  ([set key-from key-to]
     (-slice set key-from key-to)))
 
 (defn rslice
   "`(rslice set from to)` returns backwards iterator for all Xs where from <= X <= to.
    `(rslice set from nil)` returns backwards iterator for all Xs where X <= from."
-  [^BTSet set key-from key-to]
+  [set key-from key-to]
   (some-> (-slice set key-to key-from) rseq))
 
 ;; public interface
@@ -888,16 +867,3 @@
   ([] (btset-by compare))
   ([& keys]
     (-btset-from-seq keys compare)))
-
-(comment
-  (defn- pp-node [n offset]
-    (print (apply str (repeat offset " ")))
-    (when (instance? Leaf n) (print "- "))
-    (print "[" (alength (.-keys n)) "nodes:" (aget (.-keys n) 0) ".." (da/alast (.-keys n)) "]")
-    (println)
-    (when (instance? Node n)
-      (doseq [p (.-pointers n)]
-        (pp-node p (+ offset 2)))))
-
-  (defn- pp-set [s]
-    (pp-node (.-root s) 0)))
