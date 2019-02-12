@@ -23,12 +23,14 @@ import clojure.lang.*;
 */
 
 @SuppressWarnings("unchecked")
-public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible, Sorted, IReduce {
+public class SortedSet extends ASortedSet implements IEditableCollection, ITransientSet, Reversible, Sorted, IReduce, ISortedSet {
 
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
 
   static int MIN_LEN = 32, MAX_LEN = 64, EXTRA_LEN = 8;
+
+  public static final SortedSet EMPTY = new SortedSet();
 
   static class Edit {
     public volatile boolean _value = false;
@@ -62,6 +64,7 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     _edit  = edit;
   }
 
+  // ISortedSet
   public Seq slice(Object from, Object to) { return slice(from, to, _cmp); }
   public Seq slice(Object from, Object to, Comparator cmp) {
     assert from == null || to == null || cmp.compare(from, to) <= 0 : "From " + from + " after to " + to;
@@ -158,27 +161,19 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
   // Counted
   public int count() { return _count; }
 
-  //  Seqable
-  public Seq seq() { return slice(null, null, _cmp); }
-
-  // Reversible
-  public ISeq rseq() { return rslice(null, null, _cmp); }
-
   // Sorted
   public Comparator comparator() { return _cmp; }
   public Object entryKey(Object entry) { return entry; }
-  public ISeq seq(boolean asc) { return asc ? seq() : rseq(); }
-  public ISeq seqFrom(Object key, boolean asc) { return asc ? slice(key, null) : rslice(key, null); }
 
   // IReduce
   public Object reduce(IFn f) {
-    Seq seq = seq();
+    Seq seq = (Seq) seq();
     return seq == null ? f.invoke() : seq.reduce(f);
   }
 
   public Object reduce(IFn f, Object start) {
-    Seq seq = seq();
-    return seq == null ? start : seq().reduce(f, start);
+    Seq seq = (Seq) seq();
+    return seq == null ? start : seq.reduce(f, start);
   }
 
   // IPersistentCollection
@@ -263,7 +258,7 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
   // Iterable
   public Iterator iterator() {
-    return new JavaIter(seq());
+    return new JavaIter((Seq) seq());
   }
 
 

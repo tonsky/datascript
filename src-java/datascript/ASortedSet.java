@@ -18,19 +18,7 @@ public abstract class ASortedSet implements IObj, Counted, IPersistentSet, ILook
   // IMeta
   public IPersistentMap meta() { return _meta; }
 
-  // IObj
-  abstract public ASortedSet withMeta(IPersistentMap meta);
-
-  // Counted
-  abstract public int count();
-
-  //  Seqable
-  abstract public ISeq seq();
-
   // IPersistentCollection
-  abstract public ASortedSet empty();
-  abstract public ASortedSet cons(Object key);
-
   public boolean equiv(Object obj) {
     if (!(obj instanceof Set)) return false;
     Set s = (Set) obj;
@@ -39,8 +27,6 @@ public abstract class ASortedSet implements IObj, Counted, IPersistentSet, ILook
   }
 
   // IPersistentSet
-  abstract public ASortedSet disjoin(Object key);
-  abstract public boolean contains(Object o);
   public Object get(Object key) { return contains(key) ? key : null; }
      
   //  ILookup
@@ -57,9 +43,6 @@ public abstract class ASortedSet implements IObj, Counted, IPersistentSet, ILook
       _hasheq = Murmur3.hashUnordered(this);
     return _hasheq;
   }
-
-  // Iterable
-  abstract public Iterator iterator();
 
   // Collection
   public boolean containsAll​(Collection c) {

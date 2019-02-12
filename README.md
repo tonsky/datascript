@@ -23,7 +23,7 @@ The intention with DataScript is to be a basic building block in client-side app
 
 ## Support us
 
-<a href="https://patreon.com/tonsky" target="_blank"><img src="./datascript_patreon.png"></a>
+<a href="https://patreon.com/tonsky" target="_blank"><img src="./extras/datascript_patreon.png"></a>
 
 ## Resources
 
