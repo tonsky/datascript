@@ -357,7 +357,19 @@ public class Bench {
     System.out.println("40   .. 30 % 10: " + s.rslice(40, 30, cmp));
     System.out.println("40   .. 30 % 10: " + s.slice(30, 40, cmp).rseq());
    
-    // System.out.println(s.slice(30, 30, cmp).reduce(new AFn() { public Object invoke(Object x, Object y) { return ((Integer)x)+((Integer)y); }}));
+    System.out.println("\nReduces");
+    // System.out.println(s.slice(null, null).reduce(new AFn() { public Object invoke(Object x, Object y) { return ((Integer)x)+((Integer)y); }}));
+    IFn plus = (IFn) Clojure.var("clojure.core", "+");
+    System.out.println("reduced sum(0 .. 100) 4950 = " + s.slice(null, null).reduce(plus));
+    System.out.println("reduced sum(100 .. 0) 4950 = " + s.rslice(null, null).reduce(plus));
+    System.out.println("reduced sum(10 .. 20) 165  = " + s.slice(10, 20).reduce(plus));
+    System.out.println("reduced sum(20 .. 10) 165  = " + s.rslice(20, 10).reduce(plus));
+
+    IFn reduce1 = (IFn) Clojure.var("clojure.core", "reduce1");
+    System.out.println("chunked sum(0 .. 100) 4950 = " + reduce1.invoke(plus, 0, s.slice(null, null)));
+    System.out.println("chunked sum(100 .. 0) 4950 = " + reduce1.invoke(plus, 0, s.rslice(null, null)));
+    System.out.println("chunked sum(10 .. 20) 165  = " + reduce1.invoke(plus, 0, s.slice(10, 20)));
+    System.out.println("chunked sum(20 .. 10) 165  = " + reduce1.invoke(plus, 0, s.rslice(20, 10)));
   }
 
   public static void main(String args[]) throws Exception {

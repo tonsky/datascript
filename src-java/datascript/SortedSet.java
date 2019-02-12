@@ -23,7 +23,7 @@ import clojure.lang.*;
 */
 
 @SuppressWarnings("unchecked")
-public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible {
+public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible, IReduce {
 
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
@@ -168,10 +168,16 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
   // Reversible
   public ISeq rseq() { return rslice(null, null, _cmp); }
 
-  // IChunkedSeq
-  // public IChunk chunkedFirst() {}
-  // public ISeq chunkedNext() {}
-  // public ISeq chunkedMore() {}
+  // IReduce
+  public Object reduce(IFn f) {
+    Seq seq = seq();
+    return seq == null ? f.invoke() : seq.reduce(f);
+  }
+
+  public Object reduce(IFn f, Object start) {
+    Seq seq = seq();
+    return seq == null ? start : seq().reduce(f, start);
+  }
 
   // IPersistentCollection
   public SortedSet empty() {
@@ -870,9 +876,84 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     }
   }
 
+  // ===== CHUNK =====
+  static class Chunk implements IChunk {
+    final Object[] _keys;
+    final int _idx, _end;
+    final boolean _asc;
+
+    Chunk(Seq seq) {
+      _asc  = seq._asc;
+      _idx  = seq._idx;
+      _keys = seq._node._keys;
+      if (_asc) {
+        int end = seq._node._len - 1;
+        if (seq._keyTo != null)
+          while (end > _idx && seq._cmp.compare(_keys[end], seq._keyTo) > 0)
+            --end;
+        _end = end;
+      } else {
+        int end = 0;
+        if (seq._keyTo != null)
+          while (end < _idx && seq._cmp.compare(_keys[end], seq._keyTo) < 0)
+            ++end;
+        _end = end;
+      }
+    }
+
+    Chunk(Object[] keys, int idx, int end, boolean asc) {
+      _keys = keys;
+      _idx  = idx;
+      _end  = end;
+      _asc  = asc;
+    }
+
+    public IChunk dropFirst() {
+      if (_idx == _end)
+        throw new IllegalStateException("dropFirst of empty chunk");
+      return new Chunk(_keys, _asc ? _idx+1 : _idx-1, _end, _asc);
+    }
+
+    public Object reduce(IFn f, Object start) {
+      Object ret = f.invoke(start, _keys[_idx]);
+      if (ret instanceof Reduced)
+        return ((Reduced) ret).deref();
+      if (_asc)
+        for (int x = _idx + 1; x <= _end; ++x) {
+          ret = f.invoke(ret, _keys[x]);
+          if (ret instanceof Reduced)
+            return ((Reduced) ret).deref();
+        }
+      else // !_asc
+        for (int x = _idx - 1; x >= _end; --x) {
+          ret = f.invoke(ret, _keys[x]);
+          if (ret instanceof Reduced)
+            return ((Reduced) ret).deref();
+        }
+      return ret;
+    }
+
+    public Object nth(int i) {
+      assert (i >= 0 && i < count());
+      return _asc ? _keys[_idx + i] : _keys[_idx - i];
+    }
+
+    public Object nth(int i, Object notFound) {
+      if (i >= 0 && i < count())
+        return nth(i);
+      return notFound;
+    }
+
+    public int count() {
+      if (_asc) return _end - _idx + 1;
+      else return _idx - _end + 1;
+    }
+  }
+
+
   // ===== SEQ =====
 
-  class Seq extends ASeq implements IReduce, Reversible {
+  class Seq extends ASeq implements IReduce, Reversible, IChunkedSeq {
     Seq  _parent;
     Leaf _node;
     int  _idx;
@@ -975,11 +1056,25 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     // Iterable
     public Iterator iterator() { return new JavaIter(clone()); }
 
-    // clojure.lang.IChunkedSeq
-    // (chunkedFirst [this] (iter-chunk this))
-    // (chunkedNext  [this] (iter-chunked-next this))
-    // (chunkedMore  [this] (or (.chunkedNext this) ()))
+    // IChunkedSeq
+    public Chunk chunkedFirst() { return new Chunk(this); }
 
+    public Seq chunkedNext() {
+      if (_parent == null) return null;
+      Seq nextParent = _parent.next();
+      if (nextParent == null) return null;
+      Leaf node = nextParent.child();
+      Seq seq = new Seq(meta(), nextParent, node, _asc ? 0 : node._len - 1, _keyTo, _cmp, _asc);
+      return seq.over() ? null : seq;
+    }
+
+    public ISeq chunkedMore() {
+      Seq seq = chunkedNext();
+      if (seq == null) return PersistentList.EMPTY;
+      return seq;
+    }
+
+    // Reversible
     boolean atBeginning() {
       return _idx == 0 && (_parent == null || _parent.atBeginning());
     }

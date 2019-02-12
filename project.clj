@@ -91,12 +91,13 @@
   ]}
 
   :profiles {
-    :1.9 { :dependencies [[org.clojure/clojure       "1.9.0"   :scope "provided"]
-                          [org.clojure/clojurescript "1.9.946" :scope "provided"]] }
+    :1.9 { :dependencies [[org.clojure/clojure         "1.9.0"   :scope "provided"]
+                          [org.clojure/clojurescript   "1.9.946" :scope "provided"]] }
     :dev { :source-paths ["bench/src" "test" "dev"]
-           :dependencies [[org.clojure/tools.nrepl "0.2.13"]
+           :dependencies [[org.clojure/tools.nrepl     "0.2.13"]
                           [org.clojure/tools.namespace "0.2.11"]
-                          [lambdaisland/kaocha "0.0-389"]] }
+                          [lambdaisland/kaocha         "0.0-389"]
+                          [lambdaisland/kaocha-cljs    "0.0-16"]] }
     :aot { :aot [#"datascript\.(?!query-v3).*"]
            :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }

@@ -605,6 +605,39 @@
           right  (inc (-rpath (.-root set) (.-shift set)))]
       (iter set left right))))
 
+;; replace with cljs.core/ArrayChunk after https://dev.clojure.org/jira/browse/CLJS-2470
+(deftype Chunk [arr off end]
+  ICounted
+  (-count [_] (- end off))
+
+  IIndexed
+  (-nth [this i]
+    (aget arr (+ off i)))
+  (-nth [this i not-found]
+    (if (and (>= i 0) (< i (- end off)))
+      (aget arr (+ off i))
+      not-found))
+
+  IChunk
+  (-drop-first [this]
+    (if (== off end)
+      (throw (js/Error. "-drop-first of empty chunk"))
+      (ArrayChunk. arr (inc off) end)))
+
+  IReduce
+  (-reduce [this f]
+    (if (== off end)
+      (f)
+      (-reduce (-drop-first this) f (aget arr off))))
+  (-reduce [this f start]
+    (loop [val start, n off]
+      (if (< n end)
+        (let [val' (f val (aget arr n))]
+          (if (reduced? val')
+            @val'
+            (recur val' (inc n))))
+        val))))
+
 (defprotocol IIter
   (-copy [this left right]))
 
@@ -634,26 +667,26 @@
         ;; can use cached array to move forward
         (when (< (inc left) right)
           (Iter. set (inc left) right keys (inc idx)))
-        (let [left (next-path set left)]
-          (when (and (not= -1 left) (< left right))
-            (-copy this left right))))))
+        (let [left' (next-path set left)]
+          (when (and (not= -1 left') (< left' right))
+            (-copy this left' right))))))
 
   IChunkedSeq
   (-chunked-first [this]
     (let [end-idx (if (= (bit-or left path-mask)
-                        (bit-or right path-mask))
+                         (bit-or right path-mask))
                     (bit-and right path-mask)
                     (da/alength keys))]
-      (array-chunk keys idx end-idx)))
+      (Chunk. keys idx end-idx)))
 
   (-chunked-rest [this]
     (or (-chunked-next this) ()))
 
   IChunkedNext
   (-chunked-next [this]
-    (let [left (next-path set (+ left (- (da/alength keys) idx 1)))]
-      (when (and (not= -1 left) (< left right))
-        (-copy this left right))))
+    (let [left' (next-path set (+ left (- (da/alength keys) idx 1)))]
+      (when (and (not= -1 left') (< left' right))
+        (-copy this left' right))))
            
   IReduce
   (-reduce [this f]

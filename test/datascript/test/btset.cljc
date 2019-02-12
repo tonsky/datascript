@@ -49,7 +49,7 @@
     (range from (inc to))
     (range from (dec to) -1)))
 
-(deftest slice-test
+(deftest test-slice
   (dotimes [i iters]
     (testing "straight 3 layers"
       (let [s (into (btset/btset) (shuffle (irange 0 5000)))]
@@ -236,7 +236,95 @@
           5000   0       
           4999   1     
           2500   2500  
-          2500.9 2500.1)))))
+          2500.9 2500.1)))
+
+    (testing "Slice with equal elements"
+      (let [cmp10 (fn [a b] (compare (quot a 10) (quot b 10)))
+            s10   (reduce #(btset/btset-conj %1 %2 compare) (btset/btset-by cmp10) (shuffle (irange 0 5000)))]
+        (are [from to expected] (= expected (btset/slice s10 from to))
+          30 30      (irange 30 39)
+          130 4970   (irange 130 4979)
+          -100 6000  (irange 0 5000))
+        (are [from to expected] (= expected (btset/rslice s10 from to))
+          30 30      (irange 39 30)
+          4970 130   (irange 4979 130)
+          6000 -100  (irange 5000 0)))
+
+      (let [cmp100 (fn [a b] (compare (quot a 100) (quot b 100)))
+            s100   (reduce #(btset/btset-conj %1 %2 compare) (btset/btset-by cmp100) (shuffle (irange 0 5000)))]
+        (are [from to expected] (= expected (btset/slice s100 from to))
+          30  30     (irange 0 99)
+          2550 2550  (irange 2500 2599)
+          130 4850   (irange 100 4899)
+          -100 6000  (irange 0 5000))
+        (are [from to expected] (= expected (btset/rslice s100 from to))
+          30 30      (irange 99 0)
+          2550 2550  (irange 2599 2500)
+          4850 130   (irange 4899 100)
+          6000 -100  (irange 5000 0))))
+))
+
+
+(defn ireduce
+  ([f coll] (#?(:clj .reduce :cljs -reduce) coll f))
+  ([f val coll] (#?(:clj .reduce :cljs -reduce) coll f val)))
+
+
+(defn reduce-chunked [f val coll]
+  (if-some [s (seq coll)]
+    (if (chunked-seq? s)
+      (recur f (#?(:clj .reduce :cljs -reduce) (chunk-first s) f val) (chunk-next s))
+      (recur f (f val (first s)) (next s)))
+    val))
+
+
+(deftest test-reduces
+  (testing "IReduced"
+    (testing "Empty"
+      (let [s (btset/btset)]
+        (is (= 0 (ireduce + s)))
+        (is (= 0 (ireduce + 0 s)))))
+
+    (testing "~3 layers"
+      (let [s (into (btset/btset) (irange 0 5000))]
+        (is (= 12502500 (ireduce +   s)))
+        (is (= 12502500 (ireduce + 0 s)))
+        (is (= 12502500 (ireduce +   (seq s))))
+        (is (= 12502500 (ireduce + 0 (seq s))))
+        (is (= 7502500  (ireduce +   (btset/slice s 1000 4000))))
+        (is (= 7502500  (ireduce + 0 (btset/slice s 1000 4000))))
+        #?@(:clj [(is (= 12502500 (ireduce +   (rseq s))))
+                  (is (= 12502500 (ireduce + 0 (rseq s))))
+                  (is (= 7502500  (ireduce +   (btset/rslice s 4000 1000))))
+                  (is (= 7502500  (ireduce + 0 (btset/rslice s 4000 1000))))])))
+
+    (testing "~1 layer"
+      (let [s (into (btset/btset) (irange 0 10))]
+        (is (= 55 (ireduce +   s)))
+        (is (= 55 (ireduce + 0 s)))
+        (is (= 55 (ireduce +   (seq s))))
+        (is (= 55 (ireduce + 0 (seq s))))
+        (is (= 35 (ireduce +   (btset/slice s 2 8))))
+        (is (= 35 (ireduce + 0 (btset/slice s 2 8))))
+        #?@(:clj [(is (= 55 (ireduce +   (rseq s))))
+                  (is (= 55 (ireduce + 0 (rseq s))))
+                  (is (= 35 (ireduce +   (btset/rslice s 8 2))))
+                  (is (= 35 (ireduce + 0 (btset/rslice s 8 2))))]))))
+
+  (testing "IChunkedSeq"
+    (testing "~3 layers"
+      (let [s (into (btset/btset) (irange 0 5000))]
+        (is (= 12502500 (reduce-chunked + 0 s)))
+        (is (= 7502500  (reduce-chunked + 0 (btset/slice s 1000 4000))))
+        (is (= 12502500 (reduce-chunked + 0 (rseq s))))
+        (is (= 7502500  (reduce-chunked + 0 (btset/rslice s 4000 1000))))))
+
+    (testing "~1 layer"
+      (let [s (into (btset/btset) (irange 0 10))]
+        (is (= 55 (reduce-chunked + 0 s)))
+        (is (= 35 (reduce-chunked + 0 (btset/slice s 2 8))))
+        (is (= 55 (reduce-chunked + 0 (rseq s))))
+        (is (= 35 (reduce-chunked + 0 (btset/rslice s 8 2))))))))
 
 
 (defn into-via-doseq [to from]
@@ -296,10 +384,6 @@
           (is (= (vec (rseq (rseq set-range))) expected))
           )))
 #_(println "[ OK ] btset slice checked"))
-
-
-(deftest test-reduced
-  (is (= [1 2] (into [] (take 2) (btset/btset 1 2)))))
 
 
 ;; (t/test-ns 'datascript.test.btset)

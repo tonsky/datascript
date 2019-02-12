@@ -21,3 +21,6 @@ web/target-cljs
 dev/playground.clj
 .DS_Store
 TODO.txt
+.cljs_node_repl
+node_modules
+package-lock.json
