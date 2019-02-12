@@ -159,31 +159,20 @@ class DatomicSet extends APersistentCollection<BTSet> {
   DatomicSet create(BTSet impl) { return new DatomicSet(impl); }
 }
 
-
 class DatascriptSet extends APersistentCollection<SortedSet> {
   DatascriptSet(SortedSet impl) { _impl = impl; }
   DatascriptSet(int ml) {
     SortedSet.setMaxLen(ml);
     _impl = new SortedSet();
   }
-  DatascriptSet create(SortedSet impl) { return new DatascriptSet(impl);}
+  DatascriptSet create(SortedSet impl) { return new DatascriptSet(impl); }
 }
 
-class OldDatascriptSet extends APersistentCollection<Object> {
-  static IFn ctor;
-  static {
-    Symbol ns = (Symbol) Clojure.var("clojure.core", "symbol").invoke("datascript.btset");
-    Clojure.var("clojure.core", "require").invoke(ns);
-    // ctor = (IFn) Clojure.var("datascript.btset", "btset-by");
-    ctor = (IFn) Clojure.var("datascript.btset", "btset");
-  }
-
-  OldDatascriptSet(Object impl) { _impl = impl; }
-  // OldDatascriptSet(int ml) { _impl = (Object) ctor.invoke(RT.DEFAULT_COMPARATOR); }
-  OldDatascriptSet(int ml) { _impl = (Object) ctor.invoke(); }
-  OldDatascriptSet create(Object impl) { return new OldDatascriptSet(impl); }
+class ClojureSet extends APersistentCollection<PersistentTreeSet> {
+  ClojureSet(PersistentTreeSet impl) { _impl = impl; }
+  ClojureSet(int ml) { _impl = PersistentTreeSet.create(RT.DEFAULT_COMPARATOR, null); }
+  ClojureSet create(PersistentTreeSet impl) { return new ClojureSet(impl); }
 }
-
 
 public class Bench {
   // static Integer[] maxLens = new Integer[]{8,16,32,64,128,256,512,1024};
@@ -236,7 +225,6 @@ public class Bench {
 
   public static void bench() throws Exception {
     new DatomicSet(0); // println warnings before any other output
-    new OldDatascriptSet(0);
 
     System.out.println("Lengths             " + String.join("      ", Arrays.stream(maxLens).map((ml)-> ml.toString() + " max").collect(Collectors.toList())));
 
@@ -244,58 +232,27 @@ public class Bench {
     ArrayList<Integer> bigSource = randomList(1000000);
 
     System.out.println("\n                === 100K ADDs ===");
+    runBench(AddBench.class, source, ClojureSet.class,       false);
     runBench(AddBench.class, source, DatomicSet.class);
-    // runBench(AddBench.class, source, OldDatascriptSet.class);
-    // runBench(AddBench.class, source, PersistentBTSet.class,    false);
-    // runBench(AddBench.class, source, TransientBTSet.class,     true);
-    // runBench(AddBench.class, source, TwoNodesSet.class,        true);
-    // runBench(AddBench.class, source, ExtraLeafSet.class,       true);
-    // runBench(AddBench.class, source, EarlyExitSet.class,       true);
-    // runBench(AddBench.class, source, SmallTransientSet.class,  true);
-    // runBench(AddBench.class, source, LinearSearchSet.class,    true);
-    // runBench(AddBench.class, source, FlatIterSet.class,        true);
-    // runBench(AddBench.class, source, ReverseFlatIterSet.class, true);
-    // runBench(AddBench.class, source, AtomicBooleanSet.class,   false);
-    // runBench(AddBench.class, source, AtomicBooleanSet.class,   true);
-    // runBench(AddBench.class, source, CleanupSet.class,    false);
-    // runBench(AddBench.class, source, CleanupSet.class,    true);
     runBench(AddBench.class, source, DatascriptSet.class,    false);
     runBench(AddBench.class, source, DatascriptSet.class,    true);
     
     System.out.println("\n                === 100K CONTAINS ===");
+    runBench(ContainsBench.class, source, ClojureSet.class);
     runBench(ContainsBench.class, source, DatomicSet.class);
-    // runBench(ContainsBench.class, source, OldDatascriptSet.class);
-    // runBench(ContainsBench.class, source, SmallTransientSet.class );
-    // runBench(ContainsBench.class, source, LinearSearchSet.class   );
-    // runBench(ContainsBench.class, source, FlatIterSet.class       );
-    // runBench(ContainsBench.class, source, ReverseFlatIterSet.class);
-    // runBench(ContainsBench.class, source, AtomicBooleanSet.class);
-    // runBench(ContainsBench.class, source, CleanupSet.class);
     runBench(ContainsBench.class, source, DatascriptSet.class);
 
     System.out.println("\n                === ITERATE♻ over 1M ===");
-    // runBench(IterateBench.class, bigSource, OldDatascriptSet.class);
-    // runBench(IterateBench.class, bigSource, LinearSearchSet.class   );
-    // runBench(IterateBench.class, bigSource, FlatIterSet.class       );
-    // runBench(IterateBench.class, bigSource, ReverseFlatIterSet.class);
-    // runBench(IterateBench.class, bigSource, AtomicBooleanSet.class  );
-    // runBench(IterateBench.class, bigSource, CleanupSet.class  );
-    // runBench(IterateBench.class, bigSource, SliceSet.class  );
+    runBench(IterateBench.class, bigSource, ClojureSet.class);
     runBench(IterateBench.class, bigSource, DatascriptSet.class);
  
     System.out.println("\n                === SEQ ITER over 1M ===");
+    runBench(SeqIterateBench.class, bigSource, ClojureSet.class);
     runBench(SeqIterateBench.class, bigSource, DatomicSet.class);
-    // runBench(SeqIterateBench.class, bigSource, OldDatascriptSet.class);
     runBench(SeqIterateBench.class, bigSource, DatascriptSet.class);
  
     System.out.println("\n                === 100K REMOVEs ===");
-    // runBench(RemoveBench.class, source, OldDatascriptSet.class);
-    // runBench(RemoveBench.class, source, DisjoinSet.class,   false);
-    // runBench(RemoveBench.class, source, DisjoinSet.class,   true);
-    // runBench(RemoveBench.class, source, EarlyExitDisjSet.class, false);
-    // runBench(RemoveBench.class, source, EarlyExitDisjSet.class, true);
-    // runBench(RemoveBench.class, source, CleanupSet.class, false);
-    // runBench(RemoveBench.class, source, CleanupSet.class, true);
+    runBench(RemoveBench.class, source, ClojureSet.class,    false);
     runBench(RemoveBench.class, source, DatascriptSet.class, false);
     runBench(RemoveBench.class, source, DatascriptSet.class, true);
   }
@@ -374,6 +331,6 @@ public class Bench {
 
   public static void main(String args[]) throws Exception {
     bench();
-    test();
+    // test();
   }
 }

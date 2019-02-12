@@ -23,7 +23,7 @@ import clojure.lang.*;
 */
 
 @SuppressWarnings("unchecked")
-public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible, IReduce {
+public class SortedSet extends ASortedSet implements IEditableCollection, ITransientCollection, Reversible, Sorted, IReduce {
 
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
@@ -167,6 +167,12 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
   // Reversible
   public ISeq rseq() { return rslice(null, null, _cmp); }
+
+  // Sorted
+  public Comparator comparator() { return _cmp; }
+  public Object entryKey(Object entry) { return entry; }
+  public ISeq seq(boolean asc) { return asc ? seq() : rseq(); }
+  public ISeq seqFrom(Object key, boolean asc) { return asc ? slice(key, null) : rslice(key, null); }
 
   // IReduce
   public Object reduce(IFn f) {

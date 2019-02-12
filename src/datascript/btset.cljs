@@ -447,6 +447,12 @@
   IReversible
   (-rseq [this] (rseq (btset-iter this)))
 
+  ; ISorted
+  ; (-sorted-seq [this ascending?])
+  ; (-sorted-seq-from [this k ascending?])
+  ; (-entry-key [this entry] entry)
+  ; (-comparator [this] comparator)
+
   ICounted
   (-count [_] cnt)
 
