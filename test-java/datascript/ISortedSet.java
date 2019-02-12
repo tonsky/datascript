@@ -12,4 +12,5 @@ public interface ISortedSet extends Iterable, Seqable {
   default ISortedSet toPersistent() { throw new UnsupportedOperationException(); }
   default Iterator iterator() { throw new UnsupportedOperationException(); }
   default ISeq seq() { throw new UnsupportedOperationException(); }
+  default ISeq slice(Object from, Object to) { throw new UnsupportedOperationException(); }
 }

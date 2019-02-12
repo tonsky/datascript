@@ -1,0 +1,1 @@
+test-java/javac.sh && java -ea -cp `clojure -A:datomic -Spath`:target/classes datascript.Bench

@@ -119,9 +119,8 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
     while (true) {
       if (node instanceof Node) {
-        int idx = node.searchFirstBigger(from, cmp);
-        if (idx == node._len) --idx;   // beyond last, clamp to last 
-        if (idx == -1)        idx = 0; // smaller than 0.maxKey, still could be first
+        int idx = node.searchLast(from, cmp) + 1;
+        if (idx == node._len) --idx; // last or beyond, clamp to last
         seq = new Seq(null, seq, node, idx, null, null, false);
         node = seq.child();
       } else { // Leaf
@@ -129,9 +128,6 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
         if (idx == -1) { // not in this, so definitely in prev
           seq = new Seq(null, seq, node, 0, to, cmp, false);
           return seq.advance() ? seq : null;
-        } else if (idx < 0) { // one before insertion point
-          seq = new Seq(null, seq, node, (-idx-1)-1, to, cmp, false);
-          return seq.over() ? null : seq;
         } else { // exact match
           seq = new Seq(null, seq, node, idx, to, cmp, false);
           return seq.over() ? null : seq;
@@ -296,6 +292,8 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     }
 
     int search(Object key, Comparator cmp) {
+      // return Arrays.binarySearch(_keys, 0, _len, key, cmp);
+
       int low = 0, high = _len;
       while (high - low > 16) {
         int mid = (high + low) >>> 1;
@@ -306,7 +304,7 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
       }
 
       // linear search
-      for(int i = low; i < high; ++i) {
+      for (int i = low; i < high; ++i) {
         int d = cmp.compare(_keys[i], key);
         if (d == 0) return i;
         else if (d > 0) return -i-1; // i
@@ -315,28 +313,29 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     }
 
     int searchFirst(Object key, Comparator cmp) {
-      for(int i = 0; i < _len; ++i) {
-        int d = cmp.compare(_keys[i], key);
-        if (d == 0) return i;
-        else if (d > 0) return -i-1; // i
+      int low = 0, high = _len;
+      while (low < high) {
+        int mid = (high + low) >>> 1;
+        int d = cmp.compare(_keys[mid], key);
+        if (d < 0)
+          low = mid + 1;
+        else
+          high = mid;
       }
-      return -_len-1; // _len
-    }
-
-    int searchFirstBigger(Object key, Comparator cmp) {
-      for(int i = _len-1; i >= 0; --i)
-        if (cmp.compare(_keys[i], key) <= 0)
-          return i+1;
-      return -1;
+      return low;
     }
 
     int searchLast(Object key, Comparator cmp) {
-      for(int i = _len-1; i >= 0; --i) {
-        int d = cmp.compare(_keys[i], key);
-        if (d == 0) return i;
-        else if (d < 0) return -i-2; // i+1
+      int low = 0, high = _len;
+      while (low < high) {
+        int mid = (high + low) >>> 1;
+        int d = cmp.compare(_keys[mid], key);
+        if (d <= 0)
+          low = mid + 1;
+        else
+          high = mid;
       }
-      return -1; // 0
+      return low - 1;
     }
 
     boolean contains(Object key, Comparator cmp) {

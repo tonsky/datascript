@@ -105,6 +105,29 @@ class SeqIterateBench extends ABench {
   }
 }
 
+class BoundSliceBench extends ABench {
+  ISortedSet set;
+
+  BoundSliceBench(Class<? extends ISortedSet> setClass, Collection source, boolean asTransient, int maxLen) {
+    super(setClass, source, asTransient, maxLen);
+    set = newSet(source);
+  }
+
+  void run() {
+    int from = 1, to = 999999, expected = from;
+    ISeq seq = set.slice(from, to);
+    Integer value = -1;
+    while (seq != null) {
+      value = (Integer) seq.first();
+      assert value.intValue() == expected : "Expected " + expected + ", got " + value;
+      ++expected;
+      seq = seq.next();
+    }
+    assert value.intValue() == to : "Expected " + to + ", got " + value;
+  }
+}
+
+
 class RemoveBench extends ABench {
   ISortedSet set;
   List<Integer> removes;
@@ -135,15 +158,15 @@ abstract class APersistentCollection<T> implements ISortedSet {
 
   abstract APersistentCollection<T> create(T _impl);
 
-  public ISortedSet with(Object o)    { return create((T) ((IPersistentCollection) _impl).cons(o)); }
-  public ISortedSet without(Object o) { return create((T) ((IPersistentSet) _impl).disjoin(o)); }
-  public int size()                   { return        ((IPersistentCollection) _impl).count(); }
-  public boolean contains(Object o)   { return        ((IPersistentSet) _impl).contains(o); }
+  public ISortedSet with(Object o)          { return create((T) ((IPersistentCollection) _impl).cons(o)); }
+  public ISortedSet without(Object o)       { return create((T) ((IPersistentSet) _impl).disjoin(o)); }
+  public int size()                         { return        ((IPersistentCollection) _impl).count(); }
+  public boolean contains(Object o)         { return        ((IPersistentSet) _impl).contains(o); }
 
-  public Iterator iterator()          { return        ((Iterable) _impl).iterator(); }
-  public ISortedSet toTransient()     { return create((T) ((IEditableCollection) _impl).asTransient()); }
-  public ISortedSet toPersistent()    { return create((T) ((ITransientCollection) _impl).persistent()); }
-  public ISeq seq()                   { return        ((Seqable) _impl).seq(); }
+  public Iterator iterator()                { return        ((Iterable) _impl).iterator(); }
+  public ISortedSet toTransient()           { return create((T) ((IEditableCollection) _impl).asTransient()); }
+  public ISortedSet toPersistent()          { return create((T) ((ITransientCollection) _impl).persistent()); }
+  public ISeq seq()                         { return        ((Seqable) _impl).seq(); }
 }
 
 class DatomicSet extends APersistentCollection<BTSet> {
@@ -166,12 +189,27 @@ class DatascriptSet extends APersistentCollection<SortedSet> {
     _impl = new SortedSet();
   }
   DatascriptSet create(SortedSet impl) { return new DatascriptSet(impl); }
+  public ISeq slice(Object from, Object to) { return _impl.slice(from, to); }
 }
 
+@SuppressWarnings("unchecked")
 class ClojureSet extends APersistentCollection<PersistentTreeSet> {
+  static IFn takeWhile;
+  static {
+    takeWhile = (IFn) Clojure.var("clojure.core", "take-while");
+  }
+
   ClojureSet(PersistentTreeSet impl) { _impl = impl; }
   ClojureSet(int ml) { _impl = PersistentTreeSet.create(RT.DEFAULT_COMPARATOR, null); }
   ClojureSet create(PersistentTreeSet impl) { return new ClojureSet(impl); }
+  public ISeq slice(Object from, Object to) {
+    IFn pred = new AFn() {
+      public Object invoke(Object arg) {
+        return _impl.comparator().compare(arg, to) <= 0; 
+      }
+    };
+    return (ISeq) takeWhile.invoke(pred, _impl.seqFrom(from, true));
+  }
 }
 
 public class Bench {
@@ -250,6 +288,10 @@ public class Bench {
     runBench(SeqIterateBench.class, bigSource, ClojureSet.class);
     runBench(SeqIterateBench.class, bigSource, DatomicSet.class);
     runBench(SeqIterateBench.class, bigSource, DatascriptSet.class);
+
+    System.out.println("\n                === Bound slice over 1M ===");
+    runBench(BoundSliceBench.class, bigSource, ClojureSet.class);
+    runBench(BoundSliceBench.class, bigSource, DatascriptSet.class);
  
     System.out.println("\n                === 100K REMOVEs ===");
     runBench(RemoveBench.class, source, ClojureSet.class,    false);
@@ -331,6 +373,6 @@ public class Bench {
 
   public static void main(String args[]) throws Exception {
     bench();
-    // test();
+    test();
   }
 }
