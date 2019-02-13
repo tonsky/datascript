@@ -65,7 +65,10 @@
   (let [class (.getClassName e)]
     (when (and (not (str/starts-with? class "clojure."))
                (not (str/starts-with? class "nrepl."))
-               (not (str/starts-with? class "java.")))
+               (not (str/starts-with? class "java."))
+               (not (str/starts-with? class "user$"))
+               (not (str/starts-with? class "user/"))
+               (not (str/starts-with? class "leiningen.")))
       (print prefix)
       (let [method     (.getMethodName e)
             [_ ns fun] (re-matches #"([A-Za-z0-9_.-]+)\$([A-Za-z0-9_.-]+)" (str class))]

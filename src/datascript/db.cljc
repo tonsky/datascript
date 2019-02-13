@@ -393,6 +393,18 @@
 (declare hash-db hash-fdb equiv-db empty-db resolve-datom validate-attr components->pattern indexing?)
 #?(:cljs (declare pr-db))
 
+(defn db-transient [db]
+  (-> db
+    (update :eavt transient)
+    (update :aevt transient)
+    (update :avet transient)))
+
+(defn db-persistent! [db]
+  (-> db
+    (update :eavt persistent!)
+    (update :aevt persistent!)
+    (update :avet persistent!)))
+
 (defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema hash]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
@@ -401,7 +413,10 @@
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
        IEmptyableCollection (-empty [db]        (empty-db (.-schema db)))
-       IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))]
+       IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
+       IEditableCollection  (-as-transient [db] (db-transient db))
+       ITransientCollection (-conj! [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
+                            (-persistent! [db] (db-persistent! db))]
 
       :clj
       [Object               (hashCode [db]      (hash-db db))
@@ -410,7 +425,12 @@
        clojure.lang.IPersistentCollection
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
-                            (empty [db]         (empty-db schema))])
+                            (empty [db]         (empty-db schema))
+       clojure.lang.IEditableCollection 
+                            (asTransient [db] (db-transient db))
+       clojure.lang.ITransientCollection
+                            (conj [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
+                            (persistent [db] (db-persistent! db))])
 
   IDB
   (-schema [db] (.-schema db))
@@ -1106,16 +1126,18 @@
                 (sequential? initial-es))
     (raise "Bad transaction data " initial-es ", expected sequential collection"
            {:error :transact/syntax, :tx-data initial-es}))
-  (loop [report initial-report
+  (loop [report (-> initial-report
+                  (update :db-after transient))
          es     initial-es]
     (let [[entity & entities] es
-          db (:db-after report)
-          {:keys [tempids]} report]
+          db                  (:db-after report)
+          {:keys [tempids]}   report]
       (cond
         (empty? es)
         (-> report
             (assoc-in  [:tempids :db/current-tx] (current-tx report))
-            (update-in [:db-after :max-tx] inc))
+            (update-in [:db-after :max-tx] inc)
+            (update :db-after persistent!))
 
         (nil? entity)
         (recur report entities)

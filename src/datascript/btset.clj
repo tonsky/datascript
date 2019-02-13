@@ -3,6 +3,7 @@
   datascript.btset
   (:refer-clojure :exclude [iter])
   (:import
+    [java.util Comparator]
     [datascript SortedSet]))
 
 (defn btset-conj [set key cmp]
@@ -20,7 +21,7 @@
   ([set from to]
     (.slice ^SortedSet set from to))
   ([set from to cmp]
-    (.slice ^SortedSet set from to cmp)))
+    (.slice ^SortedSet set from to ^Comparator cmp)))
 
 (defn rslice
   "`(rslice set from to)` returns backwards iterator for all Xs where from <= X <= to.
@@ -28,10 +29,10 @@
   ([set from to]
     (.rslice ^SortedSet set from to))
   ([set from to cmp]
-    (.rslice ^SortedSet set from to cmp)))
+    (.rslice ^SortedSet set from to ^Comparator cmp)))
 
 (defn btset-by
-  ([cmp] (SortedSet. cmp))
+  ([cmp] (SortedSet. ^Comparator cmp))
   ([cmp & keys]
     (into (btset-by cmp) keys)))
 

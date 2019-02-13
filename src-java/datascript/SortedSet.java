@@ -3,25 +3,6 @@ package datascript;
 import java.util.*;
 import clojure.lang.*;
 
-/**
-*   8 max      16 max      32 max      64 max      128 max      256 max      512 max      1024 max
-*   
-*   100K ADDs
-*   23..30ms    19..21ms    19..23ms    19..22ms    19..22ms    20..22ms    21..29ms    24..28ms    
-*   
-*   100K CONTAINS
-*   17..18ms    13..15ms    14..16ms    14..16ms    14..16ms    15..17ms    15..17ms    15..17ms    
-*   
-*   ITERATE over 1M
-*   17..18ms    10..12ms     8..10ms     6.. 8ms     6.. 7ms     5.. 7ms     5.. 6ms     5..18ms    
-*   
-*   SEQ ITER over 1M
-*   21..24ms    17..26ms    16..23ms    14..21ms    14..20ms    14..20ms    13..18ms    13..18ms    
-*   
-*   100K REMOVEs
-*   27..31ms    21..22ms    19..21ms    18..19ms    18..20ms    18..21ms    18..19ms    20..29ms    
-*/
-
 @SuppressWarnings("unchecked")
 public class SortedSet extends ASortedSet implements IEditableCollection, ITransientSet, Reversible, Sorted, IReduce, ISortedSet {
 
@@ -62,6 +43,11 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     _root  = root;
     _count = count;
     _edit  = edit;
+  }
+
+  void ensureEditable(boolean value) {
+    if (value != _edit.editable())
+      throw new RuntimeException("Expected" + (value ? " transient" : " persistent") + "set");
   }
 
   // ISortedSet
@@ -243,15 +229,17 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
   // IEditableCollection
   public SortedSet asTransient() {
+    ensureEditable(false);
     return new SortedSet(_meta, _cmp, _root, _count, new Edit(true));
   }
 
   // ITransientCollection
   public SortedSet conj(Object key) {
-    return cons(key);
+    return cons(key, _cmp);
   }
 
   public SortedSet persistent() {
+    ensureEditable(true);
     _edit.setEditable(false);
     return this;
   }

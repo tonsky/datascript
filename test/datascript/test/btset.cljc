@@ -2,7 +2,9 @@
   (:require
     [datascript.btset :as btset]
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])))
+       :clj  [clojure.test :as t :refer        [is are deftest testing]]))
+  #?(:clj
+     (:import [clojure.lang IReduce])))
 
 
 #?(:cljs (enable-console-print!))
@@ -266,8 +268,8 @@
 
 
 (defn ireduce
-  ([f coll] (#?(:clj .reduce :cljs -reduce) coll f))
-  ([f val coll] (#?(:clj .reduce :cljs -reduce) coll f val)))
+  ([f coll] (#?(:clj .reduce :cljs -reduce) ^IReduce coll f))
+  ([f val coll] (#?(:clj .reduce :cljs -reduce) ^IReduce coll f val)))
 
 
 (defn reduce-chunked [f val coll]
