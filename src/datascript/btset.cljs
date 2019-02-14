@@ -823,17 +823,17 @@
 (defn -seek
   "Returns path to first element >= key,
    or -1 if all elements in a set < key"
-  [set key]
+  [set key comparator]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
     (let [keys-l (node-len node)]
       (if (== 0 level)
         (let [keys (.-keys node)
-              idx  (binary-search-l (.-comparator set) keys (dec keys-l) key)]
+              idx  (binary-search-l comparator keys (dec keys-l) key)]
           (if (== keys-l idx) -1 (path-set path 0 idx)))
         (let [keys (.-keys node)
-              idx  (binary-search-l (.-comparator set) keys (- keys-l 2) key)]
+              idx  (binary-search-l comparator keys (- keys-l 2) key)]
           (recur (da/aget (.-pointers node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
@@ -842,40 +842,47 @@
   "Returns path to the first element that is > key.
    If all elements in a set are <= key, returns `(-rpath set) + 1`.
    It’s a virtual path that is bigger than any path in a tree"
-  [set key]
+  [set key comparator]
   (loop [node  (.-root set)
          path  empty-path
          level (.-shift set)]
     (let [keys-l (node-len node)]
       (if (== 0 level)
         (let [keys (.-keys node)
-              idx  (binary-search-r (.-comparator set) keys (dec keys-l) key)]
+              idx  (binary-search-r comparator keys (dec keys-l) key)]
           (path-set path 0 idx))
         (let [keys (.-keys node)
-              idx  (binary-search-r (.-comparator set) keys (- keys-l 2) key)]
+              idx  (binary-search-r comparator keys (- keys-l 2) key)]
           (recur (da/aget (.-pointers node) idx)
                  (path-set path level idx)
                  (- level level-shift)))))))
 
-(defn -slice [set key-from key-to]
-  (let [path (-seek set key-from)]
+(defn -slice [set key-from key-to comparator]
+  (let [path (-seek set key-from comparator)]
     (when-not (neg? path)
-      (let [till-path (-rseek set key-to)]
+      (let [till-path (-rseek set key-to comparator)]
         (when (> till-path path)
           (Iter. set path till-path (keys-for set path) (path-get path 0)))))))
 
 (defn slice
   "When called with single key, returns iterator over set that contains all elements equal to the key.
    When called with two keys (range), returns iterator for all X where key-from <= X <= key-to"
-  ([set key] (slice set key key))
+  ([set key]
+    (-slice set key key (.-comparator set)))
   ([set key-from key-to]
-    (-slice set key-from key-to)))
+    (-slice set key-from key-to (.-comparator set)))
+  ([set key-from key-to comparator]
+    (-slice set key-from key-to comparator)))
 
 (defn rslice
   "`(rslice set from to)` returns backwards iterator for all Xs where from <= X <= to.
    `(rslice set from nil)` returns backwards iterator for all Xs where X <= from."
-  [set key-from key-to]
-  (some-> (-slice set key-to key-from) rseq))
+  ([set key]
+    (some-> (-slice set key key (.-comparator set)) rseq))
+  ([set key-from key-to]
+    (some-> (-slice set key-to key-from (.-comparator set)) rseq))
+  ([set key-from key-to comparator]
+    (some-> (-slice set key-to key-from comparator) rseq)))
 
 ;; public interface
 

@@ -1,7 +1,6 @@
 (ns ^{:no-doc true
       :author "Nikita Prokopov"}
   datascript.btset
-  (:refer-clojure :exclude [iter])
   (:import
     [java.util Comparator]
     [datascript SortedSet]))
