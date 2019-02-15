@@ -1,4 +1,4 @@
-(def version "0.17.1")
+(def version "0.17.2")
 
 (defproject datascript (str version (System/getenv "DATASCRIPT_CLASSIFIER"))
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -67,11 +67,11 @@
           :output-to     "target/datascript.js"
           :optimizations :advanced
           :source-map    "target/datascript.js.map"
-          :pretty-print  true
+          ; :pretty-print  true
           :recompile-dependents false
           :parallel-build true
           :checked-arrays :warn
-          :pseudo-names  true
+          ; :pseudo-names  true
           :fn-invoke-direct true
           :elide-asserts true
         }}

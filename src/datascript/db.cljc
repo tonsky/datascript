@@ -931,7 +931,7 @@
         indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
         true      (advance-max-eid (.-e datom))
         true      (assoc :hash (atom 0)))
-      (if-let [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
+      (if-some [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
           true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
           true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
