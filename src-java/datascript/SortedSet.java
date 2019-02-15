@@ -9,13 +9,13 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
   static Leaf[] EARLY_EXIT = new Leaf[0],
                 UNCHANGED  = new Leaf[0];
 
-  static int MIN_LEN = 32, MAX_LEN = 64, EXTRA_LEN = 8;
+  public static int MIN_LEN = 32, MAX_LEN = 64, EXTRA_LEN = 8;
 
   public static final SortedSet EMPTY = new SortedSet();
 
-  static class Edit {
+  public static class Edit {
     public volatile boolean _value = false;
-    Edit(boolean value) { _value = value; }
+    public Edit(boolean value) { _value = value; }
     public boolean editable() { return _value; }
     public void setEditable(boolean value) { _value = value; }
   }
@@ -38,7 +38,7 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
     _count = 0;
   }
 
-  SortedSet(IPersistentMap meta, Comparator cmp, Leaf root, int count, Edit edit) {
+  public SortedSet(IPersistentMap meta, Comparator cmp, Leaf root, int count, Edit edit) {
     super(meta, cmp);
     _root  = root;
     _count = count;
@@ -252,18 +252,18 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
   // ===== LEAF =====
 
-  static class Leaf {
+  public static class Leaf {
     final Object[] _keys;
     int _len;
     final Edit _edit;
 
-    Leaf(Object[] keys, int len, Edit edit) {
+    public Leaf(Object[] keys, int len, Edit edit) {
       _keys = keys;
       _len  = len;
       _edit = edit;
     }
 
-    Object maxKey() {
+    public Object maxKey() {
       return _keys[_len-1];
     }
 
@@ -517,10 +517,10 @@ public class SortedSet extends ASortedSet implements IEditableCollection, ITrans
 
   // ===== NODE =====
 
-  static class Node extends Leaf {
+  public static class Node extends Leaf {
     final Leaf[] _children;
     
-    Node(Object[] keys, Leaf[] children, int len, Edit edit) {
+    public Node(Object[] keys, Leaf[] children, int len, Edit edit) {
       super(keys, len, edit);
       _children = children;
     }

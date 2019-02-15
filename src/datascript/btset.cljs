@@ -887,10 +887,10 @@
 ;; public interface
 
 (defn -btset-from-sorted-arr [arr cmp]
-  (let [leafs (->> arr
+  (let [leaves (->> arr
                    (arr-partition-approx min-len max-len)
                    (arr-map-inplace #(Leaf. %)))]
-    (loop [current-level leafs
+    (loop [current-level leaves
            shift 0]
       (case (count current-level)
         0 (BTSet. (Leaf. (da/array)) 0 0 cmp nil uninitialized-hash)

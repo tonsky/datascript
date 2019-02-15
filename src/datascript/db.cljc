@@ -656,10 +656,15 @@
                avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
                max-eid (init-max-eid eavt)]
               :clj
-              [eavt        (apply btset/btset-by cmp-datoms-eavt datoms)
-               aevt        (apply btset/btset-by cmp-datoms-aevt datoms)
+              [arr         (to-array datoms)
+               _           (da/asort arr cmp-datoms-eavt-quick)
+               eavt        (btset/from-sorted-array cmp-datoms-eavt arr)
+               _           (da/asort arr cmp-datoms-aevt-quick)
+               aevt        (btset/from-sorted-array cmp-datoms-aevt arr)
                avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-               avet        (apply btset/btset-by cmp-datoms-avet avet-datoms)
+               avet-arr    (to-array avet-datoms)
+               _           (da/asort avet-arr cmp-datoms-avet-quick)
+               avet        (btset/from-sorted-array cmp-datoms-avet avet-arr)
                max-eid     (init-max-eid eavt)])
           max-tx (transduce (map (fn [^Datom d] (.-tx d))) max tx0 eavt)]
       (map->DB {

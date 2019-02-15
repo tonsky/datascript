@@ -73,29 +73,47 @@
              (System/arraycopy ^{:tag "[[Ljava.lang.Object;"} b 0 res al bl)
              res)))
 
-(defn amap [f arr]
-  #?(:cljs (.map arr f)
-     :clj  (clojure.core/amap ^{:tag "[[Ljava.lang.Object;"} arr i res (f (aget arr i)))))
+#?(:cljs
+   (defn amap [f arr]
+     (.map arr f))
+   :clj
+   (defn amap 
+     ([f arr]
+      (amap f Object arr))
+     ([f type arr]
+      (let [res (clojure.core/make-array type (alength arr))]
+        (dotimes [i (alength arr)]
+          (aset res i (f (aget arr i))))
+        res))))
 
 (defn asort [arr cmp]
   #?(:cljs (.sort arr cmp)
-     :clj  (doto arr (java.util.Arrays/sort cmp))))
+     :clj  (doto arr (Arrays/parallelSort cmp))))
 
-#?(:cljs (defn ^boolean array? [x]
-           (if (identical? *target* "nodejs")
-             (.isArray js/Array x)
-             (instance? js/Array x)))
-   :clj  (defn array? [^Object x] (-> x .getClass .isArray)))
-
-#?(:clj
-    (defmacro alast [arr]
-      `(let [arr# ~arr]
-         (aget arr# (dec (alength arr#))))))
+#?(:cljs
+   (defn ^boolean array? [x]
+     (if (identical? *target* "nodejs")
+       (.isArray js/Array x)
+       (instance? js/Array x)))
+   :clj
+   (defn array? [^Object x]
+     (-> x .getClass .isArray)))
 
 #?(:clj
-  (defmacro half [x]
-    `(unsigned-bit-shift-right ~x 1)))
+   (defmacro alast [arr]
+     `(let [arr# ~arr]
+        (aget arr# (dec (alength arr#))))))
 
 #?(:clj
-  (defmacro not== [x y]
-    `(not (== ~x ~y))))
+   (defmacro half [x]
+     `(unsigned-bit-shift-right ~x 1)))
+
+#?(:clj
+   (defmacro not== [x y]
+     `(not (== ~x ~y))))
+
+#?(:clj
+  (def array-type
+    (memoize
+      (fn [type]
+        (.getClass ^Object (java.lang.reflect.Array/newInstance ^Class type 0))))))

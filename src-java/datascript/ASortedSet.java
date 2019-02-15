@@ -4,7 +4,7 @@ import java.util.*;
 import clojure.lang.*;
 
 @SuppressWarnings("unchecked")
-public abstract class ASortedSet implements IObj, Counted, IPersistentSet, ILookup, Iterable, Set, java.io.Serializable, IHashEq {
+public abstract class ASortedSet extends AFn implements IObj, Counted, IPersistentSet, ILookup, Iterable, Set, java.io.Serializable, IHashEq {
   int _hash;
   int _hasheq;
   final IPersistentMap _meta;
