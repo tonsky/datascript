@@ -122,7 +122,7 @@
 
 (defn ^:export qpred1 []
   (core/bench
-    (q3/q '[:find ?e ?s
+    (d/q '[:find ?e ?s
            :where [?e :salary ?s]
                   [(> ?s 50000)]]
       db100k)))
@@ -130,7 +130,7 @@
 
 (defn ^:export qpred2 []
   (core/bench
-    (q3/q '[:find ?e ?s
+    (d/q '[:find ?e ?s
            :in   $ ?min_s
            :where [?e :salary ?s]
                   [(> ?s ?min_s)]]
