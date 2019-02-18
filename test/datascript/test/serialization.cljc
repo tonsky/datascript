@@ -81,10 +81,12 @@
 
 
 (deftest test-init-db
-  (let [db-init     (-> (map #(apply d/datom %) data)
-                        (d/init-db schema))
-        db-transact (->> (map (fn [[e a v]] [:db/add e a v]) data)
-                         (d/db-with (d/empty-db schema)))]
+  (let [db-init     (d/init-db
+                      (map (fn [[e a v]] (d/datom e a v)) data)
+                      schema)
+        db-transact (d/db-with
+                      (d/empty-db schema)
+                      (map (fn [[e a v]] [:db/add e a v]) data))]
     (testing "db-init produces the same result as regular transactions"
       (is (= db-init db-transact)))
 

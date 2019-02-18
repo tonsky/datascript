@@ -243,12 +243,12 @@
                                 [:db/add "Serg" :age 30]])]
     (is (= (:tempids t1) { -1 1, -2 2, :db/current-tx (+ d/tx0 1) }))
     (is (= (:tempids t2) { "Serg" 3, :db/current-tx (+ d/tx0 2) }))
-    (is (= (d/q '[:find  ?e ?n ?a ?t
-                  :where [?e :name ?n ?t]
-                         [?e :age ?a]] @conn)
-           #{[1 "Ivan" 19   (+ d/tx0 1)]
+    (is (= #{[1 "Ivan" 19   (+ d/tx0 1)]
              [2 "Petr" 22   (+ d/tx0 1)]
-             [3 "Sergey" 30 (+ d/tx0 2)]}))))
+             [3 "Sergey" 30 (+ d/tx0 2)]}
+           (d/q '[:find  ?e ?n ?a ?t
+                  :where [?e :name ?n ?t]
+                         [?e :age ?a]] @conn)))))
 
 (deftest test-resolve-eid-refs
   (let [conn (d/create-conn {:friend {:db/valueType :db.type/ref

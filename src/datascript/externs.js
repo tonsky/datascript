@@ -9,7 +9,6 @@ datascript.db.Datom.prototype.e;
 datascript.db.Datom.prototype.a;
 datascript.db.Datom.prototype.v;
 datascript.db.Datom.prototype.tx;
-datascript.db.Datom.prototype.added;
 
 
 datascript.impl = {};

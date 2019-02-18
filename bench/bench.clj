@@ -58,11 +58,11 @@
         (re-matches #"(jvm|v8|dtmc)" arg)
         (recur (update opts :versions conj ["latest" arg]) (next args))
 
-        (re-matches #"(\d+\.\d+\.\d+|latest)" arg)
+        (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)" arg)
         (recur (update opts :versions conj [arg "jvm"]) (next args))
 
-        (re-matches #"(\d+\.\d+\.\d+|latest)-(jvm|v8|dtmc)" arg)
-        (let [[_ version vm] (re-matches #"(\d+\.\d+\.\d+|latest)-(jvm|v8|dtmc)" arg)]
+        (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|dtmc)" arg)
+        (let [[_ version vm] (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|dtmc)" arg)]
           (recur (update opts :versions conj [version vm]) (next args)))
 
         :else
@@ -74,9 +74,15 @@
   (case vm
     "jvm"
     (apply run "clojure" "-Sdeps"
-      (if (= "latest" version)
+      (cond
+        (= "latest" version)
         "{:paths [\"src\" \"../src\" \"../target/classes\"]}"
-        (str "{:deps {datascript {:mvn/version \"" version "\"}}}"))
+
+        (re-matches #"\d+\.\d+\.\d+" version)
+        (str "{:deps {datascript {:mvn/version \"" version "\"}}}")
+
+        (re-matches #"[0-9a-fA-F]{40}" version)
+        (str "{:paths [\"src\" \"../target/classes\"] :deps {datascript {:git/url \"https://github.com/tonsky/datascript.git\" :sha \"" version "\"}}}"))
       "-m" "datascript-bench.datascript"
       benchmarks)
 

@@ -9,12 +9,14 @@ function eq_set(s1, s2) {
 
 function maybe_to_datom(d) {
   if (Array.isArray(d))
-    return {"e": d[0], "a": d[1], "v": d[2], "tx": d[3], "added": d[4] === undefined ? true : d[4]};
+    return {"e": d[0], "a": d[1], "v": d[2], "tx": d[3] > 0 ? d[3] : -d[3]};
   else
     return d;
 }
 
 function cmp_datoms(d1, d2) {
+  if (d1 == null) return d2 == null;
+  if (d2 == null) return false;
   d1 = maybe_to_datom(d1);
   d2 = maybe_to_datom(d2);
   return d1.e == d2.e && d1.a == d2.a && _.isEqual(d1.v, d2.v) && d1.tx == d2.tx && d1.added == d2.added;

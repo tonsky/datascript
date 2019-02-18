@@ -32,7 +32,7 @@
                                    :friend  { :db/valueType :db.type/ref }})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}])]
-    (are [tx res] (= (tdc/entity-map (d/db-with db tx) 1) res)
+    (are [tx res] (= res (tdc/entity-map (d/db-with db tx) 1))
       ;; Additions
       [[:db/add [:name "Ivan"] :age 35]]
       {:db/id 1 :name "Ivan" :age 35}
