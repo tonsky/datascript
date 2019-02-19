@@ -119,6 +119,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
   (github-release)
   (binding [*env* {"DATASCRIPT_CLASSIFIER" "-aot1.9"}]
     (sh "lein" "with-profile" "+aot,+1.9" "deploy" "clojars"))
-  (sh "lein" "deploy" "clojars"))
+  (sh "lein" "deploy" "clojars")
+  (System/exit 0))
 
 (-main)
