@@ -48,7 +48,7 @@
 
 (defn retest-all []
   (clojure.tools.namespace.repl/refresh)
-  (clojure.test/run-all-tests #"datascript\.test\.(?!btset).*"))
+  (clojure.test/run-all-tests #"datascript\.test\."))
 
 #_(retest-all)
 

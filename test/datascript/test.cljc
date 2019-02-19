@@ -5,7 +5,6 @@
     #?(:clj [clojure.java.shell :as sh])
     datascript.test.core
    
-    datascript.test.btset
     datascript.test.components
     datascript.test.conn
     datascript.test.db
@@ -38,13 +37,10 @@
     datascript.test.validation
     datascript.test.upsert))
 
-(defn ^:export test-most []
-  (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\.test\.(?!btset).*")))
+(defn ^:export test-clj []
+  (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\..*")))
 
-(defn ^:export test-btset []
-  (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\.test\.btset")))
-
-(defn ^:export test-all []
+(defn ^:export test-cljs []
   (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\..*")))
 
 #?(:clj

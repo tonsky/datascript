@@ -2,16 +2,18 @@
   (:require
     [clojure.string :as str]
     [datascript.core :as d]
-    [datascript.btset :as btset]
     [datascript-bench.core :as core]
     [datascript.query-v3 :as q3]))
+
 
 #?(:cljs
    (enable-console-print!))
 
+
 (def schema
   { :follows { :db/valueType   :db.type/ref
                :db/cardinality :db.cardinality/many } })
+
 
 (defn- wide-db
   ([depth width] (d/db-with (d/empty-db schema) (wide-db 1 depth width)))
@@ -25,6 +27,7 @@
                   :follows %) children)
           (mapcat #(wide-db % (dec depth) width) children)))
       [{:db/id id :name "Ivan"}])))
+
 
 (defn- long-db [depth width]
   (d/db-with (d/empty-db schema)
@@ -156,30 +159,6 @@
               [?x :follows ?t]
               (follows ?t ?y)]]))))
 
-; (defn ^:export bench-btset []
-;   (doseq [[tn target] [["sorted-set" (sorted-set)]
-;                        ["vector"     []]
-;                        ["btset"      (btset/btset)]]
-; ;;           distinct?   [true false]
-;           size        [100 500 20000]
-;           :let [range          (if true ;; distinct?
-;                                  (shuffle (range size))
-;                                  (repeatedly size #(rand-int size)))
-;                 shuffled-range (shuffle range)
-;                 set            (into target range)]]
-;     (core/bench {:target tn :test "set-conj" :size size}
-;       (into target range))
-;     (when (re-find #"set" tn)
-;       (core/bench {:target tn :test "set-disj" :size size}
-;         (reduce disj set shuffled-range))
-;       (core/bench {:target tn :test "set-lookup" :size size}
-;         (doseq [i shuffled-range]
-;           (contains? set i))))
-;     (core/bench {:target tn :test "set-iterate" :size size}
-;       (doseq [x set]
-;         (+ 1 x)))
-;     (core/bench {:target tn :test "set-reduce" :size size}
-;       (reduce + 0 set))))
 
 #?(:clj
    (defn ^:export -main [& names]

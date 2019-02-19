@@ -40,13 +40,11 @@ if ("--all" === process.argv[2] || "--js" === process.argv[2]) {
 }
 
 if ("--all" === process.argv[2])
-  var res = merge(datascript.test.test_all(), tests_js.test_all());
-else if ("--btset" === process.argv[2])
-  var res = datascript.test.test_btset();
+  var res = merge(datascript.test.test_cljs(), tests_js.test_all());
 else if ("--js" === process.argv[2])
   var res = tests_js.test_all();
-else if ("--unit" === process.argv[2])
-  var res = merge(datascript.test.test_most(), datascript.test.test_btset());
+else if ("--cljs" === process.argv[2])
+  var res = datascript.test.test_cljs();
 else {
   var t0 = global.performance.now();
   var res = datascript.test.test_most();
@@ -56,4 +54,3 @@ else {
 
 if (res.fail + res.error > 0)
   process.exit(1);
-

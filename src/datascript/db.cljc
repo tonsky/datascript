@@ -1,12 +1,11 @@
 (ns ^:no-doc datascript.db
   (:require
     #?(:cljs [goog.array :as garray])
-     clojure.walk
-     clojure.data
-     clojure.set
+    [clojure.walk]
+    [clojure.data]
     #?(:clj [clojure.pprint :as pp])
-    [datascript.arrays :as da]
-    [datascript.btset :as btset])
+    [me.tonsky.persistent-sorted-set :as set]
+    [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond+]]))
   (:refer-clojure :exclude [seqable?])) 
 
@@ -37,12 +36,12 @@
   [x]
   (and (not (string? x))
   #?(:cljs (or (cljs.core/seqable? x)
-               (da/array? x))
+               (arrays/array? x))
      :clj  (or (seq? x)
                (instance? clojure.lang.Seqable x)
                (nil? x)
                (instance? Iterable x)
-               (da/array? x)
+               (arrays/array? x)
                (instance? java.util.Map x)))))
 
 ;; ----------------------------------------------------------------------------
@@ -450,32 +449,32 @@
           aevt (.-aevt db)
           avet (.-avet db)]
       (case-tree [e a (some? v) tx]
-        [(btset/slice eavt (datom e a v tx))                                    ;; e a v tx
-         (btset/slice eavt (datom e a v tx0) (datom e a v txmax))               ;; e a v _
-         (->> (btset/slice eavt (datom e a nil tx0) (datom e a nil txmax))      ;; e a _ tx
+        [(set/slice eavt (datom e a v tx) (datom e a v tx))                   ;; e a v tx
+         (set/slice eavt (datom e a v tx0) (datom e a v txmax))               ;; e a v _
+         (->> (set/slice eavt (datom e a nil tx0) (datom e a nil txmax))      ;; e a _ tx
               (filter (fn [^Datom d] (= tx (datom-tx d)))))
-         (btset/slice eavt (datom e a nil tx0) (datom e a nil txmax))           ;; e a _ _
-         (->> (btset/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v tx
+         (set/slice eavt (datom e a nil tx0) (datom e a nil txmax))           ;; e a _ _
+         (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v tx
               (filter (fn [^Datom d] (and (= v (.-v d))
                                           (= tx (datom-tx d))))))
-         (->> (btset/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v _
+         (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v _
               (filter (fn [^Datom d] (= v (.-v d)))))
-         (->> (btset/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ _ tx
+         (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ _ tx
               (filter (fn [^Datom d] (= tx (datom-tx d)))))
-         (btset/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))       ;; e _ _ _
+         (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))       ;; e _ _ _
          (if (indexing? db a)                                                   ;; _ a v tx
-           (->> (btset/slice avet (datom e0 a v tx0) (datom emax a v txmax))      
+           (->> (set/slice avet (datom e0 a v tx0) (datom emax a v txmax))      
                 (filter (fn [^Datom d] (= tx (datom-tx d)))))
-           (->> (btset/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
+           (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
                 (filter (fn [^Datom d] (and (= v (.-v d))
                                             (= tx (datom-tx d)))))))
          (if (indexing? db a)                                                   ;; _ a v _
-           (btset/slice avet (datom e0 a v tx0) (datom emax a v txmax))
-           (->> (btset/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
+           (set/slice avet (datom e0 a v tx0) (datom emax a v txmax))
+           (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
                 (filter (fn [^Datom d] (= v (.-v d))))))
-         (->> (btset/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))  ;; _ a _ tx
+         (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))  ;; _ a _ tx
               (filter (fn [^Datom d] (= tx (datom-tx d)))))
-         (btset/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))       ;; _ a _ _
+         (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))       ;; _ a _ _
          (filter (fn [^Datom d] (and (= v (.-v d))
                                      (= tx (datom-tx d)))) eavt)                ;; _ _ v tx
          (filter (fn [^Datom d] (= v (.-v d))) eavt)                            ;; _ _ v _
@@ -484,19 +483,19 @@
 
   IIndexAccess
   (-datoms [db index cs]
-    (btset/slice (get db index) (components->pattern db index cs e0 tx0) (components->pattern db index cs emax txmax)))
+    (set/slice (get db index) (components->pattern db index cs e0 tx0) (components->pattern db index cs emax txmax)))
 
   (-seek-datoms [db index cs]
-    (btset/slice (get db index) (components->pattern db index cs e0 tx0) (datom emax nil nil txmax)))
+    (set/slice (get db index) (components->pattern db index cs e0 tx0) (datom emax nil nil txmax)))
 
   (-rseek-datoms [db index cs]
-    (btset/rslice (get db index) (components->pattern db index cs emax txmax) (datom e0 nil nil tx0)))
+    (set/rslice (get db index) (components->pattern db index cs emax txmax) (datom e0 nil nil tx0)))
 
   (-index-range [db attr start end]
     (when-not (indexing? db attr)
       (raise "Attribute" attr "should be marked as :db/index true" {}))
     (validate-attr attr (list '-index-range 'db attr start end))
-    (btset/slice (.-avet db)
+    (set/slice (.-avet db)
       (resolve-datom db nil attr start nil e0 tx0)
       (resolve-datom db nil attr end nil emax txmax)))
                 
@@ -630,15 +629,15 @@
     (map->DB
       {:schema  schema
        :rschema (rschema (merge implicit-schema schema))
-       :eavt    (btset/btset-by cmp-datoms-eavt)
-       :aevt    (btset/btset-by cmp-datoms-aevt)
-       :avet    (btset/btset-by cmp-datoms-avet)
+       :eavt    (set/sorted-set-by cmp-datoms-eavt)
+       :aevt    (set/sorted-set-by cmp-datoms-aevt)
+       :avet    (set/sorted-set-by cmp-datoms-avet)
        :max-eid e0
        :max-tx  tx0
        :hash    (atom 0)})))
 
 (defn- init-max-eid [eavt]
-  (or (-> (btset/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
+  (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
         (first)
         (:e))
     e0))
@@ -647,32 +646,20 @@
   ([datoms] (init-db datoms nil))
   ([datoms schema]
     (validate-schema schema)
-    (let [rschema (rschema (merge implicit-schema schema))
-          indexed (:db/index rschema)
-          #?@(:cljs
-              [ds-arr  (if (array? datoms) datoms (da/into-array datoms))
-               eavt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-eavt-quick) cmp-datoms-eavt)
-               aevt    (btset/-btset-from-sorted-arr (.sort ds-arr cmp-datoms-aevt-quick) cmp-datoms-aevt)
-               avet-datoms (-> (reduce (fn [arr d]
-                                         (when (contains? indexed (.-a d))
-                                           (.push arr d))
-                                         arr)
-                                       #js [] datoms)
-                               (.sort cmp-datoms-avet-quick))
-               avet    (btset/-btset-from-sorted-arr avet-datoms cmp-datoms-avet)
-               max-eid (init-max-eid eavt)]
-              :clj
-              [arr         (to-array datoms)
-               _           (da/asort arr cmp-datoms-eavt-quick)
-               eavt        (btset/from-sorted-array cmp-datoms-eavt arr)
-               _           (da/asort arr cmp-datoms-aevt-quick)
-               aevt        (btset/from-sorted-array cmp-datoms-aevt arr)
-               avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-               avet-arr    (to-array avet-datoms)
-               _           (da/asort avet-arr cmp-datoms-avet-quick)
-               avet        (btset/from-sorted-array cmp-datoms-avet avet-arr)
-               max-eid     (init-max-eid eavt)])
-          max-tx (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
+    (let [rschema     (rschema (merge implicit-schema schema))
+          indexed     (:db/index rschema)
+          arr         (cond-> datoms
+                        (not (arrays/array? datoms)) (arrays/into-array))
+          _           (arrays/asort arr cmp-datoms-eavt-quick)
+          eavt        (set/from-sorted-array cmp-datoms-eavt arr)
+          _           (arrays/asort arr cmp-datoms-aevt-quick)
+          aevt        (set/from-sorted-array cmp-datoms-aevt arr)
+          avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
+          avet-arr    (to-array avet-datoms)
+          _           (arrays/asort avet-arr cmp-datoms-avet-quick)
+          avet        (set/from-sorted-array cmp-datoms-avet avet-arr)
+          max-eid     (init-max-eid eavt)
+          max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
       (map->DB {
         :schema  schema
         :rschema rschema
@@ -936,16 +923,16 @@
   (let [indexing? (indexing? db (.-a datom))]
     (if (datom-added datom)
       (cond-> db
-        true      (update-in [:eavt] btset/btset-conj datom cmp-datoms-eavt-quick)
-        true      (update-in [:aevt] btset/btset-conj datom cmp-datoms-aevt-quick)
-        indexing? (update-in [:avet] btset/btset-conj datom cmp-datoms-avet-quick)
+        true      (update-in [:eavt] set/conj datom cmp-datoms-eavt-quick)
+        true      (update-in [:aevt] set/conj datom cmp-datoms-aevt-quick)
+        indexing? (update-in [:avet] set/conj datom cmp-datoms-avet-quick)
         true      (advance-max-eid (.-e datom))
         true      (assoc :hash (atom 0)))
       (if-some [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
-          true      (update-in [:eavt] btset/btset-disj removing cmp-datoms-eavt-quick)
-          true      (update-in [:aevt] btset/btset-disj removing cmp-datoms-aevt-quick)
-          indexing? (update-in [:avet] btset/btset-disj removing cmp-datoms-avet-quick)
+          true      (update-in [:eavt] set/disj removing cmp-datoms-eavt-quick)
+          true      (update-in [:aevt] set/disj removing cmp-datoms-aevt-quick)
+          indexing? (update-in [:avet] set/disj removing cmp-datoms-avet-quick)
           true      (assoc :hash (atom 0)))
         db))))
 
@@ -1035,7 +1022,7 @@
     [vs]
 
     ;; not a collection at all, so definitely a single value
-    (not (or (da/array? vs)
+    (not (or (arrays/array? vs)
              (and (coll? vs) (not (map? vs)))))
     [vs]
     

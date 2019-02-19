@@ -1,4 +1,9 @@
-{ :aliases {
+{ 
+  :deps {
+    persistent-sorted-set {:mvn/version "0.1.0"}
+  }
+  
+  :aliases {
     :1.9 {
       :override-deps {
         org.clojure/clojure {:mvn/version "1.9.0"}

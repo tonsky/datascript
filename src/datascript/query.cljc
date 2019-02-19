@@ -5,7 +5,7 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]
-   [datascript.arrays :as da]
+   [me.tonsky.persistent-sorted-set.arrays :as da]
    [datascript.lru]
    [datascript.impl.entity :as de]
    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple Constant
@@ -364,7 +364,7 @@
     (let [getters (to-array getters)]
       (fn [tuple]
         (list* #?(:cljs (.map getters #(% tuple))
-                  :clj  (da/into-array (map #(% tuple) getters))))))))
+                  :clj  (to-array (map #(% tuple) getters))))))))
 
 (defn hash-attrs [key-fn tuples]
   (loop [tuples     tuples

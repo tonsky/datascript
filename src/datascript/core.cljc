@@ -4,8 +4,7 @@
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
     [datascript.pull-api :as dp]
     [datascript.query :as dq]
-    [datascript.impl.entity :as de]
-    [datascript.btset :as btset])
+    [datascript.impl.entity :as de])
   #?(:clj
     (:import
       [datascript.db FilteredDB]

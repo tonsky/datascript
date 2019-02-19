@@ -55,14 +55,14 @@
         (= "rebuild" arg)
         (recur (assoc opts :rebuild true) (next args))
 
-        (re-matches #"(jvm|v8|dtmc)" arg)
+        (re-matches #"(jvm|v8|datomic)" arg)
         (recur (update opts :versions conj ["latest" arg]) (next args))
 
         (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)" arg)
         (recur (update opts :versions conj [arg "jvm"]) (next args))
 
-        (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|dtmc)" arg)
-        (let [[_ version vm] (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|dtmc)" arg)]
+        (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|datomic)" arg)
+        (let [[_ version vm] (re-matches #"(\d+\.\d+\.\d+|[0-9a-fA-F]{40}|latest)-(jvm|v8|datomic)" arg)]
           (recur (update opts :versions conj [version vm]) (next args)))
 
         :else
@@ -76,23 +76,26 @@
     (apply run "clojure" "-Sdeps"
       (cond
         (= "latest" version)
-        "{:paths [\"src\" \"../src\" \"../target/classes\"]}"
+        (str "{:paths [\"src\"]"
+          "    :deps {datascript {:local/root \"..\"}}}")
 
         (re-matches #"\d+\.\d+\.\d+" version)
-        (str "{:deps {datascript {:mvn/version \"" version "\"}}}")
+        (str "{:paths [\"src\"]"
+          "    :deps {datascript {:mvn/version \"" version "\"}}}")
 
         (re-matches #"[0-9a-fA-F]{40}" version)
-        (str "{:paths [\"src\" \"../target/classes\"] :deps {datascript {:git/url \"https://github.com/tonsky/datascript.git\" :sha \"" version "\"}}}"))
+        (str "{:paths [\"src\"]"
+          "    :deps {datascript {:git/url \"https://github.com/tonsky/datascript.git\" :sha \"" version "\"}}}"))
       "-m" "datascript-bench.datascript"
       benchmarks)
 
     "v8"
     (apply run "node" "run_v8.js" benchmarks)
 
-    "dtmc"
+    "datomic"
     (apply run "clojure" "-Sdeps"
       (str "{"
-        " :paths [\"src\" \"src-dtmc\"]"
+        " :paths [\"src\" \"src-datomic\"]"
         " :deps {com.datomic/datomic-free {:mvn/version \"" (if (= "latest" version) "0.9.5703" version) "\"}}"
         "}")
       "-m" "datascript-bench.datomic"

@@ -5,11 +5,10 @@
     [datascript.db :as db]
     [datascript.query :as dq]
     [datascript.lru :as lru]
-    [datascript.arrays :as da]
+    [me.tonsky.persistent-sorted-set.arrays :as da]
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable
-                                                 Not Or And Predicate PlainSymbol]])]
-    [datascript.btset :as btset #?@(:cljs [:refer [Iter]])])
+                                                 Not Or And Predicate PlainSymbol]])])
   #?(:clj
     (:import 
       [datascript.parser
@@ -24,10 +23,10 @@
 (def ^:const lru-cache-size 100)
 
 (defn mapa [f coll]
-  (da/into-array (map f coll)))
+  (to-array (map f coll)))
 
 (defn arange [start end]
-  (da/into-array (range start end)))
+  (to-array (range start end)))
 
 (defn subarr [arr start end]
   (da/acopy arr start end (da/make-array (- end start)) 0))
@@ -355,9 +354,9 @@
   IRelation
   (-symbols    [_] [])
   (-arity      [_] 0)
-  (-fold       [_ f init] (f init (da/into-array [])))
+  (-fold       [_ f init] (f init (to-array [])))
   (-size       [_] 1)
-  (-indexes    [_ _] (da/into-array []))
+  (-indexes    [_ _] (to-array []))
   (-copy-tuple [_ _ _ _ _]))
 
 (def singleton-rel ->SingletonRelation)

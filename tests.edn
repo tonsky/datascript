@@ -1,9 +1,8 @@
-#kaocha/v1
-{:tests [{:id          :most
-          :ns-patterns ["datascript\\.test\\.(?!btset).*"]}
-         {:id          :btset
-          :ns-patterns ["datascript\\.test\\.btset"]}
-         {:id          :cljs
-          :type        :kaocha.type/cljs
-          :ns-patterns ["datascript\\.test\\."]}
-         ]}
+#kaocha/v1 {
+  :tests [
+    {:id :clj
+     :ns-patterns ["datascript\\.test\\."]}
+    {:id :cljs
+     :type :kaocha.type/cljs
+     :ns-patterns ["datascript\\.test\\."]}
+]}

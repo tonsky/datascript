@@ -9,11 +9,11 @@
   :dependencies [
     [org.clojure/clojure       "1.10.0"   :scope "provided"]
     [org.clojure/clojurescript "1.10.516" :scope "provided"]
+    [persistent-sorted-set     "0.1.0"]
   ]
   
   :plugins [
     [lein-cljsbuild "1.1.7"]
-    ; [lein-virgil "0.1.9"]
   ]
   
   :global-vars {
@@ -21,22 +21,19 @@
     *print-namespace-maps* false
 ;;     *unchecked-math* :warn-on-boxed
   }
-  :java-source-paths ["src-java"]  
   :jvm-opts ["-Xmx2g" "-server"]
 
-  :aliases {"test-clj"     ["run" "-m" "datascript.test/test-most"]
-            "test-clj-all" ["run" "-m" "datascript.test/test-all"]
+  :aliases {"test-clj"     ["run" "-m" "datascript.test/test-clj"]
+            "test-cljs"    ["do" ["cljsbuild" "once" "release" "advanced"]
+                                 ["run" "-m" "datascript.test/test-node" "--all"]]
             "node-repl"    ["run" "-m" "user/node-repl"]
             "browser-repl" ["run" "-m" "user/browser-repl"]
-            "test-all"     ["do" ["clean"]
-                                 ["test-clj-all"]
-                                 ["cljsbuild" "once" "release" "advanced"]
-                                 ["run" "-m" "datascript.test/test-node" "--all"]]}
+            "test-all"     ["do" ["clean"] ["test-clj"] ["test-cljs"]]}
   
   :cljsbuild { 
     :builds [
       { :id "release"
-        :source-paths ["src" "bench/src"]
+        :source-paths ["src"]
         :assert false
         :compiler {
           :output-to     "release-js/datascript.bare.js"
@@ -50,7 +47,7 @@
         :notify-command ["release-js/wrap_bare.sh"]}
               
       { :id "advanced"
-        :source-paths ["src" "bench/src" "test"]
+        :source-paths ["src" "test"]
         :compiler {
           :output-to     "target/datascript.js"
           :optimizations :advanced
@@ -77,7 +74,7 @@
         }}
 
       { :id "none"
-        :source-paths ["src" "bench/src" "test" "dev"]
+        :source-paths ["src" "test"]
         :compiler {
           :main          datascript.test
           :output-to     "target/datascript.js"
@@ -93,7 +90,7 @@
   :profiles {
     :1.9 { :dependencies [[org.clojure/clojure         "1.9.0"   :scope "provided"]
                           [org.clojure/clojurescript   "1.9.946" :scope "provided"]] }
-    :dev { :source-paths ["bench/src" "test" "dev"]
+    :dev { :source-paths ["test" "dev"]
            :dependencies [[org.clojure/tools.nrepl     "0.2.13"]
                           [org.clojure/tools.namespace "0.2.11"]
                           [lambdaisland/kaocha         "0.0-389"]

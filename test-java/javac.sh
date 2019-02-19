@@ -1,1 +1,0 @@
-javac -d target/classes -cp `clojure -A:datomic -Spath` -Xlint:unchecked src-java/datascript/*.java test-java/clojure/lang/*.java test-java/datascript/*.java

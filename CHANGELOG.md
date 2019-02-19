@@ -1,7 +1,53 @@
 # WIP
 
+- Fixed DB and Datom pprinting (#287) 
 - Fixed cases when upsert resolves to tempid (#285)
-- Throw on tempid in `:db.fn/cas` (closes #264)
+- Throw on tempid in `:db.fn/cas` (#264)
+- `distinct` aggregate returns set not a vector (thx @jdf-id-au)
+- Ability to run tests with Kaocha
+- [ BREAKING ] Some internals of `datascript.arrays`, `datascript.btset` and `datascript.Datom` type has changed
+
+Performance optimizations for JVM version:
+  
+- Reimplemented btset in Java with transients and better performance
+- Extracted btset to `[persistent-sorted-set "0.1.0"]` 
+- Used raw ints in Datom intead of wrapped Integers, added stored in tx sign
+
+Numbers I get on my 3.2 GHz i7-8700B (median time per test, ms):
+
+| version          | add-1   | add-5 | add-all | init | retract-5 | q1  | q2   | q3   | q4   | qpred1 | qpred2 |
+|------------------|---------|-------|---------|------|-----------|-----|------|------|------|--------|--------|
+| 0.17.1-jvm       | 795.8   | 670.7 | 651.8   | 79.4 | 617.5     | 2.3 | 5.4  | 8.2  | 13.1 | 7.1    | 27.3   |
+| 0.18.0-jvm       | 625.2   | 450.9 | 401.8   | 21.8 | 389.5     | 1.9 | 5.4  | 8.2  | 13.3 | 7.3    | 28.9   |
+| 0.9.5703-datomic | 1693.9  | 737.9 | 528.5   | ---  | 1420.9    | 2.8 | 5.2  | 7.3  | 9.3  | 12.8   | 15.5   |
+| 0.18.0-v8        | 1231.6  | 963.1 | 930.3   | 76.5 | 809.1     | 6.4 | 15.2 | 23.8 | 33.6 | 24.2   | 24.5   |
+
+Tests are as follows:
+
+| Test      | Description |
+|-----------|-------------|
+| add-1     | Add 100k datoms to an empty DB, one datom per transaction |
+| add-5     | Add 20k entities to an empty DB, 5 datoms per transaction, 100k datoms total |
+| add-all   | Add 20k entities to an empty DB in a single transaction, 100k datoms total |
+| init      | “Fast” datascript DB creation from an already sorted array of datoms (used in DB deserialization), 100k datoms |
+| retract-5 | Retract 20k entities from a DB with 100k datoms. Each entity removes 5 datoms. 1 entity per tx. |
+| q1        | Query with 1 clause over a DB with 100k datoms, ~12k tuples in resultset `[:find ?e :where [?e :name "Ivan"]]` |
+| q2        | Query with 2 clauses, 1 join, ~12k tuples `[:find ?e ?a :where [?e :name "Ivan"] [?e :age ?a]]` |
+| q3        | Query with 3 clauses, 2 joins, ~6k tuples `[:find ?e ?a :where [?e :name "Ivan"] [?e :age ?a] [?e :sex :male]]` |
+| q4        | Query with 4 clauses, 3 joins, ~6k tuples `[:find ?e ?l ?a :where [?e :name "Ivan"] [?e :last-name ?l] [?e :age ?a] [?e :sex :male]]` |
+| qpred1    | Query with a predicate, ~50k tuples `[:find ?e ?s :where [?e :salary ?s] [(> ?s 50000)]]` |
+| qpred2    | Query with a predicate and dynamic input, ~50k tuples `[:find ?e ?s :in $ ?min_s :where [?e :salary ?s] [(> ?s ?min_s)]]` |
+
+For Datomic an `datomic:mem://` database was used.
+
+What we see:
+
+- 20..40% faster transactions,
+- 75% faster deserialization (db-init),
+- No significant change on queries,
+- JVM transactions are more than twice as fast as V8,
+- JVM queries are 3-4 times as fast as V8,
+- DataScript transactions are 25..70% faster that Datomic in-memory. Query times vary.
 
 # 0.17.1
 
