@@ -1,3 +1,7 @@
+# 0.18.1
+
+- Bumped persistent-sorted-set to 0.1.1 (Java 8 bytecode)
+
 # 0.18.0
 
 - Fixed DB and Datom pprinting (#287) 

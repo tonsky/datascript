@@ -9,7 +9,7 @@
   :dependencies [
     [org.clojure/clojure       "1.10.0"   :scope "provided"]
     [org.clojure/clojurescript "1.10.516" :scope "provided"]
-    [persistent-sorted-set     "0.1.0"]
+    [persistent-sorted-set     "0.1.1"]
   ]
   
   :plugins [
