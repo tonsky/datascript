@@ -1,4 +1,4 @@
-# WIP
+# 0.18.0
 
 - Fixed DB and Datom pprinting (#287) 
 - Fixed cases when upsert resolves to tempid (#285)
