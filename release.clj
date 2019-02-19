@@ -23,7 +23,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
 (def ^:dynamic *env* {})
 
 (defn sh [& args]
-  (apply println "Running" (when-not (empty? *env*) (str :env " " *env*)) args)
+  (apply println "Running" (if (empty? *env*) "" (str :env " " *env*)) args)
   (let [res (apply sh/sh (concat args [:env (merge (into {} (System/getenv)) *env*)]))]
     (if (== 0 (:exit res))
       (do
@@ -50,7 +50,7 @@ exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar"
 
 (defn run-tests []
   (println "\n\n[ Running tests ]\n")
-  (sh "lein" "test-clj-all")
+  (sh "lein" "test-clj")
   (sh "lein" "cljsbuild" "once" "advanced" "release")
   (sh "node" "test_node.js" "--all"))
 

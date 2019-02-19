@@ -8,7 +8,7 @@ jobs:
        - checkout
        - restore_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
-       - run: lein with-profile dev test-clj-all
+       - run: lein with-profile dev,1.9 test-clj
        - save_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
            paths:
@@ -22,7 +22,7 @@ jobs:
        - checkout
        - restore_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
-       - run: lein with-profile dev,1.10 test-clj-all
+       - run: lein with-profile dev test-clj
        - save_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
            paths:
