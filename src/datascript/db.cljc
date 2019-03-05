@@ -736,7 +736,10 @@
          (pp/write-out (.-v d))
          (.write ^java.io.Writer *out* " ")
          (pp/pprint-newline :linear)
-         (pp/write-out (datom-tx d))))
+         (pp/write-out (datom-tx d))
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/write-out (datom-added d))))
 
      (defn- pp-db [db ^java.io.Writer w]
        (pp/pprint-logical-block :prefix "#datascript/DB {" :suffix "}"
