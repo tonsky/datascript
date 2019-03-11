@@ -1,7 +1,6 @@
-#^:shebang '[
-exec java -cp "$HOME/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar" clojure.main "$0" "$@"
-]
+#!/usr/bin/env clojure
 
+"USAGE: ./release.clj <new-version>"
 
 (def new-v (first *command-line-args*))
 
