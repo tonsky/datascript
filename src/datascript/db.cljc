@@ -1235,6 +1235,11 @@
             (and (ref? db a) (tx-id? v))
             (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
+            (and (ref? db a) (tempid? v))
+            (if-some [vid (get tempids v)]
+              (recur report (cons [op e a vid] entities))
+              (recur (allocate-eid report v (next-eid db)) es))
+
             (tempid? e)
             (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
                                   (:e (first (-datoms db :avet [a v]))))
@@ -1243,11 +1248,6 @@
                 (retry-with-tempid initial-report report initial-es e upserted-eid)
                 (let [eid (or upserted-eid allocated-eid (next-eid db))]
                   (recur (allocate-eid report e eid) (cons [op eid a v] entities)))))
-
-            (and (ref? db a) (tempid? v))
-            (if-some [vid (get tempids v)]
-              (recur report (cons [op e a vid] entities))
-              (recur (allocate-eid report v (next-eid db)) es))
 
             (= op :db/add)
             (recur (transact-add report entity) entities)

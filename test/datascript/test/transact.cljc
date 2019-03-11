@@ -250,6 +250,17 @@
                   :where [?e :name ?n ?t]
                          [?e :age ?a]] @conn)))))
 
+(deftest test-tempid-ref-295
+  (let [db (-> (d/empty-db {:ref {:db/unique :db.unique/identity
+                                  :db/valueType :db.type/ref}})
+             (d/db-with [[:db/add -1 :name "Ivan"]
+                         [:db/add -2 :name "Petr"]
+                         [:db/add -1 :ref -2]]))]
+    (is (= #{[1 :name "Ivan"]
+             [1 :ref 2]
+             [2 :name "Petr"]}
+          (tdc/all-datoms db)))))
+
 (deftest test-resolve-eid-refs
   (let [conn (d/create-conn {:friend {:db/valueType :db.type/ref
                                       :db/cardinality :db.cardinality/many}})
@@ -299,7 +310,6 @@
           (is (= tx-id (+ d/tx0 3)))
           (is (= (into {} (d/entity @conn tx-id))
                  {:prop4 "prop4"})))))))
-
 
 (deftest test-transient-294
   "db.fn/retractEntity retracts attributes of adjacent entities https://github.com/tonsky/datascript/issues/294"
