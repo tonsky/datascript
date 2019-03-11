@@ -1,4 +1,4 @@
-# WIP
+# 0.18.2
 
 - Fixed regression when transient indexes were mutated and iterated during single tx (#294).
 - Bumped persistent-sorted-set to 0.1.2 (throw if transient set is mutated and iterated at the same time).
