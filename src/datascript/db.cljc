@@ -98,7 +98,7 @@
             (->> form
                  dedupe-interfaces
                  (remove (fn [method]
-                           (when-let [impl (-> method get-sig impl-map)]
+                           (when-some [impl (-> method get-sig impl-map)]
                              (not= method impl)))))
             form))
         body))))
@@ -860,7 +860,7 @@
 (defn validate-datom [db ^Datom datom]
   (when (and (datom-added datom)
              (is-attr? db (.-a datom) :db/unique))
-    (when-let [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
+    (when-some [found (not-empty (-datoms db :avet [(.-a datom) (.-v datom)]))]
       (raise "Cannot add " datom " because of unique constraint: " found
              {:error :transact/unique
               :attribute (.-a datom)
@@ -991,7 +991,7 @@
 
 
 (defn- upsert-eid [db entity]
-  (when-let [idents (not-empty (-attrs-by db :db.unique/identity))]
+  (when-some [idents (not-empty (-attrs-by db :db.unique/identity))]
     (->>
       (reduce-kv
         (fn [acc a v] ;; acc = [e a v]
@@ -1217,7 +1217,7 @@
                   ov (if (ref? db a) (entid-strict db ov) ov)
                   nv (if (ref? db a) (entid-strict db nv) nv)
                   _ (validate-val nv entity)
-                  datoms (-search db [e a])]
+                  datoms (vec (-search db [e a]))]
               (if (multival? db a)
                 (if (some (fn [^Datom d] (= (.-v d) ov)) datoms)
                   (recur (transact-add report [:db/add e a nv]) entities)
@@ -1245,7 +1245,7 @@
                   (recur (allocate-eid report e eid) (cons [op eid a v] entities)))))
 
             (and (ref? db a) (tempid? v))
-            (if-let [vid (get tempids v)]
+            (if-some [vid (get tempids v)]
               (recur report (cons [op e a vid] entities))
               (recur (allocate-eid report v (next-eid db)) es))
 
@@ -1263,18 +1263,18 @@
               (recur report entities))
 
             (= op :db.fn/retractAttribute)
-            (if-let [e (entid db e)]
-              (let [_ (validate-attr a entity)
-                    datoms (-search db [e a])]
+            (if-some [e (entid db e)]
+              (let [_      (validate-attr a entity)
+                    datoms (vec (-search db [e a]))]
                 (recur (reduce transact-retract-datom report datoms)
                        (concat (retract-components db datoms) entities)))
               (recur report entities))
 
             (or (= op :db.fn/retractEntity)
                 (= op :db/retractEntity))
-            (if-let [e (entid db e)]
-              (let [e-datoms (-search db [e])
-                    v-datoms (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref))]
+            (if-some [e (entid db e)]
+              (let [e-datoms (vec (-search db [e]))
+                    v-datoms (vec (mapcat (fn [a] (-search db [nil a e])) (-attrs-by db :db.type/ref)))]
                 (recur (reduce transact-retract-datom report (concat e-datoms v-datoms))
                        (concat (retract-components db e-datoms) entities)))
               (recur report entities))

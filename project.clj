@@ -8,8 +8,8 @@
   
   :dependencies [
     [org.clojure/clojure       "1.10.0"   :scope "provided"]
-    [org.clojure/clojurescript "1.10.516" :scope "provided"]
-    [persistent-sorted-set     "0.1.1"]
+    [org.clojure/clojurescript "1.10.520" :scope "provided"]
+    [persistent-sorted-set     "0.1.2"]
   ]
   
   :plugins [
@@ -94,7 +94,7 @@
            :dependencies [[org.clojure/tools.nrepl     "0.2.13"]
                           [org.clojure/tools.namespace "0.2.11"]
                           [lambdaisland/kaocha         "0.0-389"]
-                          [lambdaisland/kaocha-cljs    "0.0-16"]] }
+                          [lambdaisland/kaocha-cljs    "0.0-21"]] }
     :aot { :aot [#"datascript\.(?!query-v3).*"]
            :jvm-opts ["-Dclojure.compiler.direct-linking=true"] }
   }

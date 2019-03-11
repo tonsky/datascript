@@ -46,9 +46,13 @@
     (clojure.test/test-vars [var])
     @clojure.test/*report-counters*))
 
+(defn retest-ns [ns]
+  (clojure.tools.namespace.repl/refresh)
+  (clojure.test/test-ns ns))
+
 (defn retest-all []
   (clojure.tools.namespace.repl/refresh)
-  (clojure.test/run-all-tests #"datascript\.test\."))
+  (clojure.test/run-all-tests #"datascript\.test\..*"))
 
 #_(retest-all)
 

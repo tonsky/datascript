@@ -1,6 +1,6 @@
 { 
   :deps {
-    persistent-sorted-set {:mvn/version "0.1.0"}
+    persistent-sorted-set {:mvn/version "0.1.2"}
   }
   
   :aliases {
@@ -19,7 +19,7 @@
     :dev {
       :extra-paths ["dev" "target/classes"]
       :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.10.516"}
+        org.clojure/clojurescript {:mvn/version "1.10.520"}
         org.clojure/tools.namespace {:mvn/version "0.2.11"}
       }
     }
@@ -27,16 +27,16 @@
     :test {
       :extra-paths ["test"]
       :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.10.516"}
+        org.clojure/clojurescript {:mvn/version "1.10.520"}
         lambdaisland/kaocha       {:mvn/version "0.0-389"}
-        lambdaisland/kaocha-cljs  {:mvn/version "0.0-16"}
+        lambdaisland/kaocha-cljs  {:mvn/version "0.0-21"}
       }
     }
 
     :repl {
       :extra-deps {
-        cider/cider-nrepl           {:mvn/version "0.19.0"}
-        nrepl/nrepl                 {:mvn/version "0.5.3"}
+        cider/cider-nrepl           {:mvn/version "0.21.1"}
+        nrepl/nrepl                 {:mvn/version "0.6.0"}
         org.clojure/tools.namespace {:mvn/version "0.2.11"}
       }
       :main-opts [
