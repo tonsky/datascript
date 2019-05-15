@@ -555,7 +555,7 @@
   "Listen for changes on the given connection. Whenever a transaction is applied to the database via [[transact!]], the callback is called
    with the transaction report. `key` is any opaque unique value.
    
-   Idempotent. Calling [[listen!]] with the same twice will override old callback with the new value.
+   Idempotent. Calling [[listen!]] with the same key twice will override old callback with the new value.
    
    Returns the key under which this listener is registered. See also [[unlisten!]]."
   ([conn callback] (listen! conn (rand) callback))
