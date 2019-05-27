@@ -12,7 +12,7 @@
       (-lookup [_ k nf] (-lookup key-value k nf))
       IPrintWithWriter
       (-pr-writer [_ writer opts]
-                  (-pr-writer (persistent! key-value) writer opts)))
+                  (-pr-writer key-value writer opts)))
    :clj
     (deftype LRU [^clojure.lang.Associative key-value gen-key key-gen gen limit]
       clojure.lang.ILookup
