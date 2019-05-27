@@ -493,13 +493,25 @@
             (da/aset static-args i source)
             (da/aset tuples-args i (get attrs arg)))
           (da/aset static-args i arg))))
-    (fn [tuple]
-      ;; TODO raise if not all args are bound
-      (dotimes [i len]
-        (when-some [tuple-idx (aget tuples-args i)]
-          (let [v (#?(:cljs da/aget :clj get) tuple tuple-idx)]
-            (da/aset static-args i v))))
-      (apply f static-args))))
+    ;; CLJS `apply` + `vector` will hold onto mutable array of arguments directly
+    ;; https://github.com/tonsky/datascript/issues/262
+    (if #?(:clj  false
+           :cljs (identical? f vector))
+      (fn [tuple]
+        ;; TODO raise if not all args are bound
+        (let [args (da/aclone static-args)]
+          (dotimes [i len]
+            (when-some [tuple-idx (aget tuples-args i)]
+              (let [v (#?(:cljs da/aget :clj get) tuple tuple-idx)]
+                (da/aset args i v))))
+          (apply f args)))
+      (fn [tuple]
+        ;; TODO raise if not all args are bound
+        (dotimes [i len]
+          (when-some [tuple-idx (aget tuples-args i)]
+            (let [v (#?(:cljs da/aget :clj get) tuple tuple-idx)]
+              (da/aset static-args i v))))
+        (apply f static-args)))))
 
 (defn- resolve-sym [sym]
   #?(:cljs nil

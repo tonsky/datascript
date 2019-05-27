@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed vector misbehaving in queries in CLJS (#262)
+
 # 0.18.2
 
 - Fixed regression when transient indexes were mutated and iterated during single tx (#294).

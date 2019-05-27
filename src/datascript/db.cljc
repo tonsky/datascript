@@ -493,7 +493,7 @@
 
   (-index-range [db attr start end]
     (when-not (indexing? db attr)
-      (raise "Attribute" attr "should be marked as :db/index true" {}))
+      (raise "Attribute " attr " should be marked as :db/index true" {}))
     (validate-attr attr (list '-index-range 'db attr start end))
     (set/slice (.-avet db)
       (resolve-datom db nil attr start nil e0 tx0)

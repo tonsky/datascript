@@ -1,10 +1,10 @@
 (ns ^:no-doc datascript.js
   (:refer-clojure :exclude [filter])
   (:require
-    [goog.object :as go]
-    [datascript.core :as d]
-    [clojure.walk :as walk]
-    [cljs.reader]))
+   [cljs.reader]
+   [goog.object :as go]
+   [clojure.walk :as walk]
+   [datascript.core :as d]))
 
 ;; Conversions
 
