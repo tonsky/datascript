@@ -1,4 +1,4 @@
-# WIP
+# 0.18.3
 
 - Fixed vector misbehaving in queries in CLJS (#262)
 
