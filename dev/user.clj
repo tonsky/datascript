@@ -3,6 +3,7 @@
     [clojure.test :as t]
     [clojure.string :as str]
     clojure.tools.namespace.repl
+    kaocha.stacktrace
     cljs.repl
     cljs.closure
     cljs.build.api
@@ -120,3 +121,7 @@
 (defmethod t/report :begin-test-ns [m]
   (t/with-test-out
     (println "Testing" (ns-name (:ns m)))))
+
+;; Filter Kaocha frames from exceptions
+
+(alter-var-root #'kaocha.stacktrace/*stacktrace-filters* (constantly ["java." "clojure." "kaocha." "orchestra."]))
