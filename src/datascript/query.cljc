@@ -202,10 +202,10 @@
   'vector vector, 'list list, 'set set, 'hash-map hash-map, 'array-map array-map,
   'count count, 'range range, 'not-empty not-empty, 'empty? empty, 'contains? contains?,
   'str str, 'pr-str pr-str, 'print-str print-str, 'println-str println-str, 'prn-str prn-str, 'subs subs,
-  're-find re-find, 're-matches re-matches, 're-seq re-seq,
+  're-find re-find, 're-matches re-matches, 're-seq re-seq, 're-pattern re-pattern,
   '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity})
- 
-(def built-in-aggregates 
+
+(def built-in-aggregates
  (letfn [(sum [coll] (reduce + 0 coll))
          (avg [coll] (/ (sum coll) (count coll)))
          (median
