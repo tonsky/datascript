@@ -210,5 +210,14 @@
          #{[:a 2] [:a 4] [:a 6]
            [:b 2]})))
 
+(deftest test-built-in-regex
+  (is (= (d/q '[:find  ?name
+                :in    [?name ...] ?key
+                :where [(re-pattern ?key) ?pattern]
+                       [(re-find ?pattern ?name)]]
+              #{"abc" "abcX" "aXb"}
+              "X")
+         #{["abcX"] ["aXb"]})))
+
 #_(require 'datascript.test.query :reload)
 #_(clojure.test/test-ns 'datascript.test.query)
