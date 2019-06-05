@@ -1,3 +1,7 @@
+# WIP
+
+- Added re-pattern and str/blank? str/includes? str/starts-with? str/ends-with? to built-ins (#306)
+
 # 0.18.3
 
 - Fixed vector misbehaving in queries in CLJS (#262)
