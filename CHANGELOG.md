@@ -1,4 +1,4 @@
-# WIP
+# 0.18.4
 
 - Added re-pattern and str/blank? str/includes? str/starts-with? str/ends-with? to built-ins (#306)
 
