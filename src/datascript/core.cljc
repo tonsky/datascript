@@ -4,7 +4,8 @@
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
     [datascript.pull-api :as dp]
     [datascript.query :as dq]
-    [datascript.impl.entity :as de])
+    [datascript.impl.entity :as de]
+    #?(:cljs [cljs.reader :as cljs-reader]))
   #?(:clj
     (:import
       [datascript.db FilteredDB]
@@ -583,7 +584,7 @@
                 'datascript/DB    db/db-from-reader})
 
 #?(:cljs
-   (doseq [[tag cb] data-readers] (cljs.reader/register-tag-parser! tag cb)))
+   (doseq [[tag cb] data-readers] (cljs-reader/register-tag-parser! tag cb)))
 
 
 ;; Datomic compatibility layer
