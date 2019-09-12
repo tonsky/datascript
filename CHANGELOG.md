@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed core.cljc NS declaration to require cljs.reader (#316, thx @Quezion)
+
 # 0.18.4
 
 - Added re-pattern and str/blank? str/includes? str/starts-with? str/ends-with? to built-ins (#306)

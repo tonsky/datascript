@@ -1,6 +1,7 @@
 (ns datascript.core
   (:refer-clojure :exclude [filter])
   (:require
+    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
     [datascript.pull-api :as dp]
     [datascript.query :as dq]
@@ -583,7 +584,7 @@
                 'datascript/DB    db/db-from-reader})
 
 #?(:cljs
-   (doseq [[tag cb] data-readers] (cljs.reader/register-tag-parser! tag cb)))
+   (doseq [[tag cb] data-readers] (edn/register-tag-parser! tag cb)))
 
 
 ;; Datomic compatibility layer
