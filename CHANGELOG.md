@@ -1,4 +1,4 @@
-# WIP
+# 0.18.5
 
 - Fixed core.cljc NS declaration to require cljs.reader (#316, thx @Quezion)
 
