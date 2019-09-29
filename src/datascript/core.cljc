@@ -3,6 +3,7 @@
   (:require
     [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
+    #?(:clj [datascript.pprint])
     [datascript.pull-api :as dp]
     [datascript.query :as dq]
     [datascript.impl.entity :as de])
