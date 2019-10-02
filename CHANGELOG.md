@@ -1,3 +1,7 @@
+# 0.18.6
+
+- Extracted pprinting to separate ns (#318, thx @zajac)
+
 # 0.18.5
 
 - Fixed core.cljc NS declaration to require cljs.reader (#316, thx @Quezion)
