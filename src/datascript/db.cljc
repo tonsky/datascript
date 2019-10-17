@@ -945,6 +945,13 @@
                :entity entity
                :assertion acc }))))
 
+(defn- collapse-multi-val
+  [db a v]
+  (if (is-attr? db a :db.cardinality/many)
+    (if (coll? v)
+      (-> v sort first)
+      v)
+    v))
 
 (defn- upsert-eid [db entity]
   (when-some [idents (not-empty (-attrs-by db :db.unique/identity))]
@@ -952,7 +959,7 @@
       (reduce-kv
         (fn [acc a v] ;; acc = [e a v]
           (if (contains? idents a)
-            (if-some [e (:e (first (-datoms db :avet [a v])))]
+            (if-some [e (:e (first (-datoms db :avet [a (collapse-multi-val v)])))]
               (cond
                 (nil? acc)        [e a v] ;; first upsert
                 (= (get acc 0) e) acc     ;; second+ upsert, but does not conflict
