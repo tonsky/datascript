@@ -947,10 +947,9 @@
 
 (defn- collapse-multi-val
   [db a v]
-  (if (is-attr? db a :db.cardinality/many)
-    (if (coll? v)
-      (-> v sort first)
-      v)
+  (if (and (is-attr? db a :db.cardinality/many)
+           (coll? v))
+    (-> v sort first)
     v))
 
 (defn- upsert-eid [db entity]
