@@ -11,7 +11,9 @@
 
 (deftest test-upsert
   (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
-                                   :email { :db/unique :db.unique/identity }})
+                                   :email { :db/unique :db.unique/identity }
+                                   :slugs { :db/unique      :db.unique/identity
+                                            :db/cardinality :db.cardinality/many }})
                       [{:db/id 1 :name "Ivan" :email "@1"}
                        {:db/id 2 :name "Petr" :email "@2"}])
         touched (fn [tx e] (into {} (d/touch (d/entity (:db-after tx) e))))
@@ -132,7 +134,18 @@
     (testing "upsert and :current-tx conflict"
       (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id \d+"
         (d/with db [{:db/id :db/current-tx :name "Ivan" :age 35}]))))
-))
+
+    (testing "upsert of unique, cardinality-many values"
+      (let [tx  (d/with db [{:name "Ivan" :slugs "ivan1"}
+                            {:name "Petr" :slugs "petr1"}])
+            tx2 (d/with (:db-after tx) [{:name "Ivan" :slugs ["ivan1" "ivan2"]}])]
+        (is (= (touched tx 1)
+               {:name "Ivan" :email "@1" :slugs #{"ivan1"}}))
+        (is (= (touched tx2 1)
+               {:name "Ivan" :email "@1" :slugs #{"ivan1" "ivan2"}}))
+        (is (thrown-with-msg? Throwable #"Conflicting upsert:"
+              (d/with (:db-after tx) [{:slugs ["ivan1" "petr1"]}])))))
+    ))
 
 
 (deftest test-redefining-ids

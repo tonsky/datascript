@@ -945,12 +945,26 @@
                :entity entity
                :assertion acc }))))
 
-(defn- collapse-multi-val
+(defn- resolve-avet-to-entity
   [db a v]
-  (if (and (is-attr? db a :db.cardinality/many)
-           (coll? v))
-    (-> v sort first)
-    v))
+  (let [first-e #(-> (-datoms db :avet [a %]) first :e)]
+    (if (and (is-attr? db a :db.cardinality/many)
+             (coll? v))
+      (reduce (fn [e v*]
+                (let [e* (first-e v*)]
+                  (cond
+                    (nil? e*) e
+                    (= e e*)  e
+                    :else
+                    (raise "Conflicting upsert: " [a v] " resolves to " e
+                           ", but " [a v*] " resolves to " e*
+                           {:error     :transact/upsert
+                            :entity    e
+                            :assertion [e a v]
+                            :conflict  [e* a v*]}))))
+              (first-e (first v))
+              (rest v))
+      (first-e v))))
 
 (defn- upsert-eid [db entity]
   (when-some [idents (not-empty (-attrs-by db :db.unique/identity))]
@@ -958,7 +972,7 @@
       (reduce-kv
         (fn [acc a v] ;; acc = [e a v]
           (if (contains? idents a)
-            (if-some [e (:e (first (-datoms db :avet [a (collapse-multi-val v)])))]
+            (if-some [e (resolve-avet-to-entity db a v)]
               (cond
                 (nil? acc)        [e a v] ;; first upsert
                 (= (get acc 0) e) acc     ;; second+ upsert, but does not conflict
