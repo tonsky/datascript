@@ -1,4 +1,4 @@
-# WIP
+# 0.18.7
 
 - Enable :unique/identity and upserts for cardinality-many values (#321, thx @cjsauer)
 
