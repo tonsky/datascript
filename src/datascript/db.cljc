@@ -43,6 +43,20 @@
                (arrays/array? x)
                (instance? java.util.Map x)))))
 
+#?(:clj
+  (defmacro cond+ [& clauses]
+    (when-some [[test expr & rest] clauses]
+      (case test
+        :let `(let ~expr (cond+ ~@rest))
+        `(if ~test ~expr (cond+ ~@rest))))))
+
+#?(:clj
+(defmacro some-of
+  ([] nil)
+  ([x] x)
+  ([x & more]
+    `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
+
 ;; ----------------------------------------------------------------------------
 ;; macros and funcs to support writing defrecords and updating
 ;; (replacing) builtins, i.e., Object/hashCode, IHashEq hasheq, etc.
@@ -945,51 +959,48 @@
                :entity entity
                :assertion acc }))))
 
-(defn- resolve-avet-to-entity
-  [db a v]
-  (let [first-e #(-> (-datoms db :avet [a %]) first :e)]
-    (if (and (is-attr? db a :db.cardinality/many)
-             (coll? v))
-      (reduce (fn [e v*]
-                (let [e* (first-e v*)]
-                  (cond
-                    (nil? e*) e
-                    (= e e*)  e
-                    :else
-                    (raise "Conflicting upsert: " [a v] " resolves to " e
-                           ", but " [a v*] " resolves to " e*
-                           {:error     :transact/upsert
-                            :entity    e
-                            :assertion [e a v]
-                            :conflict  [e* a v*]}))))
-              (first-e (first v))
-              (rest v))
-      (first-e v))))
+(defn- upsert-reduce-fn [db eav a v]
+  (let [e (:e (first (-datoms db :avet [a v])))]
+    (cond
+      (nil? e) ;; value not yet in db
+      eav
+
+      (nil? eav) ;; first upsert
+      [e a v]
+
+      (= (get eav 0) e) ;; second+ upsert, but does not conflict
+      eav
+
+      :else
+      (let [[_e _a _v] eav]
+        (raise "Conflicting upserts: " [_a _v] " resolves to " _e
+               ", but " [a v] " resolves to " e
+               { :error     :transact/upsert
+                 :assertion [e a v]
+                 :conflict  [_e _a _v] })))))
 
 (defn- upsert-eid [db entity]
   (when-some [idents (not-empty (-attrs-by db :db.unique/identity))]
     (->>
       (reduce-kv
-        (fn [acc a v] ;; acc = [e a v]
-          (if (contains? idents a)
-            (if-some [e (resolve-avet-to-entity db a v)]
-              (cond
-                (nil? acc)        [e a v] ;; first upsert
-                (= (get acc 0) e) acc     ;; second+ upsert, but does not conflict
-                :else
-                (let [[_e _a _v] acc]
-                  (raise "Conflicting upserts: " [_a _v] " resolves to " _e
-                         ", but " [a v] " resolves to " e
-                         { :error     :transact/upsert
-                           :entity    entity
-                           :assertion [e a v]
-                           :conflict  [_e _a _v] })))
-              acc) ;; upsert attr, but resolves to nothing
-            acc)) ;; non-upsert attr
+        (fn [eav a v] ;; eav = [e a v]
+          (cond
+            (not (contains? idents a))
+            eav
+
+            (and
+              (multival? db a)
+              (or
+                (arrays/array? v)
+                (and (coll? v) (not (map? v)))))
+            (reduce #(upsert-reduce-fn db %1 a %2) eav v)
+
+            :else
+            (upsert-reduce-fn db eav a v)))
         nil
         entity)
      (check-upsert-conflict entity)
-     first))) ;; getting eid from acc
+     first))) ;; getting eid from eav
 
 
 ;; multivals/reverse can be specified as coll or as a single value, trying to guess
@@ -1058,20 +1069,6 @@
   (into #{} (comp
               (filter (fn [^Datom d] (component? db (.-a d))))
               (map (fn [^Datom d] [:db.fn/retractEntity (.-v d)]))) datoms))
-
-#?(:clj
-  (defmacro cond+ [& clauses]
-    (when-some [[test expr & rest] clauses]
-      (case test
-        :let `(let ~expr (cond+ ~@rest))
-        `(if ~test ~expr (cond+ ~@rest))))))
-
-#?(:clj
-(defmacro some-of
-  ([] nil)
-  ([x] x)
-  ([x & more]
-    `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
 
 (declare transact-tx-data)
 

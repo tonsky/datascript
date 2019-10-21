@@ -1,3 +1,7 @@
+# WIP
+
+- Enable :unique/identity and upserts for cardinality-many values (#321, thx @cjsauer)
+
 # 0.18.6
 
 - Extracted pprinting to separate ns (#318, thx @zajac)

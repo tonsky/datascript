@@ -143,7 +143,7 @@
                {:name "Ivan" :email "@1" :slugs #{"ivan1"}}))
         (is (= (touched tx2 1)
                {:name "Ivan" :email "@1" :slugs #{"ivan1" "ivan2"}}))
-        (is (thrown-with-msg? Throwable #"Conflicting upsert:"
+        (is (thrown-with-msg? Throwable #"Conflicting upserts:"
               (d/with (:db-after tx) [{:slugs ["ivan1" "petr1"]}])))))
     ))
 
