@@ -36,7 +36,8 @@
     datascript.test.transact
     datascript.test.validation
     datascript.test.upsert
-    datascript.test.issues))
+    datascript.test.issues
+    datascript.test.datafy))
 
 (defn ^:export test-clj []
   (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\..*")))
