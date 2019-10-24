@@ -1,10 +1,11 @@
 (ns datascript.test.datafy
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    #?(:cljs [cljs.test :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer [is are deftest testing]])
     [datascript.datafy :as datafy]
     [datascript.core :as d]
-    [clojure.core.protocols :as cp]))
+    [clojure.core.protocols :as cp]
+    [datascript.impl.entity :as e]))
 
 (defn- test-db []
   (let [schema {:ref {:db/valueType :db.type/ref}
@@ -31,7 +32,7 @@
 
 (deftest test-navigation
   (let [db (test-db)
-        entity (datafy/pull db [:ref :namespace/ref :many/_ref] 3)]
+        entity (e/entity db 3)]
     (is (= 2 (:db/id (d+n entity [:ref]))))
     (is (= 2 (:db/id (d+n entity [:namespace/ref]))))
     (is (= 1 (:db/id (d+n entity [:ref :namespace/ref]))))
