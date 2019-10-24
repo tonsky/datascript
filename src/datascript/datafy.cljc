@@ -6,9 +6,6 @@
 
 (declare datafy-entity-seq)
 
-(defn- pull-pattern [ref-rattrs]
-  (into ["*"] ref-rattrs))
-
 (defn- navize-pulled-entity [db-val pulled-entity]
   (let [ref-attrs (:db.type/ref (:rschema db-val))
         ref-rattrs (set (map db/reverse-ref ref-attrs))
