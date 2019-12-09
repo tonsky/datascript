@@ -116,9 +116,19 @@
         (raise "Expected [\"default\" attr-name any-value]"
                {:error :parser/pull, :fragment spec})))))
 
+(defn- parse-attr-with-opts
+  [spec]
+  (when (sequential? spec)
+    (let [[attr-name-spec & opts-spec] spec]
+      (when-some [attr-name (parse-attr-name attr-name-spec)]
+        (when (and (even? (count opts-spec))
+                   (every? #{:as :limit :default} (->> opts-spec (partition 2) (map first))))
+          (PullAttrWithOpts. attr-name (apply array-map opts-spec)))))))
+
 (defn- parse-map-spec-entry
   [[k v]]
   (if-let [attr-name (or (parse-attr-name k)
+                         (parse-attr-with-opts k)
                          (when (maybe-attr-expr? k)
                            (parse-limit-expr k)))]
     (if-let [pattern-or-rec (or (parse-recursion-limit v)
@@ -134,15 +144,6 @@
   (when (map? spec)
     (assert (= 1 (count spec)) "Maps should contain exactly 1 entry")
     (parse-map-spec-entry (first spec))))
-
-(defn- parse-attr-with-opts
-  [spec]
-  (when (sequential? spec)
-    (let [[attr-name-spec & opts-spec] spec]
-      (when-some [attr-name (parse-attr-name attr-name-spec)]
-        (when (and (even? (count opts-spec))
-                   (every? #{:as :limit :default} (->> opts-spec (partition 2) (map first))))
-          (PullAttrWithOpts. attr-name (apply array-map opts-spec)))))))
 
 (defn- parse-attr-expr
   [spec]
