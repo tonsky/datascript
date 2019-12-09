@@ -33,7 +33,16 @@
             :subpattern (dpp/->PullSpec
                          false
                          {:bar {:attr :bar}
-                          :me {:attr :me}})}})))
+                          :me {:attr :me}})}})
+
+    '[{[:foo/bar :as :baz] [:beep]}]
+    (dpp/->PullSpec
+      false
+      {:foo/bar {:attr :foo/bar
+                 :as :baz
+                 :subpattern (dpp/->PullSpec
+                               false
+                               {:beep {:attr :beep}})}})))
 
 (deftest test-parse-bad-limit
   (is
