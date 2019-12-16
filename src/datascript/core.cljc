@@ -29,7 +29,7 @@
             
              If entity does not exist, `nil` is returned:
 
-                 (entity db -1) ; => nil
+                 (entity db 100500) ; => nil
 
              Creating an entity by id is very cheap, almost no-op, as attr access is on-demand:
 
