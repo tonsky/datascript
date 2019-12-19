@@ -14,3 +14,11 @@
                           [(vector ?a) ?b]]
              db)
           #{["A" ["A"]] ["B" ["B"]]}))))
+
+(deftest ^{:doc "`empty` should preserve meta of db"}
+  issue-331
+  (let [m  {:foo :bar}
+        db (-> (ds/empty-db)
+               (with-meta m)
+               (empty))]
+    (t/is (= m (meta db)))))

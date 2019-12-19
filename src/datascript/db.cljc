@@ -431,7 +431,7 @@
        ISeqable             (-seq   [db]        (-seq  (.-eavt db)))
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
-       IEmptyableCollection (-empty [db]        (empty-db (.-schema db)))
+       IEmptyableCollection (-empty [db]        (with-meta (empty-db (.-schema db)) (meta db)))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
        IEditableCollection  (-as-transient [db] (db-transient db))
        ITransientCollection (-conj! [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
@@ -444,8 +444,8 @@
        clojure.lang.IPersistentCollection
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
-                            (empty [db]         (empty-db schema))
        clojure.lang.IEditableCollection 
+                            (empty [db]         (with-meta (empty-db schema) (meta db)))
                             (asTransient [db] (db-transient db))
        clojure.lang.ITransientCollection
                             (conj [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
