@@ -553,7 +553,7 @@
                             (cons [db [k v]]    (throw (UnsupportedOperationException. "cons is not supported on FilteredDB")))
                             (empty [db]         (throw (UnsupportedOperationException. "empty is not supported on FilteredDB")))
 
-       clojure.lang.Seqable (seq [db]           (-datoms db :eavt []))
+       clojure.lang.Seqable (seq [db]           (seq (-datoms db :eavt [])))
 
        clojure.lang.ILookup (valAt [db k]       (throw (UnsupportedOperationException. "valAt/2 is not supported on FilteredDB")))
                             (valAt [db k nf]    (throw (UnsupportedOperationException. "valAt/3 is not supported on FilteredDB")))

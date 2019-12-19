@@ -22,3 +22,15 @@
                (with-meta m)
                (empty))]
     (t/is (= m (meta db)))))
+
+#?(:clj
+   (deftest ^{:doc "Can't pprint filtered db"}
+     issue-330
+     (let [base     (-> (ds/empty-db {:aka {:db/cardinality :db.cardinality/many}})
+                        (ds/db-with [{:db/id -1
+                                      :name  "Maksim"
+                                      :age   45
+                                      :aka   ["Max Otto von Stierlitz", "Jack Ryan"]}]))
+           filtered (ds/filter base (constantly true))]
+       (t/is (= (with-out-str (clojure.pprint/pprint base))
+                (with-out-str (clojure.pprint/pprint filtered)))))))
