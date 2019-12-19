@@ -25,7 +25,7 @@
                             (pp/write-out :schema)
                             (.write w " ")
                             (pp/pprint-newline :linear)
-                            (pp/write-out (:schema db)))
+                            (pp/write-out (db/-schema db)))
                            (.write w ", ")
                            (pp/pprint-newline :linear)
 
