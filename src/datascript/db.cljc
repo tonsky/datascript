@@ -529,7 +529,7 @@
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-fdb db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
-       ISeqable             (-seq   [db]        (-datoms db :eavt []))
+       ISeqable             (-seq   [db]        (seq (-datoms db :eavt [])))
        ICounted             (-count [db]        (count (-datoms db :eavt [])))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
 
