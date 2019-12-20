@@ -26,3 +26,12 @@
            filtered (ds/filter base (constantly true))]
        (t/is (= (with-out-str (clojure.pprint/pprint base))
                 (with-out-str (clojure.pprint/pprint filtered)))))))
+
+(deftest ^{:doc "`empty` should preserve meta of db"}
+  issue-331
+  (let [m  {:foo :bar}
+        db (-> (ds/empty-db)
+               (with-meta m)
+               (empty))]
+    (t/is (= m (meta db)))))
+
