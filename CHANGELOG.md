@@ -1,3 +1,9 @@
+# 0.18.8
+
+- `empty` preserves meta (#331, #332, thx @darkleaf)
+- Filtered db can be pprinted (#330, #333, thx @darkleaf)
+- Allow aliasing map keys in pull entry (#328, thx @jamesnvc)
+
 # 0.18.7
 
 - Enable :unique/identity and upserts for cardinality-many values (#321, thx @cjsauer)
