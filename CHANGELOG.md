@@ -1,3 +1,7 @@
+# 0.18.9
+
+- Report in :tempids all newly created entities, even if they don’t have :db/id assigned in tx (#246, #337, thx @filipesilva)
+
 # 0.18.8
 
 - `empty` preserves meta (#331, #332, thx @darkleaf)
