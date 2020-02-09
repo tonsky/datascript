@@ -870,10 +870,13 @@
   [x]
   (or (and (number? x) (neg? x)) (string? x)))
 
+(defn- new-eid? [db eid]
+  (and (> eid (:max-eid db))
+       (< eid tx0))) ;; tx0 is max eid
+
 (defn- advance-max-eid [db eid]
   (cond-> db
-    (and (> eid (:max-eid db))
-         (< eid tx0)) ;; do not trigger advance if transaction id was referenced
+    (new-eid? db eid)
       (assoc :max-eid eid)))
 
 (defn- allocate-eid
@@ -885,6 +888,9 @@
         (assoc-in [:tempids e] eid)
       (tempid? e)
         (assoc-in [:tempids e] eid)
+      (and (not (tempid? e)) 
+           (new-eid? (:db-after report) eid))
+        (assoc-in [:tempids eid] eid)
       true
         (update-in [:db-after] advance-max-eid eid))))
 

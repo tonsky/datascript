@@ -113,7 +113,7 @@
         (is (= (touched tx 3)
                {:name "Igor" :age 36}))
         (is (= (tempids tx)
-               {}))))
+               {3 3}))))
     
     (testing "upsert over intermediate db, tempids"
       (let [tx (d/with db [{:db/id -1 :name "Igor" :age 35}

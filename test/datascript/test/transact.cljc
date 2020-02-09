@@ -277,7 +277,7 @@
             :where [?e :name ?n]
                    [?e :friend ?fe]
                    [?fe :name ?fn]]]
-    (is (= (:tempids tx) { -1 2, -2 3, "B" 4, -3 5, :db/current-tx (+ d/tx0 1) }))
+    (is (= (:tempids tx) { 1 1, -1 2, -2 3, "B" 4, -3 5, :db/current-tx (+ d/tx0 1) }))
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
     (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
@@ -298,7 +298,7 @@
                 [(+ d/tx0 1) :prop2 "prop2"]
                 [2 :name "Y"]
                 [2 :created-at (+ d/tx0 1)]}))
-        (is (= (:tempids tx1) (assoc {-1 2, :db/current-tx (+ d/tx0 1)}
+        (is (= (:tempids tx1) (assoc {1 1, -1 2, :db/current-tx (+ d/tx0 1)}
                                      tx-tempid (+ d/tx0 1))))
         (let [tx2   (d/transact! conn [[:db/add tx-tempid :prop3 "prop3"]])
               tx-id (get-in tx2 [:tempids tx-tempid])]
