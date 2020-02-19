@@ -111,6 +111,25 @@
                     :where [2 ?a ?v]] db)
              #{[:name "Petr"] [:age 37]})))))
 
+(deftest test-retract-without-value-339
+  (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
+                            :friend { :db/valueType :db.type/ref }})
+               (d/db-with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2 }
+                           { :db/id 2, :name  "Petr", :age 37 } ]))]
+    (testing "Retract :name without providing v"
+      (let [db (d/db-with db [[:db/retract 1 :name]])]
+        (is (= (d/q '[:find ?a ?v
+                      :where [1 ?a ?v]]
+                    db)
+               #{[:friend 2] [:age 15] [:aka "Z"] [:aka "Y"] [:aka "X"]}))))
+    (testing "Retract :aka (cardinality many) without providing v"
+      (let [db (d/db-with db [[:db/retract 1 :aka]])]
+        (is (= (d/q '[:find ?a ?v
+                      :where [1 ?a ?v]]
+                    db)
+               #{[:friend 2] [:age 15] [:name "Ivan"]}))))))
+
+  
 (deftest test-retract-fns-not-found
   (let [db  (-> (d/empty-db { :name { :db/unique :db.unique/identity } })
                 (d/db-with  [[:db/add 1 :name "Ivan"]]))

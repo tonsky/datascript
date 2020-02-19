@@ -1231,7 +1231,8 @@
             (= op :db/add)
             (recur (transact-add report entity) entities)
 
-            (= op :db/retract)
+            (and (= op :db/retract)
+                 v)
             (if-some [e (entid db e)]
               (let [v (if (ref? db a) (entid-strict db v) v)]
                 (validate-attr a entity)
@@ -1241,7 +1242,9 @@
                   (recur report entities)))
               (recur report entities))
 
-            (= op :db.fn/retractAttribute)
+            (or (= op :db.fn/retractAttribute)
+                (and (= op :db/retract)
+                     (nil? v)))
             (if-some [e (entid db e)]
               (let [_      (validate-attr a entity)
                     datoms (vec (-search db [e a]))]

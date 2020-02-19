@@ -463,6 +463,9 @@
   
       ; retract single entity attribute
       (transact! conn [[:db.fn/retractAttribute 1 :name]])
+  
+      ; ... or equivalently (since Datomic changed its API to support this):
+      (transact! conn [[:db/retract 1 :name]])
       
       ; retract all entity attributes (effectively deletes entity)
       (transact! conn [[:db.fn/retractEntity 1]])
