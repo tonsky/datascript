@@ -219,5 +219,24 @@
               "X")
          #{["abcX"] ["aXb"]})))
 
+(deftest test-reverse-refs
+  (let [db  (-> (d/empty-db {:nested/root {:db/valueType :db.type/ref}})
+                (d/db-with [{:db/id    1
+                             :db/ident :root}
+                            {:db/id       2
+                             :nested/root :root}
+                            {:db/id       3
+                             :nested/root :root}
+                            {:foo :bar}]))]
+    (testing :literal
+      (is (= #{[1 2] [1 3]} (d/q '[:find ?e ?v
+                                   :where [?e :nested/_root ?v]]
+                                 db))))
+    (testing :arg
+      (is (= #{[1 2] [1 3]} (d/q '[:find ?e ?v
+                                   :in $ ?a
+                                   :where [?e ?a ?v]]
+                                 db :nested/_root))))))
+
 #_(require 'datascript.test.query :reload)
 #_(clojure.test/test-ns 'datascript.test.query)

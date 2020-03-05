@@ -418,9 +418,19 @@
     (assoc a
       :tuples (filterv #(nil? (hash (key-fn-a %))) tuples-a))))
 
+;; [?nested :nested/root ?root]
+;; [?root :nested/_root ?nested]
+(defn transform-pattern [[e a v :as pattern]]
+  (if (and (some? e) (some? a) (some? v)
+           (not (symbol? a))
+           (db/reverse-ref? a))
+    (assoc pattern 0 v 1 (db/reverse-ref a) 2 e)
+    pattern))
+
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
-  (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
+  (let [pattern        (transform-pattern pattern)
+        search-pattern (mapv #(if (symbol? %) nil %) pattern)
         datoms         (db/-search db search-pattern)
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (free-var? s)))
