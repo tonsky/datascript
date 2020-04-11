@@ -351,6 +351,12 @@
      :clj
      (.compareTo ^Comparable a1 a2)))
 
+(defn cmp-datoms-eav-quick [^Datom d1, ^Datom d2]
+  (combine-cmp
+    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
+    (cmp-attr-quick (.-a d1) (.-a d2))
+    (compare (.-v d1) (.-v d2))))
+
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
@@ -517,7 +523,7 @@
 
   clojure.data/Diff
   (diff-similar [a b]
-    (diff-sorted (:eavt a) (:eavt b) cmp-datoms-eavt-quick)))
+    (diff-sorted (:eavt a) (:eavt b) cmp-datoms-eav-quick)))
 
 (defn db? [x]
   (and (satisfies? ISearch x)
