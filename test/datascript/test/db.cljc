@@ -49,5 +49,5 @@
           [(d/datom 1 :b 3) (d/datom 1 :d 5)]
           [(d/datom 1 :a 1)]]
          (clojure.data/diff
-           (d/db-with (d/empty-db) [{:a 1 :b 2 :c 4} {:a 1}])
-           (d/db-with (d/empty-db) [{:a 1 :b 3 :d 5}])))))
+           (-> (d/empty-db) (d/db-with [{:a 1 :b 2 :c 4} {:a 1}]))
+           (-> (d/empty-db) (d/db-with [{:b 3 :d 5}]) (d/db-with [{:db/id 1 :a 1}]))))))
