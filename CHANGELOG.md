@@ -1,3 +1,7 @@
+# 0.18.11
+
+- Ignore tx when diff datoms (#347, thx @darkleaf)
+
 # 0.18.10
 
 - Support: db/retract without value (#339, #340, thx @ericdscott)
