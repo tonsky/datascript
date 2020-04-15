@@ -59,12 +59,13 @@ Talks:
 
 Projects using DataScript:
 
+- [Roam Research](https://roamresearch.com/), a note-taking graph database
 - [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [LightMesh](http://lightmesh.com/), datacenter management
 - [Cognician](https://www.cognician.com/), coaching platform
 - [PartsBox](https://partsbox.io/), electronic parts management
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
-- [Acha-acha](http://acha-acha.co/), github achievements ([sources](https://github.com/someteam/acha), [code walkthrough](http://tonsky.me/blog/acha-acha/))
+- [Acha-acha](http://tonsky.me/blog/acha-acha/), GitHub achievements
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 - [Zetawar](http://www.zetawar.com), turn-based tactical strategy game
 - [Lemmings](https://www.lemmings.io), incubator focused on art & artificial intelligence
