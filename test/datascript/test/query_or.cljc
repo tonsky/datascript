@@ -87,6 +87,24 @@
   (is (= #{[1] [3] [4] [5]}
         (d/q '[:find ?e
                :in $ ?a
+               :where (or
+                        [?e :age ?a]
+                        [?e :name "Oleg"])]
+               @test-db 10)))
+
+  ;; #348
+  (is (= #{[1] [3] [4] [5]}
+        (d/q '[:find ?e
+               :in $ ?a
+               :where (or-join [?e ?a]
+                        [?e :age ?a]
+                        [?e :name "Oleg"])]
+               @test-db 10)))
+
+  ;; #348
+  (is (= #{[1] [3] [4] [5]}
+        (d/q '[:find ?e
+               :in $ ?a
                :where (or-join [[?a] ?e]
                         [?e :age ?a]
                         [?e :name "Oleg"])]
@@ -156,20 +174,11 @@
 
 
 (deftest test-errors
-  (is (thrown-msg? "Free join variables not declared inside clauses: [?a]"
+  (is (thrown-with-msg? ExceptionInfo #"All clauses in 'or' must use same set of free vars, had \[#\{\?e\} #\{(\?a \?e|\?e \?a)\}\] in \(or \[\?e :name _\] \[\?e :age \?a\]\)"
         (d/q '[:find ?e
                :where (or [?e :name _]
                           [?e :age ?a])]
              @test-db)))
-
-  ;; #348
-  (is (thrown-msg? "Free join variables not declared inside clauses: [?a]"
-        (d/q '[:find ?e
-               :in $ ?a
-               :where (or-join [?e ?a]
-                        [?e :age ?a]
-                        [?e :name "Oleg"])]
-               @test-db 10)))
 
   (is (thrown-msg? "Insufficient bindings: #{?e} not bound in (or-join [[?e]] [?e :name \"Ivan\"])"
         (d/q '[:find ?e

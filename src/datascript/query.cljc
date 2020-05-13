@@ -698,14 +698,34 @@
     :rels (->> (:rels context)
                (keep #(limit-rel % vars)))))
 
-(defn check-bound [context vars form]
-  (let [bound (into #{} (mapcat #(keys (:attrs %)) (:rels context)))]
-    (when-not (set/subset? vars bound)
-      (let [missing (set/difference (set vars) bound)]
-        (raise "Insufficient bindings: " missing " not bound in " form
-               {:error :query/where
-                :form  form
-                :vars  missing})))))
+(defn bound-vars [context]
+  (into #{} (mapcat #(keys (:attrs %)) (:rels context))))
+
+(defn check-bound [bound vars form]
+  (when-not (set/subset? vars bound)
+    (let [missing (set/difference (set vars) bound)]
+      (raise "Insufficient bindings: " missing " not bound in " form
+             {:error :query/where
+              :form  form
+              :vars  missing}))))
+
+(defn check-free-same [bound branches form]
+  (let [free (mapv #(set/difference (collect-vars %) bound) branches)]
+    (when-not (apply = free)
+      (raise "All clauses in 'or' must use same set of free vars, had " free " in " form
+             {:error :query/where
+              :form  form
+              :vars  free}))))
+
+(defn check-free-subset [bound vars branches]
+  (let [free (set (remove bound vars))]
+    (doseq [branch branches]
+      (when-some [missing (not-empty (set/difference free (collect-vars branch)))]
+        (prn branch bound vars free)
+        (raise "All clauses in 'or' must use same set of free vars, had " missing " not bound in " branch
+          {:error :query/where
+           :form  branch
+           :vars  missing})))))
 
 (defn -resolve-clause
   ([context clause]
@@ -725,19 +745,22 @@
      
      '[or *] ;; (or ...)
      (let [[_ & branches] clause
+           _        (check-free-same (bound-vars context) branches clause)
            contexts (map #(resolve-clause context %) branches)
            rels     (map #(reduce hash-join (:rels %)) contexts)]
        (assoc (first contexts) :rels [(reduce sum-rel rels)]))
      
      '[or-join [[*] *] *] ;; (or-join [[req-vars] vars] ...)
-     (let [[_ [req-vars & vars] & branches] clause]
-       (check-bound context req-vars orig-clause)
+     (let [[_ [req-vars & vars] & branches] clause
+           bound (bound-vars context)]
+       (check-bound bound req-vars orig-clause)
+       (check-free-subset bound vars branches)
        (recur context (list* 'or-join (concat req-vars vars) branches) clause))
      
      '[or-join [*] *] ;; (or-join [vars] ...)
-     ;; TODO required vars
      (let [[_ vars & branches] clause
            vars         (set vars)
+           _            (check-free-subset (bound-vars context) vars branches)
            join-context (limit-context context vars)
            contexts     (map #(-> join-context (resolve-clause %) (limit-context vars)) branches)
            rels         (map #(reduce hash-join (:rels %)) contexts)
@@ -750,9 +773,9 @@
      
      '[not *] ;; (not ...)
      (let [[_ & clauses] clause
-           bound-vars       (set (mapcat #(keys (:attrs %)) (:rels context)))
+           bound            (bound-vars context)
            negation-vars    (collect-vars clauses)
-           _                (when (empty? (set/intersection bound-vars negation-vars))
+           _                (when (empty? (set/intersection bound negation-vars))
                               (raise "Insufficient bindings: none of " negation-vars " is bound in " orig-clause
                                 {:error :query/where
                                  :form  orig-clause}))
@@ -765,7 +788,8 @@
      
      '[not-join [*] *] ;; (not-join [vars] ...)
      (let [[_ vars & clauses] clause
-           _                (check-bound context vars orig-clause)
+           bound            (bound-vars context)
+           _                (check-bound bound vars orig-clause)
            context'         (assoc context :rels [(reduce hash-join (:rels context))])
            join-context     (limit-context context' vars)
            negation-context (-> (reduce resolve-clause join-context clauses)

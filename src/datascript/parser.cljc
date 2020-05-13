@@ -485,17 +485,13 @@
 (defn collect-vars-distinct [form]
   (vec (distinct (collect-vars form))))
 
-(defn- validate-join-vars [required free clauses form]
-  (let [clause-vars (set (collect-vars clauses))]
-    (when-some [undeclared (not-empty (set/difference (set free) clause-vars))]
-      (raise "Free join variables not declared inside clauses: " (mapv :symbol undeclared)
-             {:error :parser/where, :form form}))
-    (when (and (empty? required) (empty? free))
-      (raise "Join variables should not be empty"
-             {:error :parser/where, :form form}))))
+(defn- validate-join-vars [required free form]
+  (when (and (empty? required) (empty? free))
+    (raise "Join variables should not be empty"
+      {:error :parser/where, :form form})))
 
 (defn- validate-not [clause form]
-  (validate-join-vars nil (:vars clause) (:clauses clause) form)
+  (validate-join-vars nil (:vars clause) form)
   clause)
 
 (defn parse-not [form]
@@ -524,10 +520,8 @@
 
 (defn validate-or [clause form]
   (let [{{required :required
-          free     :free} :rule-vars
-         clauses          :clauses} clause]
-    (doseq [clause clauses]
-      (validate-join-vars required free [clause] form))
+          free     :free} :rule-vars} clause]
+    (validate-join-vars required free form)
     clause))
 
 (defn parse-and [form]
@@ -733,11 +727,11 @@
               (sequential? q) (query->map q)
               :else (raise "Query should be a vector or a map"
                            {:error :parser/query, :form q}))
-        res (map->Query {
-              :qfind (parse-find (:find qm))
-              :qwith (when-let [with (:with qm)]
-                       (parse-with with))
-              :qin    (parse-in (:in qm ['$]))
-              :qwhere (parse-where (:where qm []))})]
+        res (map->Query
+              {:qfind  (parse-find (:find qm))
+               :qwith  (when-let [with (:with qm)]
+                         (parse-with with))
+               :qin    (parse-in (:in qm ['$]))
+               :qwhere (parse-where (:where qm []))})]
     (validate-query res q)
     res))

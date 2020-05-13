@@ -122,10 +122,7 @@
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
   )
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?x\]"
-        (dp/parse-clause '(not-join [?x] [?y]))))
-  
+    
   (is (thrown-with-msg? ExceptionInfo #"Join variables should not be empty"
         (dp/parse-clause '(not-join [] [?y]))))
   
@@ -137,11 +134,6 @@
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse 'not' clause"
       (dp/parse-clause '(not))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?y\]"
-        (dp/parse-clause '(not-join [?y]
-                             (not-join [?x]
-                               [?x :follows ?y])))))
 )
 
 (deftest or-clause
@@ -229,18 +221,6 @@
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
   )
   
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?x\]"
-        (dp/parse-clause '(or-join [?x] [?y]))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?y\]"
-        (dp/parse-clause '(or [?x] [?x ?y]))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?y\]"
-        (dp/parse-clause '(or [?x] [?y]))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?x\]"
-        (dp/parse-clause '(or-join [?x ?y] [?x ?y] [?y]))))
-  
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-vars"
         (dp/parse-clause '(or-join [] [?y]))))
   
@@ -252,11 +232,6 @@
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse 'or' clause"
       (dp/parse-clause '(or))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Free join variables not declared inside clauses: \[\?y\]"
-        (dp/parse-clause '(or-join [?y]
-                             (or-join [?x]
-                               [?x :follows ?y])))))
 )
 
   
