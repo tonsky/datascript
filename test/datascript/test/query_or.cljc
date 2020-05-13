@@ -83,6 +83,15 @@
             [?e2 :age ?a]))]
     #{1 2 3 4 5 6})
 
+  ;; #348
+  (is (= #{[1] [3] [4] [5]}
+        (d/q '[:find ?e
+               :in $ ?a
+               :where (or-join [[?a] ?e]
+                        [?e :age ?a]
+                        [?e :name "Oleg"])]
+               @test-db 10)))
+
   (is (= #{[:a1 :b1 :c1]
            [:a2 :b2 :c2]}
          (d/q '[:find ?a ?b ?c
@@ -147,11 +156,20 @@
 
 
 (deftest test-errors
-  (is (thrown-msg? "Join variable not declared inside clauses: [?a]"
+  (is (thrown-msg? "Free join variables not declared inside clauses: [?a]"
         (d/q '[:find ?e
                :where (or [?e :name _]
                           [?e :age ?a])]
              @test-db)))
+
+  ;; #348
+  (is (thrown-msg? "Free join variables not declared inside clauses: [?a]"
+        (d/q '[:find ?e
+               :in $ ?a
+               :where (or-join [?e ?a]
+                        [?e :age ?a]
+                        [?e :name "Oleg"])]
+               @test-db 10)))
 
   (is (thrown-msg? "Insufficient bindings: #{?e} not bound in (or-join [[?e]] [?e :name \"Ivan\"])"
         (d/q '[:find ?e
