@@ -1,3 +1,7 @@
+# 0.18.12
+
+- In `or` branches, only check that all free vars match, not bound ones (#348)
+
 # 0.18.11
 
 - Ignore tx when diff datoms (#347, thx @darkleaf)
