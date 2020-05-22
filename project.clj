@@ -1,4 +1,4 @@
-(def version "0.18.12")
+(def version "0.18.13")
 
 (defproject datascript (str version (System/getenv "DATASCRIPT_CLASSIFIER"))
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"

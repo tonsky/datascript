@@ -1,3 +1,7 @@
+# 0.18.13
+
+- Fix `empty?` builtin #349, thx @ash14
+
 # 0.18.12
 
 - In `or` branches, only check that all free vars match, not bound ones (#348)
