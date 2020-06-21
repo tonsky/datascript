@@ -1,3 +1,7 @@
+# WIP
+
+- Support return maps (:keys/:syms/:strs) in query #322 #345
+
 # 0.18.13
 
 - Fix `empty?` builtin #349, thx @ash14

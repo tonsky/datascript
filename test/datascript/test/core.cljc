@@ -65,9 +65,12 @@
 (defn all-datoms [db]
   (into #{} (map (juxt :e :a :v)) (d/datoms db :eavt)))
 
+#?(:clj
 (defn no-namespace-maps [t]
   (binding [*print-namespace-maps* false]
-    (t))) 
+    (t)))
+:cljs
+(def no-namespace-maps {:before #(set! *print-namespace-maps* false)}))
 
 ;; Core tests
 

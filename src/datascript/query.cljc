@@ -890,18 +890,42 @@
     (for [[_ tuples] grouped]
       (-aggregate find-elements context tuples))))
 
+(defn map* [f xs]
+  (reduce #(conj %1 (f %2)) (empty xs) xs))
+
+(defn tuples->return-map [return-map tuples]
+  (let [symbols (:symbols return-map)
+        idxs    (range 0 (count symbols))]
+    (map*
+      (fn [tuple]
+        (reduce
+          (fn [m i] (assoc m (nth symbols i) (nth tuple i)))
+          {} idxs))
+      tuples)))
+
 (defprotocol IPostProcess
-  (-post-process [find tuples]))
+  (-post-process [find return-map tuples]))
 
 (extend-protocol IPostProcess
   FindRel
-  (-post-process [_ tuples] tuples)
+  (-post-process [_ return-map tuples]
+    (if (nil? return-map)
+      tuples
+      (tuples->return-map return-map tuples)))
+
   FindColl
-  (-post-process [_ tuples] (into [] (map first) tuples))
+  (-post-process [_ return-map tuples]
+    (into [] (map first) tuples))
+
   FindScalar
-  (-post-process [_ tuples] (ffirst tuples))
+  (-post-process [_ return-map tuples]
+    (ffirst tuples))
+
   FindTuple
-  (-post-process [_ tuples] (first tuples)))
+  (-post-process [_ return-map tuples]
+    (if (some? return-map)
+      (first (tuples->return-map return-map [(first tuples)]))
+      (first tuples))))
 
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
@@ -952,4 +976,4 @@
       (some dp/pull? find-elements)
         (pull find-elements context)
       true
-        (-post-process find))))
+        (-post-process find (:qreturn-map parsed-q)))))

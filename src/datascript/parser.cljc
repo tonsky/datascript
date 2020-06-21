@@ -358,6 +358,22 @@
              {:error :parser/find, :fragment form})))
 
 
+;; return-map  = (return-keys | return-syms | return-strs)
+;; return-keys = ':keys' symbol+
+;; return-syms = ':syms' symbol+
+;; return-strs = ':strs' symbol+
+
+(deftrecord ReturnMap [type symbols])
+
+(defn parse-return-map [type form]
+  (when (and (not (empty? form))
+          (every? symbol? form))
+    (case type
+      :keys (ReturnMap. type (mapv keyword form))
+      :syms (ReturnMap. type (vec form))
+      :strs (ReturnMap. type (mapv str form))
+      nil)))
+
 ;; with = [ variable+ ]
 
 (defn parse-with [form]
@@ -677,7 +693,7 @@
         (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
       parsed)))
 
-(defn validate-query [q form]
+(defn validate-query [q form form-map]
   (let [find-vars  (set (collect-vars (:qfind q)))
         with-vars  (set (:qwith q))
         in-vars    (set (collect-vars (:qin q)))
@@ -687,10 +703,33 @@
         shared     (set/intersection find-vars with-vars)]
     (when-not (empty? unknown)
       (raise "Query for unknown vars: " (mapv :symbol unknown)
-             {:error :parser/query, :vars unknown, :form form}))
+        {:error :parser/query, :vars unknown, :form form}))
     (when-not (empty? shared)
       (raise ":find and :with should not use same variables: " (mapv :symbol shared)
-             {:error :parser/query, :vars shared, :form form})))
+        {:error :parser/query, :vars shared, :form form})))
+
+  (when-some [return-map (:qreturn-map q)]
+    (when (instance? FindScalar (:qfind q))
+      (raise (:type return-map) " does not work with single-scalar :find"
+        {:error :parser/query, :form form}))
+    (when (instance? FindColl (:qfind q))
+      (raise (:type return-map) " does not work with collection :find"
+        {:error :parser/query, :form form})))
+
+  (when-some [return-symbols (:symbols (:qreturn-map q))]
+    (let [find-elements (find-elements (:qfind q))]
+      (when-not (= (count return-symbols) (count find-elements))
+        (raise "Count of " (:type (:qreturn-map q)) " must match count of :find"
+          {:error      :parser/query
+           :return-map (cons (:type (:qreturn-map q)) return-symbols)
+           :find       find-elements
+           :form       form}))))
+
+  (when (< 1 (->> [(:keys form-map) (:syms form-map) (:strs form-map)]
+               (filter some?)
+               (count)))
+    (raise "Only one of :keys/:syms/:strs must be present"
+      {:error :parser/query, :form form}))
   
   (let [in-vars    (collect-vars (:qin q))
         in-sources (collect #(instance? SrcVar %) (:qin q))
@@ -731,7 +770,10 @@
               {:qfind  (parse-find (:find qm))
                :qwith  (when-let [with (:with qm)]
                          (parse-with with))
+               :qreturn-map (or (parse-return-map :keys (:keys qm))
+                              (parse-return-map :syms (:syms qm))
+                              (parse-return-map :strs (:strs qm)))
                :qin    (parse-in (:in qm ['$]))
                :qwhere (parse-where (:where qm []))})]
-    (validate-query res q)
+    (validate-query res q qm)
     res))
