@@ -1,6 +1,7 @@
 # WIP
 
 - Support return maps (:keys/:syms/:strs) in query #322 #345
+- Throw when init-db is used with anything but datoms #276
 
 # 0.18.13
 

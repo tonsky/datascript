@@ -87,6 +87,7 @@
         db-transact (d/db-with
                       (d/empty-db schema)
                       (map (fn [[e a v]] [:db/add e a v]) data))]
+
     (testing "db-init produces the same result as regular transactions"
       (is (= db-init db-transact)))
 
@@ -98,4 +99,8 @@
     (testing "Roundtrip"
       (doseq [[r read-fn] readers]
         (testing r
-          (is (= db-init (read-fn (pr-str db-init)))))))))
+          (is (= db-init (read-fn (pr-str db-init)))))))
+
+    (testing "Reporting"
+      (is (thrown-with-msg? ExceptionInfo #"init-db expects list of Datoms, got "
+            (d/init-db [[:add -1 :name "Ivan"] {:add -1 :age 35}] schema))))))

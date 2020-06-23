@@ -664,6 +664,9 @@
 (defn ^DB init-db
   ([datoms] (init-db datoms nil))
   ([datoms schema]
+    (when-some [not-datom (first (drop-while datom? datoms))]
+      (raise "init-db expects list of Datoms, got " (type not-datom)
+        {:error :init-db}))
     (validate-schema schema)
     (let [rschema     (rschema (merge implicit-schema schema))
           indexed     (:db/index rschema)
