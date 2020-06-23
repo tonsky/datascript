@@ -398,6 +398,9 @@
 
 ;; ----------------------------------------------------------------------------
 
+(declare hash-db hash-fdb equiv-db empty-db resolve-datom validate-attr components->pattern indexing?)
+#?(:cljs (declare pr-db))
+
 ;;;;;;;;;; Searching
 
 (defprotocol ISearch
@@ -409,14 +412,18 @@
   (-rseek-datoms [db index components])
   (-index-range [db attr start end]))
 
+(defn validate-indexed [db index components]
+  (when (= index :avet)
+    (when-some [attr (first components)]
+      (when-not (indexing? db attr)
+        (raise "Attribute " attr " should be marked as :db/index true"
+          {:error :index-access :index :avet :components components})))))
+
 (defprotocol IDB
   (-schema [db])
   (-attrs-by [db property]))
 
 ;; ----------------------------------------------------------------------------
-
-(declare hash-db hash-fdb equiv-db empty-db resolve-datom validate-attr components->pattern indexing?)
-#?(:cljs (declare pr-db))
 
 (defn db-transient [db]
   (-> db
@@ -502,17 +509,19 @@
 
   IIndexAccess
   (-datoms [db index cs]
+    (validate-indexed db index cs)
     (set/slice (get db index) (components->pattern db index cs e0 tx0) (components->pattern db index cs emax txmax)))
 
   (-seek-datoms [db index cs]
+    (validate-indexed db index cs)
     (set/slice (get db index) (components->pattern db index cs e0 tx0) (datom emax nil nil txmax)))
 
   (-rseek-datoms [db index cs]
+    (validate-indexed db index cs)
     (set/rslice (get db index) (components->pattern db index cs emax txmax) (datom e0 nil nil tx0)))
 
   (-index-range [db attr start end]
-    (when-not (indexing? db attr)
-      (raise "Attribute " attr " should be marked as :db/index true" {}))
+    (validate-indexed db :avet [attr])
     (validate-attr attr (list '-index-range 'db attr start end))
     (set/slice (.-avet db)
       (resolve-datom db nil attr start nil e0 tx0)
@@ -572,25 +581,28 @@
                             (assoc [db k v]     (throw (UnsupportedOperationException. "assoc is not supported on FilteredDB")))])
 
   IDB
-  (-schema [db] (-schema (.-unfiltered-db db)))
-  (-attrs-by [db property] (-attrs-by (.-unfiltered-db db) property))
+  (-schema [db]
+    (-schema (.-unfiltered-db db)))
+
+  (-attrs-by [db property]
+    (-attrs-by (.-unfiltered-db db) property))
 
   ISearch
   (-search [db pattern]
-           (filter (.-pred db) (-search (.-unfiltered-db db) pattern)))
+    (filter (.-pred db) (-search (.-unfiltered-db db) pattern)))
 
   IIndexAccess
   (-datoms [db index cs]
-           (filter (.-pred db) (-datoms (.-unfiltered-db db) index cs)))
+    (filter (.-pred db) (-datoms (.-unfiltered-db db) index cs)))
 
   (-seek-datoms [db index cs]
-                (filter (.-pred db) (-seek-datoms (.-unfiltered-db db) index cs)))
+    (filter (.-pred db) (-seek-datoms (.-unfiltered-db db) index cs)))
 
   (-rseek-datoms [db index cs]
-                (filter (.-pred db) (-rseek-datoms (.-unfiltered-db db) index cs)))
+    (filter (.-pred db) (-rseek-datoms (.-unfiltered-db db) index cs)))
 
   (-index-range [db attr start end]
-                (filter (.-pred db) (-index-range (.-unfiltered-db db) attr start end))))
+    (filter (.-pred db) (-index-range (.-unfiltered-db db) attr start end))))
 
 ;; ----------------------------------------------------------------------------
 

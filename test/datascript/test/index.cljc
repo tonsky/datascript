@@ -48,7 +48,22 @@
       (is (= [ [3 :age 11]
                [2 :age 25]
                [1 :age 44] ]
-             (map dvec (d/datoms db :avet :age)))))))
+             (map dvec (d/datoms db :avet :age)))))
+
+    (testing "Error reporting"
+      (d/datoms db :avet) ;; no error
+
+      (is (thrown-msg? "Attribute :name should be marked as :db/index true"
+            (d/datoms db :avet :name)))
+
+      (is (thrown-msg? "Attribute :alias should be marked as :db/index true"
+            (d/datoms db :avet :alias)))
+
+      (is (thrown-msg? "Attribute :name should be marked as :db/index true"
+            (d/datoms db :avet :name "Ivan")))
+
+      (is (thrown-msg? "Attribute :name should be marked as :db/index true"
+            (d/datoms db :avet :name "Ivan" 1))))))
 
 (deftest test-seek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
@@ -78,7 +93,10 @@
     (testing "Exact value lookup"
       (is (= (map dvec (d/seek-datoms db :avet :name "Petr"))
              [ [1 :name "Petr"]
-               [3 :name "Sergey"] ])))))
+               [3 :name "Sergey"] ])))
+
+    (is (thrown-msg? "Attribute :alias should be marked as :db/index true"
+          (d/seek-datoms db :avet :alias)))))
 
 (deftest test-rseek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
@@ -107,7 +125,10 @@
     (testing "Exact value lookup"
       (is (= (map dvec (d/rseek-datoms db :avet :age 25))
              [ [2 :age 25]
-               [3 :age 11]])))))
+               [3 :age 11]])))
+
+    (is (thrown-msg? "Attribute :alias should be marked as :db/index true"
+          (d/rseek-datoms db :avet :alias)))))
 
 (deftest test-index-range
   (let [dvec #(vector (:e %) (:a %) (:v %))
@@ -154,4 +175,7 @@
              [1 :age 15]
              [2 :age 20]
              [5 :age 20]
-             [4 :age 45] ]))))
+             [4 :age 45] ]))
+
+    (is (thrown-msg? "Attribute :alias should be marked as :db/index true"
+          (d/index-range db :alias "e" "u")))))
