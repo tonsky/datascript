@@ -4,7 +4,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+]]
    [me.tonsky.persistent-sorted-set.arrays :as da]
    [datascript.lru]
    [datascript.impl.entity :as de]
@@ -562,11 +562,29 @@
 ;;; RULES
 
 (defn rule? [context clause]
-  (and (sequential? clause)
-       (contains? (:rules context)
-                  (if (source? (first clause))
-                    (second clause)
-                    (first clause)))))
+  (cond+
+    (not (sequential? clause))
+    false
+
+    :let [head (if (source? (first clause))
+                  (second clause)
+                  (first clause))]
+
+    (not (symbol? head))
+    false
+
+    (free-var? head)
+    false
+
+    (contains? #{'_ 'or 'or-join 'and 'not 'not-join} head)
+    false
+
+    (not (contains? (:rules context) head))
+    (raise "Unknown rule '" head " in " clause
+      {:error :query/where
+       :form  clause})
+
+    :else true))
 
 (def rule-seqid (atom 0))
 

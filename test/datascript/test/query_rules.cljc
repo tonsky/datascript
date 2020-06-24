@@ -160,7 +160,13 @@
                      [?y ?a]
                      [(>= ?a 18)]]])
            #{["Oleg"]})))
-  )
+
+  (testing "Rule name validation #319"
+    (is (thrown-msg? "Unknown rule 'wat in (wat ?x)"
+          (d/q '[:find  ?x
+                 :in    $ %
+                 :where (wat ?x)]
+            [] [])))))
 
 ;; https://github.com/tonsky/datascript/issues/218
 (deftest test-false-arguments
@@ -169,10 +175,11 @@
                  [:db/add 2 :attr false]])
         rules '[[(is ?id ?val)
                  [?id :attr ?val]]]]
-    (is (= (d/q '[:find ?id :in $ %
-                  :where (is ?id true)]
-                db rules)
-           #{[1]}))
-    (is (= (d/q '[:find ?id :in $ %
-                  :where (is ?id false)] db rules)
-           #{[2]}))))
+    (is (= #{[1]}
+          (d/q '[:find ?id :in $ %
+                 :where (is ?id true)]
+            db rules)))
+    (is (= #{[2]}
+          (d/q '[:find ?id :in $ %
+                 :where (is ?id false)]
+            db rules)))))
