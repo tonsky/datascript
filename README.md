@@ -60,6 +60,7 @@ Talks:
 Projects using DataScript:
 
 - [Roam Research](https://roamresearch.com/), a note-taking graph database
+- [Athens](https://github.com/athensresearch/athens), a tool for networked thought
 - [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [LightMesh](http://lightmesh.com/), datacenter management
 - [Cognician](https://www.cognician.com/), coaching platform
