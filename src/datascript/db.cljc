@@ -57,6 +57,22 @@
   ([x & more]
     `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
 
+(def conjv (fnil conj []))
+(def conjs (fnil conj #{}))
+
+(defn reduce-indexed
+  "Same as reduce, but `f` takes [acc el idx]"
+  [f init xs]
+  (first
+    (reduce
+      (fn [[acc idx] x]
+        (let [res (f acc x idx)]
+          (if (reduced? res)
+            (reduced [res idx])
+            [res (inc idx)])))
+      [init 0]
+      xs)))
+
 ;; ----------------------------------------------------------------------------
 ;; macros and funcs to support writing defrecords and updating
 ;; (replacing) builtins, i.e., Object/hashCode, IHashEq hasheq, etc.
@@ -612,23 +628,47 @@
     :db.unique/value     [:db/unique :db.unique/value :db/index]
     :db.cardinality/many [:db.cardinality/many]
     :db.type/ref         [:db.type/ref :db/index]
-    (when (true? v)
-      (case k
-        :db/isComponent [:db/isComponent]
-        :db/index       [:db/index]
-        []))))
+    (cond
+      (and (= :db/isComponent k) (true? v)) [:db/isComponent]
+      (and (= :db/index k) (true? v))       [:db/index]
+      (= :db/tupleAttrs k)                  [:db.type/tuple]
+      :else [])))
 
-(defn- rschema [schema]
-  (reduce-kv
-    (fn [m attr keys->values]
-      (reduce-kv
-        (fn [m key value]
-          (reduce
-            (fn [m prop]
-              (assoc m prop (conj (get m prop #{}) attr)))
-            m (attr->properties key value)))
-        m keys->values))
-    {} schema))
+(defn attr-tuples
+  "e.g. :reg/semester => #{:reg/semester+course+student ...}"
+  [schema rschema]
+  (reduce
+    (fn [m tuple-attr] ;; e.g. :reg/semester+course+student
+      (reduce-indexed
+        (fn [m src-attr idx] ;; e.g. :reg/semester
+          (update m src-attr assoc tuple-attr idx))
+        m
+        (-> schema tuple-attr :db/tupleAttrs)))
+    {}
+    (:db.type/tuple rschema)))
+
+(defn- rschema
+  ":db/unique           => #{attr ...}
+   :db.unique/identity  => #{attr ...}
+   :db.unique/value     => #{attr ...}
+   :db/index            => #{attr ...}
+   :db.cardinality/many => #{attr ...}
+   :db.type/ref         => #{attr ...}
+   :db/isComponent      => #{attr ...}
+   :db.type/tuple       => #{attr ...}
+   :db/attrTuples       => {attr => {tuple-attr => idx}}"
+  [schema]
+  (let [rschema (reduce-kv
+                  (fn [rschema attr attr-schema]
+                    (reduce-kv
+                      (fn [rschema key value]
+                        (reduce
+                          (fn [rschema prop]
+                            (update rschema prop conjs attr))
+                          rschema (attr->properties key value)))
+                      rschema attr-schema))
+                  {} schema)]
+    (assoc rschema :db/attrTuples (attr-tuples schema rschema))))
 
 (defn- validate-schema-key [a k v expected]
   (when-not (or (nil? v)
@@ -641,16 +681,42 @@
 
 (defn- validate-schema [schema]
   (doseq [[a kv] schema]
+
+    ;; isComponent
     (let [comp? (:db/isComponent kv false)]
       (validate-schema-key a :db/isComponent (:db/isComponent kv) #{true false})
       (when (and comp? (not= (:db/valueType kv) :db.type/ref))
-        (throw (ex-info (str "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}")
-                        {:error     :schema/validation
-                         :attribute a
-                         :key       :db/isComponent}))))
+        (raise "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}"
+          {:error     :schema/validation
+           :attribute a
+           :key       :db/isComponent})))
+
     (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
     (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
-    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})))
+    (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})
+
+    ;; :db/tupleAttrs is a non-empty sequential coll
+    (when (contains? kv :db/tupleAttrs)
+      (let [ex-data {:error :schema/validation
+                     :attribute a
+                     :key :db/tupleAttrs}]
+        (when (= :db.cardinality/many (:db/cardinality kv))
+          (raise a " has :db/tupleAttrs, must be :db.cardinality/one" ex-data))
+
+        (let [attrs (:db/tupleAttrs kv)]
+          (when-not (sequential? attrs)
+            (raise a " :db/tupleAttrs must be a sequential collection, got: " attrs ex-data))
+
+          (when (empty? attrs)
+            (raise a " :db/tupleAttrs can’t be empty" ex-data))
+
+          (doseq [attr attrs
+                  :let [ex-data (assoc ex-data :value attr)]]
+            (when (contains? (get schema attr) :db/tupleAttrs)
+              (raise a " :db/tupleAttrs can’t depend on another tuple attribute: " attr ex-data))
+
+            (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
+              (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
 
 (defn ^DB empty-db
   ([] (empty-db nil))
@@ -807,6 +873,14 @@
           :cljs [^boolean indexing?]) [db attr]
   (is-attr? db attr :db/index))
 
+(defn #?@(:clj  [^Boolean tuple?]
+          :cljs [^boolean tuple?]) [db attr]
+  (is-attr? db attr :db.type/tuple))
+
+(defn #?@(:clj  [^Boolean tuple-source?]
+          :cljs [^boolean tuple-source?]) [db attr]
+  (is-attr? db attr :db/attrTuples))
+
 (defn entid [db eid]
   {:pre [(db? db)]}
   (cond
@@ -902,18 +976,18 @@
 
 (defn- allocate-eid
   ([report eid]
-    (update-in report [:db-after] advance-max-eid eid))
+    (update report :db-after advance-max-eid eid))
   ([report e eid]
     (cond-> report
       (tx-id? e)
-        (assoc-in [:tempids e] eid)
+        (update :tempids assoc e eid)
       (tempid? e)
-        (assoc-in [:tempids e] eid)
+        (update :tempids assoc e eid)
       (and (not (tempid? e)) 
            (new-eid? (:db-after report) eid))
-        (assoc-in [:tempids eid] eid)
+        (update :tempids assoc eid eid)
       true
-        (update-in [:db-after] advance-max-eid eid))))
+        (update :db-after advance-max-eid eid))))
 
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
@@ -923,23 +997,47 @@
   (let [indexing? (indexing? db (.-a datom))]
     (if (datom-added datom)
       (cond-> db
-        true      (update-in [:eavt] set/conj datom cmp-datoms-eavt-quick)
-        true      (update-in [:aevt] set/conj datom cmp-datoms-aevt-quick)
-        indexing? (update-in [:avet] set/conj datom cmp-datoms-avet-quick)
+        true      (update :eavt set/conj datom cmp-datoms-eavt-quick)
+        true      (update :aevt set/conj datom cmp-datoms-aevt-quick)
+        indexing? (update :avet set/conj datom cmp-datoms-avet-quick)
         true      (advance-max-eid (.-e datom))
         true      (assoc :hash (atom 0)))
       (if-some [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
         (cond-> db
-          true      (update-in [:eavt] set/disj removing cmp-datoms-eavt-quick)
-          true      (update-in [:aevt] set/disj removing cmp-datoms-aevt-quick)
-          indexing? (update-in [:avet] set/disj removing cmp-datoms-avet-quick)
+          true      (update :eavt set/disj removing cmp-datoms-eavt-quick)
+          true      (update :aevt set/disj removing cmp-datoms-aevt-quick)
+          indexing? (update :avet set/disj removing cmp-datoms-avet-quick)
           true      (assoc :hash (atom 0)))
         db))))
 
+(defn- queue-tuple [queue tuple idx db e a v]
+  (let [tuple-value  (or (get queue tuple)
+                       (:v (first (-datoms db :eavt [e tuple])))
+                       (vec (repeat (-> db (-schema) (get tuple) :db/tupleAttrs count) nil)))
+        tuple-value' (assoc tuple-value idx v)]
+    (assoc queue tuple tuple-value')))
+
+(defn- queue-tuples [queue tuples db e a v]
+  (reduce-kv
+    (fn [queue tuple idx]
+      (queue-tuple queue tuple idx db e a v))
+    queue
+    tuples))
+
 (defn- transact-report [report datom]
-  (-> report
-      (update-in [:db-after] with-datom datom)
-      (update-in [:tx-data] conj datom)))
+  (let [db      (:db-after report)
+        a       (:a datom)
+        report' (-> report
+                  (assoc :db-after (with-datom db datom))
+                  (update :tx-data  conj datom))]
+    (if (tuple-source? db a)
+      (let [e      (:e datom)
+            v      (if (datom-added datom) (:v datom) nil)
+            queue  (or (-> report' :queued-tuples (get e)) {})
+            tuples (get (-attrs-by db :db/attrTuples) a)
+            queue' (queue-tuples queue tuples db e a v)]
+        (update report' :queued-tuples assoc e queue'))
+      report')))
 
 (defn #?@(:clj  [^Boolean reverse-ref?]
           :cljs [^boolean reverse-ref?]) [attr]
@@ -1121,6 +1219,25 @@
     :db.fn/retractEntity
     :db/retractEntity})
 
+(defn update-tuples [report]
+  (let [db          (:db-after report)
+        schema      (-schema db)
+        attr-tuples (-attrs-by db :db/attrTuples)]
+    (reduce-kv
+      (fn [entities eid tuples+values]
+        (reduce-kv
+          (fn [entities tuple value]
+            (let [value   (if (every? nil? value) nil value)
+                  current (:v (first (-datoms db :eavt [eid tuple])))]
+              (cond
+                (= value current) entities
+                (nil? value)      (conj entities ^::internal [:db/retract eid tuple current])
+                :else             (conj entities ^::internal [:db/add eid tuple value]))))
+          entities
+          tuples+values))
+      []
+      (:queued-tuples report))))
+
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
                 (sequential? initial-es))
@@ -1129,15 +1246,21 @@
   (loop [report (-> initial-report
                   (update :db-after transient))
          es     initial-es]
-    (let [[entity & entities] es
-          db                  (:db-after report)
-          {:keys [tempids]}   report]
-      (cond
+    (let [db      (:db-after report)
+          tempids (:tempids report)]
+      (cond+
+        (some? (:queued-tuples report))
+        (recur
+          (dissoc report :queued-tuples)
+          (concat (update-tuples report) es))
+
         (empty? es)
         (-> report
-            (assoc-in  [:tempids :db/current-tx] (current-tx report))
-            (update-in [:db-after :max-tx] inc)
+            (update :tempids assoc :db/current-tx (current-tx report))
+            (update :db-after update :max-tx inc)
             (update :db-after persistent!))
+
+        :let [[entity & entities] es]
 
         (nil? entity)
         (recur report entities)
@@ -1194,7 +1317,7 @@
               (recur report (concat (apply f db args) entities)))
             
             (and (keyword? op)
-                 (not (builtin-fn? op)))
+              (not (builtin-fn? op)))
             (if-some [ident (entid db op)]
               (let [fun  (-> (-search db [ident :db/fn]) first :v)
                     args (next entity)]
@@ -1205,7 +1328,8 @@
               (raise "Can’t find entity for transaction fn " op
                      {:error :transact/syntax, :operation :db.fn/call, :tx-data entity}))
             
-            (and (tempid? e) (not= op :db/add))
+            (and (tempid? e)
+              (not= op :db/add))
             (raise "Can't use tempid in '" entity "'. Tempids are allowed in :db/add only"
               { :error :transact/syntax, :op entity })
 
@@ -1248,6 +1372,12 @@
                 (retry-with-tempid initial-report report initial-es e upserted-eid)
                 (let [eid (or upserted-eid allocated-eid (next-eid db))]
                   (recur (allocate-eid report e eid) (cons [op eid a v] entities)))))
+
+            (and (not (::internal (meta entity)))
+              (tuple? db a))
+            (raise "Can’t modify tuple attrs directly: " entity
+              {:error :transact/syntax, :tx-data entity})
+
 
             (= op :db/add)
             (recur (transact-add report entity) entities)

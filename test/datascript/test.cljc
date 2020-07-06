@@ -18,6 +18,7 @@
     datascript.test.lru
     datascript.test.parser
     datascript.test.parser-find
+    datascript.test.parser-return-map
     datascript.test.parser-rules
     datascript.test.parser-query
     datascript.test.parser-where
@@ -30,10 +31,12 @@
     datascript.test.query-not
     datascript.test.query-or
     datascript.test.query-pull
+    datascript.test.query-return-map
     datascript.test.query-rules
     datascript.test.query-v3
     datascript.test.serialization
     datascript.test.transact
+    datascript.test.tuples
     datascript.test.validation
     datascript.test.upsert
     datascript.test.issues))
