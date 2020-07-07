@@ -1069,64 +1069,80 @@
     (raise "Bad attribute type: " attr ", expected keyword or string"
            {:error :transact/syntax, :attribute attr})))
 
+(defn- resolve-upserts
+  "Returns [entity' upserts]. Upsert attributes that resolve to existing entities
+   are removed from entity, rest are kept in entity for insertion. No validation is performed.
 
-(defn- check-upsert-conflict [entity acc]
-  (let [[e a v] acc
-        _e (:db/id entity)]
-    (if (or (nil? _e)
-            (tempid? _e)
-            (nil? acc)
-            (== _e e))
-      acc
-      (raise "Conflicting upsert: " [a v] " resolves to " e
-             ", but entity already has :db/id " _e
-             { :error :transact/upsert
-               :entity entity
-               :assertion acc }))))
-
-(defn- upsert-reduce-fn [db eav a v]
-  (let [e (:e (first (-datoms db :avet [a v])))]
-    (cond
-      (nil? e) ;; value not yet in db
-      eav
-
-      (nil? eav) ;; first upsert
-      [e a v]
-
-      (= (get eav 0) e) ;; second+ upsert, but does not conflict
-      eav
-
-      :else
-      (let [[_e _a _v] eav]
-        (raise "Conflicting upserts: " [_a _v] " resolves to " _e
-               ", but " [a v] " resolves to " e
-               { :error     :transact/upsert
-                 :assertion [e a v]
-                 :conflict  [_e _a _v] })))))
-
-(defn- upsert-eid [db entity]
-  (when-some [idents (not-empty (-attrs-by db :db.unique/identity))]
-    (->>
+   upserts :: {:name  {\"Ivan\"  1}
+               :email {\"ivan@\" 2}
+               :alias {\"abc\"   3
+                       \"def\"   4}}}"
+  [db entity]
+  (if-some [idents (not-empty (-attrs-by db :db.unique/identity))]
+    (let [resolve (fn [a v]
+                    (:e (first (-datoms db :avet [a v]))))
+          split   (fn [a vs]
+                    (reduce
+                      (fn [acc v]
+                        (if-some [e (resolve a v)]
+                          (update acc 0 assoc v e)
+                          (update acc 1 conj v)))
+                      [{} []] vs))]
       (reduce-kv
-        (fn [eav a v] ;; eav = [e a v]
+        (fn [[entity upserts] a v]
           (cond
             (not (contains? idents a))
-            eav
+            [(assoc entity a v) upserts]
 
             (and
               (multival? db a)
               (or
                 (arrays/array? v)
                 (and (coll? v) (not (map? v)))))
-            (reduce #(upsert-reduce-fn db %1 a %2) eav v)
+            (let [[upsert insert] (split a v)]
+              [(cond-> entity
+                 (not (empty? insert)) (assoc a insert))
+               (cond-> upserts
+                 (not (empty? upsert)) (assoc a upsert))])
 
             :else
-            (upsert-reduce-fn db eav a v)))
-        nil
-        entity)
-     (check-upsert-conflict entity)
-     first))) ;; getting eid from eav
+            (if-some [e (resolve a v)]
+              [entity (assoc upserts a {v e})]
+              [(assoc entity a v) upserts])))
+        [entity {}]
+        entity))
+    [entity nil]))
 
+(defn validate-upserts
+  "Throws if not all upserts point to the same entity. 
+   Returns single eid that all upserts point to, or null."
+  [entity upserts]
+  (let [upsert-ids (reduce-kv
+                     (fn [m a v->e]
+                       (reduce-kv
+                         (fn [m v e]
+                           (assoc m e [a v]))
+                         m v->e))
+                     {} upserts)]
+    (if (<= 2 (count upsert-ids))
+      (let [[e1 [a1 v1]] (first upsert-ids)
+            [e2 [a2 v2]] (second upsert-ids)]
+        (raise "Conflicting upserts: " [a1 v1] " resolves to " e1 ", but " [a2 v2] " resolves to " e2
+          {:error     :transact/upsert
+           :assertion [e1 a1 v1]
+           :conflict  [e2 a2 v2]}))
+      (let [[upsert-id [a v]] (first upsert-ids)
+            eid (:db/id entity)]
+        (when (and
+                (some? upsert-id)
+                (some? eid)
+                (not (tempid? eid))
+                (not= upsert-id eid))
+          (raise "Conflicting upsert: " [a v] " resolves to " upsert-id ", but entity already has :db/id " eid
+            {:error     :transact/upsert
+             :assertion [upsert-id a v]
+             :conflict  {:db/id eid}}))
+        upsert-id))))
 
 ;; multivals/reverse can be specified as coll or as a single value, trying to guess
 (defn- maybe-wrap-multival [db a vs]
@@ -1147,7 +1163,6 @@
     [vs]
     
     :else vs))
-
 
 (defn- explode [db entity]
   (let [eid (:db/id entity)]
@@ -1281,7 +1296,8 @@
                      (cons (assoc entity :db/id id) entities)))
            
             ;; upserted => explode | error
-            :let [upserted-eid (upsert-eid db entity)]
+            :let [[entity' upserts] (resolve-upserts db entity)
+                  upserted-eid      (validate-upserts entity upserts)]
 
             (some? upserted-eid)
             (if (and (tempid? old-eid)
@@ -1289,7 +1305,7 @@
                      (not= upserted-eid (get tempids old-eid)))
               (retry-with-tempid initial-report report initial-es old-eid upserted-eid)
               (recur (allocate-eid report old-eid upserted-eid)
-                     (concat (explode db (assoc entity :db/id upserted-eid)) entities)))
+                     (concat (explode db (assoc entity' :db/id upserted-eid)) entities)))
            
             ;; resolved | allocated-tempid | tempid | nil => explode
             (or (number? old-eid)
