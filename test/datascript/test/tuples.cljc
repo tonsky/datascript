@@ -226,7 +226,14 @@
              [2 :b "b"]
              [2 :a+b ["a" "b"]]
              [2 :c "c"]}
-          (tdc/all-datoms (d/db conn))))))
+          (tdc/all-datoms (d/db conn))))
+
+    (is (= {:db/id 2
+            :a     "a"
+            :b     "b"
+            :a+b   ["a" "b"]
+            :c     "c"}
+          (d/pull (d/db conn) '[*] [:a+b ["a" "b"]])))))
 
 (deftest test-validation
   (let [db  (d/empty-db {:a+b {:db/tupleAttrs [:a :b]}})
@@ -240,3 +247,51 @@
                          [:db/add 1 :a+b ["a" nil]]])))
     (is (thrown-msg? "Can’t modify tuple attrs directly: [:db/retract 1 :a+b [\"a\" nil]]"
           (d/db-with db1 [[:db/retract 1 :a+b ["a" nil]]])))))
+
+(deftest test-indexes
+  (let [db (-> (d/empty-db {:a+b+c {:db/tupleAttrs [:a :b :c]
+                                    :db/index true}})
+             (d/db-with
+               [{:db/id 1 :a "a" :b "b" :c "c"}
+                {:db/id 2 :a "A" :b "b" :c "c"}
+                {:db/id 3 :a "a" :b "B" :c "c"}
+                {:db/id 4 :a "A" :b "B" :c "c"}
+                {:db/id 5 :a "a" :b "b" :c "C"}
+                {:db/id 6 :a "A" :b "b" :c "C"}
+                {:db/id 7 :a "a" :b "B" :c "C"}
+                {:db/id 8 :a "A" :b "B" :c "C"}]))]
+    (is (= [6]
+          (mapv :e (d/datoms db :avet :a+b+c ["A" "b" "C"]))))
+    (is (= []
+          (mapv :e (d/datoms db :avet :a+b+c ["A" "b" nil]))))
+    (is (= [8 4 6 2]
+          (mapv :e (d/index-range db :a+b+c ["A" "B" "C"] ["A" "b" "c"]))))
+    (is (= [8 4]
+          (mapv :e (d/index-range db :a+b+c ["A" "B" nil] ["A" "b" nil]))))))
+
+(deftest test-queries
+  (let [db (-> (d/empty-db {:a+b {:db/tupleAttrs [:a :b]
+                                  :db/unique :db.unique/identity}})
+             (d/db-with [{:db/id 1 :a "A" :b "B"}
+                         {:db/id 2 :a "A" :b "b"}
+                         {:db/id 3 :a "a" :b "B"}
+                         {:db/id 4 :a "a" :b "b"}]))]
+    (is (= #{[3]}
+          (d/q '[:find ?e
+                 :where [?e :a+b ["a" "B"]]] db)))
+
+    (is (= #{[["a" "B"]]}
+          (d/q '[:find ?a+b
+                 :where [[:a+b ["a" "B"]] :a+b ?a+b]] db)))
+
+    (is (= #{[["A" "B"]] [["A" "b"]] [["a" "B"]] [["a" "b"]]}
+          (d/q '[:find ?a+b
+                 :where [?e :a ?a]
+                        [?e :b ?b]
+                        [(tuple ?a ?b) ?a+b]] db)))
+
+    (is (= #{["A" "B"] ["A" "b"] ["a" "B"] ["a" "b"]}
+          (d/q '[:find ?a ?b
+                 :where [?e :a+b ?a+b]
+                        [(untuple ?a+b) [?a ?b]]] db)))
+    ))
