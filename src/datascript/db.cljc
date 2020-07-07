@@ -1033,10 +1033,10 @@
     (if (tuple-source? db a)
       (let [e      (:e datom)
             v      (if (datom-added datom) (:v datom) nil)
-            queue  (or (-> report' :queued-tuples (get e)) {})
+            queue  (or (-> report' ::queued-tuples (get e)) {})
             tuples (get (-attrs-by db :db/attrTuples) a)
             queue' (queue-tuples queue tuples db e a v)]
-        (update report' :queued-tuples assoc e queue'))
+        (update report' ::queued-tuples assoc e queue'))
       report')))
 
 (defn #?@(:clj  [^Boolean reverse-ref?]
@@ -1085,9 +1085,9 @@
                     (reduce
                       (fn [acc v]
                         (if-some [e (resolve a v)]
-                          (update acc 0 assoc v e)
-                          (update acc 1 conj v)))
-                      [{} []] vs))]
+                          (update acc 1 assoc v e)
+                          (update acc 0 conj v)))
+                      [[] {}] vs))]
       (reduce-kv
         (fn [[entity upserts] a v]
           (cond
@@ -1099,7 +1099,7 @@
               (or
                 (arrays/array? v)
                 (and (coll? v) (not (map? v)))))
-            (let [[upsert insert] (split a v)]
+            (let [[insert upsert] (split a v)]
               [(cond-> entity
                  (not (empty? insert)) (assoc a insert))
                (cond-> upserts
@@ -1109,7 +1109,7 @@
             (if-some [e (resolve a v)]
               [entity (assoc upserts a {v e})]
               [(assoc entity a v) upserts])))
-        [entity {}]
+        [{} {}]
         entity))
     [entity nil]))
 
@@ -1234,7 +1234,7 @@
     :db.fn/retractEntity
     :db/retractEntity})
 
-(defn update-tuples [report]
+(defn flush-tuples [report]
   (let [db          (:db-after report)
         schema      (-schema db)
         attr-tuples (-attrs-by db :db/attrTuples)]
@@ -1251,24 +1251,22 @@
           entities
           tuples+values))
       []
-      (:queued-tuples report))))
+      (::queued-tuples report))))
 
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
                 (sequential? initial-es))
     (raise "Bad transaction data " initial-es ", expected sequential collection"
            {:error :transact/syntax, :tx-data initial-es}))
-  (loop [report (-> initial-report
-                  (update :db-after transient))
-         es     initial-es]
-    (let [db      (:db-after report)
-          tempids (:tempids report)]
+  (let [initial-report' (-> initial-report
+                          (update :db-after transient))
+        has-tuples?     (not (empty? (-attrs-by (:db-after initial-report) :db.type/tuple)))
+        initial-es'     (if has-tuples?
+                          (interleave initial-es (repeat ::flush-tuples))
+                          initial-es)]
+    (loop [report initial-report'
+           es     initial-es']
       (cond+
-        (some? (:queued-tuples report))
-        (recur
-          (dissoc report :queued-tuples)
-          (concat (update-tuples report) es))
-
         (empty? es)
         (-> report
             (update :tempids assoc :db/current-tx (current-tx report))
@@ -1279,6 +1277,16 @@
 
         (nil? entity)
         (recur report entities)
+
+        (= ::flush-tuples entity)
+        (if (contains? report ::queued-tuples)
+          (recur
+            (dissoc report ::queued-tuples)
+            (concat (flush-tuples report) entities))
+          (recur report entities))
+
+        :let [db      (:db-after report)
+              tempids (:tempids report)]
 
         (map? entity)
         (let [old-eid (:db/id entity)]
@@ -1297,7 +1305,7 @@
            
             ;; upserted => explode | error
             :let [[entity' upserts] (resolve-upserts db entity)
-                  upserted-eid      (validate-upserts entity upserts)]
+                  upserted-eid      (validate-upserts entity' upserts)]
 
             (some? upserted-eid)
             (if (and (tempid? old-eid)

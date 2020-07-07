@@ -88,6 +88,13 @@
         (is (= (tempids tx)
                {}))))
 
+    (testing "upsert by 2 attrs with existing id as lookup ref"
+      (let [tx (d/with db [{:db/id [:name "Ivan"] :name "Ivan" :email "@1" :age 35}])]
+        (is (= (touched tx 1)
+               {:name "Ivan" :email "@1" :age 35}))
+        (is (= (tempids tx)
+               {}))))
+
     (testing "upsert conficts with existing id"
       (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id 2"
         (d/with db [{:db/id 2 :name "Ivan" :age 36}]))))
