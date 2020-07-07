@@ -1,5 +1,6 @@
 # WIP
 
+- Support composite tuples #323
 - Support return maps (:keys/:syms/:strs) in query #322 #345
 - Throw when init-db is used with anything but datoms #276
 - Throw on using unindexed attribute in :avet index access #344

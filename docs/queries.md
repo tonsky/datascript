@@ -35,3 +35,47 @@ Return maps are only compatible with normal find and tuple-returning find:
 The amount of keys must match the amount of find elements.
 
 Datomic docs: https://docs.datomic.com/on-prem/query.html#return-maps
+
+# Query functions
+
+## tuple
+
+```
+[(tuple ?a ...) ?tup]
+```
+
+Given one or more values, the `tuple` function returns a tuple containing each value. See also `untuple`.
+
+```
+;; query
+[:find ?tup
+ :in ?a ?b
+ :where [(tuple ?a ?b) ?tup]]
+
+;; inputs
+1 2
+
+;; result
+#{[[1 2]]}
+```
+
+## untuple
+
+```
+[(untuple ?tup) [?a ?b]]
+```
+
+Given a tuple, the `untuple` function can be used to name each element of the tuple. See also `tuple`.
+
+```
+;; query
+[:find ?b
+ :in ?tup
+ :where [(untuple ?tup) [?a ?b]]]
+
+;; inputs
+[1 2]
+
+;; result
+#{[2]}
+```

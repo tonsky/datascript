@@ -631,7 +631,7 @@
     (cond
       (and (= :db/isComponent k) (true? v)) [:db/isComponent]
       (and (= :db/index k) (true? v))       [:db/index]
-      (= :db/tupleAttrs k)                  [:db.type/tuple]
+      (= :db/tupleAttrs k)                  [:db.type/tuple :db/index]
       :else [])))
 
 (defn attr-tuples

@@ -249,8 +249,7 @@
           (d/db-with db1 [[:db/retract 1 :a+b ["a" nil]]])))))
 
 (deftest test-indexes
-  (let [db (-> (d/empty-db {:a+b+c {:db/tupleAttrs [:a :b :c]
-                                    :db/index true}})
+  (let [db (-> (d/empty-db {:a+b+c {:db/tupleAttrs [:a :b :c]}})
              (d/db-with
                [{:db/id 1 :a "a" :b "b" :c "c"}
                 {:db/id 2 :a "A" :b "b" :c "c"}
