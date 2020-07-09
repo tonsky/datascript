@@ -931,11 +931,6 @@
               :attribute (.-a datom)
               :datom datom}))))
 
-(defn- validate-eid [eid at]
-  (when-not (number? eid)
-    (raise "Bad entity id " eid " at " at ", expected number"
-           {:error :transact/syntax, :entity-id eid, :context at})))
-
 (defn- validate-attr [attr at]
   (when-not (or (keyword? attr) (string? attr))
     (raise "Bad entity attribute " attr " at " at ", expected keyword or string"
@@ -980,14 +975,16 @@
   ([report e eid]
     (cond-> report
       (tx-id? e)
-        (update :tempids assoc e eid)
+      (update :tempids assoc e eid)
+
       (tempid? e)
-        (update :tempids assoc e eid)
-      (and (not (tempid? e)) 
-           (new-eid? (:db-after report) eid))
-        (update :tempids assoc eid eid)
+      (update :tempids assoc e eid)
+
+      (and (not (tempid? e)) (new-eid? (:db-after report) eid))
+      (update :tempids assoc eid eid)
+
       true
-        (update :db-after advance-max-eid eid))))
+      (update :db-after advance-max-eid eid))))
 
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
@@ -1029,7 +1026,7 @@
         a       (:a datom)
         report' (-> report
                   (assoc :db-after (with-datom db datom))
-                  (update :tx-data  conj datom))]
+                  (update :tx-data conj datom))]
     (if (tuple-source? db a)
       (let [e      (:e datom)
             v      (if (datom-added datom) (:v datom) nil)
@@ -1253,6 +1250,18 @@
       []
       (::queued-tuples report))))
 
+(defn check-value-tempids [report]
+  (let [all-tempids (::value-tempids report)
+        reduce-fn   (fn [tempids datom]
+                      (if (datom-added datom)
+                        (dissoc tempids (:e datom))
+                        tempids))
+        unused      (reduce reduce-fn all-tempids (:tx-data report))]
+    (if (empty? unused)
+      (dissoc report ::value-tempids)
+      (raise "Tempids used only as value in transaction: " (sort (vals unused))
+        {:error :transact/syntax, :tempids unused}))))
+
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
                 (sequential? initial-es))
@@ -1269,9 +1278,10 @@
       (cond+
         (empty? es)
         (-> report
-            (update :tempids assoc :db/current-tx (current-tx report))
-            (update :db-after update :max-tx inc)
-            (update :db-after persistent!))
+          (check-value-tempids)
+          (update :tempids assoc :db/current-tx (current-tx report))
+          (update :db-after update :max-tx inc)
+          (update :db-after persistent!))
 
         :let [[entity & entities] es]
 
@@ -1291,6 +1301,12 @@
         (map? entity)
         (let [old-eid (:db/id entity)]
           (cond+
+            ;; trivial entity
+            ; (if (contains? entity :db/id)
+            ;   (= 1 (count entity))
+            ;   (= 0 (count entity)))
+            ; (recur report entities)
+
             ;; :db/current-tx / "datomic.tx" => tx
             (tx-id? old-eid)
             (let [id (current-tx report)]
@@ -1321,8 +1337,7 @@
                 (string? old-eid))
             (let [new-eid (cond
                             (nil? old-eid)    (next-eid db)
-                            (tempid? old-eid) (or (get tempids old-eid)
-                                                  (next-eid db))
+                            (tempid? old-eid) (or (get tempids old-eid) (next-eid db))
                             :else             old-eid)
                   new-entity (assoc entity :db/id new-eid)]                
               (recur (allocate-eid report old-eid new-eid)
@@ -1358,7 +1373,7 @@
               { :error :transact/syntax, :op entity })
 
             (or (= op :db.fn/cas)
-                (= op :db/cas))
+              (= op :db/cas))
             (let [[_ e a ov nv] entity
                   e (entid-strict db e)
                   _ (validate-attr a entity)
@@ -1384,9 +1399,14 @@
             (recur (allocate-eid report v (current-tx report)) (cons [op e a (current-tx report)] entities))
 
             (and (ref? db a) (tempid? v))
-            (if-some [vid (get tempids v)]
-              (recur report (cons [op e a vid] entities))
-              (recur (allocate-eid report v (next-eid db)) es))
+            (if-some [resolved (get tempids v)]
+              (let [report' (update report ::value-tempids assoc resolved v)]
+                (recur report' (cons [op e a resolved] entities)))
+              (let [resolved (next-eid db)
+                    report'  (-> report
+                               (allocate-eid v resolved)
+                               (update ::value-tempids assoc resolved v))]
+                (recur report' es)))
 
             (tempid? e)
             (let [upserted-eid  (when (is-attr? db a :db.unique/identity)

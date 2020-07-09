@@ -295,7 +295,26 @@
     (is (= (:tempids tx) { 1 1, -1 2, -2 3, "B" 4, -3 5, :db/current-tx (+ d/tx0 1) }))
     (is (= (d/q q @conn "Sergey") #{["Ivan"] ["Petr"]}))
     (is (= (d/q q @conn "Boris") #{["Oleg"]}))
-    (is (= (d/q q @conn "Oleg") #{["Boris"]}))))
+    (is (= (d/q q @conn "Oleg") #{["Boris"]}))
+
+    (let [db (d/empty-db {:friend {:db/valueType :db.type/ref}
+                          :comp   {:db/valueType :db.type/ref, :db/isComponent true}
+                          :multi  {:db/cardinality :db.cardinality/many}})]
+      (testing "Unused tempid" ;; #304
+        (is (thrown-msg? "Tempids used only as value in transaction: (-2)"
+              (d/db-with db [[:db/add -1 :friend -2]])))
+        (is (thrown-msg? "Tempids used only as value in transaction: (-2)"
+              (d/db-with db [{:db/id -1 :friend -2}])))
+        (is (thrown-msg? "Tempids used only as value in transaction: (-1)"
+              (d/db-with db [{:db/id -1}
+                             [:db/add -2 :friend -1]])))
+        ; Needs #357
+        ; (is (thrown-msg? "Tempids used only as value in transaction: (-1)"
+        ;       (d/db-with db [{:db/id -1 :comp {}}
+        ;                      [:db/add -2 :friend -1]])))
+        (is (thrown-msg? "Tempids used only as value in transaction: (-1)"
+              (d/db-with db [{:db/id -1 :multi []}
+                             [:db/add -2 :friend -1]])))))))
 
 (deftest test-resolve-current-tx
   (doseq [tx-tempid [:db/current-tx "datomic.tx" "datascript.tx"]]

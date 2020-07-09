@@ -6,6 +6,7 @@
 - Throw on using unindexed attribute in :avet index access #344
 - Throw on referencing undefined rule #319
 - Fix `[:db/retract e a false]` working as `[:db/retract e a]`
+- Validate tempids only used as values in transaction #304
 
 # 0.18.13
 
