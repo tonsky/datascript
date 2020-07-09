@@ -15,8 +15,8 @@
                 '("Devil" "Tupen")
                 (to-array ["Devil" "Tupen"])]]
     (testing coll
-      (let [conn (d/create-conn { :aka { :db/cardinality :db.cardinality/many }
-                                 :also { :db/cardinality :db.cardinality/many} })]
+      (let [conn (d/create-conn {:aka  {:db/cardinality :db.cardinality/many}
+                                 :also {:db/cardinality :db.cardinality/many}})]
         (d/transact! conn [{:db/id -1
                             :name  "Ivan"
                             :age   16

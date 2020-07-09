@@ -1406,7 +1406,7 @@
             (= op :db/add)
             (recur (transact-add report entity) entities)
 
-            (and (= op :db/retract) v)
+            (and (= op :db/retract) (some? v))
             (if-some [e (entid db e)]
               (let [v (if (ref? db a) (entid-strict db v) v)]
                 (validate-attr a entity)

@@ -5,6 +5,7 @@
 - Throw when init-db is used with anything but datoms #276
 - Throw on using unindexed attribute in :avet index access #344
 - Throw on referencing undefined rule #319
+- Fix `[:db/retract e a false]` working as `[:db/retract e a]`
 
 # 0.18.13
 

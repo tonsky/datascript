@@ -7,7 +7,7 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-with
-  (let [db  (-> (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
+  (let [db  (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
                 (d/db-with [[:db/add 1 :name "Ivan"]])
                 (d/db-with [[:db/add 1 :name "Petr"]])
                 (d/db-with [[:db/add 1 :aka  "Devil"]])
@@ -112,23 +112,19 @@
              #{[:name "Petr"] [:age 37]})))))
 
 (deftest test-retract-without-value-339
-  (let [db (-> (d/empty-db {:aka    { :db/cardinality :db.cardinality/many }
-                            :friend { :db/valueType :db.type/ref }})
-               (d/db-with [ { :db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2 }
-                           { :db/id 2, :name  "Petr", :age 37 } ]))]
-    (testing "Retract :name without providing v"
-      (let [db (d/db-with db [[:db/retract 1 :name]])]
-        (is (= (d/q '[:find ?a ?v
-                      :where [1 ?a ?v]]
-                    db)
-               #{[:friend 2] [:age 15] [:aka "Z"] [:aka "Y"] [:aka "X"]}))))
-    (testing "Retract :aka (cardinality many) without providing v"
-      (let [db (d/db-with db [[:db/retract 1 :aka]])]
-        (is (= (d/q '[:find ?a ?v
-                      :where [1 ?a ?v]]
-                    db)
-               #{[:friend 2] [:age 15] [:name "Ivan"]}))))))
-
+  (let [db (-> (d/empty-db {:aka    {:db/cardinality :db.cardinality/many}
+                            :friend {:db/valueType :db.type/ref}})
+             (d/db-with [{:db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2}
+                         {:db/id 2, :name  "Petr", :age 37, :employed? true, :married? false}]))]
+    (let [db' (d/db-with db [[:db/retract 1 :name]
+                             [:db/retract 1 :aka]
+                             [:db/retract 2 :employed?]
+                             [:db/retract 2 :married?]])]
+      (is (= #{[1 :age 15] [1 :friend 2] [2 :name "Petr"] [2 :age 37]}
+            (tdc/all-datoms db'))))
+    (let [db' (d/db-with db [[:db/retract 2 :employed? false]])]
+      (is (= [(db/datom 2 :employed? true)]
+            (d/datoms db' :eavt 2 :employed?))))))
   
 (deftest test-retract-fns-not-found
   (let [db  (-> (d/empty-db { :name { :db/unique :db.unique/identity } })
