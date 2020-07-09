@@ -7,6 +7,7 @@
 - Throw on referencing undefined rule #319
 - Fix `[:db/retract e a false]` working as `[:db/retract e a]`
 - Validate tempids only used as values in transaction #304
+- Throw if transacted entity id is out of range #292
 
 # 0.18.13
 

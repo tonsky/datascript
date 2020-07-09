@@ -359,3 +359,18 @@
             (d/datom 2 :a2 2)
             (d/datom 2 :a3 3)] 
            (:tx-data report)))))
+
+(deftest test-large-ids-292
+  (let [db (d/empty-db {:ref {:db/valueType :db.type/ref}})]
+    (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
+          (d/with db [[:db/add 285873023227265 :name "Valerii"]])))
+    (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
+          (d/with db [{:db/id 285873023227265 :name "Valerii"}])))
+    (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
+          (d/with db [{:db/id 1 :ref 285873023227265}])))
+    #?(:cljs
+       (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
+             (d/with db [(db/datom 285873023227265 :name 1)]))))
+    #?(:cljs
+       (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
+             (d/with db [(db/datom 1 :ref 285873023227265)]))))))

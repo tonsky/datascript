@@ -885,7 +885,9 @@
   {:pre [(db? db)]}
   (cond
     (and (number? eid) (pos? eid))
-    eid
+    (if (> eid emax)
+      (raise "Highest supported entity id is " emax ", got " eid {:error :entity-id :value eid})
+      eid)
     
     (sequential? eid)
     (let [[attr value] eid]
