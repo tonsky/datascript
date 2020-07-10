@@ -2,6 +2,7 @@
 
 - Support composite tuples #323
 - Support return maps (:keys/:syms/:strs) in query #322 #345
+- Support any hashable values in cardinality-many and indexed attributes #274 #356
 - Throw when init-db is used with anything but datoms #276
 - Throw on using unindexed attribute in :avet index access #344
 - Throw on referencing undefined rule #319

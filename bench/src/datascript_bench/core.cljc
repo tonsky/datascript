@@ -7,6 +7,8 @@
   {:db/id     (str (vswap! next-eid inc))
    :name      (rand-nth ["Ivan" "Petr" "Sergei" "Oleg" "Yuri" "Dmitry" "Fedor" "Denis"])
    :last-name (rand-nth ["Ivanov" "Petrov" "Sidorov" "Kovalev" "Kuznetsov" "Voronoi"])
+   :alias     (vec
+                (repeatedly (rand-int 10) #(rand-nth ["A. C. Q. W." "A. J. Finn" "A.A. Fair" "Aapeli" "Aaron Wolfe" "Abigail Van Buren" "Jeanne Phillips" "Abram Tertz" "Abu Nuwas" "Acton Bell" "Adunis"])))
    :sex       (rand-nth [:male :female])
    :age       (rand-int 100)
    :salary    (rand-int 100000)})
@@ -18,10 +20,10 @@
 (def people20k (shuffle (take 20000 people)))
 
 
-(def ^:dynamic *warmup-t* 500)
-(def ^:dynamic *bench-t*  1000)
-(def ^:dynamic *step*     10)
-(def ^:dynamic *repeats*  5)
+(def ^:dynamic *warmup-t* 5000)
+(def ^:dynamic *bench-t*  10000)
+(def ^:dynamic *step*     5)
+(def ^:dynamic *repeats*  1)
 
 
 #?(:cljs (defn ^number now [] (js/performance.now))

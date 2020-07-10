@@ -332,6 +332,19 @@
     (if (nil? o2) 0
       (compare o1 o2))))
 
+(defn value-compare [o1 o2]
+  (cond
+    (= o1 o2) 0
+    #?@(:clj  [(instance? Comparable o1)   (compare o1 o2)]
+        :cljs [(satisfies? IComparable o1) (-compare o1 o2)])
+    :else     (- (hash o1) (hash o2))))
+
+(defn value-cmp [o1 o2]
+  (cond 
+    (nil? o1) 0
+    (nil? o2) 0
+    :else     (value-compare o1 o2)))
+
 ;; Slower cmp-* fns allows for datom fields to be nil.
 ;; Such datoms come from slice method where they are used as boundary markers.
 
@@ -339,20 +352,20 @@
   (combine-cmp
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (cmp (.-a d1) (.-a d2))
-    (cmp (.-v d1) (.-v d2))
+    (value-cmp (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
 (defn cmp-datoms-aevt [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
-    (cmp (.-v d1) (.-v d2))
+    (value-cmp (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
 (defn cmp-datoms-avet [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
-    (cmp (.-v d1) (.-v d2))
+    (value-cmp (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
@@ -371,26 +384,26 @@
   (combine-cmp
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (compare (.-v d1) (.-v d2))))
+    (value-compare (.-v d1) (.-v d2))))
 
 (defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (compare (.-v d1) (.-v d2))
+    (value-compare (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
 (defn cmp-datoms-aevt-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
-    (compare (.-v d1) (.-v d2))
+    (value-compare (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
 (defn cmp-datoms-avet-quick [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (compare (.-v d1) (.-v d2))
+    (value-compare (.-v d1) (.-v d2))
     (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
 
@@ -487,9 +500,10 @@
   ISearch
   (-search [db pattern]
     (let [[e a v tx] pattern
-          eavt (.-eavt db)
-          aevt (.-aevt db)
-          avet (.-avet db)]
+          eavt       (.-eavt db)
+          aevt       (.-aevt db)
+          avet       (.-avet db)
+          multival?  (contains? (-attrs-by db :db.cardinality/many) a)]
       (case-tree [e a (some? v) tx]
         [(set/slice eavt (datom e a v tx) (datom e a v tx))                   ;; e a v tx
          (set/slice eavt (datom e a v tx0) (datom e a v txmax))               ;; e a v _

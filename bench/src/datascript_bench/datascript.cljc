@@ -11,8 +11,9 @@
 
 
 (def schema
-  { :follows { :db/valueType   :db.type/ref
-               :db/cardinality :db.cardinality/many } })
+  {:follows {:db/valueType   :db.type/ref
+             :db/cardinality :db.cardinality/many}
+   :alias   {:db/cardinality :db.cardinality/many}})
 
 
 (defn- wide-db
@@ -44,7 +45,7 @@
 
 
 (def db100k
-  (d/db-with (d/empty-db) core/people20k))
+  (d/db-with (d/empty-db schema) core/people20k))
 
 
 (defn ^:export add-1 []
@@ -57,18 +58,18 @@
           (d/db-with [[:db/add (:db/id p) :sex       (:sex p)]])
           (d/db-with [[:db/add (:db/id p) :age       (:age p)]])
           (d/db-with [[:db/add (:db/id p) :salary    (:salary p)]])))
-      (d/empty-db)
+      (d/empty-db schema)
       core/people20k)))
 
 
 (defn ^:export add-5 []
   (core/bench
-    (reduce (fn [db p] (d/db-with db [p])) (d/empty-db) core/people20k)))
+    (reduce (fn [db p] (d/db-with db [p])) (d/empty-db schema) core/people20k)))
 
 
 (defn ^:export add-all []
   (core/bench
-    (d/db-with (d/empty-db) core/people20k)))
+    (d/db-with (d/empty-db schema) core/people20k)))
 
 
 (defn ^:export init []
@@ -83,7 +84,7 @@
 
 
 (defn ^:export retract-5 []
-  (let [db   (d/db-with (d/empty-db) core/people20k)
+  (let [db   (d/db-with (d/empty-db schema) core/people20k)
         eids (->> (d/datoms db :aevt :name) (map :e) (shuffle))]
     (core/bench
       (reduce (fn [db eid] (d/db-with db [[:db.fn/retractEntity eid]])) db eids))))

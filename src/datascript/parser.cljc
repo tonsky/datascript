@@ -643,11 +643,11 @@
         (let [[name & vars] head
               name*    (or (parse-plain-symbol name)
                            (raise "Cannot parse rule name, expected plain-symbol"
-                                  {:error :parser/rule, :form form}))
+                             {:error :parser/rule, :form form}))
               vars*    (parse-rule-vars vars)
               clauses* (or (not-empty (parse-clauses clauses))
                            (raise "Rule branch should have clauses"
-                                  {:error :parser/rule, :form form}))]
+                             {:error :parser/rule, :form form}))]
             {:name    name*
              :vars    vars*
              :clauses clauses*})

@@ -346,7 +346,7 @@
                  {:prop4 "prop4"})))))))
 
 (deftest test-transient-294
-  "db.fn/retractEntity retracts attributes of adjacent entities https://github.com/tonsky/datascript/issues/294"
+  "db.fn/retractEntity retracts attributes of adjacent entities #294"
   (let [db (reduce #(d/db-with %1 [{:db/id %2 :a1 1 :a2 2 :a3 3}])
              (d/empty-db)
              (range 1 10))
@@ -374,3 +374,45 @@
     #?(:cljs
        (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
              (d/with db [(db/datom 1 :ref 285873023227265)]))))))
+
+(deftest test-uncomparable-356
+  (let [db (d/empty-db {:multi {:db/cardinality :db.cardinality/many}
+                        :index {:db/index true}})]
+
+    (let [db' (-> db
+                (d/db-with [[:db/add     1 :single {:map 1}]])
+                (d/db-with [[:db/retract 1 :single {:map 1}]])
+                (d/db-with [[:db/add     1 :single {:map 2}]])
+                (d/db-with [[:db/add     1 :single {:map 3}]]))]
+      (is (= #{[1 :single {:map 3}]}
+            (tdc/all-datoms db')))
+      (is (= [(db/datom 1 :single {:map 3})]
+            (vec (d/datoms db' :eavt 1 :single {:map 3}))))
+      (is (= [(db/datom 1 :single {:map 3})]
+            (vec (d/datoms db' :aevt :single 1 {:map 3})))))
+
+    (let [db' (-> db
+                (d/db-with [[:db/add 1 :multi {:map 1}]])
+                (d/db-with [[:db/add 1 :multi {:map 1}]])
+                (d/db-with [[:db/add 1 :multi {:map 2}]]))]
+      (is (= #{[1 :multi {:map 1}] [1 :multi {:map 2}]}
+            (tdc/all-datoms db')))
+      (is (= [(db/datom 1 :multi {:map 2})]
+            (vec (d/datoms db' :eavt 1 :multi {:map 2}))))
+      (is (= [(db/datom 1 :multi {:map 2})]
+            (vec (d/datoms db' :aevt :multi 1 {:map 2})))))
+
+    (let [db' (-> db
+                (d/db-with [[:db/add     1 :index {:map 1}]])
+                (d/db-with [[:db/retract 1 :single {:map 1}]])
+                (d/db-with [[:db/add     1 :index {:map 2}]])
+                (d/db-with [[:db/add     1 :index {:map 3}]]))]
+      (is (= #{[1 :index {:map 3}]}
+            (tdc/all-datoms db')))
+      (is (= [(db/datom 1 :index {:map 3})]
+            (vec (d/datoms db' :eavt 1 :index {:map 3}))))
+      (is (= [(db/datom 1 :index {:map 3})]
+            (vec (d/datoms db' :aevt :index 1 {:map 3}))))
+      (is (= [(db/datom 1 :index {:map 3})]
+            (vec (d/datoms db' :avet :index {:map 3} 1 )))))
+))
