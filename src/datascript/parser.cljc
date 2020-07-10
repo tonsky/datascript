@@ -101,6 +101,11 @@
              (= (first (name form)) \?))
     (Variable. form)))
 
+(defn parse-var-required [form]
+  (or (parse-variable form)
+    (raise "Cannot parse var, expected symbol starting with ?, got: " form
+      {:error :parser/rule-var, :form form})))
+
 (defn parse-src-var [form]
   (when (and (symbol? form)
              (= (first (name form)) \$))
@@ -145,8 +150,8 @@
     (let [[required rest] (if (sequential? (first form))
                             [(first form) (next form)]
                             [nil form])
-          required* (parse-seq parse-variable required)
-          free*     (parse-seq parse-variable rest)]
+          required* (parse-seq parse-var-required required)
+          free*     (parse-seq parse-var-required rest)]
       (when (and (empty? required*) (empty? free*))
         (raise "Cannot parse rule-vars, expected [ variable+ | ([ variable+ ] variable*) ]"
                {:error :parser/rule-vars, :form form}))
@@ -631,14 +636,6 @@
 (deftrecord RuleBranch [vars clauses])
 (deftrecord Rule [name branches])
 
-(defn validate-vars [vars clauses form]
-  (let [declared-vars   (collect #(instance? Variable %) vars #{})
-        used-vars       (collect #(instance? Variable %) clauses #{})
-        undeclared-vars (set/difference used-vars declared-vars)]
-    (when-not (empty? undeclared-vars)
-      (raise "Reference to the unknown variables: " (map :symbol undeclared-vars)
-             {:error :parser/rule, :form form, :vars undeclared-vars}))))
-
 (defn parse-rule [form]
   (if (sequential? form)
     (let [[head & clauses] form]
@@ -651,14 +648,13 @@
               clauses* (or (not-empty (parse-clauses clauses))
                            (raise "Rule branch should have clauses"
                                   {:error :parser/rule, :form form}))]
-            (validate-vars vars* clauses* form)
             {:name    name*
              :vars    vars*
              :clauses clauses*})
-        (raise "Cannot parse rule head, expected [rule-name rule-vars]"
-               {:error :parser/rule, :form form})))
+        (raise "Cannot parse rule head, expected [rule-name rule-vars], got: " head
+          {:error :parser/rule, :form form})))
     (raise "Cannot parse rule, expected [rule-head clause+]"
-           {:error :parser/rule, :form form})))
+      {:error :parser/rule, :form form})))
 
 (defn validate-arity [name branches]
   (let [vars0  (:vars (first branches))

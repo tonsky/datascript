@@ -166,7 +166,14 @@
           (d/q '[:find  ?x
                  :in    $ %
                  :where (wat ?x)]
-            [] [])))))
+            [] []))))
+
+  (testing "Rule vars validation"
+    (is (thrown-msg? "Cannot parse var, expected symbol starting with ?, got: $e1" ;; #300
+      (d/q '[:find ?e :in $ % :where [?e]]
+           (d/empty-db)
+           '[[(rule $e1 ?e2)
+              [?e1 :ref ?e2]]])))))
 
 ;; https://github.com/tonsky/datascript/issues/218
 (deftest test-false-arguments

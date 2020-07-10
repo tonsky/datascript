@@ -21,9 +21,7 @@
             (dp/->RuleVars nil [(dp/->Variable '?x)])
             [(dp/->Pattern
                (dp/->DefaultSrc)
-               [(dp/->Variable '?x) (dp/->Constant :name) (dp/->Placeholder)])]) ])})
-  (is (thrown-with-msg? ExceptionInfo #"Reference to the unknown variable"
-        (dp/parse-rules '[[(rule ?x) [?x :name ?y]]]))))
+               [(dp/->Variable '?x) (dp/->Constant :name) (dp/->Placeholder)])]) ])}))
 
 (deftest rule-vars
   (are [form res] (= (set (dp/parse-rules form)) res)       

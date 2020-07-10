@@ -280,6 +280,7 @@
 
 (defn parse-rules [rules]
   (let [rules (if (string? rules) (edn/read-string rules) rules)] ;; for datascript.js interop
+    (dp/parse-rules rules) ;; validation
     (group-by ffirst rules)))
 
 (defn empty-rel [binding]
