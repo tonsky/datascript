@@ -327,23 +327,26 @@
    (defmacro case-tree [qs vs]
      (-case-tree qs vs)))
 
-(defn cmp [o1 o2]
-  (if (nil? o1) 0
-    (if (nil? o2) 0
-      (compare o1 o2))))
+(defn cmp [x y]
+  (if (nil? x) 0
+    (if (nil? y) 0
+      (compare x y))))
 
-(defn value-compare [o1 o2]
+(defn value-compare [x y]
   (cond
-    (= o1 o2) 0
-    #?@(:clj  [(instance? Comparable o1)   (compare o1 o2)]
-        :cljs [(satisfies? IComparable o1) (-compare o1 o2)])
-    :else     (- (hash o1) (hash o2))))
+    (= x y) 0
+    #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
+    #?@(:clj  [(instance? Comparable x)   (.compareTo x y)]
+        :cljs [(satisfies? IComparable x) (-compare x y)])
+    #?@(:cljs [(and (or (string? x) (array? x) (true? x) (false? x))
+                 (identical? (type x) (type y))) (garray/defaultCompare x y)])
+    :else (- (hash x) (hash y))))
 
-(defn value-cmp [o1 o2]
+(defn value-cmp [x y]
   (cond 
-    (nil? o1) 0
-    (nil? o2) 0
-    :else     (value-compare o1 o2)))
+    (nil? x) 0
+    (nil? y) 0
+    :else     (value-compare x y)))
 
 ;; Slower cmp-* fns allows for datom fields to be nil.
 ;; Such datoms come from slice method where they are used as boundary markers.
