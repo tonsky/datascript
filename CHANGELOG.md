@@ -1,4 +1,4 @@
-# WIP
+# 1.0.0
 
 - Support composite tuples #323
 - Support return maps (:keys/:syms/:strs) in query #322 #345
