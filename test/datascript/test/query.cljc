@@ -114,7 +114,19 @@
       (is (= (d/q '[:find ?a ?b
                     :in   ?a ?b]
                   10 20)
-             #{[10 20]})))))
+             #{[10 20]})))
+
+    (is (thrown-msg? "Extra inputs passed, expected: [], got: 1"
+          (d/q '[:find ?e :where [(inc 1) ?e]] db)))
+
+    (is (thrown-msg? "Too few inputs passed, expected: [$ $2], got: 1"
+          (d/q '[:find ?e :in $ $2 :where [?e]] db)))
+
+    (is (thrown-msg? "Extra inputs passed, expected: [$], got: 2"
+          (d/q '[:find ?e :where [?e]] db db)))
+
+    (is (thrown-msg? "Extra inputs passed, expected: [$ $2], got: 3"
+          (d/q '[:find ?e :in $ $2 :where [?e]] db db db)))))
 
 (deftest test-bindings
   (let [db (-> (d/empty-db)

@@ -106,15 +106,13 @@
     (testing "Two conflicting function values for one binding."
       (is (= (d/q '[:find  ?n
                     :where [(identity 1) ?n]
-                           [(identity 2) ?n]]
-                  db)
+                           [(identity 2) ?n]])
              #{})))
 
     (testing "Destructured conflicting function values for two bindings."
       (is (= (d/q '[:find  ?n ?x
                     :where [(identity [3 4]) [?n ?x]]
-                           [(identity [1 2]) [?n ?x]]]
-                  db)
+                           [(identity [1 2]) [?n ?x]]])
              #{})))
 
     (testing "Rule bindings interacting with function binding. (fn, rule)"

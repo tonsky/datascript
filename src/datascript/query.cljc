@@ -338,7 +338,19 @@
       (update context :rels conj (in->rel binding value))))
 
 (defn resolve-ins [context bindings values]
-  (reduce resolve-in context (zipmap bindings values)))
+  (let [cb (count bindings)
+        cv (count values)]
+    (cond
+      (< cb cv)
+      (raise "Extra inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
+        {:error :query/inputs :expected bindings :got values})
+
+      (> cb cv)
+      (raise "Too few inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
+        {:error :query/inputs :expected bindings :got values})
+
+      :else
+      (reduce resolve-in context (zipmap bindings values)))))
 
 ;;
 

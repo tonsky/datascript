@@ -12,6 +12,7 @@
 - Better validate rules syntax #300
 - Add `keyword` to the built-ins #231
 - Throw when pred/fn called on unbound variable #309
+- Validate inputs count in `:in` and `d/q` #297
 
 # 0.18.13
 

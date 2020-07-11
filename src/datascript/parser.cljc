@@ -679,7 +679,7 @@
 ;; query
 
 ;; q* prefix because of https://dev.clojure.org/jira/browse/CLJS-2237
-(deftrecord Query [qfind qwith qin qwhere])
+(deftrecord Query [qfind qwith qreturn-map qin qwhere])
 
 (defn query->map [query]
   (loop [parsed {}, key nil, qs query]
@@ -688,6 +688,19 @@
         (recur parsed q (next qs))
         (recur (update-in parsed [key] (fnil conj []) q) key (next qs)))
       parsed)))
+
+(defn explicit-input [parsed]
+  (let [source (:source parsed)]
+    (if (instance? Pattern parsed)
+      source
+      (when (some? source)
+        (when (not (instance? DefaultSrc source))
+          source)))))
+
+(defn default-in [qwhere]
+  (if (not (empty? (collect explicit-input qwhere)))
+    '[$]
+    []))
 
 (defn validate-query [q form form-map]
   (let [find-vars  (set (collect-vars (:qfind q)))
@@ -753,8 +766,7 @@
     (when (and (not (empty? rule-exprs))
                (empty? rules-vars))
       (raise "Missing rules var '%' in :in"
-             {:error :parser/query, :form form})))
-  )
+             {:error :parser/query, :form form}))))
 
 (defn parse-query [q]
   (let [qm  (cond
@@ -762,6 +774,7 @@
               (sequential? q) (query->map q)
               :else (raise "Query should be a vector or a map"
                            {:error :parser/query, :form q}))
+        qwhere (parse-where (:where qm []))
         res (map->Query
               {:qfind  (parse-find (:find qm))
                :qwith  (when-let [with (:with qm)]
@@ -769,7 +782,8 @@
                :qreturn-map (or (parse-return-map :keys (:keys qm))
                               (parse-return-map :syms (:syms qm))
                               (parse-return-map :strs (:strs qm)))
-               :qin    (parse-in (:in qm ['$]))
-               :qwhere (parse-where (:where qm []))})]
+               :qin    (parse-in
+                         (or (:in qm) (default-in qwhere)))
+               :qwhere qwhere})]
     (validate-query res q qm)
     res))
