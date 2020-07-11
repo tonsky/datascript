@@ -753,10 +753,14 @@
   ([context clause orig-clause]
    (condp looks-like? clause
      [[symbol? '*]] ;; predicate [(pred ?a ?b ?c)]
-     (filter-by-pred context clause)
+     (do
+       (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
+       (filter-by-pred context clause))
      
      [[symbol? '*] '_] ;; function [(fn ?a ?b) ?res]
-     (bind-by-fn context clause)
+     (do
+       (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
+       (bind-by-fn context clause))
      
      [source? '*] ;; source + anything
      (let [[source-sym & rest] clause]

@@ -11,6 +11,7 @@
 - Throw if transacted entity id is out of range #292
 - Better validate rules syntax #300
 - Add `keyword` to the built-ins #231
+- Throw when pred/fn called on unbound variable #309
 
 # 0.18.13
 

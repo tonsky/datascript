@@ -336,7 +336,7 @@
   (cond
     (= x y) 0
     #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
-    #?@(:clj  [(instance? Comparable x)   (.compareTo x y)]
+    #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
         :cljs [(satisfies? IComparable x) (-compare x y)])
     #?@(:cljs [(and (or (string? x) (array? x) (true? x) (false? x))
                  (identical? (type x) (type y))) (garray/defaultCompare x y)])
