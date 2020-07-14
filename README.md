@@ -270,6 +270,6 @@ Some of the features are omitted intentionally. Different apps have different ne
 
 ## License
 
-Copyright © 2014–2018 Nikita Prokopov
+Copyright © 2014–2020 Nikita Prokopov
 
 Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
