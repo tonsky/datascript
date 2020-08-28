@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed upsert incorectly failing tempid check #363
+
 # 1.0.0
 
 - Support composite tuples #323

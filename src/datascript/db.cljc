@@ -438,6 +438,9 @@
 (defprotocol ISearch
   (-search [data pattern]))
 
+(defn- ^Datom fsearch [data pattern]
+  (first (-search data pattern)))
+
 (defprotocol IIndexAccess
   (-datoms [db index components])
   (-seek-datoms [db index components])
@@ -1018,7 +1021,7 @@
         indexing? (update :avet set/conj datom cmp-datoms-avet-quick)
         true      (advance-max-eid (.-e datom))
         true      (assoc :hash (atom 0)))
-      (if-some [removing (first (-search db [(.-e datom) (.-a datom) (.-v datom)]))]
+      (if-some [removing (fsearch db [(.-e datom) (.-a datom) (.-v datom)])]
         (cond-> db
           true      (update :eavt set/disj removing cmp-datoms-eavt-quick)
           true      (update :aevt set/disj removing cmp-datoms-aevt-quick)
@@ -1204,18 +1207,22 @@
         db        (:db-after report)
         e         (entid-strict db e)
         v         (if (ref? db a) (entid-strict db v) v)
-        new-datom (datom e a v tx)]
-    (if (multival? db a)
-      (if (empty? (-search db [e a v]))
+        new-datom (datom e a v tx)
+        multival? (multival? db a)
+        old-datom ^Datom (if multival?
+                           (fsearch db [e a v])
+                           (fsearch db [e a]))]
+      (cond
+        (nil? old-datom)
         (transact-report report new-datom)
-        report)
-      (if-some [^Datom old-datom (first (-search db [e a]))]
-        (if (= (.-v old-datom) v)
-          report
-          (-> report
-            (transact-report (datom e a (.-v old-datom) tx false))
-            (transact-report new-datom)))
-        (transact-report report new-datom)))))
+
+        (= (.-v old-datom) v)
+        (update report ::tx-redundant conjv new-datom)
+
+        :else
+        (-> report
+          (transact-report (datom e a (.-v old-datom) tx false))
+          (transact-report new-datom)))))
 
 (defn- transact-retract-datom [report ^Datom d]
   (let [tx (current-tx report)]
@@ -1232,7 +1239,7 @@
   (if (contains? (:tempids initial-report) tempid)
     (raise "Conflicting upsert: " tempid " resolves"
            " both to " upserted-eid " and " (get-in initial-report [:tempids tempid])
-      { :error :transact/upsert })
+      {:error :transact/upsert})
     ;; try to re-run from the beginning
     ;; but remembering that `tempid` will resolve to `upserted-eid`
     (let [tempids' (-> (:tempids report)
@@ -1275,9 +1282,9 @@
                       (if (datom-added datom)
                         (dissoc tempids (:e datom))
                         tempids))
-        unused      (reduce reduce-fn all-tempids (:tx-data report))]
+        unused      (reduce reduce-fn all-tempids (concat (:tx-data report) (::tx-redundant report)))]
     (if (empty? unused)
-      (dissoc report ::value-tempids)
+      (dissoc report ::value-tempids ::tx-redundant)
       (raise "Tempids used only as value in transaction: " (sort (vals unused))
         {:error :transact/syntax, :tempids unused}))))
 
@@ -1377,7 +1384,7 @@
             (and (keyword? op)
               (not (builtin-fn? op)))
             (if-some [ident (entid db op)]
-              (let [fun  (-> (-search db [ident :db/fn]) first :v)
+              (let [fun  (:v (fsearch db [ident :db/fn]))
                     args (next entity)]
                 (if (fn? fun)
                   (recur report (concat (apply fun db args) entities))
@@ -1441,7 +1448,6 @@
             (raise "Can’t modify tuple attrs directly: " entity
               {:error :transact/syntax, :tx-data entity})
 
-
             (= op :db/add)
             (recur (transact-add report entity) entities)
 
@@ -1450,7 +1456,7 @@
               (let [v (if (ref? db a) (entid-strict db v) v)]
                 (validate-attr a entity)
                 (validate-val v entity)
-                (if-some [old-datom (first (-search db [e a v]))]
+                (if-some [old-datom (fsearch db [e a v])]
                   (recur (transact-retract-datom report old-datom) entities)
                   (recur report entities)))
               (recur report entities))
