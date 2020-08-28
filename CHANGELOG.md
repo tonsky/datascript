@@ -1,4 +1,4 @@
-# WIP
+# 1.0.1
 
 - Fixed upsert incorectly failing tempid check #363
 
