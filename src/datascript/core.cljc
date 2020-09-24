@@ -54,7 +54,7 @@
                  (:_ref (entity db 2)) ; => [{:db/id 1}]
                  (:ns/_ref (entity db 2)) ; => [{:db/id 1}]
              
-             Reverse reference lookup returns sequence of entities unless attribute is marked as `:db/component`:
+             Reverse reference lookup returns sequence of entities unless attribute is marked as `:db/isComponent`:
 
                  (:_component-ref (entity db 2)) ; => {:db/id 1}
 
