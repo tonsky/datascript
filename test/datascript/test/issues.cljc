@@ -34,3 +34,30 @@
            filtered (ds/filter base (constantly true))]
        (t/is (= (with-out-str (clojure.pprint/pprint base))
                 (with-out-str (clojure.pprint/pprint filtered)))))))
+
+(deftest ^{:doc "Can't diff databases with different types of the same attribute"}
+  issue-369-diff
+  (let [db1 (-> (ds/empty-db)
+                (ds/db-with [[:db/add 1 :attr :aa]]))
+        db2 (-> (ds/empty-db)
+                (ds/db-with [[:db/add 1 :attr "aa"]]))]
+    (t/is (= [[(ds/datom 1 :attr :aa)] [(ds/datom 1 :attr "aa")] nil]
+             (clojure.data/diff db1 db2)))))
+
+(deftest ^{:doc "Can't insert values of a cardinality-many attribute with different types"}
+  issue-369-cardinality-many
+  (let [db (-> (ds/empty-db {:attr {:db/cardinality :db.cardinality/many}})
+               (ds/db-with [[:db/add 1 :attr {:a 1}]
+                            [:db/add 1 :attr "str"]]))]
+    (t/is (= [(ds/datom 1 :attr {:a 1})
+              (ds/datom 1 :attr "str")]
+             (ds/datoms db :aevt)))))
+
+(deftest ^{:doc "Can't index attribute contains different types"}
+  issue-369-index
+  (let [db (-> (ds/empty-db {:attr {:db/index true}})
+               (ds/db-with [[:db/add 1 :attr 1]
+                            [:db/add 2 :attr "aa"]]))]
+    (t/is (= [(ds/datom 2 :attr "aa")
+              (ds/datom 1 :attr :aa)]
+             (ds/datoms db :avet)))))

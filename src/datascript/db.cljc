@@ -332,14 +332,20 @@
     (if (nil? y) 0
       (compare x y))))
 
+(def cljc-class #?(:cljs type :default class))
+
 (defn value-compare [x y]
   (cond
     (= x y) 0
-    #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
-    #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
-        :cljs [(satisfies? IComparable x) (-compare x y)])
-    #?@(:cljs [(and (or (string? x) (array? x) (true? x) (false? x))
-                 (identical? (type x) (type y))) (garray/defaultCompare x y)])
+    #?@(:clj [(and (instance? Number x) (instance? Number y))
+              (clojure.lang.Numbers/compare x y)])
+    (identical? (cljc-class x) (cljc-class y))
+    (cond
+      #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
+          :cljs [(satisfies? IComparable x) (-compare x y)])
+      #?@(:cljs [(or (string? x) (array? x) (true? x) (false? x))
+                 (garray/defaultCompare x y)])
+      :else (- (hash x) (hash y)))
     :else (- (hash x) (hash y))))
 
 (defn value-cmp [x y]
