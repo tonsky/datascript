@@ -422,11 +422,15 @@
       :else
       (let [first-a (first a)
             first-b (first b)
-            diff (cmp first-a first-b)]
+            diff (try
+                   (cmp first-a first-b)
+                   (catch #?(:clj ClassCastException :cljs js/Error) _
+                     :incomparable))]
         (cond
-          (== diff 0) (recur only-a                only-b                (conj both first-a) (next a) (next b))
-          (< diff 0)  (recur (conj only-a first-a) only-b                both                (next a) b)
-          (> diff 0)  (recur only-a                (conj only-b first-b) both                a        (next b)))))))
+          (= diff :incomparable) (recur (conj only-a first-a) (conj only-b first-b) both                (next a) (next b))
+          (== diff 0)            (recur only-a                only-b                (conj both first-a) (next a) (next b))
+          (< diff 0)             (recur (conj only-a first-a) only-b                both                (next a) b)
+          (> diff 0)             (recur only-a                (conj only-b first-b) both                a        (next b)))))))
 
 ;; ----------------------------------------------------------------------------
 

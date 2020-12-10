@@ -34,3 +34,12 @@
            filtered (ds/filter base (constantly true))]
        (t/is (= (with-out-str (clojure.pprint/pprint base))
                 (with-out-str (clojure.pprint/pprint filtered)))))))
+
+(deftest ^{:doc "Can't diff databases with different types of the same attribute"}
+  issue-369
+  (let [db1 (-> (ds/empty-db)
+                (ds/db-with [[:db/add 1 :attr :aa]]))
+        db2 (-> (ds/empty-db)
+                (ds/db-with [[:db/add 1 :attr "aa"]]))]
+    (t/is (= [[(ds/datom 1 :attr :aa)] [(ds/datom 1 :attr "aa")] nil]
+             (clojure.data/diff db1 db2)))))
