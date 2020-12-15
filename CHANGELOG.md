@@ -1,4 +1,4 @@
-# WIP
+# 1.0.3
 
 - Temporary disable transient indices #373
 
