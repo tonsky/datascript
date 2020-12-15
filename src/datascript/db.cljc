@@ -1298,7 +1298,7 @@
     (raise "Bad transaction data " initial-es ", expected sequential collection"
            {:error :transact/syntax, :tx-data initial-es}))
   (let [initial-report' (-> initial-report
-                          (update :db-after transient))
+                          #_(update :db-after transient))
         has-tuples?     (not (empty? (-attrs-by (:db-after initial-report) :db.type/tuple)))
         initial-es'     (if has-tuples?
                           (interleave initial-es (repeat ::flush-tuples))
@@ -1311,7 +1311,7 @@
           (check-value-tempids)
           (update :tempids assoc :db/current-tx (current-tx report))
           (update :db-after update :max-tx inc)
-          (update :db-after persistent!))
+          #_(update :db-after persistent!))
 
         :let [[entity & entities] es]
 

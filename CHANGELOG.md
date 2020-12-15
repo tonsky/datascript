@@ -1,3 +1,7 @@
+# WIP
+
+- Temporary disable transient indices #373
+
 # 1.0.2
 
 - Fixed db diffs with different types of the same attribute #369 #372 thx @darkleaf
