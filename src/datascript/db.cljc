@@ -1100,10 +1100,13 @@
                :email {\"ivan@\" 2}
                :alias {\"abc\"   3
                        \"def\"   4}}}"
-  [db entity]
+  [db entity tempids]
   (if-some [idents (not-empty (-attrs-by db :db.unique/identity))]
     (let [resolve (fn [a v]
-                    (:e (first (-datoms db :avet [a v]))))
+                    (let [v (if (coll? v)
+                              (mapv #(get tempids % %) v)
+                              v)]
+                      (:e (first (-datoms db :avet [a v])))))
           split   (fn [a vs]
                     (reduce
                       (fn [acc v]
@@ -1350,7 +1353,7 @@
                      (cons (assoc entity :db/id id) entities)))
            
             ;; upserted => explode | error
-            :let [[entity' upserts] (resolve-upserts db entity)
+            :let [[entity' upserts] (resolve-upserts db entity tempids)
                   upserted-eid      (validate-upserts entity' upserts)]
 
             (some? upserted-eid)
