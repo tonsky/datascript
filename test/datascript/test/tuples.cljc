@@ -195,13 +195,13 @@
                          [:db/add -2 :player "Federer"]
                          {:home -1
                           :away -2}])
-      (d/transact! conn [{:db/id "p1"
+      (d/transact! conn [{:db/id "match"
+                          :players ["p1" "p2"]
+                          :game 3}
+                         {:db/id "p1"
                           :player "Nadal"}
                          {:db/id "p2"
-                          :player "Federer"}
-                         {:db/id "match"
-                          :players ["p1" "p2"]
-                          :game 3}])
+                          :player "Federer"}])
 
       (is (= 3 (:game (d/entity @conn 3)))
           "Upsert successful"))))
