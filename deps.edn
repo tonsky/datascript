@@ -1,6 +1,6 @@
 { 
   :deps {
-    persistent-sorted-set {:mvn/version "0.1.2"}
+    persistent-sorted-set/persistent-sorted-set {:mvn/version "0.1.2"}
   }
   
   :aliases {
