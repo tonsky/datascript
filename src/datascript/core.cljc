@@ -190,6 +190,11 @@
              Used internally in db (de)serialization. See also [[datom]]."}
   init-db db/init-db)
 
+; Schema
+
+(def ^{:arglists '([db])
+       :doc "Returns a schema of a database."}
+  schema db/-schema)
 
 ; Filtered db
 
