@@ -43,3 +43,9 @@
                 (ds/db-with [[:db/add 1 :attr "aa"]]))]
     (t/is (= [[(ds/datom 1 :attr :aa)] [(ds/datom 1 :attr "aa")] nil]
              (clojure.data/diff db1 db2)))))
+
+(deftest ^{:doc "Expose a schema as a part of the public API."}
+  issue-381
+  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+        db     (ds/empty-db schema)]
+    (t/is (= schema (ds/schema db)))))
