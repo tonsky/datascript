@@ -1495,3 +1495,20 @@
        :else
        (raise "Bad entity type at " entity ", expected map or vector"
               {:error :transact/syntax, :tx-data entity})))))
+
+(defn- filter-index [index cmp pred]
+  (loop [[datom & other] (seq index)
+         trans           (transient index)]
+    (if (nil? datom)
+      (persistent! trans)
+      (if (pred datom)
+        (recur other trans)
+        (recur other (set/disj trans datom cmp))))))
+
+(defn filter-materialized [db pred]
+  (let [pred (partial pred db)]
+    (-> db
+        (update :eavt filter-index cmp-datoms-eavt-quick pred)
+        (update :aevt filter-index cmp-datoms-aevt-quick pred)
+        (update :avet filter-index cmp-datoms-avet-quick pred)
+        (assoc :hash (atom 0)))))

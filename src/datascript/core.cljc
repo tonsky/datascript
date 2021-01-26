@@ -223,6 +223,9 @@
     (FilteredDB. db #(pred db %) (atom 0))))
 
 
+(def filter-materialized #'db/filter-materialized)
+
+
 ; Changing DB
 
 (defn with
