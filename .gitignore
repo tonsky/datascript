@@ -26,3 +26,4 @@ TODO.txt
 web/*.js
 web/out
 web/target-cljs
+.rebl

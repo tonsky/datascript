@@ -1,3 +1,7 @@
+# 1.0.4
+
+- Implement nav/datafy for entities #325 thx @IamDrowsy
+
 # 1.0.3
 
 - Temporary disable transient indices #373
