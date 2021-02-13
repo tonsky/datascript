@@ -1,19 +1,5 @@
 version: 2
 jobs:
-   test_clj_9:
-     working_directory: ~/datascript
-     docker:
-       - image: circleci/clojure:lein
-     steps:
-       - checkout
-       - restore_cache:
-           key: dependency-cache-{{ checksum "project.clj" }}
-       - run: lein with-profile 1.9 test-clj
-       - save_cache:
-           key: dependency-cache-{{ checksum "project.clj" }}
-           paths:
-             - ~/.m2
-
    test_clj_10:
      working_directory: ~/datascript
      docker:
@@ -61,7 +47,6 @@ workflows:
   version: 2
   everything:
     jobs:
-      - test_clj_9
       - test_clj_10
       - build_cljs
       - test_cljs:
