@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed empty non-queried relation not affecting results #385
+
 # 1.0.4
 
 - Implement nav/datafy for entities #325 thx @IamDrowsy

@@ -861,23 +861,33 @@
     (let [rels (:rels context)]
       (-collect [(da/make-array (count symbols))] rels symbols)))
   ([acc rels symbols]
-    (if-some [rel (first rels)]
-      (let [keep-attrs (select-keys (:attrs rel) symbols)]
-        (if (empty? keep-attrs)
-          (recur acc (next rels) symbols)
-          (let [copy-map (to-array (map #(get keep-attrs %) symbols))
-                len      (count symbols)]
-            (recur (for [#?(:cljs t1
-                            :clj ^{:tag "[[Ljava.lang.Object;"} t1) acc
-                         t2 (:tuples rel)]
-                     (let [res (aclone t1)]
-                       (dotimes [i len]
-                         (when-some [idx (aget copy-map i)]
-                           (aset res i (#?(:cljs da/aget :clj get) t2 idx))))
-                       res))
-                   (next rels)
-                   symbols))))
-      acc)))
+   (cond+
+     :let [rel (first rels)]
+ 
+     (nil? rel) acc
+ 
+     ;; one empty rel means final set has to be empty
+     (empty? (:tuples rel)) []
+ 
+     :let [keep-attrs (select-keys (:attrs rel) symbols)]
+ 
+     (empty? keep-attrs) (recur acc (next rels) symbols)
+ 
+     :let [copy-map (to-array (map #(get keep-attrs %) symbols))
+           len      (count symbols)]
+
+     :else
+     (recur
+       (for [#?(:cljs t1
+                :clj ^{:tag "[[Ljava.lang.Object;"} t1) acc
+             t2 (:tuples rel)]
+         (let [res (aclone t1)]
+           (dotimes [i len]
+             (when-some [idx (aget copy-map i)]
+               (aset res i (#?(:cljs da/aget :clj get) t2 idx))))
+           res))
+       (next rels)
+       symbols))))
 
 (defn collect [context symbols]
   (->> (-collect context symbols)

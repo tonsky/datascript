@@ -2,4 +2,4 @@
 
 cd "`dirname $0`/.."
 
-clojure -A:test -m kaocha.runner --watch "$@"
+clojure -A:test -M -m kaocha.runner --watch "$@"

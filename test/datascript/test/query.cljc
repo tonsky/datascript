@@ -9,7 +9,6 @@
       (:import [clojure.lang ExceptionInfo])))
 
 
-
 (deftest test-joins
   (let [db (-> (d/empty-db)
                (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
@@ -230,6 +229,17 @@
               #{"abc" "abcX" "aXb"}
               "X")
          #{["abcX"] ["aXb"]})))
+
+
+(deftest ^{:doc "issue-385"} test-join-unrelated
+  (is (= #{}
+        (d/q '[:find ?name
+               :in $ ?my-fn
+               :where [?e :person/name ?name]
+                      [(?my-fn) ?result]
+                      [(< ?result 3)]]
+          (d/db-with (d/empty-db) [{:person/name "Joe"}])
+          (fn [] 5)))))
 
 #_(require 'datascript.test.query :reload)
 #_(clojure.test/test-ns 'datascript.test.query)
