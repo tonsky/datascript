@@ -1,4 +1,4 @@
-# WIP
+# 1.0.5
 
 - Fixed empty non-queried relation not affecting results #385
 
