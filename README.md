@@ -70,6 +70,7 @@ Projects using DataScript:
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 - [Zetawar](http://www.zetawar.com), turn-based tactical strategy game
 - [Lemmings](https://www.lemmings.io), incubator focused on art & artificial intelligence
+- [LogSeq](http://logseq.com), a local-first, non-linear, outliner notebook
 
 Related projects:
 
