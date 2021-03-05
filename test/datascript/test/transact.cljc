@@ -440,3 +440,29 @@
       (is (= [(db/datom 1 :index {:map 3})]
             (vec (d/datoms db' :avet :index {:map 3} 1 )))))
 ))
+
+(deftest test-transitive-type-compare-386
+  (let [txs    [[{:block/uid "2LB4tlJGy"}]
+                [{:block/uid "2ON453J0Z"}]
+                [{:block/uid "2KqLLNbPg"}]
+                [{:block/uid "2L0dcD7yy"}]
+                [{:block/uid "2KqFNrhTZ"}]
+                [{:block/uid "2KdQmItUD"}]
+                [{:block/uid "2O8BcBfIL"}]
+                [{:block/uid "2L4ZbI7nK"}]
+                [{:block/uid "2KotiW36Z"}]
+                [{:block/uid "2O4o-y5J8"}]
+                [{:block/uid "2KimvuGko"}]
+                [{:block/uid "dTR20ficj"}]
+                [{:block/uid "wRmp6bXAx"}]
+                [{:block/uid "rfL-iQOZm"}]
+                [{:block/uid "tya6s422-"}]
+                [{:block/uid 45619}]]
+        schema {:block/uid {:db/unique :db.unique/identity}}
+        conn   (d/create-conn schema)
+        _      (doseq [tx txs] (d/transact! conn tx))
+        db     @conn]
+    (is (empty? (->> (seq db)
+                     (map (fn [[_ a v]] [a v]))
+                     (remove #(d/entity db %)))))))
+

@@ -332,15 +332,28 @@
     (if (nil? y) 0
       (compare x y))))
 
+(defn class-identical? [x y]
+  #?(:clj  (identical? (class x) (class y))
+     :cljs (identical? (type x) (type y))))
+
+(defn class-compare [x y]
+  #?(:clj  (compare (.getName (class x)) (.getName (class y)))
+     :cljs (garray/defaultCompare (type x) (type y))))
+
 (defn value-compare [x y]
-  (cond
-    (= x y) 0
-    #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
-    #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
-        :cljs [(satisfies? IComparable x) (-compare x y)])
-    #?@(:cljs [(and (or (string? x) (array? x) (true? x) (false? x))
-                 (identical? (type x) (type y))) (garray/defaultCompare x y)])
-    :else (- (hash x) (hash y))))
+  (try 
+    (cond
+      (= x y) 0
+      #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
+      #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
+          :cljs [(satisfies? IComparable x) (-compare x y)])
+      (not (class-identical? x y)) (class-compare x y)
+      #?@(:cljs [(or (string? x) (array? x) (true? x) (false? x)) (garray/defaultCompare x y)])
+      :else (- (hash x) (hash y)))
+    (catch #?(:clj ClassCastException :cljs js/Error) e
+      (if (not (class-identical? x y))
+        (class-compare x y)
+        (throw e)))))
 
 (defn value-cmp [x y]
   (cond 
