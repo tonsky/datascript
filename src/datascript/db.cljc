@@ -338,8 +338,8 @@
     #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
     #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
         :cljs [(satisfies? IComparable x) (-compare x y)])
-    #?@(:cljs [(and (or (string? x) (array? x) (true? x) (false? x))
-                 (identical? (type x) (type y))) (garray/defaultCompare x y)])
+    #?@(:cljs [(not (identical? (type x) (type y))) (garray/defaultCompare (type x) (type y))])
+    #?@(:cljs [(or (string? x) (array? x) (true? x) (false? x)) (garray/defaultCompare x y)])
     :else (- (hash x) (hash y))))
 
 (defn value-cmp [x y]
