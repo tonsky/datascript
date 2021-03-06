@@ -1,3 +1,7 @@
+# 1.0.6
+
+- Ensure transitive property for hash value comparisons #274 #356 #386 #388 thx @filipesilva
+
 # 1.0.5
 
 - Fixed empty non-queried relation not affecting results #385
