@@ -338,7 +338,7 @@
 
 (defn class-compare [x y]
   #?(:clj  (compare (.getName (class x)) (.getName (class y)))
-     :cljs (garray/defaultCompare (type x) (type y))))
+     :cljs (garray/defaultCompare (type->str (type x)) (type->str (type y)))))
 
 (defn value-compare [x y]
   (try 

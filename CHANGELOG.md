@@ -1,4 +1,4 @@
-# 1.0.6
+# 1.0.7
 
 - Ensure transitive property for hash value comparisons #274 #356 #386 #388 thx @filipesilva
 
