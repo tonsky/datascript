@@ -517,7 +517,7 @@
       (transact! conn [{:db/id  -1
                         :name   \"Oleg\"
                         :friend {:db/id -2
-                                 :name \"Sergey\"}])
+                                 :name \"Sergey\"}}])
                                  
       ; reverse attribute name can be used if you want created entity to become
       ; a value in another entity reference
