@@ -462,7 +462,6 @@
         conn   (d/create-conn schema)
         _      (doseq [tx txs] (d/transact! conn tx))
         db     @conn]
-    (is (empty? (->> (seq db)
-                     (map (fn [[_ a v]] [a v]))
-                     (remove #(d/entity db %)))))))
-
+    (is (empty? (->> (d/datoms db :eavt)
+                  (map (fn [[_ a v]] [a v]))
+                  (remove #(d/entity db %)))))))

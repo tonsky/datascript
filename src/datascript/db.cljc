@@ -493,7 +493,6 @@
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
-       ISeqable             (-seq   [db]        (-seq  (.-eavt db)))
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
        IEmptyableCollection (-empty [db]        (with-meta (empty-db (.-schema db)) (meta db)))
@@ -505,7 +504,6 @@
       :clj
       [Object               (hashCode [db]      (hash-db db))
        clojure.lang.IHashEq (hasheq [db]        (hash-db db))
-       clojure.lang.Seqable (seq [db]           (seq eavt))
        clojure.lang.IPersistentCollection
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
@@ -597,7 +595,6 @@
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-fdb db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
-       ISeqable             (-seq   [db]        (seq (-datoms db :eavt [])))
        ICounted             (-count [db]        (count (-datoms db :eavt [])))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
 
@@ -620,8 +617,6 @@
                             (equiv [db o]       (equiv-db db o))
                             (cons [db [k v]]    (throw (UnsupportedOperationException. "cons is not supported on FilteredDB")))
                             (empty [db]         (throw (UnsupportedOperationException. "empty is not supported on FilteredDB")))
-
-       clojure.lang.Seqable (seq [db]           (seq (-datoms db :eavt [])))
 
        clojure.lang.ILookup (valAt [db k]       (throw (UnsupportedOperationException. "valAt/2 is not supported on FilteredDB")))
                             (valAt [db k nf]    (throw (UnsupportedOperationException. "valAt/3 is not supported on FilteredDB")))

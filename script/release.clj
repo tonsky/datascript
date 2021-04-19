@@ -1,8 +1,11 @@
 #!/usr/bin/env clj
 
-"USAGE: ./release.clj <new-version>"
+"USAGE: ./release.clj <new-version> [<commit-message>]"
 
 (def new-v (first *command-line-args*))
+(def commit-message (if-some [msg (second *command-line-args*)]
+                      (str new-v msg)
+                      (str "Version " new-v)))
 
 (assert (re-matches #"\d+\.\d+\.\d+" (or new-v "")) "Use ./release.clj <new-version>")
 (println "Releasing version" new-v)
@@ -60,7 +63,7 @@
       "release-js/package.json"
       "release-js/wrapper.prefix")
 
-  (sh "git" "commit" "-m" (str "Version " new-v))
+  (sh "git" "commit" "-m" commit-message)
   (sh "git" "tag" new-v)
   (sh "git" "push" "origin" "master"))
 

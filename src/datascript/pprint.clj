@@ -34,14 +34,14 @@
                             (.write w " ")
                             (pp/pprint-newline :linear)
                             (pp/pprint-logical-block :prefix "[" :suffix "]"
-                                                     (pp/print-length-loop [aseq (seq db)]
-                                                                           (when aseq
-                                                                             (let [^Datom d (first aseq)]
-                                                                               (pp/write-out [(.-e d) (.-a d) (.-v d) (db/datom-tx d)])
-                                                                               (when (next aseq)
-                                                                                 (.write w " ")
-                                                                                 (pp/pprint-newline :linear)
-                                                                                 (recur (next aseq))))))))))
+                              (pp/print-length-loop [aseq (db/-datoms db :eavt [])]
+                                (when aseq
+                                  (let [^Datom d (first aseq)]
+                                    (pp/write-out [(.-e d) (.-a d) (.-v d) (db/datom-tx d)])
+                                    (when (next aseq)
+                                      (.write w " ")
+                                      (pp/pprint-newline :linear)
+                                      (recur (next aseq))))))))))
 
 (defmethod pp/simple-dispatch DB [db] (pp-db db *out*))
 (defmethod pp/simple-dispatch FilteredDB [db] (pp-db db *out*))
