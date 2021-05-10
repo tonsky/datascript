@@ -60,17 +60,17 @@ Talks:
 Projects using DataScript:
 
 - [Roam Research](https://roamresearch.com/), a note-taking graph database
-- [Athens](https://github.com/athensresearch/athens), a tool for networked thought
-- [Precursor](http://precursorapp.com/), collaborative prototyping tool
-- [LightMesh](http://lightmesh.com/), datacenter management
+- [LogSeq](http://logseq.com), a local-first, non-linear, outliner notebook
+- [Athens Research](https://github.com/athensresearch/athens), a tool for networked thought
 - [Cognician](https://www.cognician.com/), coaching platform
+- [LightMesh](http://lightmesh.com/), datacenter management
 - [PartsBox](https://partsbox.io/), electronic parts management
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
+- [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [Acha-acha](http://tonsky.me/blog/acha-acha/), GitHub achievements
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
 - [Zetawar](http://www.zetawar.com), turn-based tactical strategy game
 - [Lemmings](https://www.lemmings.io), incubator focused on art & artificial intelligence
-- [LogSeq](http://logseq.com), a local-first, non-linear, outliner notebook
 
 Related projects:
 
