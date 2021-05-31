@@ -1,3 +1,7 @@
+# WIP
+
+- New namespace: `datascript.serialize`. Prepares database for fast to/from JSON serialization
+
 # 1.1.0
 
 - [ Breaking ] Remove `ISeqable` from `DB`/`FilteredDB` as it was breaking `keys` #393

@@ -150,13 +150,17 @@
 
 (defprotocol IDatom
   (datom-tx [this])
-  (datom-added [this]))
+  (datom-added [this])
+  (datom-get-idx [this])
+  (datom-set-idx [this value]))
 
-(deftype Datom #?(:clj [^int e a v ^int tx ^:unsynchronized-mutable ^int _hash]
-                  :cljs [^number e a v ^number tx ^:mutable ^number _hash])
+(deftype Datom #?(:clj [^int e a v ^int tx ^:unsynchronized-mutable ^int idx ^:unsynchronized-mutable ^int _hash]
+                  :cljs [^number e a v ^number tx ^:mutable ^number idx ^:mutable ^number _hash])
   IDatom
   (datom-tx [d] (if (pos? tx) tx (- tx)))
   (datom-added [d] (pos? tx))
+  (datom-get-idx [_] idx)
+  (datom-set-idx [_ value] (set! idx (int value)))
 
   #?@(:cljs
        [IHash
@@ -224,9 +228,9 @@
 #?(:cljs (goog/exportSymbol "datascript.db.Datom" Datom))
 
 (defn ^Datom datom
-  ([e a v] (Datom. e a v tx0 0))
-  ([e a v tx] (Datom. e a v tx 0))
-  ([e a v tx added] (Datom. e a v (if added tx (- tx)) 0)))
+  ([e a v] (Datom. e a v tx0 0 0))
+  ([e a v tx] (Datom. e a v tx 0 0))
+  ([e a v tx added] (Datom. e a v (if added tx (- tx)) 0 0)))
 
 (defn datom? [x] (instance? Datom x))
 
