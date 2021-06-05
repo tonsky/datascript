@@ -1,4 +1,4 @@
-#!/usr/bin/env clojure
+#!/usr/bin/env clojure -M
 
 "USAGE: ./bench [rebuild]? [<version>|<version-vm> ...]? [<bench-name> ...]?"
 
@@ -73,21 +73,24 @@
 (defn run-benchmarks [version vm benchmarks]
   (case vm
     "jvm"
-    (apply run "clojure" "-Sdeps"
-      (cond
-        (= "latest" version)
-        (str "{:paths [\"src\"]"
-          "    :deps {datascript {:local/root \"..\"}}}")
+    (let [datascript (cond
+                       (= "latest" version)
+                       "{:local/root \"..\"}"
 
-        (re-matches #"\d+\.\d+\.\d+" version)
-        (str "{:paths [\"src\"]"
-          "    :deps {datascript {:mvn/version \"" version "\"}}}")
+                       (re-matches #"\d+\.\d+\.\d+" version)
+                       (str "{:mvn/version \"" version "\"}")
 
-        (re-matches #"[0-9a-fA-F]{40}" version)
-        (str "{:paths [\"src\"]"
-          "    :deps {datascript {:git/url \"https://github.com/tonsky/datascript.git\" :sha \"" version "\"}}}"))
-      "-m" "datascript-bench.datascript"
-      benchmarks)
+                       (re-matches #"[0-9a-fA-F]{40}" version)
+                       (str "{:git/url \"https://github.com/tonsky/datascript.git\" :sha \"" version "\"}}"))]
+      (apply run "clojure"
+        "-Sdeps" (str
+                   "{:paths [\"src\"]"
+                   " :deps {"
+                   "   datascript/datascript " datascript
+                   "   metosin/jsonista {:mvn/version \"0.3.3\"}"
+                   "}}")
+        "-M" "-m" "datascript-bench.datascript"
+        benchmarks))
 
     "v8"
     (apply run "node" "run_v8.js" benchmarks)
@@ -114,7 +117,9 @@
    "q3"
    "q4"
    "qpred1"
-   "qpred2"])
+   "qpred2"
+   "freeze"
+   "thaw"])
 
 
 (def default-versions

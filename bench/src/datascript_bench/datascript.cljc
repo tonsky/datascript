@@ -1,9 +1,11 @@
 (ns datascript-bench.datascript
   (:require
-    [clojure.string :as str]
-    [datascript.core :as d]
-    [datascript-bench.core :as core]
-    [datascript.query-v3 :as q3]))
+   [clojure.string :as str]
+   [datascript.core :as d]
+   [datascript-bench.core :as core]
+   [datascript.serialize :as serialize]
+   [datascript.query-v3 :as q3]
+   #?(:clj [jsonista.core :as json])))
 
 
 #?(:cljs
@@ -159,6 +161,29 @@
              [(follows ?x ?y)
               [?x :follows ?t]
               (follows ?t ?y)]]))))
+
+
+(defn people-db [datoms]
+  (d/db-with (d/empty-db schema)
+    (take (quot datoms 10) core/people)))
+
+
+#?(:clj
+   (def mapper
+     (com.fasterxml.jackson.databind.ObjectMapper.)))
+
+
+(defn ^:export freeze []
+  (let [db (people-db 3000000)]
+    (core/bench {:test "freeze"}
+      (-> db (serialize/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify)))))
+
+
+(defn ^:export thaw []
+  (let [db   (people-db 3000000)
+        json (-> db (serialize/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify))]
+    (core/bench {:test "thaw"}
+      (-> json #?(:clj (json/read-value mapper) :cljs js/JSON.parse) serialize/from-serializable))))
 
 
 #?(:clj

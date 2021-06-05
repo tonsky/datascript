@@ -11,8 +11,8 @@
      (:import
       [datascript.db Datom])))
 
-(def ^:const marker-kw 0)
-(def ^:const marker-other 1)
+(def ^:const ^:private marker-kw 0)
+(def ^:const ^:private marker-other 1)
 
 (defn- if-cljs [env then else]
   (if (:ns env) then else))
@@ -23,7 +23,7 @@
      [& args]
      (if-cljs &env
        (list* 'js* (str "[" (str/join "," (repeat (count args) "~{}")) "]") args)
-       `(java.util.List/of ~@args))))
+       (vec args))))
 
 #?(:clj
    (defmacro dict
@@ -85,7 +85,7 @@
 
 (def ^{:arglists '([kw])} freeze-kw str)
 
-(defn thaw-kw [s]
+(defn- thaw-kw [s]
   (if (str/starts-with? s ":")
     (keyword (subs s 1))
     s))
