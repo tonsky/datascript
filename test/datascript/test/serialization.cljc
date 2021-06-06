@@ -1,12 +1,15 @@
 (ns datascript.test.serialization
   (:require
-    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
-    [datascript.core :as d]
-    [datascript.db :as db]
-    [datascript.test.core :as tdc])
-    #?(:clj
+   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+   #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+      :clj  [clojure.test :as t :refer        [is are deftest testing]])
+   [cognitect.transit :as transit]
+   [datascript.core :as d]
+   [datascript.db :as db]
+   [datascript.test.core :as tdc]
+   #?(:clj [cheshire.core :as cheshire])
+   #?(:clj [jsonista.core :as jsonista]))
+   #?(:clj
       (:import [clojure.lang ExceptionInfo])))
 
 (t/use-fixtures :once tdc/no-namespace-maps)
@@ -104,3 +107,37 @@
     (testing "Reporting"
       (is (thrown-with-msg? ExceptionInfo #"init-db expects list of Datoms, got "
             (d/init-db [[:add -1 :name "Ivan"] {:add -1 :age 35}] schema))))))
+
+
+(defn transit-write [o type]
+  #?(:clj
+     (with-open [os (java.io.ByteArrayOutputStream.)]
+       (let [writer (transit/writer os type)]
+         (transit/write writer o)
+         (.toByteArray os)))
+     :cljs
+     (transit/write (transit/writer type) o)))
+
+
+(defn transit-read [s type]
+  #?(:clj
+     (with-open [is (java.io.ByteArrayInputStream. s)]
+       (transit/read (transit/reader is type)))
+     :cljs
+     (transit/read (transit/reader type) s)))
+
+(deftest serialize
+  (let [db (d/db-with
+             (d/empty-db schema)
+             (map (fn [[e a v]] [:db/add e a v]) data))]
+    (is (= db (-> db d/serializable d/from-serializable)))
+    (is (= db (-> db d/serializable pr-str edn/read-string d/from-serializable)))
+    (doseq [type [:json :json-verbose #?(:clj :msgpack)]]
+      (testing type
+        (is (= db (-> db d/serializable (transit-write type) (transit-read type) d/from-serializable)))))
+    #?(:clj
+       (is (= db (-> db d/serializable jsonista/write-value-as-string jsonista/read-value d/from-serializable))))
+    #?(:clj
+       (is (= db (-> db d/serializable cheshire/generate-string cheshire/parse-string d/from-serializable))))
+    #?(:cljs
+       (is (= db (-> db d/serializable js/JSON.stringify js/JSON.parse d/from-serializable))))))

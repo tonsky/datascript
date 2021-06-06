@@ -131,7 +131,7 @@
   (let [{:keys [rebuild benchmarks versions]} opts]
     (when rebuild
       (binding [sh/*sh-dir* ".."]
-        (run "lein" "do" "clean," "javac," "cljsbuild" "once" "bench")))
+        (run "lein" "with-profile" "test" "do" "clean," "javac," "cljsbuild" "once" "bench")))
     (let [benchmarks (if (empty? benchmarks) default-benchmarks benchmarks)
           versions   (if (empty? versions)   default-versions    versions)]
       (print "version   \t")

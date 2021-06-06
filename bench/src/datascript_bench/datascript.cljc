@@ -3,7 +3,6 @@
    [clojure.string :as str]
    [datascript.core :as d]
    [datascript-bench.core :as core]
-   [datascript.serialize :as serialize]
    [datascript.query-v3 :as q3]
    #?(:clj [jsonista.core :as json])))
 
@@ -176,14 +175,14 @@
 (defn ^:export freeze []
   (let [db (people-db 3000000)]
     (core/bench {:test "freeze"}
-      (-> db (serialize/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify)))))
+      (-> db (d/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify)))))
 
 
 (defn ^:export thaw []
   (let [db   (people-db 3000000)
-        json (-> db (serialize/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify))]
+        json (-> db (d/serializable) #?(:clj (json/write-value-as-string mapper) :cljs js/JSON.stringify))]
     (core/bench {:test "thaw"}
-      (-> json #?(:clj (json/read-value mapper) :cljs js/JSON.parse) serialize/from-serializable))))
+      (-> json #?(:clj (json/read-value mapper) :cljs js/JSON.parse) d/from-serializable))))
 
 
 #?(:clj

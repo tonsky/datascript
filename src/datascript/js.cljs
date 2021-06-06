@@ -79,6 +79,9 @@
 (defn ^:export init_db [datoms & [schema]]
   (d/init-db (map js->Datom datoms) (schema->clj schema)))
 
+(def ^:export serializable d/serializable)
+(def ^:export from_serializable d/from-serializable)
+
 (defn ^:export q [query & sources]
   (let [query   (cljs.reader/read-string query)
         results (apply d/q query sources)]

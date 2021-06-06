@@ -23,12 +23,13 @@
   }
   :jvm-opts ["-Xmx2g" "-server"]
 
-  :aliases {"test-clj"     ["run" "-m" "datascript.test/test-clj"]
-            "test-cljs"    ["do" ["cljsbuild" "once" "release" "advanced"]
-                                 ["run" "-m" "datascript.test/test-node" "--all"]]
+  :aliases {"test-clj"     ["with-profile" "test" "run" "-m" "datascript.test/test-clj"]
+            "test-cljs"    ["with-profile" "test" "do"
+                            ["cljsbuild" "once" "release" "advanced"]
+                            ["run" "-m" "datascript.test/test-node" "--all"]]
             "node-repl"    ["run" "-m" "user/node-repl"]
             "browser-repl" ["run" "-m" "user/browser-repl"]
-            "test-all"     ["do" ["clean"] ["test-clj"] ["test-cljs"]]}
+            "test-all"     ["do" ["clean"] ["with-profile" "test" "test-clj"] ["test-cljs"]]}
   
   :cljsbuild { 
     :builds [
@@ -93,6 +94,10 @@
                           [org.clojure/tools.namespace "0.2.11"]
                           [lambdaisland/kaocha         "0.0-389"]
                           [lambdaisland/kaocha-cljs    "0.0-21"]] }
+    :test {:dependencies [[metosin/jsonista            "0.3.3"]
+                          [cheshire                    "5.10.0"]
+                          [com.cognitect/transit-clj   "1.0.324"]
+                          [com.cognitect/transit-cljs "0.8.269"]]}
   }
   
   :clean-targets ^{:protect false} [

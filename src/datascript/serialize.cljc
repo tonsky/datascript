@@ -1,5 +1,5 @@
 (ns datascript.serialize
-  (:refer-clojure :exclude [amap])
+  (:refer-clojure :exclude [amap array?])
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
@@ -35,11 +35,15 @@
 
 (defn- array-get [d i]
   #?(:clj  (.get ^java.util.List d (int i))
-     :cljs (arrays/aget d i)))
+     :cljs (if (cljs.core/array? d) (arrays/aget d i) (nth d i))))
 
 (defn- dict-get [d k]
   #?(:clj  (.get ^java.util.Map d k)
-     :cljs (arrays/aget d k)))
+     :cljs (if (map? d) (d k) (arrays/aget d k))))
+
+(defn- array? [a]
+  #?(:clj  (instance? java.util.List a)
+     :cljs (or (cljs.core/array? a) (vector? a))))
 
 (defn- amap [f xs]
   #?(:clj
@@ -90,16 +94,8 @@
     (keyword (subs s 1))
     s))
 
-(defn ^:export serializable
-  "Converts db into a data structure (not string!) that can be fed to JSON
-   serializer of your choice (`js/JSON.stringify` in CLJS, `cheshire.core/generate-string` or
-   `jsonista.core/write-value-as-string` in CLJ).
-
-   Options:
-
-   Non-primitive values will be serialized using optional :freeze-fn (`pr-str` by default).
-
-   Serialized structure breakdown:
+(defn serializable
+  "Serialized structure breakdown:
 
    count    :: number    
    tx0      :: number
@@ -138,7 +134,7 @@
                          (number? v)  v
                          (boolean? v) v
                          (keyword? v) (write-kw v)
-                         :else        (write-other v)))
+                         true         (write-other v)))
          eavt        (amap-indexed
                        (fn [idx ^Datom d]
                          (db/datom-set-idx d idx)
@@ -165,23 +161,17 @@
          "aevt"     aevt
          "avet"     avet))))
 
-(defn ^:export from-serializable
-  "Creates db from a data structure (not string!) produced by serializable.
-
-   Non-primitive values will be deserialized using optional :thaw-fn
-   (`clojure.edn/read-string` by default).
-
-   :thaw-fn must match :freeze-fn from serializable."
-  ([serializable] 
-   (from-serializable serializable {}))
-  ([serializable {:keys [thaw-fn]
+(defn from-serializable
+  ([from] 
+   (from-serializable from {}))
+  ([from {:keys [thaw-fn]
                   :or   {thaw-fn edn/read-string}}]
-   (let [tx0      (dict-get serializable "tx0")
-         schema   (thaw-fn (dict-get serializable "schema"))
+   (let [tx0      (dict-get from "tx0")
+         schema   (thaw-fn (dict-get from "schema"))
          _        (#'db/validate-schema schema)
-         attrs    (->> (dict-get serializable "attrs") (mapv thaw-kw))
-         keywords (->> (dict-get serializable "keywords") (mapv thaw-kw))
-         eavt     (->> (dict-get serializable "eavt")
+         attrs    (->> (dict-get from "attrs") (mapv thaw-kw))
+         keywords (->> (dict-get from "keywords") (mapv thaw-kw))
+         eavt     (->> (dict-get from "eavt")
                     (amap (fn [arr]
                             (let [e  (array-get arr 0)
                                   a  (nth attrs (array-get arr 1))
@@ -190,22 +180,25 @@
                                        (number? v)  v
                                        (string? v)  v
                                        (boolean? v) v
-                                       (arrays/array? v)
-                                       (let [marker (array-get v 0)]
-                                         (case marker
-                                           marker-kw    (array-get keywords (array-get v 1))
-                                           marker-other (thaw-fn (array-get v 1)))))
+                                       (array? v) (let [marker (array-get v 0)]
+                                                    (condp == marker
+                                                      marker-kw    (nth keywords (array-get v 1))
+                                                      marker-other (thaw-fn (array-get v 1))
+                                                      (raise "Unexpected value marker " marker " in " (pr-str v)
+                                                        {:error :serialize :value v})))
+                                       true (raise "Unexpected value type " (type v) " (" (pr-str v) ")"
+                                              {:error :serialize :value v}))
                                   tx (+ tx0 (array-get arr 3))]
                               (db/datom e a v tx))))
-                    #?(:clj .toArray))
-         aevt     (some->> (dict-get serializable "aevt") (amap #(arrays/aget eavt %)) #?(:clj .toArray))
-         avet     (some->> (dict-get serializable "avet") (amap #(arrays/aget eavt %)) #?(:clj .toArray))]
+                    #?(:clj arrays/into-array))
+         aevt     (some->> (dict-get from "aevt") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
+         avet     (some->> (dict-get from "avet") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))]
      (db/map->DB
        {:schema  schema
         :rschema (#'db/rschema (merge db/implicit-schema schema))
         :eavt    (set/from-sorted-array db/cmp-datoms-eavt eavt)
         :aevt    (set/from-sorted-array db/cmp-datoms-aevt aevt)
         :avet    (set/from-sorted-array db/cmp-datoms-avet avet)
-        :max-eid (dict-get serializable "max-eid")
-        :max-tx  (dict-get serializable "max-tx")
+        :max-eid (dict-get from "max-eid")
+        :max-tx  (dict-get from "max-tx")
         :hash    (atom 0)}))))

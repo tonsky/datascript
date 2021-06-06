@@ -5,6 +5,7 @@
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
     #?(:clj [datascript.pprint])
     [datascript.pull-api :as dp]
+    [datascript.serialize :as ds]
     [datascript.query :as dq]
     [datascript.impl.entity :as de])
   #?(:clj
@@ -189,6 +190,30 @@
 
              Used internally in db (de)serialization. See also [[datom]]."}
   init-db db/init-db)
+
+
+(def ^{:arglists '([db] [db opts])
+       :doc "Converts db into a data structure (not string!) that can be fed to serializer
+             of your choice (e.g. `js/JSON.stringify` in CLJS, `cheshire.core/generate-string`
+             or `jsonista.core/write-value-as-string` in CLJ).
+
+             Options:
+
+             `:freeze-fn` Non-primitive values will be serialized using this. Optional.
+             `pr-str` by default."}
+  serializable ds/serializable)
+
+
+(def ^{:arglists '([serializable] [serializable opts])
+       :doc "Creates db from a data structure (not string!) produced by serializable.
+
+             Opts:
+
+             `:thaw-fn` Non-primitive values will be deserialized using this.
+             Must match :freeze-fn from serializable. Optional. `clojure.edn/read-string`
+             by default."}
+  from-serializable ds/from-serializable)
+
 
 ; Schema
 

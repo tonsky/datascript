@@ -27,9 +27,13 @@
     :test {
       :extra-paths ["test"]
       :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.10.520"}
-        lambdaisland/kaocha       {:mvn/version "1.0.632"}
-        lambdaisland/kaocha-cljs  {:mvn/version "0.0-71"}
+        org.clojure/clojurescript  {:mvn/version "1.10.520"}
+        lambdaisland/kaocha        {:mvn/version "1.0.632"}
+        lambdaisland/kaocha-cljs   {:mvn/version "0.0-71"}
+        metosin/jsonista           {:mvn/version "0.3.3"}
+        cheshire/cheshire          {:mvn/version "5.10.0"}
+        com.cognitect/transit-clj  {:mvn/version "1.0.324"}
+        com.cognitect/transit-cljs {:mvn/version "0.8.269"}
       }
     }
 
