@@ -94,7 +94,7 @@
     (keyword (subs s 1))
     s))
 
-(defn serializable
+(defn- serializable-impl
   "Serialized structure breakdown:
 
    count    :: number    
@@ -110,56 +110,64 @@
    dtx      :: tx - tx0
    aevt     :: [<index in eavt> ...]
    avet     :: [<index in eavt> ...]"
-  ([db]
-   (serializable db {}))
-  ([db {:keys [freeze-fn]
-        :or   {freeze-fn pr-str}}]
-   (let [attrs       (all-attrs db)
-         attrs-map   (into {} (map vector attrs (range)))
-         *kws        (volatile! (transient []))
-         *kw-map     (volatile! (transient {}))
-         write-kw    (fn [kw]
-                       (let [idx (or
-                                   (get @*kw-map kw)
-                                   (let [keywords (vswap! *kws conj! kw)
-                                         idx      (dec (count keywords))]
-                                     (vswap! *kw-map assoc! kw idx)
-                                     idx))]
-                         (array marker-kw idx)))
-         write-other (fn [v] (array marker-other (freeze-fn v)))
-         write-v     (fn [v]
-                       (cond
-                         (string? v)  v
-                         #?@(:clj [(ratio? v) (write-other v)])
-                         (number? v)  v
-                         (boolean? v) v
-                         (keyword? v) (write-kw v)
-                         true         (write-other v)))
-         eavt        (amap-indexed
-                       (fn [idx ^Datom d]
-                         (db/datom-set-idx d idx)
-                         (let [e  (.-e d)
-                               a  (attrs-map (.-a d))
-                               v  (write-v (.-v d))
-                               tx (- (.-tx d) db/tx0)]
-                           (array e a v tx)))
-                       (:eavt db))
-         aevt        (amap-indexed (fn [_ ^Datom d] (db/datom-get-idx d)) (:aevt db))
-         avet        (amap-indexed (fn [_ ^Datom d] (db/datom-get-idx d)) (:avet db))
-         schema      (freeze-fn (:schema db))
-         attrs       (amap freeze-kw attrs)
-         kws         (amap freeze-kw (persistent! @*kws))]
-       (dict
-         "count"    (count (:eavt db))
-         "tx0"      db/tx0
-         "max-eid"  (:max-eid db)
-         "max-tx"   (:max-tx db)
-         "schema"   schema
-         "attrs"    attrs
-         "keywords" kws
-         "eavt"     eavt
-         "aevt"     aevt
-         "avet"     avet))))
+  [db {:keys [freeze-fn]
+       :or   {freeze-fn pr-str}}]
+  (let [attrs       (all-attrs db)
+        attrs-map   (into {} (map vector attrs (range)))
+        *kws        (volatile! (transient []))
+        *kw-map     (volatile! (transient {}))
+        write-kw    (fn [kw]
+                      (let [idx (or
+                                  (get @*kw-map kw)
+                                  (let [keywords (vswap! *kws conj! kw)
+                                        idx      (dec (count keywords))]
+                                    (vswap! *kw-map assoc! kw idx)
+                                    idx))]
+                        (array marker-kw idx)))
+        write-other (fn [v] (array marker-other (freeze-fn v)))
+        write-v     (fn [v]
+                      (cond
+                        (string? v)  v
+                        #?@(:clj [(ratio? v) (write-other v)])
+                        (number? v)  v
+                        (boolean? v) v
+                        (keyword? v) (write-kw v)
+                        true         (write-other v)))
+        eavt        (amap-indexed
+                      (fn [idx ^Datom d]
+                        (db/datom-set-idx d idx)
+                        (let [e  (.-e d)
+                              a  (attrs-map (.-a d))
+                              v  (write-v (.-v d))
+                              tx (- (.-tx d) db/tx0)]
+                          (array e a v tx)))
+                      (:eavt db))
+        aevt        (amap-indexed (fn [_ ^Datom d] (db/datom-get-idx d)) (:aevt db))
+        avet        (amap-indexed (fn [_ ^Datom d] (db/datom-get-idx d)) (:avet db))
+        schema      (freeze-fn (:schema db))
+        attrs       (amap freeze-kw attrs)
+        kws         (amap freeze-kw (persistent! @*kws))]
+      (dict
+        "count"    (count (:eavt db))
+        "tx0"      db/tx0
+        "max-eid"  (:max-eid db)
+        "max-tx"   (:max-tx db)
+        "schema"   schema
+        "attrs"    attrs
+        "keywords" kws
+        "eavt"     eavt
+        "aevt"     aevt
+        "avet"     avet)))
+
+#?(:clj
+   (let [lock (Object.)]
+     (defn serializable
+       ([db] (locking lock (serializable-impl db {})))
+       ([db opts] (locking lock (serializable-impl db opts)))))
+   :cljs
+   (defn serializable
+     ([db] (serializable-impl db {}))
+     ([db opts] (serializable-impl db opts))))
 
 (defn from-serializable
   ([from] 

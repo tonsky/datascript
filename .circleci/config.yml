@@ -22,7 +22,8 @@ jobs:
        - checkout
        - restore_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
-       - run: lein cljsbuild once advanced release
+       - run: lein with-profile test cljsbuild once advanced
+       - run: lein cljsbuild once release
        - save_cache:
            key: dependency-cache-{{ checksum "project.clj" }}
            paths:

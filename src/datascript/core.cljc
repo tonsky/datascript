@@ -197,6 +197,9 @@
              of your choice (e.g. `js/JSON.stringify` in CLJS, `cheshire.core/generate-string`
              or `jsonista.core/write-value-as-string` in CLJ).
 
+             On JVM, `serializable` holds a global lock that prevents any two serializations
+             to run in parallel (an implementation constraint, be aware).
+
              Options:
 
              `:freeze-fn` Non-primitive values will be serialized using this. Optional.

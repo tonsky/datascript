@@ -1,4 +1,4 @@
-(ns datascript.test.serialization
+(ns datascript.test.serialize
   (:require
    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
@@ -118,6 +118,9 @@
      :cljs
      (transit/write (transit/writer type) o)))
 
+(defn transit-write-str [o]
+  #?(:clj (String. (transit-write o :json) "UTF-8")
+     :cljs (transit-write o :json)))
 
 (defn transit-read [s type]
   #?(:clj
@@ -126,17 +129,25 @@
      :cljs
      (transit/read (transit/reader type) s)))
 
+(defn transit-read-str [s]
+  #?(:clj  (transit-read (.getBytes s "UTF-8") :json)
+     :cljs (transit-read s :json)))
+
 (deftest serialize
   (let [db (d/db-with
              (d/empty-db schema)
              (map (fn [[e a v]] [:db/add e a v]) data))]
     (is (= db (-> db d/serializable d/from-serializable)))
     (is (= db (-> db d/serializable pr-str edn/read-string d/from-serializable)))
+    (is (= db (-> db (d/serializable {:freeze-fn transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn transit-read-str}))))
     (doseq [type [:json :json-verbose #?(:clj :msgpack)]]
       (testing type
         (is (= db (-> db d/serializable (transit-write type) (transit-read type) d/from-serializable)))))
     #?(:clj
        (is (= db (-> db d/serializable jsonista/write-value-as-string jsonista/read-value d/from-serializable))))
+    #?(:clj
+       (let [mapper (com.fasterxml.jackson.databind.ObjectMapper.)]
+         (is (= db (-> db d/serializable (jsonista/write-value-as-string mapper) (jsonista/read-value mapper) d/from-serializable)))))
     #?(:clj
        (is (= db (-> db d/serializable cheshire/generate-string cheshire/parse-string d/from-serializable))))
     #?(:cljs
