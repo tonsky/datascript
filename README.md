@@ -18,7 +18,7 @@ The intention with DataScript is to be a basic building block in client-side app
 ## Latest version [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 ```clj
-[datascript "1.1.0"]
+[datascript "1.2.0"]
 ```
 
 ## Support us
@@ -164,7 +164,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="https://github.com/tonsky/datascript/releases/download/1.1.0/datascript-1.1.0.min.js"></script>
+<script src="https://github.com/tonsky/datascript/releases/download/1.2.0/datascript-1.2.0.min.js"></script>
 ```
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):

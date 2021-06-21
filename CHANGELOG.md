@@ -1,4 +1,4 @@
-# WIP
+# 1.2.0
 
 - New namespace: `datascript.serialize`. Prepares database for fast to/from JSON serialization
 
