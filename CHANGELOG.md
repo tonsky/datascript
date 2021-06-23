@@ -1,3 +1,7 @@
+# 1.2.1
+
+- Bump persistent-sorted-set to 0.1.3, fixes `(d/conn-from-datoms (d/datoms @*conn :eavt) schema)` on empty database https://github.com/tonsky/persistent-sorted-set/issues/4
+
 # 1.2.0
 
 - New namespace: `datascript.serialize`. Prepares database for fast to/from JSON serialization
