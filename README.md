@@ -68,6 +68,7 @@ Projects using DataScript:
 - [LightMesh](http://lightmesh.com/), datacenter management
 - [PartsBox](https://partsbox.io/), electronic parts management
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
+- [Pinfigurator](https://kevinlynagh.com/pinfigurator/), a microcontroller search tool
 - [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [Acha-acha](http://tonsky.me/blog/acha-acha/), GitHub achievements
 - [Showkr](http://showkr.solovyov.net), flickr gallery viewer ([sources](https://github.com/piranha/showkr))
