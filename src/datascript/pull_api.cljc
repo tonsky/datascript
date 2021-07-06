@@ -266,7 +266,7 @@
 
 (defn pull-spec
   [db pattern eids multi?]
-  (let [eids (into [] (map #(db/entid-strict db %)) eids)]
+  (let [eids (into [] (map #(db/entid db %)) eids)]
     (pull-pattern db (list (initial-frame pattern eids multi?)))))
 
 (defn pull [db selector eid]
