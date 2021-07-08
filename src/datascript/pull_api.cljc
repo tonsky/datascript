@@ -37,8 +37,8 @@
            :specs     (seq (:attrs pattern))
            :wildcard? (:wildcard? pattern)
            :kvps      (transient {})
-           :results   (-> (:results frame)
-                          (conj! kvps)))))
+           :results   (cond-> (:results frame)
+                        (seq kvps) (conj! kvps)))))
 
 (defn- push-recursion
   [rec attr eid]
@@ -260,21 +260,21 @@
                                (not (:multi? f)) first)]
                   (if (seq remaining)
                     (->> (cond-> (first remaining)
-                           result (update :kvps assoc! (:attr f) result))
+                           (seq result) (update :kvps assoc! (:attr f) result))
                          (conj (rest remaining))
                          (recur db))
                     result))
     nil))
 
 (defn pull-spec
-  [db pattern eids multi?]
-  (let [eids (into [] (map #(db/entid db %)) eids)]
-    (pull-pattern db (list (initial-frame pattern eids multi?)))))
+  [db pattern eid multi?]
+  (pull-pattern db (list (initial-frame pattern [(db/entid db eid)] multi?))))
 
 (defn pull [db selector eid]
   {:pre [(db/db? db)]}
-  (pull-spec db (dpp/parse-pull selector) [eid] false))
+  (pull-spec db (dpp/parse-pull selector) eid false))
 
 (defn pull-many [db selector eids]
   {:pre [(db/db? db)]}
-  (pull-spec db (dpp/parse-pull selector) eids true))
+  (mapv #(pull-spec db (dpp/parse-pull selector) % false)
+        eids))

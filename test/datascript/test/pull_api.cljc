@@ -210,7 +210,7 @@
            (d/pull test-db '[:name {:father [:name]}] 1))))
 
   (testing "Non matching results are removed from collections"
-    (is (= {:name "Petr" :child []}
+    (is (= {:name "Petr"}
            (d/pull test-db '[:name {:child [:foo]}] 1))))
 
   (testing "Map specs can override component expansion"
