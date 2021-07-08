@@ -50,7 +50,8 @@
 
     :datomic {
       :extra-deps {
-        com.datomic/datomic-free {:mvn/version  "0.9.5703"}
+        com.datomic/datomic-free {:local/root "datomic-free-0.9.5703.jar"
+                                  #_#_:mvn/version  "0.9.5703"}
       }
     }
   }

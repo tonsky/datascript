@@ -7,7 +7,8 @@
     [datascript.test.core :as tdc]))
 
 (def ^:private test-schema
-  {:aka    { :db/cardinality :db.cardinality/many }
+  {:name   { :db/unique :db.unique/identity }
+   :aka    { :db/cardinality :db.cardinality/many }
    :child  { :db/cardinality :db.cardinality/many
              :db/valueType :db.type/ref }
    :friend { :db/cardinality :db.cardinality/many
@@ -325,3 +326,20 @@
            (:name (get-in pulled path))))))
 
 #_(t/test-ns 'datascript.test.pull-api)
+
+(deftest test-lookup-ref-pull
+  (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
+         (d/pull test-db '[:name :aka] [:name "Petr"])))
+  (is (= nil
+         (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
+  (is (= [{:aka ["Devil"
+                 "Tupen"]}
+          nil
+          nil
+          nil]
+         (d/pull-many test-db
+                      '[:aka]
+                      [[:name "Petr"]
+                       [:name "Elizabeth"]
+                       [:name "Eunan"]
+                       [:name "Rebecca"]]))))
