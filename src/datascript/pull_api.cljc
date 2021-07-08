@@ -240,7 +240,8 @@
         (let [spec       (first specs)
               pattern    (:pattern frame)
               new-frames (conj frames (assoc frame :specs (rest specs)))]
-          (pull-attr db spec (first eids) new-frames))
+          (when (first eids)
+            (pull-attr db spec (first eids) new-frames)))
         (->> frame :kvps persistent! not-empty
              (reset-frame frame (rest eids))
              (conj frames)
@@ -262,7 +263,8 @@
                            result (update :kvps assoc! (:attr f) result))
                          (conj (rest remaining))
                          (recur db))
-                    result))))
+                    result))
+    nil))
 
 (defn pull-spec
   [db pattern eids multi?]
