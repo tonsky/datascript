@@ -41,13 +41,13 @@
          (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "Petr"])))
   (is (= nil
          (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "NotInDatabase"])))
-  (is (= [{:person/aka ["Devil" "Tupen"]}
-          nil
+  (is (= [nil
+          {:person/aka ["Devil" "Tupen"]}
           nil
           nil]
          (datomic/pull-many test-datomic-db
                             '[:person/aka]
-                            [[:person/name "Petr"]
-                             [:person/name "Elizabeth"]
+                            [[:person/name "Elizabeth"]
+                             [:person/name "Petr"]
                              [:person/name "Eunan"]
                              [:person/name "Rebecca"]]))))

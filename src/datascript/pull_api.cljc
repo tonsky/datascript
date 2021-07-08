@@ -37,8 +37,8 @@
            :specs     (seq (:attrs pattern))
            :wildcard? (:wildcard? pattern)
            :kvps      (transient {})
-           :results   (cond-> (:results frame)
-                        (seq kvps) (conj! kvps)))))
+           :results   (-> (:results frame)
+                          (conj! kvps)))))
 
 (defn- push-recursion
   [rec attr eid]
@@ -135,8 +135,8 @@
                (mapv datom-val)
                (expand-frame parent eid attr-key multi?)
                (conj frames parent))
-          
-          :else 
+
+          :else
           (let [as-value  (cond->> datom-val
                             ref? (comp #(hash-map :db/id %)))
                 single?   (not multi?)]

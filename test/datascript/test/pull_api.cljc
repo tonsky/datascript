@@ -332,14 +332,14 @@
          (d/pull test-db '[:name :aka] [:name "Petr"])))
   (is (= nil
          (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
-  (is (= [{:aka ["Devil"
+  (is (= [nil
+          {:aka ["Devil"
                  "Tupen"]}
-          nil
           nil
           nil]
          (d/pull-many test-db
                       '[:aka]
-                      [[:name "Petr"]
-                       [:name "Elizabeth"]
+                      [[:name "Elizabeth"]
+                       [:name "Petr"]
                        [:name "Eunan"]
                        [:name "Rebecca"]]))))
