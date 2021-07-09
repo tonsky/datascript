@@ -35,5 +35,6 @@ jobs:
       run: clojure -P
 
     - name: Run tests
-      run: clojure -A:test -m kaocha.runner
+      timeout-minutes: 5
+      run: clojure -M:test -m kaocha.runner
 
