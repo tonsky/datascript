@@ -18,6 +18,14 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-maven-
 
+    - name: Install npm
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install ws
+      run: npm install ws
+
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@3.2
       with:
