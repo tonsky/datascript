@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: '*'
+  pull_request:
+    branches: '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v1
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/deps.edn') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    - name: Install clojure tools
+      uses: DeLaGuardo/setup-clojure@3.2
+      with:
+        cli:  latest     # Clojure CLI based on tools.deps
+
+    - name: Install dependencies
+      run: clojure -P
+
+    - name: Run tests
+      run: clojure -A:test -m kaocha.runner
+
