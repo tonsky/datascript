@@ -325,21 +325,17 @@
     (is (= (str "Person-" (dec depth))
            (:name (get-in pulled path))))))
 
-#_(t/test-ns 'datascript.test.pull-api)
-
 (deftest test-lookup-ref-pull
   (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
          (d/pull test-db '[:name :aka] [:name "Petr"])))
   (is (= nil
          (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
-  (is (= [nil
-          {:aka ["Devil"
-                 "Tupen"]}
-          nil
-          nil]
+  (is (= [nil {:aka ["Devil" "Tupen"]} nil nil]
          (d/pull-many test-db
                       '[:aka]
                       [[:name "Elizabeth"]
                        [:name "Petr"]
                        [:name "Eunan"]
                        [:name "Rebecca"]]))))
+
+#_(t/test-ns 'datascript.test.pull-api)

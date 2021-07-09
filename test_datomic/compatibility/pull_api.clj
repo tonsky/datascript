@@ -1,10 +1,5 @@
-;; This test requires you to download the datomic-free dependency.
-;; Therefore it is not loaded by making it a .bak file.
-;; Rename it to .clj if you want to run it.
-;; If there is an automated way to do this please let me know.
-;; It's useful to be able to compare the behavior of Datomic to Datascript.
-
 (ns compatibility.pull-api
+  "Mirrors datascript.test.pull-api with Datomic to check they behave the same"
   (:require [clojure.test :refer :all]
             [datomic.api :as datomic]))
 

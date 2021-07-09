@@ -238,7 +238,6 @@
                      frames)
       (if-let [specs (seq (:specs frame))]
         (let [spec       (first specs)
-              pattern    (:pattern frame)
               new-frames (conj frames (assoc frame :specs (rest specs)))]
           (when (first eids)
             (pull-attr db spec (first eids) new-frames)))
