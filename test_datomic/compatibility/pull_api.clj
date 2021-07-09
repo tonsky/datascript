@@ -4,7 +4,7 @@
 ;; If there is an automated way to do this please let me know.
 ;; It's useful to be able to compare the behavior of Datomic to Datascript.
 
-(ns datomic-compat
+(ns compatibility.pull-api
   (:require [clojure.test :refer :all]
             [datomic.api :as datomic]))
 

@@ -272,6 +272,29 @@ Aimed at interactive, long-living browser applications, DataScript DBs operate i
 
 Some of the features are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. DataScript is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
 
+## Contributing
+
+### Running the tests
+
+    clj -M:test -m kaocha.runner
+
+### Benchmarking and Datomic compatibility
+
+`datomic-free` is a dependency not available on Clojars or Maven Central.
+
+1. Download `datomic-free` from https://my.datomic.com/downloads/free
+2. Unzip it
+3. Inside the unzipped folder run `./bin/maven-install`
+
+Run compatibility checks:
+
+    clj -M:test:datomic -m kaocha.runner
+
+Benchmark:
+
+    cd bench
+    ./bench.clj
+
 ## License
 
 Copyright © 2014–2021 Nikita Prokopov
