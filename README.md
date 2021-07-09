@@ -274,7 +274,13 @@ Some of the features are omitted intentionally. Different apps have different ne
 
 ## Contributing
 
-### Running the tests
+### Testing
+
+Setup
+
+    npm install ws
+
+Running the tests
 
     clj -M:test -m kaocha.runner
 

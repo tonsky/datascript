@@ -983,7 +983,7 @@
       (mapv (fn [env el]
               (if env
                 (let [[src spec] env]
-                  (dpa/pull-spec src spec [el] false))
+                  (dpa/pull-spec src spec el false))
                 el))
             resolved
             tuple))))
