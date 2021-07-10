@@ -64,6 +64,7 @@ Projects using DataScript:
 - [Roam Research](https://roamresearch.com/), a note-taking graph database
 - [LogSeq](http://logseq.com), a local-first, non-linear, outliner notebook
 - [Athens Research](https://github.com/athensresearch/athens), a tool for networked thought
+- [Hulunote](https://www.hulunote.com/), a tool for networked thought
 - [Cognician](https://www.cognician.com/), coaching platform
 - [LightMesh](http://lightmesh.com/), datacenter management
 - [PartsBox](https://partsbox.io/), electronic parts management
