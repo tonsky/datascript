@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [filter])
   (:require
     [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+    [datascript.integrations.datalog-console :as datalog-console]
     [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
     #?(:clj [datascript.pprint])
     [datascript.pull-api :as dp]
@@ -444,7 +445,9 @@
 (defn conn-from-db
   "Creates a mutable reference to a given immutable database. See [[create-conn]]."
   [db]
-  (atom db :meta { :listeners (atom {}) }))
+  (let [conn (atom db :meta {:listeners (atom {})})]
+    (datalog-console/init! {:conn conn})
+    conn))
 
 
 (defn conn-from-datoms
