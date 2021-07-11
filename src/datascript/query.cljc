@@ -120,7 +120,7 @@
       (every? number? (vals attrs-a)) ;; can’t conj into BTSetIter
       (let [idxb->idxa (vec (for [[sym idx-b] attrs-b]
                               [idx-b (attrs-a sym)]))
-            tlen    (->> (vals attrs-a) (reduce max) (inc)) 
+            tlen    (->> (vals attrs-a) (reduce max) (inc))
             tuples' (persistent!
                       (reduce
                         (fn [acc tuple-b]
@@ -186,7 +186,7 @@
 (defn- and-fn [& args]
   (reduce (fn [a b]
             (if b b (reduced b))) true args))
-            
+
 (defn- or-fn [& args]
   (reduce (fn [a b]
             (if b (reduced b) b)) nil args))
@@ -228,8 +228,8 @@
                                  :let [delta (- x mean)]]
                              (* delta delta)))]
              (/ sum (count coll))))
-         (stddev 
-           [coll] 
+         (stddev
+           [coll]
            (#?(:cljs js/Math.sqrt :clj Math/sqrt) (variance coll)))]
    {'avg      avg
     'median   median
@@ -295,11 +295,11 @@
   BindIgnore
   (in->rel [_ _]
     (prod-rel))
-  
+
   BindScalar
   (in->rel [binding value]
     (Relation. {(get-in binding [:variable :symbol]) 0} [(into-array [value])]))
-  
+
   BindColl
   (in->rel [binding coll]
     (cond
@@ -312,7 +312,7 @@
         (->> coll
           (map #(in->rel (:binding binding) %))
           (reduce sum-rel))))
-  
+
   BindTuple
   (in->rel [binding coll]
     (cond
@@ -393,32 +393,46 @@
       (persistent! hash-table))))
 
 (defn hash-join [rel1 rel2]
-  (let [tuples1       (:tuples rel1)
-        tuples2       (:tuples rel2)
-        attrs1        (:attrs rel1)
-        attrs2        (:attrs rel2)
-        common-attrs  (vec (intersect-keys (:attrs rel1) (:attrs rel2)))
-        common-gtrs1  (map #(getter-fn attrs1 %) common-attrs)
-        common-gtrs2  (map #(getter-fn attrs2 %) common-attrs)
-        keep-attrs1   (keys attrs1)
-        keep-attrs2   (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
-        keep-idxs1    (to-array (map attrs1 keep-attrs1))
-        keep-idxs2    (to-array (map attrs2 keep-attrs2))
-        key-fn1       (tuple-key-fn common-gtrs1)
-        hash          (hash-attrs key-fn1 tuples1)
-        key-fn2       (tuple-key-fn common-gtrs2)
-        new-tuples    (->>
-                        (reduce (fn [acc tuple2]
-                                  (let [key (key-fn2 tuple2)]
-                                    (if-some [tuples1 (get hash key)]
-                                      (reduce (fn [acc tuple1]
-                                                (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
-                                              acc tuples1)
-                                      acc)))
-                          (transient []) tuples2)
-                        (persistent!))]
-    (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
-               new-tuples)))
+  (let [tuples1      (:tuples rel1)
+        tuples2      (:tuples rel2)
+        attrs1       (:attrs rel1)
+        attrs2       (:attrs rel2)
+        common-attrs (vec (intersect-keys (:attrs rel1) (:attrs rel2)))
+        common-gtrs1 (map #(getter-fn attrs1 %) common-attrs)
+        common-gtrs2 (map #(getter-fn attrs2 %) common-attrs)
+        keep-attrs1  (keys attrs1)
+        keep-attrs2  (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
+        keep-idxs1   (to-array (map attrs1 keep-attrs1))
+        keep-idxs2   (to-array (map attrs2 keep-attrs2))
+        key-fn1      (tuple-key-fn common-gtrs1)
+        key-fn2      (tuple-key-fn common-gtrs2)]
+    (if (< (count tuples1) (count tuples2))
+      (let [hash       (hash-attrs key-fn1 tuples1)
+            new-tuples (->>
+                         (reduce (fn [acc tuple2]
+                                   (let [key (key-fn2 tuple2)]
+                                     (if-some [tuples1 (get hash key)]
+                                       (reduce (fn [acc tuple1]
+                                                 (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
+                                               acc tuples1)
+                                       acc)))
+                                 (transient []) tuples2)
+                         (persistent!))]
+        (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
+                   new-tuples))
+      (let [hash       (hash-attrs key-fn2 tuples2)
+            new-tuples (->>
+                          (reduce (fn [acc tuple1]
+                                    (let [key (key-fn1 tuple1)]
+                                      (if-some [tuples2 (get hash key)]
+                                        (reduce (fn [acc tuple2]
+                                                  (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
+                                                acc tuples2)
+                                        acc)))
+                                  (transient []) tuples1)
+                          (persistent!))]
+        (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
+                   new-tuples)))))
 
 (defn subtract-rel [a b]
   (let [{attrs-a :attrs, tuples-a :tuples} a
@@ -505,7 +519,7 @@
         tuples-args (da/make-array len)]
     (dotimes [i len]
       (let [arg (nth args i)]
-        (if (symbol? arg) 
+        (if (symbol? arg)
           (if-some [source (get sources arg)]
             (da/aset static-args i source)
             (da/aset tuples-args i (get attrs arg)))
@@ -768,31 +782,31 @@
      (do
        (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
        (filter-by-pred context clause))
-     
+
      [[symbol? '*] '_] ;; function [(fn ?a ?b) ?res]
      (do
        (check-bound (bound-vars context) (filter free-var? (nfirst clause)) clause)
        (bind-by-fn context clause))
-     
+
      [source? '*] ;; source + anything
      (let [[source-sym & rest] clause]
        (binding [*implicit-source* (get (:sources context) source-sym)]
          (-resolve-clause context rest clause)))
-     
+
      '[or *] ;; (or ...)
      (let [[_ & branches] clause
            _        (check-free-same (bound-vars context) branches clause)
            contexts (map #(resolve-clause context %) branches)
            rels     (map #(reduce hash-join (:rels %)) contexts)]
        (assoc (first contexts) :rels [(reduce sum-rel rels)]))
-     
+
      '[or-join [[*] *] *] ;; (or-join [[req-vars] vars] ...)
      (let [[_ [req-vars & vars] & branches] clause
            bound (bound-vars context)]
        (check-bound bound req-vars orig-clause)
        (check-free-subset bound vars branches)
        (recur context (list* 'or-join (concat req-vars vars) branches) clause))
-     
+
      '[or-join [*] *] ;; (or-join [vars] ...)
      (let [[_ vars & branches] clause
            vars         (set vars)
@@ -802,11 +816,11 @@
            rels         (map #(reduce hash-join (:rels %)) contexts)
            sum-rel      (reduce sum-rel rels)]
        (update context :rels collapse-rels sum-rel))
-     
+
      '[and *] ;; (and ...)
      (let [[_ & clauses] clause]
        (reduce resolve-clause context clauses))
-     
+
      '[not *] ;; (not ...)
      (let [[_ & clauses] clause
            bound            (bound-vars context)
@@ -821,7 +835,7 @@
                               (single (:rels context'))
                               (reduce hash-join (:rels negation-context)))]
        (assoc context' :rels [negation]))
-     
+
      '[not-join [*] *] ;; (not-join [vars] ...)
      (let [[_ vars & clauses] clause
            bound            (bound-vars context)
@@ -834,7 +848,7 @@
                               (single (:rels context'))
                               (reduce hash-join (:rels negation-context)))]
        (assoc context' :rels [negation]))
-     
+
      '[*] ;; pattern
      (let [source   *implicit-source*
            pattern  (resolve-pattern-lookup-refs source clause)
