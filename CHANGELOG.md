@@ -1,3 +1,7 @@
+# WIP
+
+- Lookup ref should not throw in pull #315 #397 thx @timothypratley
+
 # 1.2.2
 
 - Bump persistent-sorted-set to 0.1.3 in deps.edn too #396 thx @fversnel

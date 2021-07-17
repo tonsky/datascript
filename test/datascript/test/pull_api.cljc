@@ -7,7 +7,8 @@
     [datascript.test.core :as tdc]))
 
 (def ^:private test-schema
-  {:aka    { :db/cardinality :db.cardinality/many }
+  {:name   { :db/unique :db.unique/identity }
+   :aka    { :db/cardinality :db.cardinality/many }
    :child  { :db/cardinality :db.cardinality/many
              :db/valueType :db.type/ref }
    :friend { :db/cardinality :db.cardinality/many
@@ -209,7 +210,7 @@
            (d/pull test-db '[:name {:father [:name]}] 1))))
 
   (testing "Non matching results are removed from collections"
-    (is (= {:name "Petr" :child []}
+    (is (= {:name "Petr"}
            (d/pull test-db '[:name {:child [:foo]}] 1))))
 
   (testing "Map specs can override component expansion"
@@ -323,5 +324,18 @@
                     (into [] cat))]
     (is (= (str "Person-" (dec depth))
            (:name (get-in pulled path))))))
+
+(deftest test-lookup-ref-pull
+  (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
+         (d/pull test-db '[:name :aka] [:name "Petr"])))
+  (is (= nil
+         (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
+  (is (= [nil {:aka ["Devil" "Tupen"]} nil nil]
+         (d/pull-many test-db
+                      '[:aka]
+                      [[:name "Elizabeth"]
+                       [:name "Petr"]
+                       [:name "Eunan"]
+                       [:name "Rebecca"]]))))
 
 #_(t/test-ns 'datascript.test.pull-api)
