@@ -1,7 +1,8 @@
-(ns compatibility.pull-api
+(ns test-datomic.pull-api
   "Mirrors datascript.test.pull-api with Datomic to check they behave the same"
-  (:require [clojure.test :refer :all]
-            [datomic.api :as datomic]))
+  (:require
+   [clojure.test :refer :all]
+   [datomic.api :as datomic]))
 
 (def ^:private test-schema
   {:person/name   {:db/unique :db.unique/identity}
@@ -79,7 +80,7 @@
   (is (= {:person/name "Petr"}
          (datomic/pull test-datomic-db '[:person/name {:person/child [:not-an/attr]}] [:person/name "Petr"]))))
 
-(deftest test-pull-map
+(deftest test-pull-map-2
   (testing "Map specs can override component expansion"
     (let [parts {:thing/name "Part A"
                  :thing/part [{:thing/name "Part A.A"}
@@ -109,3 +110,8 @@
                              [:person/name "Petr"]
                              [:person/name "Eunan"]
                              [:person/name "Rebecca"]]))))
+
+(defn -main [& args]
+  (let [{:keys [test pass fail error] :as res} (run-tests 'test-datomic.pull-api)]
+    (when (or (> (+ fail error) 0) (= test 0))
+      (System/exit 1))))

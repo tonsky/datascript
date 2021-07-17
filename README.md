@@ -284,6 +284,10 @@ Running the tests
 
     clj -M:test -m kaocha.runner
 
+Watching tests:
+
+    ./script/watch.sh
+
 ### Benchmarking and Datomic compatibility
 
 `datomic-free` is a dependency not available on Clojars or Maven Central.
@@ -294,7 +298,7 @@ Running the tests
 
 Run compatibility checks:
 
-    clj -M:test:datomic -m kaocha.runner
+    clj -M:datomic
 
 Benchmark:
 
