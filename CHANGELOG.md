@@ -1,4 +1,4 @@
-# WIP
+# 1.2.3
 
 - Lookup ref should not throw in pull #315 #397 thx @timothypratley
 
