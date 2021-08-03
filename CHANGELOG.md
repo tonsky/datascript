@@ -1,3 +1,7 @@
+# WIP
+
+- Allow specifying tuples in inserts/upserts when their value fully matches all the attrs in DB #400
+
 # 1.2.3
 
 - Lookup ref should not throw in pull #315 #397 thx @timothypratley

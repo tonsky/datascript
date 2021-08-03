@@ -113,5 +113,6 @@
 
 (defn -main [& args]
   (let [{:keys [test pass fail error] :as res} (run-tests 'test-datomic.pull-api)]
+    (shutdown-agents)
     (when (or (> (+ fail error) 0) (= test 0))
       (System/exit 1))))

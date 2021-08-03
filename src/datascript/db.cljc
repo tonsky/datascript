@@ -1200,8 +1200,14 @@
     :else vs))
 
 (defn- explode [db entity]
-  (let [eid (:db/id entity)]
-    (for [[a vs] entity
+  (let [eid  (:db/id entity)
+        ;; sort tuple attrs after non-tuple
+        a+vs (apply concat
+               (reduce
+                 (fn [acc [a vs]]
+                   (update acc (if (tuple? db a) 1 0) conj [a vs]))
+                 [[] []] entity))]
+    (for [[a vs] a+vs
           :when  (not= a :db/id)
           :let   [_          (validate-attr a {:db/id eid, a vs})
                   reverse?   (reverse-ref? a)
@@ -1461,8 +1467,19 @@
 
             (and (not (::internal (meta entity)))
               (tuple? db a))
-            (raise "Can’t modify tuple attrs directly: " entity
-              {:error :transact/syntax, :tx-data entity})
+            ;; allow transacting in tuples if they fully match already existing values
+            (let [tuple-attrs (get-in db [:schema a :db/tupleAttrs])]
+              (if (and
+                    (= (count tuple-attrs) (count v))
+                    (every? some? v)
+                    (every? 
+                      (fn [[tuple-attr tuple-value]]
+                        (let [db-value (:v (first (-datoms db :eavt [e tuple-attr])))]
+                          (= tuple-value db-value)))
+                      (map vector tuple-attrs v)))
+                (recur report entities)
+                (raise "Can’t modify tuple attrs directly: " entity
+                  {:error :transact/syntax, :tx-data entity})))
 
             (= op :db/add)
             (recur (transact-add report entity) entities)

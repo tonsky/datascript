@@ -51,11 +51,11 @@
     :datomic {
       :extra-paths ["test_datomic"]
       :extra-deps {
-        ;; datomic-free is not available on Clojars or Maven Central
-        ;; 1. download it from https://my.datomic.com/downloads/free
-        ;; 2. unzip it
+        ;; datomic-pro is not available on Clojars or Maven Central
+        ;; 1. download it from https://my.datomic.com/downloads/pro
+        ;; 2. unzip
         ;; 3. run bin/maven-install
-        com.datomic/datomic-free {:mvn/version "0.9.5703.21"}
+        com.datomic/datomic-pro {:mvn/version "1.0.6269"}
       }
       :main-opts ["-m" "test-datomic.pull-api"]
     }
