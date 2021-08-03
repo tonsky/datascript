@@ -1,4 +1,4 @@
-# WIP
+# 1.2.4
 
 - Allow specifying tuples in inserts/upserts when their value fully matches all the attrs in DB #400
 - Bump persistent-sorted-set to 0.1.4
