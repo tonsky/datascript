@@ -66,6 +66,8 @@
    [3 :attach  { :another :map }]
    [3 :avatar  30]
    [4 :name    "Nick" d/tx0]
+   [5 :inf     ##Inf]
+   [5 :-inf    ##-Inf]
    ;; check that facts about transactions doesn’t set off max-eid
    [d/tx0      :txInstant 0xdeadbeef]
    [30 :url    "https://" ]])
@@ -152,3 +154,25 @@
        (is (= db (-> db d/serializable cheshire/generate-string cheshire/parse-string d/from-serializable))))
     #?(:cljs
        (is (= db (-> db d/serializable js/JSON.stringify js/JSON.parse d/from-serializable))))))
+
+
+(deftest test-nan
+  (let [db (d/db-with
+             (d/empty-db schema)
+             [[:db/add 1 :nan ##NaN]])
+        valid? #(#?(:clj Double/isNaN :cljs js/isNaN) (:nan (d/entity % 1)))]
+    (is (valid? (-> db d/serializable d/from-serializable)))
+    (is (valid? (-> db d/serializable pr-str edn/read-string d/from-serializable)))
+    (is (valid? (-> db (d/serializable {:freeze-fn transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn transit-read-str}))))
+    (doseq [type [:json :json-verbose #?(:clj :msgpack)]]
+      (testing type
+        (is (valid? (-> db d/serializable (transit-write type) (transit-read type) d/from-serializable)))))
+    #?(:clj
+       (is (valid? (-> db d/serializable jsonista/write-value-as-string jsonista/read-value d/from-serializable))))
+    #?(:clj
+       (let [mapper (com.fasterxml.jackson.databind.ObjectMapper.)]
+         (is (valid? (-> db d/serializable (jsonista/write-value-as-string mapper) (jsonista/read-value mapper) d/from-serializable)))))
+    #?(:clj
+       (is (valid? (-> db d/serializable cheshire/generate-string cheshire/parse-string d/from-serializable))))
+    #?(:cljs
+       (is (valid? (-> db d/serializable js/JSON.stringify js/JSON.parse d/from-serializable))))))

@@ -13,6 +13,9 @@
 
 (def ^:const ^:private marker-kw 0)
 (def ^:const ^:private marker-other 1)
+(def ^:const ^:private marker-inf 2)
+(def ^:const ^:private marker-minus-inf 3)
+(def ^:const ^:private marker-nan 4)
 
 (defn- if-cljs [env then else]
   (if (:ns env) then else))
@@ -129,7 +132,14 @@
                       (cond
                         (string? v)  v
                         #?@(:clj [(ratio? v) (write-other v)])
-                        (number? v)  v
+                        
+                        (number? v)  
+                        (cond
+                          (== ##Inf v)  (array marker-inf)
+                          (== ##-Inf v) (array marker-minus-inf)
+                          #?(:clj (Double/isNaN v) :cljs (js/isNaN v)) (array marker-nan)
+                          :else v)
+
                         (boolean? v) v
                         (keyword? v) (write-kw v)
                         true         (write-other v)))
@@ -192,6 +202,9 @@
                                                     (condp == marker
                                                       marker-kw    (nth keywords (array-get v 1))
                                                       marker-other (thaw-fn (array-get v 1))
+                                                      marker-inf   ##Inf
+                                                      marker-minus-inf ##-Inf
+                                                      marker-nan   ##NaN
                                                       (raise "Unexpected value marker " marker " in " (pr-str v)
                                                         {:error :serialize :value v})))
                                        true (raise "Unexpected value type " (type v) " (" (pr-str v) ")"

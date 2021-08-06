@@ -1,3 +1,7 @@
+# WIP
+
+- Special case Inf/-Inf and NaN in serializer since JSON can’t hold them #402
+
 # 1.2.4
 
 - Allow specifying tuples in inserts/upserts when their value fully matches all the attrs in DB #400
