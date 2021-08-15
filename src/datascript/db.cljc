@@ -1376,8 +1376,11 @@
                      (contains? tempids old-eid)
                      (not= upserted-eid (get tempids old-eid)))
               (retry-with-tempid initial-report report initial-es old-eid upserted-eid)
-              (recur (allocate-eid report old-eid upserted-eid)
-                     (concat (explode db (assoc entity' :db/id upserted-eid)) entities)))
+              (recur
+                (-> report
+                  (allocate-eid old-eid upserted-eid)
+                  (update ::tx-redundant conjv (datom upserted-eid nil nil tx0)))
+                (concat (explode db (assoc entity' :db/id upserted-eid)) entities)))
            
             ;; resolved | allocated-tempid | tempid | nil => explode
             (or (number? old-eid)

@@ -190,6 +190,27 @@
     (is (= {:db/id 2, :name "Bob", :likes "Pizza", :age 42}
            (tdc/entity-map db 2)))))
 
+;; https://github.com/tonsky/datascript/issues/403
+(deftest test-upsert-string-tempid-ref
+  (let [db   (-> (d/empty-db {:name {:db/unique :db.unique/identity}
+                              :ref {:db/valueType :db.type/ref}})
+                (d/db-with [{:name "Alice"}]))
+        expected #{[1 :name "Alice"]
+                   [2 :age 36]
+                   [2 :ref 1]}]
+    (is (= expected (tdc/all-datoms
+                      (d/db-with db [{:db/id "user", :name "Alice"}
+                                     {:age 36, :ref "user"}]))))
+    (is (= expected (tdc/all-datoms
+                      (d/db-with db [[:db/add "user" :name "Alice"]
+                                     {:age 36, :ref "user"}]))))
+    (is (= expected (tdc/all-datoms
+                      (d/db-with db [{:db/id -1, :name "Alice"}
+                                     {:age 36, :ref -1}]))))
+    (is (= expected (tdc/all-datoms
+                      (d/db-with db [[:db/add -1, :name "Alice"]
+                                     {:age 36, :ref -1}]))))))
+
 (deftest test-vector-upsert
   (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
                (d/db-with [{:db/id -1, :name "Ivan"}]))]

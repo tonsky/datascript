@@ -1,3 +1,7 @@
+# 1.2.6
+
+- Tempid resolution fails in some cases #403 
+
 # 1.2.5
 
 - Special case Inf/-Inf and NaN in serializer since JSON can’t hold them #402
