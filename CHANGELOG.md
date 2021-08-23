@@ -1,3 +1,7 @@
+# 1.2.7
+
+- Data retracted incorrectly in CLJS #404 
+
 # 1.2.6
 
 - Tempid resolution fails in some cases #403 
