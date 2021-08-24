@@ -441,6 +441,11 @@
             (vec (d/datoms db' :avet :index {:map 3} 1 )))))
 ))
 
+(deftest test-compare-numbers-js-404
+  (let [db  (d/db-with (d/empty-db) [{:num 42.5}])
+        db' (d/db-with db [[:db/retract 1 :num 42]])]
+    (is (= #{[1 :num 42.5]} (tdc/all-datoms db')))))
+
 (deftest test-transitive-type-compare-386
   (let [txs    [[{:block/uid "2LB4tlJGy"}]
                 [{:block/uid "2ON453J0Z"}]

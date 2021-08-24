@@ -352,7 +352,7 @@
       #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
           :cljs [(satisfies? IComparable x) (-compare x y)])
       (not (class-identical? x y)) (class-compare x y)
-      #?@(:cljs [(or (string? x) (array? x) (true? x) (false? x)) (garray/defaultCompare x y)])
+      #?@(:cljs [(or (number? x) (string? x) (array? x) (true? x) (false? x)) (garray/defaultCompare x y)])
       :else (- (hash x) (hash y)))
     (catch #?(:clj ClassCastException :cljs js/Error) e
       (if (not (class-identical? x y))

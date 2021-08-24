@@ -1,4 +1,4 @@
-# 1.2.7
+# 1.2.8
 
 - Data retracted incorrectly in CLJS #404 
 
