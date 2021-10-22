@@ -66,7 +66,7 @@
              - Entities retain reference to the whole database.
              - You can’t change database through entities, only read.
              - Creating an entity by id is very cheap, almost no-op (attributes are looked up on demand).
-             - Comparing entities just compares their ids. Be careful when comparing entities taken from differenct dbs or from different versions of the same db.
+             - Comparing entities just compares their ids. Be careful when comparing entities taken from different dbs or from different versions of the same db.
              - Accessed entity attributes are cached on entity itself (except backward references).
              - When printing, only cached attributes (the ones you have accessed before) are printed. See [[touch]]."}
   entity de/entity)

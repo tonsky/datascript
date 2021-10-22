@@ -95,11 +95,11 @@
         (is (= (tempids tx)
                {}))))
 
-    (testing "upsert conficts with existing id"
+    (testing "upsert conflicts with existing id"
       (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id 2"
         (d/with db [{:db/id 2 :name "Ivan" :age 36}]))))
 
-    (testing "upsert conficts with non-existing id"
+    (testing "upsert conflicts with non-existing id"
       (is (thrown-with-msg? Throwable #"Conflicting upsert: \[:name \"Ivan\"\] resolves to 1, but entity already has :db/id 3"
         (d/with db [{:db/id 3 :name "Ivan" :age 36}]))))
     
