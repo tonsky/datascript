@@ -10,7 +10,8 @@
   (let [db (d/empty-db
              {:year+session {:db/tupleAttrs [:year :session]}
               :semester+course+student {:db/tupleAttrs [:semester :course :student]}
-              :session+student {:db/tupleAttrs [:session :student]}})]
+              :session+student {:db/tupleAttrs [:session :student]
+                                :db/valueType :db.type/tuple}})]
     (is (= #{:year+session :semester+course+student :session+student}
           (:db.type/tuple (:rschema db))))
 
@@ -37,7 +38,9 @@
 
     (is (thrown-msg? ":t1 :db/tupleAttrs can’t depend on :db.cardinality/many attribute: :a"
           (d/empty-db {:a  {:db/cardinality :db.cardinality/many}
-                       :t1 {:db/tupleAttrs [:a :b :c]}})))))
+                       :t1 {:db/tupleAttrs [:a :b :c]}}))))
+  (is (thrown-msg? "Bad attribute specification for :foo+bar: {:db/valueType :db.type/tuple} should also have :db/tupleAttrs"
+        (d/empty-db {:foo+bar {:db/valueType :db.type/tuple}}))))
 
 (deftest test-tx
   (let [conn (d/create-conn {:a+b   {:db/tupleAttrs [:a :b]}

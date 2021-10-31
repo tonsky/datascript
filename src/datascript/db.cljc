@@ -728,8 +728,16 @@
            :key       :db/isComponent})))
 
     (validate-schema-key a :db/unique (:db/unique kv) #{:db.unique/value :db.unique/identity})
-    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref})
+    (validate-schema-key a :db/valueType (:db/valueType kv) #{:db.type/ref :db.type/tuple})
     (validate-schema-key a :db/cardinality (:db/cardinality kv) #{:db.cardinality/one :db.cardinality/many})
+
+    ;; tuple should have tupleAttrs
+    (when (and (= :db.type/tuple (:db/valueType kv))
+               (not (contains? kv :db/tupleAttrs)))
+      (raise "Bad attribute specification for " a ": {:db/valueType :db.type/tuple} should also have :db/tupleAttrs"
+             {:error :schema/validation
+              :attribute a
+              :key :db/valueType}))
 
     ;; :db/tupleAttrs is a non-empty sequential coll
     (when (contains? kv :db/tupleAttrs)
