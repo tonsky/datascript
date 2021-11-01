@@ -1,3 +1,7 @@
+# 1.2.9
+
+-  Allow :db/valueType :db.type/tuple #407 #408 thx @joodie
+
 # 1.2.8
 
 - Data retracted incorrectly in CLJS #404 
