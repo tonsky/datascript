@@ -336,6 +336,7 @@
                       [[:name "Elizabeth"]
                        [:name "Petr"]
                        [:name "Eunan"]
-                       [:name "Rebecca"]]))))
+                       [:name "Rebecca"]])))
+  (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
 
 #_(t/test-ns 'datascript.test.pull-api)
