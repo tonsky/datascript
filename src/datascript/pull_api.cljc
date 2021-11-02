@@ -267,7 +267,8 @@
 
 (defn pull-spec
   [db pattern eid multi?]
-  (pull-pattern db (list (initial-frame pattern [(db/entid db eid)] multi?))))
+  (when-let [id (db/entid db eid)]
+    (pull-pattern db (list (initial-frame pattern [id] multi?)))))
 
 (defn pull [db selector eid]
   {:pre [(db/db? db)]}
