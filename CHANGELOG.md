@@ -1,3 +1,7 @@
+# 1.2.10
+
+- Fix broken wildcard pull on non-matching ref #410 thx @joodie 
+
 # 1.2.9
 
 -  Allow :db/valueType :db.type/tuple #407 #408 thx @joodie
