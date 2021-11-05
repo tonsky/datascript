@@ -2,7 +2,9 @@
   (:require
    [clojure.string :as str]
    [datascript.core :as d]
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]]
    [datascript-bench.core :as core]
+   [datascript.pull-api-v2 :as pull-api-v2]
    [datascript.query-v3 :as q3]
    #?(:clj [jsonista.core :as json])))
 
@@ -18,31 +20,56 @@
 
 
 (defn- wide-db
+  "depth = 3 width = 2
+
+   1
+   ├ 2
+   │ ├ 4
+   │ │ ├ 8
+   │ │ └ 9
+   │ └ 5
+   │   ├ 10
+   │   └ 11
+   └ 3
+     ├ 6
+     │ ├ 12
+     │ └ 13
+     └ 7
+       ├ 14
+       └ 15"
   ([depth width] (d/db-with (d/empty-db schema) (wide-db 1 depth width)))
   ([id depth width]
     (if (pos? depth)
       (let [children (map #(+ (* id width) %) (range width))]
         (concat
-          (map #(array-map
-                  :db/add  id
-                  :name    "Ivan"
-                  :follows %) children)
+          (for [child children]
+            (assoc (core/random-man)
+              :db/id   id
+              :follows child))
           (mapcat #(wide-db % (dec depth) width) children)))
       [{:db/id id :name "Ivan"}])))
 
 
-(defn- long-db [depth width]
+(defn- long-db
+  "depth = 3 width = 5
+
+   1  4  7  10  13
+   ↓  ↓  ↓  ↓   ↓
+   2  5  8  11  14
+   ↓  ↓  ↓  ↓   ↓
+   3  6  9  12  15"
+  [depth width]
   (d/db-with (d/empty-db schema)
     (apply concat
       (for [x (range width)
             y (range depth)
             :let [from (+ (* x (inc depth)) y)
                   to   (+ (* x (inc depth)) y 1)]]
-        [{:db/id     from
-            :name    "Ivan"
-            :follows to}
-           {:db/id   to
-            :name    "Ivan"}]))))
+        [{:db/id   from
+          :name    "Ivan"
+          :follows to}
+         {:db/id   to
+          :name    "Ivan"}]))))
 
 
 (def db100k
@@ -141,6 +168,26 @@
                   [(> ?s ?min_s)]]
       db100k 50000)))
 
+(def pull-db (wide-db 4 4))
+
+(defn ^:export pull []
+  (core/bench
+    (d/pull pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
+
+
+(defn ^:export pull-entities []
+  (let [f (fn f [entity]
+            (assoc
+              (select-keys entity [:db/id :last-name :alias :sex :age :salary])
+              :follows (mapv f (:follows entity))))]
+    (core/bench
+      (f (d/entity pull-db 1)))))
+
+
+(defn ^:export pull-v2 []
+  (core/bench
+    (pull-api-v2/pull pull-db [:db/id :last-name :alias :sex :age :salary :follows] 1)))
+
 
 (defn ^:export bench-rules []
   (doseq [[id db] [["wide 3×3" (wide-db 3 3)]
@@ -160,7 +207,6 @@
              [(follows ?x ?y)
               [?x :follows ?t]
               (follows ?t ?y)]]))))
-
 
 (defn people-db [datoms]
   (d/db-with (d/empty-db schema)

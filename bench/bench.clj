@@ -1,6 +1,6 @@
 #!/usr/bin/env clojure -M
 
-"USAGE: ./bench [rebuild]? [<version>|<version-vm> ...]? [<bench-name> ...]?"
+"USAGE: ./bench.clj [rebuild]? [<version>|<version-vm> ...]? [<bench-name> ...]?"
 
 (require
   '[clojure.edn :as edn]
@@ -118,6 +118,9 @@
    "q4"
    "qpred1"
    "qpred2"
+   "pull"
+   "pull-entities"
+   "pull-v2"
    "freeze"
    "thaw"])
 
