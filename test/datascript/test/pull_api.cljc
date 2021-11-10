@@ -339,4 +339,9 @@
                        [:name "Rebecca"]])))
   (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
 
-#_(t/test-ns 'datascript.test.pull-api)
+
+(comment
+  (do
+    (set! *warn-on-reflection* true)
+    (require 'datascript.test.pull-api :reload-all))
+  (t/test-ns 'datascript.test.pull-api))

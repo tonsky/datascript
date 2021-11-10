@@ -7,6 +7,9 @@
 
 (defrecord PullPattern [attrs reverse-attrs wildcard?])
 
+(def default-pattern-ref (map->PullPattern {:attrs (list (map->PullAttr {:name :db/id :as :db/id :xform identity}))}))
+(def default-pattern-component (assoc default-pattern-ref :wildcard? true))
+
 (declare parse-pattern parse-attr-spec)
 
 ; pattern             = [(attr-spec | map-spec | '* | "*")+]
@@ -26,14 +29,19 @@
              {:error :parser/pull, :fragment fragment}))))
 
 (defn parse-attr-name [db attr-spec]
-  (let [reverse? (db/reverse-ref? attr-spec)
-        name     (if reverse? (db/reverse-ref attr-spec) attr-spec)]
+  (let [reverse?   (db/reverse-ref? attr-spec)
+        name       (if reverse? (db/reverse-ref attr-spec) attr-spec)
+        ref?       (db/ref? db name)
+        component? (db/component? db name)]
     (map->PullAttr
       {:as       attr-spec
        :name     name
        :xform    identity
+       :pattern  (cond
+                   component? default-pattern-component
+                   ref?       default-pattern-ref)
        :reverse? (when reverse?
-                   (check (db/ref? db name) "reverse attribute having :db.type/ref" attr-spec)
+                   (check ref? "reverse attribute having :db.type/ref" attr-spec)
                    true)})))
 
 (defn- check-limit [db pull-attr limit]
@@ -113,7 +121,7 @@
       :else
       (assoc pull-attr :pattern (parse-pattern db pattern)))))
 
-(defn parse-pattern [db pattern]
+(defn parse-pattern ^PullPattern [db pattern]
   (check (sequential? pattern) "pattern to be sequential?" pattern)
   (loop [pattern pattern
          result  (map->PullPattern {:attrs [] :reverse-attrs [] :wildcard? false})]
