@@ -1,6 +1,7 @@
 (ns ^:no-doc datascript.query-v3
   (:require
     [clojure.set :as set]
+    [datascript.built-ins :as built-ins]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.query :as dq]
@@ -792,7 +793,7 @@
 (defn get-f [context fun form]
   (let [sym (:symbol fun)]
     (if (instance? PlainSymbol fun)
-      (or (get dq/built-ins sym)
+      (or (get built-ins/query-fns sym)
           (throw (ex-info (str "Unknown built-in " sym " in " form)
                           {:error :query/where, :form form, :var sym})))
       (or (get (:consts context) sym) ;; variable then

@@ -4,6 +4,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
+   [datascript.built-ins :as built-ins]
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+]]
    [me.tonsky.persistent-sorted-set.arrays :as da]
    [datascript.lru]
@@ -155,126 +156,6 @@
                       acc (:tuples rel2)))
             (transient []) (:tuples rel1)))
         ))))
-
-;; built-ins
-
-(defn- -differ? [& xs]
-  (let [l (count xs)]
-    (not= (take (/ l 2) xs) (drop (/ l 2) xs))))
-
-(defn- -get-else
-  [db e a else-val]
-  (when (nil? else-val)
-    (raise "get-else: nil default value is not supported" {:error :query/where}))
-  (if-some [datom (first (db/-search db [e a]))]
-    (:v datom)
-    else-val))
-
-(defn- -get-some
-  [db e & as]
-  (reduce
-   (fn [_ a]
-     (when-some [datom (first (db/-search db [e a]))]
-       (reduced [(:a datom) (:v datom)])))
-   nil
-   as))
-
-(defn- -missing?
-  [db e a]
-  (nil? (get (de/entity db e) a)))
-
-(defn- and-fn [& args]
-  (reduce (fn [a b]
-            (if b b (reduced b))) true args))
-            
-(defn- or-fn [& args]
-  (reduce (fn [a b]
-            (if b (reduced b) b)) nil args))
-
-(def built-ins {
-  '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -,
-  '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
-  'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'compare compare,
-  'rand rand, 'rand-int rand-int,
-  'true? true?, 'false? false?, 'nil? nil?, 'some? some?, 'not not, 'and and-fn, 'or or-fn,
-  'complement complement, 'identical? identical?,
-  'identity identity, 'keyword keyword, 'meta meta, 'name name, 'namespace namespace, 'type type,
-  'vector vector, 'list list, 'set set, 'hash-map hash-map, 'array-map array-map,
-  'count count, 'range range, 'not-empty not-empty, 'empty? empty?, 'contains? contains?,
-  'str str, 'pr-str pr-str, 'print-str print-str, 'println-str println-str, 'prn-str prn-str, 'subs subs,
-  're-find re-find, 're-matches re-matches, 're-seq re-seq, 're-pattern re-pattern,
-  '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity,
-  'clojure.string/blank? str/blank?, 'clojure.string/includes? str/includes?,
-  'clojure.string/starts-with? str/starts-with?, 'clojure.string/ends-with? str/ends-with?
-  'tuple vector, 'untuple identity
-})
-
-(def built-in-aggregates
- (letfn [(sum [coll] (reduce + 0 coll))
-         (avg [coll] (/ (sum coll) (count coll)))
-         (median
-           [coll]
-           (let [terms (sort coll)
-                 size (count coll)
-                 med (bit-shift-right size 1)]
-             (cond-> (nth terms med)
-               (even? size)
-               (-> (+ (nth terms (dec med)))
-                   (/ 2)))))
-         (variance
-           [coll]
-           (let [mean (avg coll)
-                 sum  (sum (for [x coll
-                                 :let [delta (- x mean)]]
-                             (* delta delta)))]
-             (/ sum (count coll))))
-         (stddev 
-           [coll] 
-           (#?(:cljs js/Math.sqrt :clj Math/sqrt) (variance coll)))]
-   {'avg      avg
-    'median   median
-    'variance variance
-    'stddev   stddev
-    'distinct set
-    'min      (fn
-                ([coll] (reduce (fn [acc x]
-                                  (if (neg? (compare x acc))
-                                    x acc))
-                                (first coll) (next coll)))
-                ([n coll]
-                  (vec
-                    (reduce (fn [acc x]
-                              (cond
-                                (< (count acc) n)
-                                  (sort compare (conj acc x))
-                                (neg? (compare x (last acc)))
-                                  (sort compare (conj (butlast acc) x))
-                                :else acc))
-                            [] coll))))
-    'max      (fn
-                ([coll] (reduce (fn [acc x]
-                                  (if (pos? (compare x acc))
-                                    x acc))
-                                (first coll) (next coll)))
-                ([n coll]
-                  (vec
-                    (reduce (fn [acc x]
-                              (cond
-                                (< (count acc) n)
-                                  (sort compare (conj acc x))
-                                (pos? (compare x (first acc)))
-                                  (sort compare (conj (next acc) x))
-                                :else acc))
-                            [] coll))))
-    'sum      sum
-    'rand     (fn
-                ([coll] (rand-nth coll))
-                ([n coll] (vec (repeatedly n #(rand-nth coll)))))
-    'sample   (fn [n coll]
-                (vec (take n (shuffle coll))))
-    'count    count
-    'count-distinct (fn [coll] (count (distinct coll)))}))
-
 
 ;;
 
@@ -537,7 +418,7 @@
 
 (defn filter-by-pred [context clause]
   (let [[[f & args]] clause
-        pred         (or (get built-ins f)
+        pred         (or (get built-ins/query-fns f)
                          (context-resolve-val context f)
                          (resolve-sym f)
                          (when (nil? (rel-with-attr context f))
@@ -553,7 +434,7 @@
 (defn bind-by-fn [context clause]
   (let [[[f & args] out] clause
         binding  (dp/parse-binding out)
-        fun      (or (get built-ins f)
+        fun      (or (get built-ins/query-fns f)
                      (context-resolve-val context f)
                      (resolve-sym f)
                      (when (nil? (rel-with-attr context f))
@@ -906,7 +787,7 @@
     (get-in context [:sources (.-symbol var)]))
   PlainSymbol
   (-context-resolve [var _]
-    (or (get built-in-aggregates (.-symbol var))
+    (or (get built-ins/aggregates (.-symbol var))
         (resolve-sym (.-symbol var))))
   Constant
   (-context-resolve [var _]

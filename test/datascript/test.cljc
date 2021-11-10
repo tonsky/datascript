@@ -24,6 +24,7 @@
     datascript.test.parser-where
     datascript.test.pull-api
     datascript.test.pull-parser
+    datascript.test.pull-parser-v2
     datascript.test.query
     datascript.test.query-aggregates
     datascript.test.query-find-specs
