@@ -4,16 +4,47 @@
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]])
   #?(:clj
      (:import
+      [clojure.lang ISeq]
       [datascript.db Datom DB]
       [datascript.pull_parser_v2 PullAttr PullPattern])))
 
 (declare pull-impl)
 
-(defn- pull-attrs [result #?(:clj ^DB db :cljs db) attrs wildcard? id]
+(defn- child-pattern [db pull-pattern ^PullAttr pull-attr]
+  (or
+    (.-pattern pull-attr)
+    (cond
+      (.-recursive? pull-attr)
+      pull-pattern
+
+      (.-reverse? pull-attr)
+      dpp/default-pattern-ref
+
+      (db/component? db (.-name pull-attr))
+      dpp/default-pattern-component
+
+      :else 
+      dpp/default-pattern-ref)))
+
+(defn- pull-reverse-attrs [result ^DB db ^PullPattern pull-pattern id]
+  (let [component? (:db/isComponent (.-rschema db))]
+    (reduce
+      (fn [result #?(:clj ^PullAttr attr :cljs attr)]
+        (let [name          (.-name attr)
+              datoms        (db/-datoms db :avet [name id])
+              child-pattern (child-pattern db pull-pattern attr)
+              pulled        (if (component? name)
+                              (pull-impl db child-pattern (.-e ^Datom (first datoms)))
+                              (into [] (map #(pull-impl db child-pattern (.-e ^Datom %))) datoms))]
+          (assoc! result (.-as attr) pulled)))
+      result
+      (.-reverse-attrs pull-pattern))))
+
+(defn- pull-attrs [result ^DB db ^PullPattern pull-pattern id]
   (let [many? (:db.cardinality/many (.-rschema db))
         ref?  (:db.type/ref (.-rschema db))]
-    (loop [#?(:clj ^clojure.lang.ISeq attrs :cljs attrs) attrs
-           #?(:clj ^clojure.lang.ISeq datoms :cljs datoms) (db/-datoms db :eavt [id])
+    (loop [#?(:clj ^ISeq attrs :cljs ^seq attrs) (.-attrs pull-pattern)
+           #?(:clj ^ISeq datoms :cljs ^seq datoms) (db/-datoms db :eavt [id])
            result      result
            many-attr   nil
            many-values nil]
@@ -21,8 +52,7 @@
         (nil? attrs)
         result
         
-        :let #?(:clj  [attr ^PullAttr (.first attrs)]
-                :cljs [attr (-first attrs)])
+        :let [attr ^PullAttr #?(:clj (.first attrs) :cljs (-first attrs))]
         
         (= (.-name attr) :db/id)
         (recur (#?(:clj .next :cljs -next) attrs) datoms (assoc! result (.-as attr) id) nil nil)
@@ -42,21 +72,24 @@
         :let [many? (many? (.-name attr))
               ref?  (ref? (.-name attr))]
 
-        (and many? ref?)
-        (recur attrs (#?(:clj .next :cljs -next) datoms) result (.-as attr) (conj! (or many-values (transient [])) (pull-impl db (.-pattern attr) (.-v datom))))
-        
-        many?
+        (and (not many?) (not ref?))
+        (recur attrs (#?(:clj .next :cljs -next) datoms) (assoc! result (.-as attr) (.-v datom)) nil nil)
+
+        (and many? (not ref?))
         (recur attrs (#?(:clj .next :cljs -next) datoms) result (.-as attr) (conj! (or many-values (transient [])) (.-v datom)))
         
-        ref?
-        (recur attrs (#?(:clj .next :cljs -next) datoms) (assoc! result (.-as attr) (pull-impl db (.-pattern attr) (.-v datom))) nil nil)
+        :let [child-pattern (child-pattern db pull-pattern attr)]
+
+        many?
+        (recur attrs (#?(:clj .next :cljs -next) datoms) result (.-as attr) (conj! (or many-values (transient [])) (pull-impl db child-pattern (.-v datom))))
         
         :else
-        (recur attrs (#?(:clj .next :cljs -next) datoms) (assoc! result (.-as attr) (.-v datom)) nil nil)))))
+        (recur attrs (#?(:clj .next :cljs -next) datoms) (assoc! result (.-as attr) (pull-impl db child-pattern (.-v datom))) nil nil)))))
 
-(defn- pull-impl [db ^PullPattern pull-pattern id]
+(defn- pull-impl [db pull-pattern id]
   (-> (transient {})
-    (pull-attrs db (.-attrs pull-pattern) (.-wildcard? pull-pattern) id)
+    (pull-attrs db pull-pattern id)
+    (pull-reverse-attrs db pull-pattern id)
     (persistent!)))
 
 (defn pull [db pattern id]

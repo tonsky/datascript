@@ -37,9 +37,6 @@
       {:as       attr-spec
        :name     name
        :xform    identity
-       :pattern  (cond
-                   component? default-pattern-component
-                   ref?       default-pattern-ref)
        :reverse? (when reverse?
                    (check ref? "reverse attribute having :db.type/ref" attr-spec)
                    true)})))
