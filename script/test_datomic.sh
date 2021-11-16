@@ -1,4 +1,4 @@
 #!/bin/zsh -euo pipefail
 cd "`dirname $0`/.."
 
-clj -M:datomic
+clj -A:datomic -M -m test-datomic.pull-api

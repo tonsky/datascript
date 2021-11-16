@@ -43,9 +43,6 @@
       :extra-deps {
         nrepl/nrepl {:mvn/version "0.8.3"}
       }
-      :main-opts [
-        "-m" "nrepl.cmdline" "--interactive"
-      ]
     }
 
     :datomic {
@@ -55,9 +52,8 @@
         ;; 1. download it from https://my.datomic.com/downloads/pro
         ;; 2. unzip
         ;; 3. run bin/maven-install
-        com.datomic/datomic-pro {:mvn/version "1.0.6269"}
+        com.datomic/datomic-pro {:mvn/version "1.0.6344"}
       }
-      :main-opts ["-m" "test-datomic.pull-api"]
     }
   }
 }

@@ -1,16 +1,14 @@
 (ns datascript.bench.bench
   (:require
-   [datascript.core :as d]
-   #?(:clj [criterium.core :as criterium])
    #?(:clj [clj-async-profiler.core :as clj-async-profiler]))
   #?(:cljs (:require-macros datascript.bench.bench)))
 
 ; Measure time
 
 (def ^:dynamic *warmup-ms* 2000)
-(def ^:dynamic *bench-ms*  500)
-(def ^:dynamic *samples*   9)
-(def ^:dynamic *batch*     100)
+(def ^:dynamic *bench-ms*  1000)
+(def ^:dynamic *samples*   5)
+(def ^:dynamic *batch*     10)
 (def ^:dynamic *profile*   false)
 
 #?(:cljs (defn ^number now [] (js/performance.now))
@@ -69,17 +67,16 @@
                            (dotime *bench-ms* ~@body))
                          (range *samples*))]
             {:mean-ms (median times#)})
-         `(let [_#      (when *profile* (clj-async-profiler/start {}))
-                report# (criterium/quick-benchmark*
-                          (fn [] ~@body)
-                          (assoc criterium/*default-quick-bench-opts*
-                            :samples *samples*
-                            :target-execution-time (* *bench-ms* 1000000.0 0.5)
-                            :warmup-jit-period (* *warmup-ms* 1000000.0)))
-                file#   ^java.io.File (when *profile* (clj-async-profiler/stop {:title ~title}))]
+         `(let [_#      (dotime *warmup-ms* ~@body)
+                _#      (when *profile* (clj-async-profiler/start {}))
+                times#  (mapv
+                          (fn [_#]
+                            (dotime *bench-ms* ~@body))
+                          (range *samples*))
+                file#   (when *profile* (clj-async-profiler/stop {:title ~title}))]
             (cond->
-              {:mean-ms (-> report# :mean first (* 1000.0))}
-              file# (assoc :file (.getAbsolutePath file#))))))))
+              {:mean-ms (median times#)}
+              file# (assoc :file (.getAbsolutePath ^java.io.File file#))))))))
 
 ;; test dbs
 
@@ -97,13 +94,6 @@
      :sex       (rand-nth [:male :female])
      :age       (rand-int 100)
      :salary    (rand-int 100000)}))
-
-(def schema
-  {:follows {:db/valueType   :db.type/ref
-             :db/cardinality :db.cardinality/many}
-   :alias   {:db/cardinality :db.cardinality/many}})
-
-(def empty-db (d/empty-db schema))
 
 (defn wide-db
   "depth = 3 width = 2
@@ -123,16 +113,16 @@
      └ 7
        ├ 14
        └ 15"
-  ([depth width] (d/db-with (d/empty-db schema) (wide-db 1 depth width)))
-  ([id depth width]
-    (if (pos? depth)
-      (let [children (map #(+ (* id width) %) (range width))]
-        (cons
-          (assoc (random-man)
-            :db/id id
-            :follows children)
-          (mapcat #(wide-db % (dec depth) width) children)))
-      [(assoc (random-man) :db/id id)])))
+  [id depth width]
+  (if (pos? depth)
+    (let [children (map #(+ (* id width) %) (range width))]
+      (cons
+        (assoc (random-man)
+          :db/id   (str id)
+          :id      id
+          :follows (map str children))
+        (mapcat #(wide-db % (dec depth) width) children)))
+    [(assoc (random-man) :db/id (str id))]))
 
 (defn long-db
   "depth = 3 width = 5
@@ -143,17 +133,16 @@
    ↓  ↓  ↓  ↓   ↓
    3  6  9  12  15"
   [depth width]
-  (d/db-with (d/empty-db schema)
-    (apply concat
-      (for [x (range width)
-            y (range depth)
-            :let [from (+ (* x (inc depth)) y)
-                  to   (+ (* x (inc depth)) y 1)]]
-        [{:db/id   from
-          :name    "Ivan"
-          :follows to}
-         {:db/id   to
-          :name    "Ivan"}]))))
+  (apply concat
+    (for [x (range width)
+          y (range depth)
+          :let [from (+ (* x (inc depth)) y)
+                to   (+ (* x (inc depth)) y 1)]]
+      [{:db/id   from
+        :name    "Ivan"
+        :follows to}
+       {:db/id   to
+        :name    "Ivan"}])))
 
 (def people (repeatedly random-man))
 
@@ -161,7 +150,3 @@
   (delay
     (shuffle
       (take 20000 people))))
-
-(def *db100k
-  (delay
-    (d/db-with (d/empty-db schema) @*people20k)))

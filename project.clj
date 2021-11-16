@@ -90,13 +90,14 @@
   ]}
 
   :profiles {
-    :test {:dependencies [[metosin/jsonista            "0.3.3"]
-                          [cheshire                    "5.10.0"]
-                          [com.cognitect/transit-clj   "1.0.324"]
-                          [com.cognitect/transit-cljs "0.8.269"]]}
-    :bench {:dependencies [[criterium "0.4.6"]
-                           [metosin/jsonista "0.3.3"]
-                           [com.clojure-goes-fast/clj-async-profiler "0.5.1"]]}
+    :test    {:dependencies [[metosin/jsonista            "0.3.3"]
+                             [cheshire                    "5.10.0"]
+                             [com.cognitect/transit-clj   "1.0.324"]
+                             [com.cognitect/transit-cljs "0.8.269"]]}
+    :bench   {:dependencies [[criterium "0.4.6"]
+                             [metosin/jsonista "0.3.3"]
+                             [com.clojure-goes-fast/clj-async-profiler "0.5.1"]]}
+    :datomic {:dependencies [[com.datomic/datomic-pro "1.0.6344"]]}
   }
   
   :clean-targets ^{:protect false} [
