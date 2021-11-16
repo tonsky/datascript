@@ -1,11 +1,8 @@
-(ns datascript-bench.datomic
+(ns datascript.bench.datomic
   (:require
-    [clojure.string :as str]
-    [datomic.api :as d]
-    [datomic.btset :as btset]
-    [datascript-bench.core :as core]))
-
-;; test-db
+   [clojure.string :as str]
+   [datomic.api :as d]
+   [datascript.bench.bench :as bench]))
 
 ;; tests
 
@@ -17,7 +14,6 @@
      :db/cardinality :db.cardinality/one
      :db.install/_attribute :db.part/db}
     args))
-
 
 (defn new-conn
   ([] (new-conn "bench"))
@@ -35,21 +31,17 @@
             (schema-attr :follows   :db.type/ref, :db/cardinality :db.cardinality/many)])
         conn))))
 
-
 (defn db-with [conn tx-data]
   (-> conn
       (d/transact tx-data)
       deref
       :db-after))
 
-
 (def db100k
-  (db-with (new-conn "db100k") core/people20k))
-
+  (db-with (new-conn "db100k") @*people20k))
 
 (defn tempid [i]
   (d/tempid :db.part/user (- i)))
-
 
 (defn- wide-db
   ([depth width] (db-with (new-conn) (wide-db 1 depth width)))
@@ -78,9 +70,8 @@
          {:db/id   (tempid to)
           :name    "Ivan"}]))))
 
-
-(defn ^:export add-1 []
-  (core/bench
+(defn bench-add-1 []
+  (bench/bench
     (let [conn (new-conn)]
       (doseq [p core/people20k]
         (let [report @(d/transact conn [[:db/add "p" :name (:name p)]])
@@ -90,52 +81,48 @@
           @(d/transact conn [[:db/add id :age       (:age p)]])
           @(d/transact conn [[:db/add id :salary    (:salary p)]]))))))
 
-
-(defn ^:export add-5 []
-  (core/bench
+(defn bench-add-5 []
+  (bench/bench
     (let [conn (new-conn)]
       (doseq [p core/people20k]
         @(d/transact conn [p])))))
 
-
-(defn ^:export add-all []
-  (core/bench
+(defn bench-add-all []
+  (bench/bench
     (let [conn (new-conn)]
       @(d/transact conn core/people20k))))
 
-
-(defn ^:export retract-5 []
-  (core/bench
+(defn bench-retract-5 []
+  (bench/bench
     (let [conn (new-conn)
           db   (db-with conn core/people20k)
           eids (->> (d/datoms db :aevt :name) (map :e) (shuffle))]
       (doseq [eid eids]
         @(d/transact conn [[:db.fn/retractEntity eid]])))))
 
-
-(defn ^:export q1 []
-  (core/bench
+(defn bench-q1 []
+  (bench/bench
     (d/q '[:find ?e
            :where [?e :name "Ivan"]]
       db100k)))
 
-(defn ^:export q2 []
-  (core/bench
+(defn bench-q2 []
+  (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
                   [?e :age ?a]]
       db100k)))
 
-(defn ^:export q3 []
-  (core/bench
+(defn bench-q3 []
+  (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
                   [?e :age ?a]
                   [?e :sex :male]]
       db100k)))
 
-(defn ^:export q4 []
-  (core/bench
+(defn bench-q4 []
+  (bench/bench
     (d/q '[:find ?e ?l ?a
            :where [?e :name "Ivan"]
                   [?e :last-name ?l]
@@ -143,29 +130,38 @@
                   [?e :sex :male]]
       db100k)))
 
-(defn ^:export qpred1 []
-  (core/bench
+(defn bench-qpred1 []
+  (bench/bench
     (d/q '[:find ?e ?s
            :where [?e :salary ?s]
                   [(> ?s 50000)]]
       db100k)))
 
-(defn ^:export qpred2 []
-  (core/bench
+(defn bench-qpred2 []
+  (bench/bench
     (d/q '[:find ?e ?s
            :in   $ ?min_s
            :where [?e :salary ?s]
                   [(> ?s ?min_s)]]
       db100k 50000)))
 
+(def benches
+  {"add-1"     bench-add-1
+   "add-5"     bench-add-5
+   "add-all"   bench-add-all
+   "retract-5" bench-retract-5
+   "q1"        bench-q1
+   "q2"        bench-q2
+   "q3"        bench-q3
+   "q4"        bench-q4
+   "qpred1"    bench-qpred1
+   "qpred2"    bench-qpred2})
 
-(defn ^:export -main [& names]
-  (doseq [n names]
-    (if-some [benchmark (ns-resolve 'datascript-bench.datomic (symbol n))]
-      (let [perf (benchmark)]
-        (print (core/round perf) "\t")
-        (flush))
-      (do
-        (print "---" "\t")
-        (flush))))
-  (println))
+(defn -main [& args]
+  (let [names   (or (not-empty args) (sort (keys benches)))
+        _       (apply println "Datomic:" names)
+        longest (last (sort-by count names))]
+    (doseq [name names
+            :let [fn   (or (benches name) (throw (ex-info (str "Unknown benchmark: " name) {:name name})))
+                  time (fn)]]
+       (println (bench/right-pad name (count longest)) " " (bench/left-pad (bench/round time) 6) "ms/op"))))

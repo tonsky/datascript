@@ -60,11 +60,12 @@
         }}
 
       { :id "bench"
-        :source-paths ["src" "bench/src"]
+        :source-paths ["src" "bench"]
         :compiler {
+          :main          datascript.bench.datascript
           :output-to     "target/datascript.js"
           :optimizations :advanced
-          :source-map    "target/datascript.js.map"
+          ; :source-map    "target/datascript.js.map"
           ; :pretty-print  true
           :recompile-dependents false
           :parallel-build true
@@ -89,15 +90,13 @@
   ]}
 
   :profiles {
-    :dev { :source-paths ["test" "dev"]
-           :dependencies [[org.clojure/tools.nrepl     "0.2.13"]
-                          [org.clojure/tools.namespace "0.2.11"]
-                          [lambdaisland/kaocha         "0.0-389"]
-                          [lambdaisland/kaocha-cljs    "0.0-21"]] }
     :test {:dependencies [[metosin/jsonista            "0.3.3"]
                           [cheshire                    "5.10.0"]
                           [com.cognitect/transit-clj   "1.0.324"]
                           [com.cognitect/transit-cljs "0.8.269"]]}
+    :bench {:dependencies [[criterium "0.4.6"]
+                           [metosin/jsonista "0.3.3"]
+                           [com.clojure-goes-fast/clj-async-profiler "0.5.1"]]}
   }
   
   :clean-targets ^{:protect false} [

@@ -16,24 +16,26 @@
       }
     }
 
-    :dev {
-      :extra-paths ["dev" "target/classes"]
-      :extra-deps {
-        org.clojure/clojurescript {:mvn/version "1.10.520"}
-        org.clojure/tools.namespace {:mvn/version "0.2.11"}
-      }
-    }
-
     :test {
       :extra-paths ["test"]
       :extra-deps {
         org.clojure/clojurescript  {:mvn/version "1.10.520"}
-        lambdaisland/kaocha        {:mvn/version "1.0.632"}
-        lambdaisland/kaocha-cljs   {:mvn/version "0.0-71"}
         metosin/jsonista           {:mvn/version "0.3.3"}
         cheshire/cheshire          {:mvn/version "5.10.0"}
         com.cognitect/transit-clj  {:mvn/version "1.0.324"}
         com.cognitect/transit-cljs {:mvn/version "0.8.269"}
+      }
+    }
+
+    :bench {
+      :extra-paths ["bench"]
+      :jvm-opts ["-Djdk.attach.allowAttachSelf"
+                 "-XX:+UnlockDiagnosticVMOptions"
+                 "-XX:+DebugNonSafepoints"]
+      :extra-deps {
+        metosin/jsonista    {:mvn/version "0.3.3"}
+        criterium/criterium {:mvn/version "0.4.6"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.5.1"}
       }
     }
 
