@@ -114,17 +114,16 @@
                    [{:db/id 17 :name "Part A.B.A.A"}
                     {:db/id 18 :name "Part A.B.A.B"}]}]}]}
         rpart (update-in parts [:part 0 :part 0 :part]
-                         (partial into [{:db/id 10}]))
+                #(into [{:db/id 10}] %))
         recdb (d/init-db
-               (concat test-datoms [(d/datom 12 :part 10)])
-               test-schema)
-
+                (concat test-datoms [(d/datom 12 :part 10)])
+                test-schema)
         mutdb (d/init-db
-               (concat test-datoms [(d/datom 12 :part 10)
-                                    (d/datom 12 :spec 10)
-                                    (d/datom 10 :spec 13)
-                                    (d/datom 13 :spec 12)])
-               test-schema)]
+                (concat test-datoms [(d/datom 12 :part 10)
+                                     (d/datom 12 :spec 10)
+                                     (d/datom 10 :spec 13)
+                                     (d/datom 13 :spec 12)])
+                test-schema)]
     
     (testing "Component entities are expanded recursively"
       (is (= parts (d/pull test-db '[:name :part] 10))))
@@ -307,7 +306,7 @@
 
 (deftest test-deep-recursion
   (let [start 100
-        depth 1500
+        depth 3000
         txd   (mapcat
                (fn [idx]
                  [(d/datom idx :name (str "Person-" idx))
@@ -338,10 +337,3 @@
                        [:name "Eunan"]
                        [:name "Rebecca"]])))
   (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
-
-
-(comment
-  (do
-    (set! *warn-on-reflection* true)
-    (require 'datascript.test.pull-api :reload-all))
-  (t/test-ns 'datascript.test.pull-api))

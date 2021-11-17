@@ -25,7 +25,11 @@
   (dpp/map->PullPattern (merge {:wildcard? false} args)))
 
 (defn attr [name & {:as args}]
-  (dpp/map->PullAttr (merge {:name name :xform identity :as name} args)))
+  (dpp/map->PullAttr
+    (merge
+      {:name name :xform identity :as name}
+      (when (db/ref? db name) {:pattern dpp/default-pattern-ref})
+      args)))
 
 (deftest test-parse-pattern
   (are [pattern expected] (= expected (dpp/parse-pattern db pattern))
@@ -38,9 +42,15 @@
     ["*"]        (pattern :wildcard? true)
     ['* :normal] (pattern :attrs [(attr :normal)] :wildcard? true)
 
+    ; refs
+    [:ref]        (pattern :attrs [(attr :ref)])
+    [:_ref]       (pattern :reverse-attrs [(attr :ref :as :_ref, :reverse? true)])
+    [:component]  (pattern :attrs [(attr :component :pattern dpp/default-pattern-component)])
+    [:_component] (pattern :reverse-attrs [(attr :component :as :_component, :reverse? true)])
+
     ; reverse
-    [:_ref]    (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true)])
-    [:ns/_ref] (pattern :reverse-attrs [(attr :ns/ref :as :ns/_ref :reverse? true)])
+    [:_ref]    (pattern :reverse-attrs [(attr :ref, :as :_ref, :reverse? true)])
+    [:ns/_ref] (pattern :reverse-attrs [(attr :ns/ref, :as :ns/_ref, :reverse? true)])
 
     ; sorting
     [:c :b :a]            (pattern :attrs [(attr :a) (attr :b) (attr :c)])
@@ -57,6 +67,7 @@
     ['(:db/id :as :id)]        (pattern :attrs [(attr :db/id :as :id)])
 
     ; limit
+    [:multival]                (pattern :attrs [(attr :multival :limit 1000)])
     ['(:multival :limit 100)]  (pattern :attrs [(attr :multival :limit 100)])
     ['(limit :multival 100)]   (pattern :attrs [(attr :multival :limit 100)])
     ['(limit :multival nil)]   (pattern :attrs [(attr :multival :limit nil)])
@@ -64,10 +75,10 @@
     [['limit :multival 100]]   (pattern :attrs [(attr :multival :limit 100)])
 
     ; default
-    ['(:multival :default :xyz)]  (pattern :attrs [(attr :multival :default :xyz)])
-    ['(default :multival :xyz)]   (pattern :attrs [(attr :multival :default :xyz)])
-    ['("default" :multival :xyz)] (pattern :attrs [(attr :multival :default :xyz)])
-    [['default :multival :xyz]]   (pattern :attrs [(attr :multival :default :xyz)])
+    ['(:multival :default :xyz)]  (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
+    ['(default :multival :xyz)]   (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
+    ['("default" :multival :xyz)] (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
+    [['default :multival :xyz]]   (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
 
     ; xform
     [[:normal :xform 'inc]] (pattern :attrs [(attr :normal :xform inc)])

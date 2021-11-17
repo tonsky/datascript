@@ -121,7 +121,7 @@
      (transit/write (transit/writer type) o)))
 
 (defn transit-write-str [o]
-  #?(:clj (String. (transit-write o :json) "UTF-8")
+  #?(:clj (String. ^bytes (transit-write o :json) "UTF-8")
      :cljs (transit-write o :json)))
 
 (defn transit-read [s type]
@@ -132,7 +132,7 @@
      (transit/read (transit/reader type) s)))
 
 (defn transit-read-str [s]
-  #?(:clj  (transit-read (.getBytes s "UTF-8") :json)
+  #?(:clj  (transit-read (.getBytes ^String s "UTF-8") :json)
      :cljs (transit-read s :json)))
 
 (deftest serialize

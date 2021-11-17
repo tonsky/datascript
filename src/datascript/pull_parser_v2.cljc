@@ -37,6 +37,12 @@
       {:as       attr-spec
        :name     name
        :xform    identity
+       :limit    (if (db/multival? db name) 1000 nil)
+       :pattern  (cond
+                   (not ref?) nil
+                   reverse?   default-pattern-ref
+                   component? default-pattern-component
+                   :else      default-pattern-ref)
        :reverse? (when reverse?
                    (check ref? "reverse attribute having :db.type/ref" attr-spec)
                    true)})))
