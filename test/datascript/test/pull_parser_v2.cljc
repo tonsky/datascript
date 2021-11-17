@@ -38,9 +38,12 @@
     [[:normal]]  (pattern :attrs [(attr :normal)])
     [:db/id]     (pattern :attrs [(attr :db/id)])
 
-    ['*]         (pattern :wildcard? true)
-    ["*"]        (pattern :wildcard? true)
-    ['* :normal] (pattern :attrs [(attr :normal)] :wildcard? true)
+    ; wildcards
+    ['*]         (pattern :attrs [(attr :db/id)] :wildcard? true)
+    ["*"]        (pattern :attrs [(attr :db/id)] :wildcard? true)
+    ['* :normal] (pattern :attrs [(attr :normal) (attr :db/id)] :wildcard? true)
+    ['* :db/id]  (pattern :attrs [(attr :db/id)] :wildcard? true)
+    ['* [:db/id :as :xxx]] (pattern :attrs [(attr :db/id :as :xxx)] :wildcard? true)
 
     ; refs
     [:ref]        (pattern :attrs [(attr :ref)])
@@ -102,8 +105,8 @@
     ; map spec
     [{:ref [:normal]}]                    (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)]))])
     [{:_ref [:normal]}]                   (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true :pattern (pattern :attrs [(attr :normal)]))])
-    [{:ref '[*]}]                         (pattern :attrs [(attr :ref :pattern (pattern :wildcard? true))])
-    [{:ref [{:ref2 [{:ref3 '[*]}]}]}]     (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :ref2 :pattern (pattern :attrs [(attr :ref3 :pattern (pattern :wildcard? true))]))]))])
+    [{:ref '[*]}]                         (pattern :attrs [(attr :ref :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))])
+    [{:ref [{:ref2 [{:ref3 '[*]}]}]}]     (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :ref2 :pattern (pattern :attrs [(attr :ref3 :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))]))]))])
     [{:ref [:normal] :ref2 [:normal2]}]   (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)])) (attr :ref2 :pattern (pattern :attrs [(attr :normal2)]))])
     [{:ref [:normal]} {:ref2 [:normal2]}] (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)])) (attr :ref2 :pattern (pattern :attrs [(attr :normal2)]))])
     [{'(:multiref :limit 100) [:normal]}] (pattern :attrs [(attr :multiref :limit 100 :pattern (pattern :attrs [(attr :normal)]))])

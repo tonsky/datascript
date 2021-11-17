@@ -168,7 +168,7 @@
     {:db/id id}
     (do
       (.add seen id)
-      (-> (transient (if (.-wildcard? pull-pattern) {:db/id id} {})) ;; TODO :db/id already exist and is overridden
+      (-> (transient {})
         (pull-attrs db pull-pattern id seen)
         (pull-reverse-attrs db pull-pattern id seen)
         (persistent!)))))
