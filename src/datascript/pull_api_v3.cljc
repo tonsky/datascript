@@ -53,13 +53,13 @@
 (defrecord MultivalRefAttrFrame [acc pattern ^PullAttr attr datoms]
   IFrame
   (-merge [this result]
-    (MultivalRefAttrFrame. (conj acc (.-value ^ResultFrame result)) pattern attr (next-seq datoms)))
+    (MultivalRefAttrFrame. (conj! acc (.-value ^ResultFrame result)) pattern attr (next-seq datoms)))
   (-run [this db seen]
     (cond+
       :let [^Datom datom (first-seq datoms)]
 
       (or (nil? datom) (not= (.-a datom) (.-name attr)))
-      [(ResultFrame. acc (or datoms ()))]
+      [(ResultFrame. (persistent! acc) (or datoms ()))]
 
       :let [child-pattern (if (.-recursive? attr) pattern (.-pattern attr))
             id            (if (.-reverse? attr) (.-e datom) (.-v datom))]
@@ -110,7 +110,7 @@
         ;; matching attr
         (and (.-multival? attr) (.-ref? attr))
         [(AttrsFrame. acc pattern attr attrs datoms id)
-         (MultivalRefAttrFrame. [] pattern attr datoms)]
+         (MultivalRefAttrFrame. (transient []) pattern attr datoms)]
 
         (.-multival? attr)
         [(AttrsFrame. acc pattern attr attrs datoms id)
@@ -144,7 +144,7 @@
       [this (ref-frame db seen pattern attr (.-e ^Datom (first-seq datoms)))]
 
       :else
-      [this (MultivalRefAttrFrame. [] pattern attr datoms)])))
+      [this (MultivalRefAttrFrame. (transient []) pattern attr datoms)])))
 
 (defn ref-frame [db seen pattern ^PullAttr attr id]
   (attrs-frame db seen (if (.-recursive? attr) pattern (.-pattern attr)) id))
@@ -153,7 +153,7 @@
   (if (contains-set? seen id)
     (ResultFrame. {:db/id id} nil)
     (do
-      ; (conj-set seen id)
+      (conj-set seen id)
       (AttrsFrame.
         (transient {})
         pattern
