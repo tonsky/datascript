@@ -60,7 +60,13 @@
 (defrecord MultivalRefAttrFrame [acc pattern ^PullAttr attr datoms]
   IFrame
   (-merge [this result]
-    (MultivalRefAttrFrame. (conj! acc (.-value ^ResultFrame result)) pattern attr (next-seq datoms)))
+    (MultivalRefAttrFrame. 
+      (if (some? (.-value ^ResultFrame result))
+        (conj! acc (.-value ^ResultFrame result))
+        acc)
+     pattern
+     attr
+     (next-seq datoms)))
   (-run [this db seen]
     (cond+
       :let [^Datom datom (first-seq datoms)]
@@ -85,7 +91,9 @@
   IFrame
   (-merge [this result]
     (AttrsFrame.
-      (assoc! acc (.-as attr) (.-value ^ResultFrame result))
+      (if (some? (.-value ^ResultFrame result))
+        (assoc! acc (.-as attr) (.-value ^ResultFrame result))
+        acc)
       pattern
       (first-seq attrs)
       (next-seq attrs)
@@ -96,6 +104,7 @@
            attr   attr
            attrs  attrs
            datoms datoms]
+      ; (prn (some-> attr .-name) (some-> datoms first-seq))
       (cond+
         ;; exit
         (and (nil? datoms) (nil? attr))
@@ -107,18 +116,24 @@
 
         :let [^Datom datom (first-seq datoms)
               cmp (when (and datom attr)
-                    (compare (.-name attr) (.-a datom)))]
+                    (compare (.-name attr) (.-a datom)))
+              attr-ahead?  (or (nil? attr) (and cmp (pos? cmp)))
+              datom-ahead? (or (nil? datom) (and cmp (neg? cmp)))]
 
-        ;; wildcard
-        (and (.-wildcard? pattern) (some? datom) (or (nil? attr) (neg? cmp)))
-        (recur acc (dpp/parse-attr-name db (.-a datom)) attrs datoms)
+        ; wildcard
+        (and (.-wildcard? pattern) (some? datom) attr-ahead?)
+        (recur acc (dpp/parse-attr-name db (.-a datom)) (when attr (cons attr attrs)) datoms)
+
+        ; default
+        (and attr (some? (.-default attr)) datom-ahead?)
+        (recur (assoc! acc (.-as attr) (.-default attr)) (first-seq attrs) (next-seq attrs) datoms)
 
         ;; advance attr
-        (or (nil? datoms) (and (some? cmp) (neg? cmp)))
+        datom-ahead?
         (recur acc (first-seq attrs) (next-seq attrs) datoms)
 
         ;; advance datom
-        (or (nil? attr) (and (some? cmp) (pos? cmp)))
+        attr-ahead?
         (recur acc attr attrs (next-seq datoms))
 
         ;; matching attr
@@ -135,13 +150,15 @@
          (ref-frame db seen pattern attr (.-v datom))]
 
         :else
-        (recur (assoc! acc (.-as attr) (.-v datom)) attr attrs (next-seq datoms))))))
+        (recur (assoc! acc (.-as attr) (.-v datom)) (first-seq attrs) (next-seq attrs) (next-seq datoms))))))
 
 (defrecord ReverseAttrsFrame [acc pattern ^PullAttr attr attrs id]
   IFrame
   (-merge [this result]
     (ReverseAttrsFrame.
-      (assoc! acc (.-as attr) (.-value ^ResultFrame result))
+      (if (some? (.-value ^ResultFrame result))
+        (assoc! acc (.-as attr) (.-value ^ResultFrame result))
+        acc)
       pattern
       (first-seq attrs)
       (next-seq attrs)
@@ -149,10 +166,13 @@
   (-run [this db seen]
     (cond+
       (nil? attr)
-      [(ResultFrame. (persistent! acc) nil)]
+      [(ResultFrame. (not-empty (persistent! acc)) nil)]
 
       :let [name   (.-name attr)
             datoms (set/slice (.-avet ^DB db) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax))]
+
+      (and (empty? datoms) (some? (.-default attr)))
+      [(ReverseAttrsFrame. (assoc! acc (.-as attr) (.-default attr)) pattern (first-seq attrs) (next-seq attrs) id)]
 
       (.-component? attr)
       [this (ref-frame db seen pattern attr (.-e ^Datom (first-seq datoms)))]
@@ -231,9 +251,9 @@
          #'datascript.test.pull-api/test-pull-component-attr
          #'datascript.test.pull-api/test-pull-wildcard
          #'datascript.test.pull-api/test-pull-limit
-         ; #'datascript.test.pull-api/test-pull-default
+         #'datascript.test.pull-api/test-pull-default
          #'datascript.test.pull-api/test-pull-as
-         ; #'datascript.test.pull-api/test-pull-attr-with-opts
+         #'datascript.test.pull-api/test-pull-attr-with-opts
          ; #'datascript.test.pull-api/test-pull-map
          ; #'datascript.test.pull-api/test-pull-recursion
          ; #'datascript.test.pull-api/test-dual-recursion

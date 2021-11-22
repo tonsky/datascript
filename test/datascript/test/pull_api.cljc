@@ -144,7 +144,19 @@
          (d/pull test-db '[*] 1)))
 
   (is (= {:db/id 2 :name "David" :_child [{:db/id 1}] :father {:db/id 1}}
-         (d/pull test-db '[* :_child] 2))))
+         (d/pull test-db '[* :_child] 2)))
+
+  (is (= {:aka ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :name "Petr", :db/id 1}
+        (d/pull test-db '[:name *] 1)))
+
+  (is (= {:aka ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :name "Petr", :db/id 1}
+        (d/pull test-db '[:aka :name *] 1)))
+
+  (is (= {:aka ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :name "Petr", :db/id 1}
+        (d/pull test-db '[:aka :child :name *] 1)))
+
+  (is (= {:alias ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :first-name "Petr", :db/id 1}
+        (d/pull test-db '[[:aka :as :alias] [:name :as :first-name] *] 1))))
 
 (deftest test-pull-limit
   (let [db (d/init-db
@@ -182,9 +194,19 @@
 
   (testing "A default can be used to replace nil results"
     (is (= {:foo "bar"}
-           (d/pull test-db '[(default :foo "bar")] 1)))
+          (d/pull test-db '[(default :foo "bar")] 1)))
     (is (= {:foo "bar"}
-           (d/pull test-db '[[:foo :default "bar"]] 1)))))
+          (d/pull test-db '[[:foo :default "bar"]] 1)))
+    (is (= {:foo false}
+          (d/pull test-db '[[:foo :default false]] 1)))
+    (is (= {:bar false}
+          (d/pull test-db '[[:foo :as :bar :default false]] 1))))
+
+  (testing "Ref default"
+    (is (= {:child 1 :db/id 2}
+          (d/pull test-db '[:db/id [:child :default 1]] 2)))
+    (is (= {:_child 2 :db/id 1}
+          (d/pull test-db '[:db/id [:_child :default 2]] 1)))))
 
 (deftest test-pull-as
   (is (= {"Name" "Petr", :alias ["Devil" "Tupen"]}
