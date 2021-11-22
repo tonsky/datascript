@@ -47,6 +47,13 @@
         (or (nil? datom) (not= (.-a datom) (.-name attr)))
         [(ResultFrame. (persistent! acc) (or datoms ()))]
 
+        (and (.-limit attr) (>= (count acc) (.-limit attr)))
+        (loop [datoms datoms]
+          (let [^Datom datom (first-seq datoms)]
+            (if (or (nil? datom) (not= (.-a datom) (.-name attr)))
+              [(ResultFrame. (persistent! acc) (or datoms ()))]
+              (recur (next-seq datoms)))))
+
         :else
         (recur (conj! acc (.-v datom)) (next-seq datoms))))))
 
@@ -60,6 +67,13 @@
 
       (or (nil? datom) (not= (.-a datom) (.-name attr)))
       [(ResultFrame. (persistent! acc) (or datoms ()))]
+
+      (and (.-limit attr) (>= (count acc) (.-limit attr)))
+      (loop [datoms datoms]
+        (let [^Datom datom (first-seq datoms)]
+          (if (or (nil? datom) (not= (.-a datom) (.-name attr)))
+            [(ResultFrame. (persistent! acc) (or datoms ()))]
+            (recur (next-seq datoms)))))
 
       :let [child-pattern (if (.-recursive? attr) pattern (.-pattern attr))
             id            (if (.-reverse? attr) (.-e datom) (.-v datom))]
@@ -216,7 +230,7 @@
          #'datascript.test.pull-api/test-pull-reverse-attr-spec
          #'datascript.test.pull-api/test-pull-component-attr
          #'datascript.test.pull-api/test-pull-wildcard
-         ; #'datascript.test.pull-api/test-pull-limit
+         #'datascript.test.pull-api/test-pull-limit
          ; #'datascript.test.pull-api/test-pull-default
          #'datascript.test.pull-api/test-pull-as
          ; #'datascript.test.pull-api/test-pull-attr-with-opts
