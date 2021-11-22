@@ -1,0 +1,30 @@
+name: Build and test
+
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'project.clj'
+      - 'deps.edn'
+      - 'test_node.js'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Choose Java 11
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
+          echo "$JAVA_HOME_11_X64/bin" >> $GITHUB_PATH
+      - name: Test Clojure
+        run: lein with-profile dev test-clj
+      - name: Compile ClojureScript
+        run: |
+          lein with-profile test cljsbuild once advanced
+          lein cljsbuild once release
+      - name: Test ClojureScript
+        run: node ./test_node.js --all
