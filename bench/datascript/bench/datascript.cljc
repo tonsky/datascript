@@ -2,6 +2,7 @@
   (:require
    [datascript.core :as d]
    [datascript.pull-api-v2 :as pull-api-v2]
+   [datascript.pull-api-v3 :as pull-api-v3]
    [datascript.bench.bench :as bench]
    #?(:clj [jsonista.core :as jsonista])))
 
@@ -133,6 +134,22 @@
   (bench/bench "pull-v2"
     (pull-api-v2/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
 
+(defn bench-pull-v3 []
+  (bench/bench "pull-v3"
+    (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
+
+(comment
+  (clojure.pprint/pprint
+  (let [db (wide-db 2 2)]
+    (clojure.data/diff 
+      (pull-api-v3/pull db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
+      (datascript.pull-api/pull db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
+      )))
+  (=
+    (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
+    (datascript.pull-api/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1))
+  )
+
 (defn bench-rules [db]
   (d/q '[:find ?e ?e2
          :in   $ %
@@ -205,6 +222,7 @@
    "pull"            bench-pull
    "pull-entities"   bench-pull-entities
    "pull-v2"         bench-pull-v2
+   "pull-v3"         bench-pull-v3
    "rules-wide-3x3"  bench-rules-wide-3x3
    "rules-wide-5x3"  bench-rules-wide-5x3
    "rules-wide-7x3"  bench-rules-wide-7x3
@@ -240,6 +258,8 @@
   (-main "pull" "pull-entities" "pull-v2")
   (-main "add-1" "pull-entities" "q4")
 
+  (require 'datascript.bench.datascript :reload-all)
+
   (bench-add-1)
   (bench-add-5)
   (bench-add-all)
@@ -254,6 +274,9 @@
   (bench-pull)
   (bench-pull-entities)
   (bench-pull-v2)
+  (bench-pull-v3)
+  (binding [bench/*profile* true]
+    (bench-pull-v3))
   (bench-rules-wide-3x3)
   (bench-rules-wide-5x3)
   (bench-rules-wide-7x3)

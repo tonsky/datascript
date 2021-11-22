@@ -3,8 +3,7 @@
    [datascript.built-ins :as built-ins]
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
 
-(defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform])
-
+(defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
 (defrecord PullPattern [attrs reverse-attrs wildcard?])
 
 (def default-db-id-attr (map->PullAttr {:name :db/id :as :db/id :xform identity}))
@@ -33,20 +32,24 @@
   (let [reverse?   (db/reverse-ref? attr-spec)
         name       (if reverse? (db/reverse-ref attr-spec) attr-spec)
         ref?       (db/ref? db name)
-        component? (db/component? db name)]
+        component? (db/component? db name)
+        multival?  (db/multival? db name)]
     (map->PullAttr
-      {:as       attr-spec
-       :name     name
-       :xform    identity
-       :limit    (if (db/multival? db name) 1000 nil)
-       :pattern  (cond
-                   (not ref?) nil
-                   reverse?   default-pattern-ref
-                   component? default-pattern-component
-                   :else      default-pattern-ref)
-       :reverse? (when reverse?
-                   (check ref? "reverse attribute having :db.type/ref" attr-spec)
-                   true)})))
+      {:as         attr-spec
+       :name       name
+       :xform      identity
+       :multival?  (when multival? true)
+       :limit      (if multival? 1000 nil)
+       :ref?       (when ref? true)
+       :component? (when component? true)
+       :pattern    (cond
+                     (not ref?) nil
+                     reverse?   default-pattern-ref
+                     component? default-pattern-component
+                     :else      default-pattern-ref)
+       :reverse?   (when reverse?
+                     (check ref? "reverse attribute having :db.type/ref" attr-spec)
+                     true)})))
 
 (defn- check-limit [db pull-attr limit]
   (check (or (and (number? limit) (pos? limit)) (nil? limit)) "(positive-number | nil)" limit)

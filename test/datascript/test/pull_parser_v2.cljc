@@ -46,42 +46,46 @@
     ['* [:db/id :as :xxx]] (pattern :attrs [(attr :db/id :as :xxx)] :wildcard? true)
 
     ; refs
-    [:ref]        (pattern :attrs [(attr :ref)])
-    [:_ref]       (pattern :reverse-attrs [(attr :ref :as :_ref, :reverse? true)])
-    [:component]  (pattern :attrs [(attr :component :pattern dpp/default-pattern-component)])
-    [:_component] (pattern :reverse-attrs [(attr :component :as :_component, :reverse? true)])
+    [:ref]        (pattern :attrs [(attr :ref, :ref? true)])
+    [:_ref]       (pattern :reverse-attrs [(attr :ref, :ref? true, :as :_ref, :reverse? true)])
+    [:component]  (pattern :attrs [(attr :component, :ref? true, :component? true, :pattern dpp/default-pattern-component)])
+    [:_component] (pattern :reverse-attrs [(attr :component, :ref? true, :component? true, :as :_component, :reverse? true)])
 
     ; reverse
-    [:_ref]    (pattern :reverse-attrs [(attr :ref, :as :_ref, :reverse? true)])
-    [:ns/_ref] (pattern :reverse-attrs [(attr :ns/ref, :as :ns/_ref, :reverse? true)])
+    [:_ref]    (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true)])
+    [:ns/_ref] (pattern :reverse-attrs [(attr :ns/ref, :as :ns/_ref, :ref? true, :reverse? true)])
 
     ; sorting
     [:c :b :a]            (pattern :attrs [(attr :a) (attr :b) (attr :c)])
-    [:ref2 :ref3 :ref]    (pattern :attrs [(attr :ref) (attr :ref2) (attr :ref3)])
-    [:_ref2 :_ref3 :_ref] (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true) (attr :ref2 :as :_ref2 :reverse? true) (attr :ref3 :as :_ref3 :reverse? true)])
-    [:ref2 '(:ref3 :as :ref) '(:ref :as :ref3)] (pattern :attrs [(attr :ref :as :ref3) (attr :ref2) (attr :ref3 :as :ref)])
+    [:ref2 :ref3 :ref]    (pattern :attrs [(attr :ref, :ref? true) (attr :ref2, :ref? true) (attr :ref3, :ref? true)])
+    [:_ref2 :_ref3 :_ref] (pattern :reverse-attrs [(attr :ref,  :ref? true, :as :_ref, :reverse? true)
+                                                   (attr :ref2, :ref? true, :as :_ref2, :reverse? true)
+                                                   (attr :ref3, :ref? true, :as :_ref3, :reverse? true)])
+    [:ref2 '(:ref3 :as :ref) '(:ref :as :ref3)] (pattern :attrs [(attr :ref, :ref? true, :as :ref3)
+                                                                 (attr :ref2, :ref? true)
+                                                                 (attr :ref3, :ref? true, :as :ref)])
 
     ; as
     ['(:normal :as :normal2)]  (pattern :attrs [(attr :normal :as :normal2)])
     ['(:normal :as "normal2")] (pattern :attrs [(attr :normal :as "normal2")])
     ['(:normal :as 123)]       (pattern :attrs [(attr :normal :as 123)])
     ['(:normal :as nil)]       (pattern :attrs [(attr :normal :as nil)])
-    ['(:ns/_ref :as :ns/ref)]  (pattern :reverse-attrs [(attr :ns/ref :as :ns/ref :reverse? true)])
+    ['(:ns/_ref :as :ns/ref)]  (pattern :reverse-attrs [(attr :ns/ref, :as :ns/ref, :ref? true, :reverse? true)])
     ['(:db/id :as :id)]        (pattern :attrs [(attr :db/id :as :id)])
 
     ; limit
-    [:multival]                (pattern :attrs [(attr :multival :limit 1000)])
-    ['(:multival :limit 100)]  (pattern :attrs [(attr :multival :limit 100)])
-    ['(limit :multival 100)]   (pattern :attrs [(attr :multival :limit 100)])
-    ['(limit :multival nil)]   (pattern :attrs [(attr :multival :limit nil)])
-    ['("limit" :multival 100)] (pattern :attrs [(attr :multival :limit 100)])
-    [['limit :multival 100]]   (pattern :attrs [(attr :multival :limit 100)])
+    [:multival]                (pattern :attrs [(attr :multival, :multival? true, :limit 1000)])
+    ['(:multival :limit 100)]  (pattern :attrs [(attr :multival, :multival? true, :limit 100)])
+    ['(limit :multival 100)]   (pattern :attrs [(attr :multival, :multival? true, :limit 100)])
+    ['(limit :multival nil)]   (pattern :attrs [(attr :multival, :multival? true, :limit nil)])
+    ['("limit" :multival 100)] (pattern :attrs [(attr :multival, :multival? true, :limit 100)])
+    [['limit :multival 100]]   (pattern :attrs [(attr :multival, :multival? true, :limit 100)])
 
     ; default
-    ['(:multival :default :xyz)]  (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
-    ['(default :multival :xyz)]   (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
-    ['("default" :multival :xyz)] (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
-    [['default :multival :xyz]]   (pattern :attrs [(attr :multival :limit 1000 :default :xyz)])
+    ['(:multival :default :xyz)]  (pattern :attrs [(attr :multival, :multival? true, :limit 1000, :default :xyz)])
+    ['(default :multival :xyz)]   (pattern :attrs [(attr :multival, :multival? true, :limit 1000, :default :xyz)])
+    ['("default" :multival :xyz)] (pattern :attrs [(attr :multival, :multival? true, :limit 1000, :default :xyz)])
+    [['default :multival :xyz]]   (pattern :attrs [(attr :multival, :multival? true, :limit 1000, :default :xyz)])
 
     ; xform
     [[:normal :xform 'inc]] (pattern :attrs [(attr :normal :xform inc)])
@@ -89,35 +93,35 @@
     #?@(:clj [[[:normal :xform 'datascript.db/datom?]] (pattern :attrs [(attr :normal :xform db/datom?)])])
 
     ; combined
-    ['(:multival :limit 100 :default :xyz :as :other :xform inc)] (pattern :attrs [(attr :multival :default :xyz :limit 100 :as :other :xform inc)])
-    ['(:multival :xform inc :as :other :default :xyz :limit 100)] (pattern :attrs [(attr :multival :default :xyz :limit 100 :as :other :xform inc)])
-    ['((:multival :limit 100) :default :xyz)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['((:multival :default :xyz) :limit 100)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
+    ['(:multival :limit 100 :default :xyz :as :other :xform inc)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100, :as :other, :xform inc)])
+    ['(:multival :xform inc :as :other :default :xyz :limit 100)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100, :as :other, :xform inc)])
+    ['((:multival :limit 100) :default :xyz)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['((:multival :default :xyz) :limit 100)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
 
     ; combined
-    ['(limit (default :multival :xyz) 100)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['(default (limit :multival 100) :xyz)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['(limit (:multival :default :xyz) 100)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['(default (:multival :limit 100) :xyz)] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['(((limit :multival 100) :default :xyz))] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
-    ['(((default :multival :xyz) :limit 100))] (pattern :attrs [(attr :multival :default :xyz :limit 100)])
+    ['(limit (default :multival :xyz) 100)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['(default (limit :multival 100) :xyz)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['(limit (:multival :default :xyz) 100)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['(default (:multival :limit 100) :xyz)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['(((limit :multival 100) :default :xyz))] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
+    ['(((default :multival :xyz) :limit 100))] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
 
     ; map spec
-    [{:ref [:normal]}]                    (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)]))])
-    [{:_ref [:normal]}]                   (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true :pattern (pattern :attrs [(attr :normal)]))])
-    [{:ref '[*]}]                         (pattern :attrs [(attr :ref :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))])
-    [{:ref [{:ref2 [{:ref3 '[*]}]}]}]     (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :ref2 :pattern (pattern :attrs [(attr :ref3 :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))]))]))])
-    [{:ref [:normal] :ref2 [:normal2]}]   (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)])) (attr :ref2 :pattern (pattern :attrs [(attr :normal2)]))])
-    [{:ref [:normal]} {:ref2 [:normal2]}] (pattern :attrs [(attr :ref :pattern (pattern :attrs [(attr :normal)])) (attr :ref2 :pattern (pattern :attrs [(attr :normal2)]))])
-    [{'(:multiref :limit 100) [:normal]}] (pattern :attrs [(attr :multiref :limit 100 :pattern (pattern :attrs [(attr :normal)]))])
-    [{'(limit :multiref 100) [:normal]}]  (pattern :attrs [(attr :multiref :limit 100 :pattern (pattern :attrs [(attr :normal)]))])
+    [{:ref [:normal]}]                    (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :normal)]))])
+    [{:_ref [:normal]}]                   (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern (pattern :attrs [(attr :normal)]))])
+    [{:ref '[*]}]                         (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))])
+    [{:ref [{:ref2 [{:ref3 '[*]}]}]}]     (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :ref2, :ref? true, :pattern (pattern :attrs [(attr :ref3, :ref? true, :pattern (pattern :wildcard? true, :attrs [(attr :db/id)]))]))]))])
+    [{:ref [:normal] :ref2 [:normal2]}]   (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :normal)])) (attr :ref2, :ref? true, :pattern (pattern :attrs [(attr :normal2)]))])
+    [{:ref [:normal]} {:ref2 [:normal2]}] (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :normal)])) (attr :ref2, :ref? true, :pattern (pattern :attrs [(attr :normal2)]))])
+    [{'(:multiref :limit 100) [:normal]}] (pattern :attrs [(attr :multiref, :ref? true, :multival? true, :limit 100, :pattern (pattern :attrs [(attr :normal)]))])
+    [{'(limit :multiref 100) [:normal]}]  (pattern :attrs [(attr :multiref, :ref? true, :multival? true, :limit 100, :pattern (pattern :attrs [(attr :normal)]))])
 
     ; map spec limits
-    [{:ref 100}]   (pattern :attrs [(attr :ref :recursive? true :recursion-limit 100)])
-    [{:ref '...}]  (pattern :attrs [(attr :ref :recursive? true :recursion-limit nil)]) 
-    [{:ref "..."}] (pattern :attrs [(attr :ref :recursive? true :recursion-limit nil)])
-    [{:_ref 100}]  (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true :recursive? true :recursion-limit 100)])
-    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref :as :_ref :reverse? true :recursive? true :recursion-limit nil)]) 
+    [{:ref 100}]   (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit 100)])
+    [{:ref '...}]  (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit nil)]) 
+    [{:ref "..."}] (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit nil)])
+    [{:_ref 100}]  (pattern :reverse-attrs [(attr :ref :as :_ref :ref? true :reverse? true :recursive? true :recursion-limit 100)])
+    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref :as :_ref :ref? true :reverse? true :recursive? true :recursion-limit nil)]) 
   )
 
   (testing "Error reporting"
@@ -150,5 +154,6 @@
 
 
 (comment
-  (require 'datascript.test.pull-parser-v2 :reload-all)
+  (require 'datascript.test 'datascript.test.pull-parser-v2 :reload-all)
+  (dpp/parse-pattern db [:normal])
   (clojure.test/test-ns 'datascript.test.pull-parser-v2))

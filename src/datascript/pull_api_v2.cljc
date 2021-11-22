@@ -1,7 +1,8 @@
 (ns ^:no-doc datascript.pull-api-v2
   (:require
    [datascript.pull-parser-v2 :as dpp]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]])
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]]
+   [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
       [clojure.lang ISeq]
@@ -18,12 +19,12 @@
   (when (some? xs)
     #?(:clj (.next xs) :cljs (-next xs))))
 
-(defn- pull-reverse-attrs [result db ^PullPattern pull-pattern id seen]
+(defn- pull-reverse-attrs [result ^DB db ^PullPattern pull-pattern id seen]
   (let [component? (:db/isComponent (:rschema db))]
     (reduce
       (fn [result ^PullAttr attr]
         (let [name          (.-name attr)
-              datoms        (db/-datoms db :avet [name id])
+              datoms        (set/slice (.-avet db) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax)) #_(db/-datoms db :avet [name id])
               child-pattern (if (.-recursive? attr) pull-pattern (.-pattern attr))
               pulled        (if (component? name)
                               (pull-impl db child-pattern (.-e ^Datom (first datoms)) seen)
@@ -73,14 +74,14 @@
       :else
       (recur (conj! acc val) (next-seq datoms) (inc count)))))
 
-(defn- pull-attrs [result db ^PullPattern pull-pattern id seen]
+(defn- pull-attrs [result ^DB db ^PullPattern pull-pattern id seen]
   (let [many?      (:db.cardinality/many (:rschema db))
         ref?       (:db.type/ref (:rschema db))
         component? (:db/isComponent (:rschema db))
         attrs      (.-attrs pull-pattern)]
     (loop [^PullAttr attr (first-seq attrs)
            attrs          (next-seq attrs)
-           datoms         (db/-datoms db :eavt [id])
+           datoms         (set/slice (.-eavt db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax))
            result         result]
       ; (prn id (:name attr) (first-seq datoms))
       (cond+
@@ -176,15 +177,15 @@
 (defn pull [db pattern id]
   {:pre [(db/db? db)]}
   (let [pull-pattern (dpp/parse-pattern db pattern)]
-    (pull-impl db pull-pattern id #?(:clj (java.util.HashSet.) :cljs (js/Set.)))))
+    (pull-impl db pull-pattern (db/entid db id) #?(:clj (java.util.HashSet.) :cljs (js/Set.)))))
 
 (defn pull-many [db pattern ids]
   {:pre [(db/db? db)]}
   (let [pull-pattern (dpp/parse-pattern db pattern)
         seen         #?(:clj (java.util.HashSet.) :cljs (js/Set.))]
-    (mapv #(pull-impl db pull-pattern % seen) ids)))
+    (mapv #(pull-impl db pull-pattern (db/entid db %) seen) ids)))
 
-(defn test-pull-v2 []
+(comment
   (binding [clojure.test/*report-counters* (ref clojure.test/*initial-report-counters*)]
     (clojure.test/test-vars
       [#'datascript.test.pull-parser-v2/test-parse-pattern 
