@@ -115,13 +115,14 @@
     [{:ref [:normal]} {:ref2 [:normal2]}] (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :normal)])) (attr :ref2, :ref? true, :pattern (pattern :attrs [(attr :normal2)]))])
     [{'(:multiref :limit 100) [:normal]}] (pattern :attrs [(attr :multiref, :ref? true, :multival? true, :limit 100, :pattern (pattern :attrs [(attr :normal)]))])
     [{'(limit :multiref 100) [:normal]}]  (pattern :attrs [(attr :multiref, :ref? true, :multival? true, :limit 100, :pattern (pattern :attrs [(attr :normal)]))])
+    [{:component 1}]                      (pattern :attrs [(attr :component, :ref? true, :component? true, :pattern nil, :recursive? true, :recursion-limit 1)])
 
     ; map spec limits
-    [{:ref 100}]   (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit 100)])
-    [{:ref '...}]  (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit nil)]) 
-    [{:ref "..."}] (pattern :attrs [(attr :ref :ref? true :recursive? true :recursion-limit nil)])
-    [{:_ref 100}]  (pattern :reverse-attrs [(attr :ref :as :_ref :ref? true :reverse? true :recursive? true :recursion-limit 100)])
-    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref :as :_ref :ref? true :reverse? true :recursive? true :recursion-limit nil)]) 
+    [{:ref 100}]   (pattern :attrs         [(attr :ref,            :ref? true,                 :pattern nil, :recursive? true, :recursion-limit 100)])
+    [{:ref '...}]  (pattern :attrs         [(attr :ref,            :ref? true,                 :pattern nil, :recursive? true, :recursion-limit nil)]) 
+    [{:ref "..."}] (pattern :attrs         [(attr :ref,            :ref? true,                 :pattern nil, :recursive? true, :recursion-limit nil)])
+    [{:_ref 100}]  (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern nil, :recursive? true, :recursion-limit 100)])
+    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern nil, :recursive? true, :recursion-limit nil)]) 
   )
 
   (testing "Error reporting"

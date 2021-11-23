@@ -51,6 +51,21 @@
    {:person/name "Eunan"}
    {:person/name "Kerri"}
    {:person/name "Rebecca"}
+   {:db/id "1" :person/name "1" :person/friend "2"}
+   {:db/id "2" :person/name "2" :person/enemy "3"}
+   {:db/id "3" :person/name "3" :person/friend "4"}
+   {:db/id "4" :person/name "4" :person/enemy "5"}
+   {:db/id "5" :person/name "5" :person/friend "6"}
+   {:db/id "6" :person/name "6" :person/enemy "7"}
+   {:db/id "7" :person/name "7" :person/friend "8"}
+   {:db/id "8" :person/name "8" :person/enemy "9"}
+   {:db/id "9" :person/name "9" :person/enemy "8"}
+   {:db/id "10" :person/name "10" :person/enemy "10"}
+   {:db/id "11" :person/name "11" :person/enemy ["11" "12"]}
+   {:db/id "12" :person/name "12" :person/enemy "13"}
+   {:db/id "13" :person/name "13" :person/enemy "14"}
+   {:db/id "14" :person/name "14" :person/enemy "15"}
+   {:db/id "15" :person/name "15"}
 
    {:thing/name "Part A"
     :thing/part [{:thing/name "Part A.A"
@@ -103,13 +118,25 @@
   (is (= [nil
           {:person/aka ["Devil" "Tupen"]}
           nil
+          nil
           nil]
          (datomic/pull-many test-datomic-db
                             '[:person/aka]
                             [[:person/name "Elizabeth"]
                              [:person/name "Petr"]
                              [:person/name "Eunan"]
-                             [:person/name "Rebecca"]]))))
+                             [:person/name "Rebecca"]
+                             [:person/name "Unknown"]]))))
+
+(deftest test-pull-recursion
+  (is (= {:person/name "1", :person/friend [{:person/name "2", :person/enemy [{:person/name "3", :person/friend [{:person/name "4", :person/enemy [{:person/name "5"}]}]}]}]}
+        (datomic/pull test-datomic-db '[:person/name {:person/friend 2 :person/enemy 2}] [:person/name "1"]))))
+
+(deftest test-seen
+  (is (= {:person/name "8", :person/enemy [{:person/name "9", :person/enemy [{:person/name "8", :person/enemy [{:person/name "9"}]}]}]}
+        (datomic/pull test-datomic-db '[:person/name {:person/enemy ...}] [:person/name "8"])))
+  (is (= {:person/name "10", :person/enemy [{:person/name "10", :person/enemy [{:person/name "10"}]}]}
+        (datomic/pull test-datomic-db '[:person/name {:person/enemy ...}] [:person/name "10"]))))
 
 (defn -main [& args]
   (let [{:keys [test pass fail error] :as res} (run-tests 'test-datomic.pull-api)]

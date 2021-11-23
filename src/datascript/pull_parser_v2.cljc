@@ -118,12 +118,12 @@
     (check (db/ref? db (:name pull-attr)) "attribute having :db.type/ref" attr-spec)
     (cond
       (or (= '... pattern) (= "..." pattern))
-      (assoc pull-attr :recursive? true :recursion-limit nil)
+      (assoc pull-attr :pattern nil :recursive? true :recursion-limit nil)
 
       (number? pattern)
       (do
         (check (pos? pattern) "(positive-num | ...)" {attr-spec pattern})
-        (assoc pull-attr :recursive? true :recursion-limit pattern))
+        (assoc pull-attr :pattern nil :recursive? true :recursion-limit pattern))
 
       :else
       (assoc pull-attr :pattern (parse-pattern db pattern)))))

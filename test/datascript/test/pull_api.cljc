@@ -114,15 +114,17 @@
                    [{:db/id 17 :name "Part A.B.A.A"}
                     {:db/id 18 :name "Part A.B.A.B"}]}]}]}
         rpart (update-in parts [:part 0 :part 0 :part]
-                #(into [{:db/id 10}] %))
+                #(into [{:db/id 10
+                         :name "Part A",
+                         :part [{:db/id 11}
+                                {:name "Part A.B",
+                                 :part [{:name "Part A.B.A",
+                                         :part [{:name "Part A.B.A.A", :db/id 17}
+                                                {:name "Part A.B.A.B", :db/id 18}],
+                                         :db/id 16}],
+                                 :db/id 15}]}] %))
         recdb (d/init-db
                 (concat test-datoms [(d/datom 12 :part 10)])
-                test-schema)
-        mutdb (d/init-db
-                (concat test-datoms [(d/datom 12 :part 10)
-                                     (d/datom 12 :spec 10)
-                                     (d/datom 10 :spec 13)
-                                     (d/datom 13 :spec 12)])
                 test-schema)]
     
     (testing "Component entities are expanded recursively"
@@ -235,12 +237,22 @@
            (d/pull test-db '[:name {:child [:foo]}] 1))))
 
   (testing "Map specs can override component expansion"
-    (let [parts {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}]
-      (is (= parts
-             (d/pull test-db '[:name {:part [:name]}] 10)))
+    (is (= {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}
+          (d/pull test-db '[:name {:part [:name]}] 10)))
 
-      (is (= parts
-             (d/pull test-db '[:name {:part 1}] 10))))))
+    (is (= {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}
+          (d/pull test-db '[:name {:part 1}] 10)))))
+
+(def seen-db
+  (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
+                   :enemy  {:db/valueType :db.type/ref}})
+    (d/db-with [{:db/id 1 :name "1" :friend 2 :enemy 2}
+                {:db/id 2 :name "2"}])))
+
+(deftest test-seen
+  (testing "Seen ids are tracked independently for different branches"
+    (is (= {:name "1" :friend {:name "2"} :enemy {:name "2"}}
+          (d/pull seen-db '[:name {:friend [:name], :enemy [:name]}] 1)))))
 
 (deftest test-pull-recursion
   (let [db      (-> test-db
@@ -266,29 +278,44 @@
                        :friend
                        [{:db/id 8
                          :name "Kerri"}]}]}]}]}
-        enemies {:db/id 4 :name "Lucy"
+        enemies {:db/id 4
+                 :name "Lucy"
                  :friend
-                 [{:db/id 5 :name "Elizabeth"
+                 [{:db/id 5
+                   :name "Elizabeth"
                    :friend
-                   [{:db/id 6 :name "Matthew"
+                   [{:db/id 6
+                     :name "Matthew"
                      :enemy [{:db/id 8 :name "Kerri"}]}]
                    :enemy
-                   [{:db/id 7 :name "Eunan"
+                   [{:db/id 7
+                     :name "Eunan"
                      :friend
-                     [{:db/id 8 :name "Kerri"}]
+                     [{:db/id 8
+                       :name "Kerri"}]
                      :enemy
-                     [{:db/id 4 :name "Lucy"
+                     [{:db/id 4
+                       :name "Lucy"
                        :friend [{:db/id 5}]}]}]}]
                  :enemy
-                 [{:db/id 6 :name "Matthew"
+                 [{:db/id 6
+                   :name "Matthew"
                    :friend
-                   [{:db/id 7 :name "Eunan"
+                   [{:db/id 7
+                     :name "Eunan"
                      :friend
-                     [{:db/id 8 :name "Kerri"}]
-                     :enemy [{:db/id 4 :name "Lucy"
-                              :friend [{:db/id 5 :name "Elizabeth"}]}]}]
+                     [{:db/id 8
+                       :name "Kerri"}]
+                     :enemy [{:db/id 4
+                              :name "Lucy"
+                              :enemy [{:db/id 6}]
+                              :friend [{:db/id 5
+                                        :name "Elizabeth"
+                                        :enemy [{:db/id 7}],
+                                        :friend [{:db/id 6}]}]}]}]
                    :enemy
-                   [{:db/id 8 :name "Kerri"}]}]}]
+                   [{:db/id 8
+                     :name "Kerri"}]}]}]
 
     (testing "Infinite recursion"
       (is (= friends (d/pull db '[:db/id :name {:friend ...}] 4))))
@@ -301,6 +328,26 @@
         (is (= (update-in friends (take 8 (cycle [:friend 0]))
                           assoc :friend [{:db/id 4 :name "Lucy" :friend [{:db/id 5}]}])
                (d/pull db '[:db/id :name {:friend ...}] 4)))))))
+
+(def recursion-db
+  (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
+                   :enemy {:db/valueType :db.type/ref}})
+    (d/db-with [{:db/id 1 :friend 2}
+                {:db/id 2 :enemy 3}
+                {:db/id 3 :friend 4}
+                {:db/id 4 :enemy 5}
+                {:db/id 5 :friend 6}
+                {:db/id 6 :enemy 7}])))
+
+(deftest test-recursion
+  (is (= {:db/id 1 :friend {:db/id 2}}
+        (d/pull recursion-db '[:db/id {:friend ...}] 1)))
+  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3}}}
+        (d/pull recursion-db '[:db/id {:friend 1 :enemy 1}] 1)))
+  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4}}}}
+        (d/pull recursion-db '[:db/id {:friend 2 :enemy 1}] 1)))
+  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4 :enemy {:db/id 5}}}}}
+        (d/pull recursion-db '[:db/id {:friend 2 :enemy 2}] 1))))
 
 (deftest test-dual-recursion
   (let [empty (d/empty-db {:part { :db/valueType :db.type/ref }
@@ -351,11 +398,12 @@
          (d/pull test-db '[:name :aka] [:name "Petr"])))
   (is (= nil
          (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
-  (is (= [nil {:aka ["Devil" "Tupen"]} nil nil]
+  (is (= [nil {:aka ["Devil" "Tupen"]} nil nil nil]
          (d/pull-many test-db
                       '[:aka]
                       [[:name "Elizabeth"]
                        [:name "Petr"]
                        [:name "Eunan"]
-                       [:name "Rebecca"]])))
+                       [:name "Rebecca"]
+                       [:name "Unknown"]])))
   (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
