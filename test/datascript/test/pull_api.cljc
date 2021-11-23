@@ -243,17 +243,6 @@
     (is (= {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}
           (d/pull test-db '[:name {:part 1}] 10)))))
 
-(def seen-db
-  (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
-                   :enemy  {:db/valueType :db.type/ref}})
-    (d/db-with [{:db/id 1 :name "1" :friend 2 :enemy 2}
-                {:db/id 2 :name "2"}])))
-
-(deftest test-seen
-  (testing "Seen ids are tracked independently for different branches"
-    (is (= {:name "1" :friend {:name "2"} :enemy {:name "2"}}
-          (d/pull seen-db '[:name {:friend [:name], :enemy [:name]}] 1)))))
-
 (deftest test-pull-recursion
   (let [db      (-> test-db
                     (d/db-with [[:db/add 4 :friend 5]
@@ -323,35 +312,47 @@
     (testing "Multiple recursion specs in one pattern"
       (is (= enemies (d/pull db '[:db/id :name {:friend 2 :enemy 2}] 4))))
 
-    (let [db (d/db-with db [[:db/add 8 :friend 4]])]
-      (testing "Cycles are handled by returning only the :db/id of entities which have been seen before"
+    (testing "Reverse recursion"
+      (is (= {:db/id 8, :_friend [{:db/id 7, :_friend [{:db/id 6, :_friend [{:db/id 5, :_friend [{:db/id 4}]}]}]}]}
+            (d/pull db '[:db/id {:_friend ...}] 8)))
+      (is (= {:db/id 8, :_friend [{:db/id 7, :_friend [{:db/id 6}]}]}
+            (d/pull db '[:db/id {:_friend 2}] 8))))
+
+    (testing "Cycles are handled by returning only the :db/id of entities which have been seen before"
+      (let [db (d/db-with db [[:db/add 8 :friend 4]])]
         (is (= (update-in friends (take 8 (cycle [:friend 0]))
                           assoc :friend [{:db/id 4 :name "Lucy" :friend [{:db/id 5}]}])
-               (d/pull db '[:db/id :name {:friend ...}] 4)))))))
+               (d/pull db '[:db/id :name {:friend ...}] 4)))))
 
-(def recursion-db
-  (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
-                   :enemy {:db/valueType :db.type/ref}})
-    (d/db-with [{:db/id 1 :friend 2}
-                {:db/id 2 :enemy 3}
-                {:db/id 3 :friend 4}
-                {:db/id 4 :enemy 5}
-                {:db/id 5 :friend 6}
-                {:db/id 6 :enemy 7}])))
-
-(deftest test-recursion
-  (is (= {:db/id 1 :friend {:db/id 2}}
-        (d/pull recursion-db '[:db/id {:friend ...}] 1)))
-  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3}}}
-        (d/pull recursion-db '[:db/id {:friend 1 :enemy 1}] 1)))
-  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4}}}}
-        (d/pull recursion-db '[:db/id {:friend 2 :enemy 1}] 1)))
-  (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4 :enemy {:db/id 5}}}}}
-        (d/pull recursion-db '[:db/id {:friend 2 :enemy 2}] 1))))
+    (testing "Seen ids are tracked independently for different branches"
+      (let [db (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
+                                :enemy  {:db/valueType :db.type/ref}})
+                 (d/db-with [{:db/id 1 :name "1" :friend 2 :enemy 2}
+                             {:db/id 2 :name "2"}]))]
+        (is (= {:name "1" :friend {:name "2"} :enemy {:name "2"}}
+              (d/pull db '[:name {:friend [:name], :enemy [:name]}] 1)))))))
 
 (deftest test-dual-recursion
-  (let [empty (d/empty-db {:part { :db/valueType :db.type/ref }
-                           :spec { :db/valueType :db.type/ref }})]
+  (let [recursion-db
+        (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
+                         :enemy {:db/valueType :db.type/ref}})
+          (d/db-with [{:db/id 1 :friend 2}
+                      {:db/id 2 :enemy 3}
+                      {:db/id 3 :friend 4}
+                      {:db/id 4 :enemy 5}
+                      {:db/id 5 :friend 6}
+                      {:db/id 6 :enemy 7}]))]
+    (is (= {:db/id 1 :friend {:db/id 2}}
+          (d/pull recursion-db '[:db/id {:friend ...}] 1)))
+    (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3}}}
+          (d/pull recursion-db '[:db/id {:friend 1 :enemy 1}] 1)))
+    (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4}}}}
+          (d/pull recursion-db '[:db/id {:friend 2 :enemy 1}] 1)))
+    (is (= {:db/id 1 :friend {:db/id 2 :enemy {:db/id 3 :friend {:db/id 4 :enemy {:db/id 5}}}}}
+          (d/pull recursion-db '[:db/id {:friend 2 :enemy 2}] 1))))
+
+  (let [empty (d/empty-db {:part {:db/valueType :db.type/ref}
+                           :spec {:db/valueType :db.type/ref}})]
     (let [db (d/db-with empty [[:db/add 1 :part 2]
                                [:db/add 2 :part 3]
                                [:db/add 3 :part 1]

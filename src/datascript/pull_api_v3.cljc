@@ -27,13 +27,13 @@
 
 (defprotocol IFrame
   (-merge [this result])
-  (-run [this db]))
+  (-run [this db attrs-cache]))
 
 (defrecord ResultFrame [value datoms])
 
 (defrecord MultivalAttrFrame [acc ^PullAttr attr datoms]
   IFrame
-  (-run [this db]
+  (-run [this db attrs-cache]
     (loop [acc acc
            datoms datoms]
       (cond+
@@ -63,7 +63,7 @@
       pattern
       attr
       (next-seq datoms)))
-  (-run [this db]
+  (-run [this db attrs-cache]
     (cond+
       :let [^Datom datom (first-seq datoms)]
 
@@ -95,12 +95,11 @@
       (next-seq attrs)
       (not-empty (or (.-datoms ^ResultFrame result) (next-seq datoms)))
       id))
-  (-run [this db]
+  (-run [this db attrs-cache]
     (loop [acc    acc
            attr   attr
            attrs  attrs
            datoms datoms]
-      ; (prn (some-> attr .-name) (some-> datoms first-seq) recursion-limits)
       (cond+
         ;; exit
         (and (nil? datoms) (nil? attr))
@@ -116,9 +115,14 @@
               attr-ahead?  (or (nil? attr) (and cmp (pos? cmp)))
               datom-ahead? (or (nil? datom) (and cmp (neg? cmp)))]
 
+
         ; wildcard
         (and (.-wildcard? pattern) (some? datom) attr-ahead?)
-        (recur acc (dpp/parse-attr-name db (.-a datom)) (when attr (cons attr attrs)) datoms)
+        (let [datom-attr (or (@attrs-cache (.-a datom))
+                           (let [datom-attr (dpp/parse-attr-name db (.-a datom))]
+                             (vswap! attrs-cache assoc! (.-a datom) datom-attr)
+                             datom-attr))]
+          (recur acc datom-attr (when attr (cons attr attrs)) datoms))
 
         ; default
         (and attr (some? (.-default attr)) datom-ahead?)
@@ -161,7 +165,7 @@
       (first-seq attrs)
       (next-seq attrs)
       id))
-  (-run [this db]
+  (-run [this db attrs-cache]
     (cond+
       (nil? attr)
       [(ResultFrame. (not-empty (persistent! acc)) nil)]
@@ -218,13 +222,13 @@
     (set/slice (.-eavt db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax))
     id))
 
-(defn- pull-impl [db ^PullPattern pattern id]
+(defn- pull-impl [db attrs-cache ^PullPattern pattern id]
   (loop [stack (list (attrs-frame db #{} {} pattern id))]
     (cond+
       :let [[last & stack'] stack]
 
       (not (instance? ResultFrame last))
-      (recur (into stack' (-run last db)))
+      (recur (into stack' (-run last db attrs-cache)))
 
       (nil? stack')
       (.-value ^ResultFrame last)
@@ -237,14 +241,16 @@
 (defn pull [db pattern id]
   {:pre [(db/db? db)]}
   (let [pull-pattern (dpp/parse-pattern db pattern)
-        eid (db/entid db id)]
+        eid          (db/entid db id)
+        attrs-cache  (volatile! (transient {}))]
     (when eid
-      (pull-impl db pull-pattern eid))))
+      (pull-impl db attrs-cache pull-pattern eid))))
 
 (defn pull-many [db pattern ids]
   {:pre [(db/db? db)]}
-  (let [pull-pattern (dpp/parse-pattern db pattern)]
-    (mapv #(some->> % (db/entid db) (pull-impl db pull-pattern)) ids)))
+  (let [pull-pattern (dpp/parse-pattern db pattern)
+        attrs-cache  (volatile! (transient {}))]
+    (mapv #(some->> % (db/entid db) (pull-impl db attrs-cache pull-pattern)) ids)))
 
 (comment
   (do
@@ -262,8 +268,6 @@
          #'datascript.test.pull-api/test-pull-as
          #'datascript.test.pull-api/test-pull-attr-with-opts
          #'datascript.test.pull-api/test-pull-map
-         #'datascript.test.pull-api/test-recursion
-         #'datascript.test.pull-api/test-seen
          #'datascript.test.pull-api/test-pull-recursion
          #'datascript.test.pull-api/test-dual-recursion
          #'datascript.test.pull-api/test-deep-recursion

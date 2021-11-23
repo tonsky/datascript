@@ -138,6 +138,10 @@
   (bench/bench "pull-v3"
     (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
 
+(defn bench-pull-v3-* []
+  (bench/bench "pull-v3-*"
+    (pull-api-v3/pull @*pull-db ['* {:follows '...}] 1)))
+
 (comment
   (clojure.pprint/pprint
   (let [db (wide-db 2 2)]
@@ -277,6 +281,9 @@
   (bench-pull-v3)
   (binding [bench/*profile* true]
     (bench-pull-v3))
+  (bench-pull-v3-*)
+  (binding [bench/*profile* true]
+    (bench-pull-v3-*))
   (bench-rules-wide-3x3)
   (bench-rules-wide-5x3)
   (bench-rules-wide-7x3)
