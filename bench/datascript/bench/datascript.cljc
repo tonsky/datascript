@@ -262,7 +262,9 @@
   (-main "pull" "pull-entities" "pull-v2")
   (-main "add-1" "pull-entities" "q4")
 
-  (require 'datascript.bench.datascript :reload-all)
+  (do
+    (require 'datascript.bench.datascript :reload-all)
+    (bench-pull-v3))
 
   (bench-add-1)
   (bench-add-5)

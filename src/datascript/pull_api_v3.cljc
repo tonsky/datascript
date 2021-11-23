@@ -158,9 +158,7 @@
     (ReverseAttrsFrame.
       seen
       recursion-limits
-      (if (some? (.-value ^ResultFrame result))
-        (assoc! acc (.-as attr) (.-value ^ResultFrame result))
-        acc)
+      (assoc-some! acc (.-as attr) (.-value ^ResultFrame result))
       pattern
       (first-seq attrs)
       (next-seq attrs)
@@ -211,16 +209,21 @@
     :else
     (attrs-frame db seen' recursion-limits' (if (.-recursive? attr) pattern (.-pattern attr)) id)))
 
+
 (defn attrs-frame [^DB db seen recursion-limits ^PullPattern pattern id]
-  (AttrsFrame.
-    seen
-    recursion-limits
-    (transient {})
-    pattern
-    (first-seq (.-attrs pattern))
-    (next-seq (.-attrs pattern))
-    (set/slice (.-eavt db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax))
-    id))
+  (let [datoms (when (or (.-wildcard? pattern)
+                       (some? (first-seq (next-seq (.-attrs pattern)))) ; 2+ attrs
+                       (not= :db/id (.-name ^PullAttr (first-seq (.-attrs pattern)))))
+                 (set/slice (.-eavt db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax)))]
+    (AttrsFrame.
+      seen
+      recursion-limits
+      (transient {})
+      pattern
+      (first-seq (.-attrs pattern))
+      (next-seq (.-attrs pattern))
+      datoms
+      id)))
 
 (defn- pull-impl [db attrs-cache ^PullPattern pattern id]
   (loop [stack (list (attrs-frame db #{} {} pattern id))]
