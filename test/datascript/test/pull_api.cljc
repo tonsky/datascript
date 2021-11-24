@@ -141,7 +141,9 @@
       (is (= rpart (d/pull recdb '[:name :part] 10))))))
 
 (deftest test-pull-wildcard
-  (is (= {:db/id 1 :name "Petr" :aka ["Devil" "Tupen"]
+  (is (= {:db/id 1
+          :name "Petr"
+          :aka ["Devil" "Tupen"]
           :child [{:db/id 2} {:db/id 3}]}
          (d/pull test-db '[*] 1)))
 
@@ -158,7 +160,18 @@
         (d/pull test-db '[:aka :child :name *] 1)))
 
   (is (= {:alias ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :first-name "Petr", :db/id 1}
-        (d/pull test-db '[[:aka :as :alias] [:name :as :first-name] *] 1))))
+        (d/pull test-db '[[:aka :as :alias] [:name :as :first-name] *] 1)))
+
+  (is (= {:db/id 1
+          :name "Petr"
+          :aka ["Devil" "Tupen"]
+          :child [{:db/id 2
+                   :father {:db/id 1}
+                   :name "David"}
+                  {:db/id 3
+                   :father {:db/id 1}
+                   :name "Thomas"}]}
+        (datascript.pull-api/pull test-db '[* {:child ...}] 1))))
 
 (deftest test-pull-limit
   (let [db (d/init-db

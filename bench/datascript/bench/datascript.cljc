@@ -227,6 +227,7 @@
    "pull-entities"   bench-pull-entities
    "pull-v2"         bench-pull-v2
    "pull-v3"         bench-pull-v3
+   "pull-v3-*"       bench-pull-v3-*
    "rules-wide-3x3"  bench-rules-wide-3x3
    "rules-wide-5x3"  bench-rules-wide-5x3
    "rules-wide-7x3"  bench-rules-wide-7x3

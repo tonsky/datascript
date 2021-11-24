@@ -12,18 +12,25 @@
 (declare pull-impl attrs-frame ref-frame ->ReverseAttrsFrame)
 
 (defn- first-seq [#?(:clj ^ISeq xs :cljs ^seq xs)]
-  (when (some? xs)
+  (if (nil? xs)
+    nil
     #?(:clj (.first xs) :cljs (-first xs))))
 
 (defn- next-seq [#?(:clj ^ISeq xs :cljs ^seq xs)]
-  (when (some? xs)
+  (if (nil? xs)
+    nil
     #?(:clj (.next xs) :cljs (-next xs))))
 
+(defn- conj-seq [#?(:clj ^ISeq xs :cljs ^seq xs) x]
+  (if (nil? xs)
+    (list x)
+    #?(:clj (.cons xs x) :cljs (-conj xs x))))
+
 (defn- assoc-some! [m k v]
-  (if (some? v) (assoc! m k v) m))
+  (if (nil? v) m (assoc! m k v)))
 
 (defn- conj-some! [xs v]
-  (if (some? v) (conj! xs v) xs))
+  (if (nil? v) xs (conj! xs v)))
 
 (defprotocol IFrame
   (-merge [this result])
@@ -110,8 +117,8 @@
         (recur (assoc! acc (.-as attr) id) (first-seq attrs) (next-seq attrs) datoms)
 
         :let [^Datom datom (first-seq datoms)
-              cmp (when (and datom attr)
-                    (compare (.-name attr) (.-a datom)))
+              cmp          (when (and datom attr)
+                             (compare (.-name attr) (.-a datom)))
               attr-ahead?  (or (nil? attr) (and cmp (pos? cmp)))
               datom-ahead? (or (nil? datom) (and cmp (neg? cmp)))]
 
@@ -122,7 +129,7 @@
                            (let [datom-attr (dpp/parse-attr-name db (.-a datom))]
                              (vswap! attrs-cache assoc! (.-a datom) datom-attr)
                              datom-attr))]
-          (recur acc datom-attr (when attr (cons attr attrs)) datoms))
+          (recur acc datom-attr (when attr (conj-seq attrs attr)) datoms))
 
         ; default
         (and attr (some? (.-default attr)) datom-ahead?)
@@ -228,18 +235,20 @@
 (defn- pull-impl [db attrs-cache ^PullPattern pattern id]
   (loop [stack (list (attrs-frame db #{} {} pattern id))]
     (cond+
-      :let [[last & stack'] stack]
+      :let [last   (first-seq stack)
+            stack' (next-seq stack)]
 
       (not (instance? ResultFrame last))
-      (recur (into stack' (-run last db attrs-cache)))
+      (recur (reduce conj-seq stack' (-run last db attrs-cache)))
 
       (nil? stack')
       (.-value ^ResultFrame last)
 
-      :let [[penultimate & stack''] stack']
+      :let [penultimate (first-seq stack')
+            stack''     (next-seq stack')]
 
       :else
-      (recur (conj stack'' (-merge penultimate last))))))
+      (recur (conj-seq stack'' (-merge penultimate last))))))
 
 (defn pull [db pattern id]
   {:pre [(db/db? db)]}
