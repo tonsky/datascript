@@ -7,20 +7,22 @@
    [datascript.built-ins :as built-ins]
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+]]
    [me.tonsky.persistent-sorted-set.arrays :as da]
-   [datascript.lru]
+   [datascript.lru :as lru]
    [datascript.impl.entity :as de]
    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple Constant
                                                 FindColl FindRel FindScalar FindTuple PlainSymbol
                                                 RulesVar SrcVar Variable]])]
    [datascript.pull-api :as dpa]
    [datascript.pull-parser :as dpp])
-  #?(:clj (:import [datascript.parser BindColl BindIgnore BindScalar BindTuple
-                    Constant FindColl FindRel FindScalar FindTuple PlainSymbol
-                    RulesVar SrcVar Variable])))
+  #?(:clj
+     (:import
+      [datascript.parser BindColl BindIgnore BindScalar BindTuple
+       Constant FindColl FindRel FindScalar FindTuple PlainSymbol
+       RulesVar SrcVar Variable])))
 
 ;; ----------------------------------------------------------------------------
 
-(def ^:const lru-cache-size 100)
+(def ^:dynamic *query-cache* (lru/cache 100))
 
 (declare -collect -resolve-clause resolve-clause)
 
@@ -869,17 +871,8 @@
             resolved
             tuple))))
 
-(def ^:private query-cache (volatile! (datascript.lru/lru lru-cache-size)))
-
-(defn memoized-parse-query [q]
-  (if-some [cached (get @query-cache q nil)]
-    cached
-    (let [qp (dp/parse-query q)]
-      (vswap! query-cache assoc q qp)
-      qp)))
-
 (defn q [q & inputs]
-  (let [parsed-q      (memoized-parse-query q)
+  (let [parsed-q      (lru/-cache-get *query-cache* q #(dp/parse-query q))
         find          (:qfind parsed-q)
         find-elements (dp/find-elements find)
         find-vars     (dp/find-vars find)

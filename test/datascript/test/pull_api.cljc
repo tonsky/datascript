@@ -171,7 +171,7 @@
                   {:db/id 3
                    :father {:db/id 1}
                    :name "Thomas"}]}
-        (datascript.pull-api/pull test-db '[* {:child ...}] 1))))
+        (d/pull test-db '[* {:child ...}] 1))))
 
 (deftest test-pull-limit
   (let [db (d/init-db

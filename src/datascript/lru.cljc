@@ -62,3 +62,17 @@
 (defn lru [limit]
   (->LRU {} (sorted-map) {} 0 limit))
 
+(defprotocol ICache
+  (-cache-get [this key compute-fn]))
+
+(defrecord Cache [*lru]
+  ICache
+  (-cache-get [this key compute-fn]
+    (if-some [cached (get @*lru key nil)]
+      cached
+      (let [computed (compute-fn)]
+        (vswap! *lru assoc key computed)
+        computed))))
+
+(defn cache [limit]
+  (Cache. (volatile! (lru limit))))

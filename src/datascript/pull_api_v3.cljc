@@ -2,12 +2,15 @@
   (:require
    [datascript.pull-parser-v2 :as dpp]
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]]
+   [datascript.lru :as lru]
    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
       [clojure.lang ISeq]
-      [datascript.db Datom DB]
+      [datascript.db Datom DB ICache]
       [datascript.pull_parser_v2 PullAttr PullPattern])))
+
+(def ^:dynamic *pattern-cache* (lru/cache 100))
 
 (declare pull-impl attrs-frame ref-frame ->ReverseAttrsFrame)
 
@@ -252,7 +255,7 @@
 
 (defn pull [db pattern id]
   {:pre [(db/db? db)]}
-  (let [pull-pattern (dpp/parse-pattern db pattern)
+  (let [pull-pattern (lru/-cache-get *pattern-cache* [(:schema db) pattern] #(dpp/parse-pattern db pattern))
         eid          (db/entid db id)
         attrs-cache  (volatile! (transient {}))]
     (when eid
@@ -260,7 +263,7 @@
 
 (defn pull-many [db pattern ids]
   {:pre [(db/db? db)]}
-  (let [pull-pattern (dpp/parse-pattern db pattern)
+  (let [pull-pattern (lru/-cache-get *pattern-cache* [(:schema db) pattern] #(dpp/parse-pattern db pattern))
         attrs-cache  (volatile! (transient {}))]
     (mapv #(some->> % (db/entid db) (pull-impl db attrs-cache pull-pattern)) ids)))
 
