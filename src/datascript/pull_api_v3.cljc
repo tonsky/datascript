@@ -7,7 +7,7 @@
   #?(:clj
      (:import
       [clojure.lang ISeq]
-      [datascript.db Datom DB ICache]
+      [datascript.db Datom DB]
       [datascript.pull_parser_v2 PullAttr PullPattern])))
 
 (def ^:dynamic *pattern-cache* (lru/cache 100))
@@ -35,15 +35,21 @@
 (defn- conj-some! [xs v]
   (if (nil? v) xs (conj! xs v)))
 
+(defrecord Context [db *attrs-cache visitor])
+
+(defn visit [^Context context pattern e a v]
+  (when-some [visitor (.-visitor context)]
+    (visitor pattern e a v)))
+
 (defprotocol IFrame
   (-merge [this result])
-  (-run [this db attrs-cache]))
+  (-run [this context]))
 
 (defrecord ResultFrame [value datoms])
 
 (defrecord MultivalAttrFrame [acc ^PullAttr attr datoms]
   IFrame
-  (-run [this db attrs-cache]
+  (-run [this context]
     (loop [acc acc
            datoms datoms]
       (cond+
@@ -73,7 +79,7 @@
       pattern
       attr
       (next-seq datoms)))
-  (-run [this db attrs-cache]
+  (-run [this context]
     (cond+
       :let [^Datom datom (first-seq datoms)]
 
@@ -91,7 +97,7 @@
       :let [id (if (.-reverse? attr) (.-e datom) (.-v datom))]
 
       :else
-      [this (ref-frame db seen recursion-limits pattern attr id)])))
+      [this (ref-frame context seen recursion-limits pattern attr id)])))
 
 (defrecord AttrsFrame [seen recursion-limits acc ^PullPattern pattern ^PullAttr attr attrs datoms id]
   IFrame
@@ -105,7 +111,7 @@
       (next-seq attrs)
       (not-empty (or (.-datoms ^ResultFrame result) (next-seq datoms)))
       id))
-  (-run [this db attrs-cache]
+  (-run [this context]
     (loop [acc    acc
            attr   attr
            attrs  attrs
@@ -128,11 +134,18 @@
 
         ; wildcard
         (and (.-wildcard? pattern) (some? datom) attr-ahead?)
-        (let [datom-attr (or (@attrs-cache (.-a datom))
-                           (let [datom-attr (dpp/parse-attr-name db (.-a datom))]
-                             (vswap! attrs-cache assoc! (.-a datom) datom-attr)
-                             datom-attr))]
+        (let [*attrs-cache (.-*attrs-cache ^Context context)
+              datom-attr   (or (@*attrs-cache (.-a datom))
+                             (let [datom-attr (dpp/parse-attr-name (.-db ^Context context) (.-a datom))]
+                               (vswap! *attrs-cache assoc! (.-a datom) datom-attr)
+                               datom-attr))]
           (recur acc datom-attr (when attr (conj-seq attrs attr)) datoms))
+
+        ;; advance datom
+        attr-ahead?
+        (recur acc attr attrs (next-seq datoms))
+
+        :do (visit context :db.pull/attr id (.-name attr) nil)
 
         ; default
         (and attr (some? (.-default attr)) datom-ahead?)
@@ -141,10 +154,6 @@
         ;; advance attr
         datom-ahead?
         (recur acc (first-seq attrs) (next-seq attrs) datoms)
-
-        ;; advance datom
-        attr-ahead?
-        (recur acc attr attrs (next-seq datoms))
 
         ;; matching attr
         (and (.-multival? attr) (.-ref? attr))
@@ -157,7 +166,7 @@
 
         (.-ref? attr)
         [(AttrsFrame. seen recursion-limits acc pattern attr attrs datoms id)
-         (ref-frame db seen recursion-limits pattern attr (.-v datom))]
+         (ref-frame context seen recursion-limits pattern attr (.-v datom))]
 
         :else
         (recur (assoc! acc (.-as attr) (.-v datom)) (first-seq attrs) (next-seq attrs) (next-seq datoms))))))
@@ -173,34 +182,36 @@
       (first-seq attrs)
       (next-seq attrs)
       id))
-  (-run [this db attrs-cache]
+  (-run [this context]
     (cond+
       (nil? attr)
       [(ResultFrame. (not-empty (persistent! acc)) nil)]
 
       :let [name   (.-name attr)
-            datoms (set/slice (.-avet ^DB db) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax))]
+            datoms (set/slice (.-avet ^DB (.-db ^Context context)) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax))]
+
+      :do (visit context :db.pull/reverse nil name id)
 
       (and (empty? datoms) (some? (.-default attr)))
       [(ReverseAttrsFrame.
-          seen
-          recursion-limits
-          (assoc! acc (.-as attr) (.-default attr))
-          pattern
-          (first-seq attrs)
-          (next-seq attrs)
-          id)]
+         seen
+         recursion-limits
+         (assoc! acc (.-as attr) (.-default attr))
+         pattern
+         (first-seq attrs)
+         (next-seq attrs)
+         id)]
 
       (.-component? attr)
-      [this (ref-frame db seen recursion-limits pattern attr (.-e ^Datom (first-seq datoms)))]
+      [this (ref-frame context seen recursion-limits pattern attr (.-e ^Datom (first-seq datoms)))]
 
       :else
       [this (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)])))
 
-(defn ref-frame [db seen recursion-limits pattern ^PullAttr attr id]
+(defn ref-frame [context seen recursion-limits pattern ^PullAttr attr id]
   (cond+
     (and (not (.-recursive? attr)) (not (.-component? attr)))
-    (attrs-frame db seen recursion-limits (.-pattern attr) id)
+    (attrs-frame context seen recursion-limits (.-pattern attr) id)
 
     (seen id)
     (ResultFrame. {:db/id id} nil)
@@ -217,14 +228,17 @@
                               :else                    recursion-limits)]
 
     :else
-    (attrs-frame db seen' recursion-limits' (if (.-recursive? attr) pattern (.-pattern attr)) id)))
+    (attrs-frame context seen' recursion-limits' (if (.-recursive? attr) pattern (.-pattern attr)) id)))
 
 
-(defn attrs-frame [^DB db seen recursion-limits ^PullPattern pattern id]
+(defn attrs-frame [^Context context seen recursion-limits ^PullPattern pattern id]
   (let [datoms (when (or (.-wildcard? pattern)
                        (some? (first-seq (next-seq (.-attrs pattern)))) ; 2+ attrs
-                       (not= :db/id (.-name ^PullAttr (first-seq (.-attrs pattern)))))
-                 (set/slice (.-eavt db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax)))]
+                       (when-some [first-attr ^PullAttr (first-seq (.-attrs pattern))]
+                         (not= :db/id (.-name first-attr))))
+                 (set/slice (.-eavt ^DB (.-db context)) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax)))]
+    (when (.-wildcard? pattern)
+      (visit context :db.pull/wildcard id nil nil))
     (AttrsFrame.
       seen
       recursion-limits
@@ -235,14 +249,14 @@
       datoms
       id)))
 
-(defn- pull-impl [db attrs-cache ^PullPattern pattern id]
-  (loop [stack (list (attrs-frame db #{} {} pattern id))]
+(defn- pull-impl [^Context context ^PullPattern pattern id]
+  (loop [stack (list (attrs-frame context #{} {} pattern id))]
     (cond+
       :let [last   (first-seq stack)
             stack' (next-seq stack)]
 
       (not (instance? ResultFrame last))
-      (recur (reduce conj-seq stack' (-run last db attrs-cache)))
+      (recur (reduce conj-seq stack' (-run last context)))
 
       (nil? stack')
       (.-value ^ResultFrame last)
@@ -253,19 +267,29 @@
       :else
       (recur (conj-seq stack'' (-merge penultimate last))))))
 
-(defn pull [db pattern id]
-  {:pre [(db/db? db)]}
-  (let [pull-pattern (lru/-cache-get *pattern-cache* [(:schema db) pattern] #(dpp/parse-pattern db pattern))
-        eid          (db/entid db id)
-        attrs-cache  (volatile! (transient {}))]
-    (when eid
-      (pull-impl db attrs-cache pull-pattern eid))))
+(defn pull
+  "Supported opts:
 
-(defn pull-many [db pattern ids]
-  {:pre [(db/db? db)]}
-  (let [pull-pattern (lru/-cache-get *pattern-cache* [(:schema db) pattern] #(dpp/parse-pattern db pattern))
-        attrs-cache  (volatile! (transient {}))]
-    (mapv #(some->> % (db/entid db) (pull-impl db attrs-cache pull-pattern)) ids)))
+   :visitor a fn of 4 arguments, will be called for every entity/attribute pull touches
+
+   (:db.pull/attr     e   a   nil) - when pulling a normal attribute, no matter if it has value or not
+   (:db.pull/wildcard e   nil nil) - when pulling every attribute on an entity
+   (:db.pull/reverse  nil a   v  ) - when pulling reverse attribute"
+  ([^DB db pattern id] (pull db pattern id {}))
+  ([^DB db pattern id {:keys [visitor]}]
+   {:pre [(db/db? db)]}
+     (when-some [eid (db/entid db id)]
+       (let [pull-pattern (lru/-cache-get *pattern-cache* [(.-rschema db) pattern] #(dpp/parse-pattern db pattern))
+             context      (Context. db (volatile! (transient {})) visitor)]
+         (pull-impl context pull-pattern eid)))))
+
+(defn pull-many
+  ([^DB db pattern ids] (pull-many db pattern ids {}))
+  ([^DB db pattern ids {:keys [visitor]}]
+   {:pre [(db/db? db)]}
+   (let [pull-pattern (lru/-cache-get *pattern-cache* [(.-rschema db) pattern] #(dpp/parse-pattern db pattern))
+         context      (Context. db (volatile! (transient {})) visitor)]
+     (mapv #(some->> % (db/entid db) (pull-impl context pull-pattern)) ids))))
 
 (comment
   (do

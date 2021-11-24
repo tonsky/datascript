@@ -56,3 +56,8 @@
     (binding [*out* *err*]
       (println (:err res)))
     (System/exit (:exit res)))))
+
+(comment
+  (do
+    (require 'datascript.test :reload-all)
+    (t/run-all-tests #"datascript\..*")))
