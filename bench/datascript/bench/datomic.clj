@@ -126,33 +126,55 @@
   (delay
     (db-with (new-conn "pull-db") (bench/wide-db 1 4 5))))
 
-(defn bench-pull []
+(defn bench-pull-one []
   @*pull-db
-  (bench/bench "pull"
+  (bench/bench
+    (d/pull @*pull-db [:name {:follows '...}] [:id 1])))
+
+(defn bench-pull-one-entities []
+  @*pull-db
+  (let [f (fn f [entity]
+            (assoc
+              (select-keys entity [:name])
+              :follows (mapv f (:follows entity))))]
+    (bench/bench
+      (f (d/entity @*pull-db [:id 1])))))
+
+(defn bench-pull-many []
+  @*pull-db
+  (bench/bench
     (d/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
 
-(defn bench-pull-entities []
+(defn bench-pull-many-entities []
   @*pull-db
   (let [f (fn f [entity]
             (assoc
               (select-keys entity [:db/id :last-name :alias :sex :age :salary])
               :follows (mapv f (:follows entity))))]
-    (bench/bench "pull-entities"
+    (bench/bench
       (f (d/entity @*pull-db [:id 1])))))
 
+(defn bench-pull-wildcard []
+  @*pull-db
+  (bench/bench
+    (d/pull @*pull-db ['* {:follows '...}] [:id 1])))
+
 (def benches
-  {"add-1"         bench-add-1
-   "add-5"         bench-add-5
-   "add-all"       bench-add-all
-   "retract-5"     bench-retract-5
-   "q1"            bench-q1
-   "q2"            bench-q2
-   "q3"            bench-q3
-   "q4"            bench-q4
-   "qpred1"        bench-qpred1
-   "qpred2"        bench-qpred2
-   "pull"          bench-pull
-   "pull-entities" bench-pull-entities})
+  {"add-1"              bench-add-1
+   "add-5"              bench-add-5
+   "add-all"            bench-add-all
+   "retract-5"          bench-retract-5
+   "q1"                 bench-q1
+   "q2"                 bench-q2
+   "q3"                 bench-q3
+   "q4"                 bench-q4
+   "qpred1"             bench-qpred1
+   "qpred2"             bench-qpred2
+   "pull-one"           bench-pull-one
+   "pull-one-entities"  bench-pull-one-entities
+   "pull-many"          bench-pull-many
+   "pull-many-entities" bench-pull-many-entities
+   "pull-wildcard"      bench-pull-wildcard})
 
 (defn -main
   "clj -A:bench:datomic -M -m datascript.bench.datomic [--profile] (add-1 | add-5 | ...)*"
@@ -166,7 +188,9 @@
       (doseq [name names
               :let [fn (benches name)]]
         (if (nil? fn)
-          (println "Unknown benchmark:" name)
+          (println
+            (bench/right-pad name (count longest))
+            " ---")
           (let [{:keys [mean-ms file]} (fn)]
             (println
               (bench/right-pad name (count longest))
@@ -189,5 +213,8 @@
   (bench-q4)
   (bench-qpred1)
   (bench-qpred2)
-  (bench-pull)
-  (bench-pull-entities))
+  (bench-pull-one)
+  (bench-pull-one-entities)
+  (bench-pull-many)
+  (bench-pull-many-entities)
+  (bench-pull-wildcard))

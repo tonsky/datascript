@@ -22,7 +22,8 @@
                             :db/cardinality :db.cardinality/many}}))
 
 (defn pattern [& {:as args}]
-  (dpp/map->PullPattern (merge {:wildcard? false} args)))
+  (let [attrs (filter #(not= :db/id (:name %)) (:attrs args))]
+    (dpp/map->PullPattern (merge {:first-attr (first attrs) :last-attr (last attrs)} args))))
 
 (defn attr [name & {:as args}]
   (dpp/map->PullAttr

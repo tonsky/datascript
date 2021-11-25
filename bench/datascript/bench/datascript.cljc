@@ -27,7 +27,7 @@
   (d/db-with empty-db (bench/long-db depth width)))
 
 (defn bench-add-1 []
-  (bench/bench "add-1"
+  (bench/bench
     (reduce
       (fn [db p]
         (-> db
@@ -40,7 +40,7 @@
       @bench/*people20k)))
 
 (defn bench-add-5 []
-  (bench/bench "add-5"
+  (bench/bench
     (reduce
       (fn [db p]
         (d/db-with db [p]))
@@ -48,7 +48,7 @@
       @bench/*people20k)))
 
 (defn bench-add-all []
-  (bench/bench "add-all"
+  (bench/bench
     (d/db-with
       empty-db
       @bench/*people20k)))
@@ -60,30 +60,30 @@
                        [k v] p
                        :when (not= k :db/id)]
                    (d/datom id k v)))]
-    (bench/bench "init"
+    (bench/bench
       (d/init-db datoms))))
 
 (defn bench-retract-5 []
   (let [db   (d/db-with empty-db @bench/*people20k)
         eids (->> (d/datoms db :aevt :name) (map :e) (shuffle))]
-    (bench/bench "retract-5"
+    (bench/bench
       (reduce (fn [db eid] (d/db-with db [[:db.fn/retractEntity eid]])) db eids))))
 
 (defn bench-q1 []
-  (bench/bench "q1"
+  (bench/bench
     (d/q '[:find ?e
            :where [?e :name "Ivan"]]
       @*db100k)))
 
 (defn bench-q2 []
-  (bench/bench "q2"
+  (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
                   [?e :age ?a]]
       @*db100k)))
 
 (defn bench-q3 []
-  (bench/bench "q3"
+  (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
                   [?e :age ?a]
@@ -91,7 +91,7 @@
       @*db100k)))
 
 (defn bench-q4 []
-  (bench/bench "q4"
+  (bench/bench
     (d/q '[:find ?e ?l ?a
            :where [?e :name "Ivan"]
                   [?e :last-name ?l]
@@ -100,14 +100,14 @@
       @*db100k)))
 
 (defn bench-qpred1 []
-  (bench/bench "qpred1"
+  (bench/bench
     (d/q '[:find ?e ?s
            :where [?e :salary ?s]
                   [(> ?s 50000)]]
       @*db100k)))
 
 (defn bench-qpred2 []
-  (bench/bench "qpred2"
+  (bench/bench
     (d/q '[:find ?e ?s
            :in   $ ?min_s
            :where [?e :salary ?s]
@@ -118,28 +118,48 @@
   (delay
     (wide-db 4 5)))
 
-(defn bench-pull []
-  (bench/bench "pull"
+(defn bench-pull-one-v1 []
+  (bench/bench
+    (datascript.pull-api/pull @*pull-db [:name {:follows '...}] [:id 1])))
+
+(defn bench-pull-one-entities []
+  (let [f (fn f [entity]
+            (assoc
+              (select-keys entity [:name])
+              :follows (mapv f (:follows entity))))]
+    (bench/bench
+      (f (d/entity @*pull-db [:id 1])))))
+
+(defn bench-pull-one-v2 []
+  (bench/bench
+    (pull-api-v2/pull @*pull-db [:name {:follows '...}] [:id 1])))
+
+(defn bench-pull-one []
+  (bench/bench
+    (pull-api-v3/pull @*pull-db [:name {:follows '...}] 1)))
+
+(defn bench-pull-many-v1 []
+  (bench/bench
     (datascript.pull-api/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
 
-(defn bench-pull-entities []
+(defn bench-pull-many-entities []
   (let [f (fn f [entity]
             (assoc
               (select-keys entity [:db/id :last-name :alias :sex :age :salary])
               :follows (mapv f (:follows entity))))]
-    (bench/bench "pull-entities"
+    (bench/bench
       (f (d/entity @*pull-db [:id 1])))))
 
-(defn bench-pull-v2 []
-  (bench/bench "pull-v2"
+(defn bench-pull-many-v2 []
+  (bench/bench
     (pull-api-v2/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
 
-(defn bench-pull-v3 []
-  (bench/bench "pull-v3"
+(defn bench-pull-many []
+  (bench/bench
     (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
 
-(defn bench-pull-v3-* []
-  (bench/bench "pull-v3-*"
+(defn bench-pull-wildcard []
+  (bench/bench
     (pull-api-v3/pull @*pull-db ['* {:follows '...}] 1)))
 
 (comment
@@ -167,31 +187,31 @@
 
 (defn bench-rules-wide-3x3 []
   (let [db (wide-db 3 3)]
-    (bench/bench "rules-wide-3x3" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-wide-5x3 []
   (let [db (wide-db 5 3)]
-    (bench/bench "rules-wide-5x3" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-wide-7x3 []
   (let [db (wide-db 7 3)]
-    (bench/bench "rules-wide-7x3" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-wide-4x6 []
   (let [db (wide-db 4 6)]
-    (bench/bench "rules-wide-4x6" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-long-10x3 []
   (let [db (long-db 10 3)]
-    (bench/bench "rules-long-10x3" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-long-30x3 []
   (let [db (long-db 30 3)]
-    (bench/bench "rules-long-30x3" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (defn bench-rules-long-30x5 []
   (let [db (long-db 30 5)]
-    (bench/bench "rules-long-30x5" (bench-rules db))))
+    (bench/bench (bench-rules db))))
 
 (def *serialize-db 
   (delay
@@ -212,31 +232,35 @@
       (-> json #?(:clj (jsonista/read-value mapper) :cljs js/JSON.parse) d/from-serializable))))
 
 (def benches
-  {"add-1"           bench-add-1
-   "add-5"           bench-add-5
-   "add-all"         bench-add-all
-   "init"            bench-init
-   "retract-5"       bench-retract-5
-   "q1"              bench-q1
-   "q2"              bench-q2
-   "q3"              bench-q3
-   "q4"              bench-q4
-   "qpred1"          bench-qpred1
-   "qpred2"          bench-qpred2
-   "pull"            bench-pull
-   "pull-entities"   bench-pull-entities
-   "pull-v2"         bench-pull-v2
-   "pull-v3"         bench-pull-v3
-   "pull-v3-*"       bench-pull-v3-*
-   "rules-wide-3x3"  bench-rules-wide-3x3
-   "rules-wide-5x3"  bench-rules-wide-5x3
-   "rules-wide-7x3"  bench-rules-wide-7x3
-   "rules-wide-4x6"  bench-rules-wide-4x6
-   "rules-long-10x3" bench-rules-long-10x3
-   "rules-long-30x3" bench-rules-long-30x3
-   "rules-long-30x5" bench-rules-long-30x5
-   "freeze"          bench-freeze
-   "thaw"            bench-thaw})
+  {"add-1"              bench-add-1
+   "add-5"              bench-add-5
+   "add-all"            bench-add-all
+   "init"               bench-init
+   "retract-5"          bench-retract-5
+   "q1"                 bench-q1
+   "q2"                 bench-q2
+   "q3"                 bench-q3
+   "q4"                 bench-q4
+   "qpred1"             bench-qpred1
+   "qpred2"             bench-qpred2
+   "pull-one-v1"        bench-pull-one-v1
+   "pull-one-entities"  bench-pull-one-entities
+   "pull-one-v2"        bench-pull-one-v2
+   "pull-one"           bench-pull-one
+   "pull-many-v1"       bench-pull-many-v1
+   "pull-many-entities" bench-pull-many-entities
+   "pull-many-v2"       bench-pull-many-v2
+   "pull-many"          bench-pull-many
+   "pull-wildcard"      bench-pull-wildcard
+   "rules-wide-3x3"     bench-rules-wide-3x3
+   "rules-wide-5x3"     bench-rules-wide-5x3
+   "rules-wide-7x3"     bench-rules-wide-7x3
+   "rules-wide-4x6"     bench-rules-wide-4x6
+   "rules-long-10x3"    bench-rules-long-10x3
+   "rules-long-30x3"    bench-rules-long-30x3
+   "rules-long-30x5"    bench-rules-long-30x5
+   "freeze"             bench-freeze
+   "thaw"               bench-thaw})
 
 (defn ^:export -main
   "clj -A:bench -M -m datascript.bench.datascript [--profile] (add-1 | add-5 | ...)*"
@@ -278,15 +302,21 @@
   (bench-q4)
   (bench-qpred1)
   (bench-qpred2)
-  (bench-pull)
-  (bench-pull-entities)
-  (bench-pull-v2)
-  (bench-pull-v3)
+  (bench-pull-one-v1)
+  (bench-pull-one-entities)
+  (bench-pull-one-v2)
+  (bench-pull-one)
+  (bench-pull-many-v1)
+  (bench-pull-many-entities)
+  (bench-pull-many-v2)
+  (bench-pull-many)
+  (bench-pull-all)
   (binding [bench/*profile* true]
-    (bench-pull-v3))
-  (bench-pull-v3-*)
+    (bench-pull-one))
   (binding [bench/*profile* true]
-    (bench-pull-v3-*))
+    (bench-pull-many))
+  (binding [bench/*profile* true]
+    (bench-pull-all))
   (bench-rules-wide-3x3)
   (bench-rules-wide-5x3)
   (bench-rules-wide-7x3)

@@ -232,11 +232,19 @@
 
 
 (defn attrs-frame [^Context context seen recursion-limits ^PullPattern pattern id]
-  (let [datoms (when (or (.-wildcard? pattern)
-                       (some? (first-seq (next-seq (.-attrs pattern)))) ; 2+ attrs
-                       (when-some [first-attr ^PullAttr (first-seq (.-attrs pattern))]
-                         (not= :db/id (.-name first-attr))))
-                 (set/slice (.-eavt ^DB (.-db context)) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax)))]
+  (let [datoms (cond+
+                 (.-wildcard? pattern)
+                 (set/slice (.-eavt ^DB (.-db context))
+                   (db/datom id nil nil db/tx0)
+                   (db/datom id nil nil db/txmax))
+
+                 (nil? (.-first-attr pattern))
+                 nil
+
+                 :else
+                 (set/slice (.-eavt ^DB (.-db context))
+                   (db/datom id (.-name ^PullAttr (.-first-attr pattern)) nil db/tx0)
+                   (db/datom id (.-name ^PullAttr (.-last-attr pattern)) nil db/txmax)))]
     (when (.-wildcard? pattern)
       (visit context :db.pull/wildcard id nil nil))
     (AttrsFrame.

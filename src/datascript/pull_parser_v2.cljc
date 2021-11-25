@@ -4,7 +4,7 @@
    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
 
 (defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
-(defrecord PullPattern [attrs reverse-attrs wildcard?])
+(defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
 
 (def default-db-id-attr (map->PullAttr {:name :db/id :as :db/id :xform identity}))
 (def default-pattern-ref (map->PullPattern {:attrs (list default-db-id-attr)}))
@@ -128,21 +128,28 @@
       :else
       (assoc pull-attr :pattern (parse-pattern db pattern)))))
 
-(defn add-wildcard-db-id [pull-pattern]
-  (cond-> pull-pattern
-    (and (:wildcard? pull-pattern) (every? #(not= :db/id (:name %)) (:attrs pull-pattern)))
-    (update :attrs conj default-db-id-attr)))
-
 (defn parse-pattern ^PullPattern [db pattern]
   (check (sequential? pattern) "pattern to be sequential?" pattern)
   (loop [pattern pattern
-         result  (map->PullPattern {:attrs [] :reverse-attrs [] :wildcard? false})]
+         ^PullPattern result (map->PullPattern {:attrs [] :reverse-attrs [] :wildcard? nil})]
     (cond+
       (empty? pattern)
-      (-> result
-        (add-wildcard-db-id)
-        (update :attrs #(list* (sort-by :name %)))
-        (update :reverse-attrs #(list* (sort-by :name %))))
+      (let [attrs       (.-attrs result)
+            attrs       (if (and
+                              (.-wildcard? result)
+                              (every? #(not= :db/id (.-name ^PullAttr %)) (.-attrs result)))
+                          (conj attrs default-db-id-attr)
+                          attrs)
+            attrs       (list* (sort-by :name attrs))
+            datom-attrs (filter #(not= :db/id (.-name ^PullAttr %)) attrs)
+            first-attr  (first datom-attrs)
+            last-attr   (last datom-attrs)]
+        (map->PullPattern
+          {:attrs         attrs
+           :first-attr    first-attr
+           :last-attr     last-attr
+           :reverse-attrs (list* (sort-by :name (.-reverse-attrs result)))
+           :wildcard?     (.-wildcard? result)}))
 
       :let [attr-spec (first pattern)]
 
