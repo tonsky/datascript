@@ -1,3 +1,15 @@
+# WIP
+
+- New pull implementation:
+  - Up to 7 times faster than old impl
+  - Up to 2,5 times faster than doing pull through entities
+  - Up to 4 times faster than Datomic in-memory
+  - Cached parse results
+  - Fixed wildcard + recursion bug: `[* {:child ...}]` did not work before
+  - A callback to track all entities touched by pull (usable for reactive dependency tracking)
+- Simplified benchmark code
+- Ability to override query parse cache: `datascript.query/*query-cache*`
+
 # 1.2.10
 
 - Fix broken wildcard pull on non-matching ref #410 thx @joodie 

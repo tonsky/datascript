@@ -1,8 +1,6 @@
 (ns datascript.bench.datascript
   (:require
    [datascript.core :as d]
-   [datascript.pull-api-v2 :as pull-api-v2]
-   [datascript.pull-api-v3 :as pull-api-v3]
    [datascript.bench.bench :as bench]
    #?(:clj [jsonista.core :as jsonista])))
 
@@ -118,10 +116,6 @@
   (delay
     (wide-db 4 5)))
 
-(defn bench-pull-one-v1 []
-  (bench/bench
-    (datascript.pull-api/pull @*pull-db [:name {:follows '...}] [:id 1])))
-
 (defn bench-pull-one-entities []
   (let [f (fn f [entity]
             (assoc
@@ -130,17 +124,9 @@
     (bench/bench
       (f (d/entity @*pull-db [:id 1])))))
 
-(defn bench-pull-one-v2 []
-  (bench/bench
-    (pull-api-v2/pull @*pull-db [:name {:follows '...}] [:id 1])))
-
 (defn bench-pull-one []
   (bench/bench
-    (pull-api-v3/pull @*pull-db [:name {:follows '...}] 1)))
-
-(defn bench-pull-many-v1 []
-  (bench/bench
-    (datascript.pull-api/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
+    (d/pull @*pull-db [:name {:follows '...}] 1)))
 
 (defn bench-pull-many-entities []
   (let [f (fn f [entity]
@@ -150,29 +136,13 @@
     (bench/bench
       (f (d/entity @*pull-db [:id 1])))))
 
-(defn bench-pull-many-v2 []
-  (bench/bench
-    (pull-api-v2/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] [:id 1])))
-
 (defn bench-pull-many []
   (bench/bench
-    (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
+    (d/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)))
 
 (defn bench-pull-wildcard []
   (bench/bench
-    (pull-api-v3/pull @*pull-db ['* {:follows '...}] 1)))
-
-(comment
-  (clojure.pprint/pprint
-  (let [db (wide-db 2 2)]
-    (clojure.data/diff 
-      (pull-api-v3/pull db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
-      (datascript.pull-api/pull db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
-      )))
-  (=
-    (pull-api-v3/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1)
-    (datascript.pull-api/pull @*pull-db [:db/id :last-name :alias :sex :age :salary {:follows '...}] 1))
-  )
+    (d/pull @*pull-db ['* {:follows '...}] 1)))
 
 (defn bench-rules [db]
   (d/q '[:find ?e ?e2
@@ -243,13 +213,9 @@
    "q4"                 bench-q4
    "qpred1"             bench-qpred1
    "qpred2"             bench-qpred2
-   "pull-one-v1"        bench-pull-one-v1
    "pull-one-entities"  bench-pull-one-entities
-   "pull-one-v2"        bench-pull-one-v2
    "pull-one"           bench-pull-one
-   "pull-many-v1"       bench-pull-many-v1
    "pull-many-entities" bench-pull-many-entities
-   "pull-many-v2"       bench-pull-many-v2
    "pull-many"          bench-pull-many
    "pull-wildcard"      bench-pull-wildcard
    "rules-wide-3x3"     bench-rules-wide-3x3
@@ -284,12 +250,7 @@
     #?(:clj (shutdown-agents))))
 
 (comment
-  (-main "pull" "pull-entities" "pull-v2")
-  (-main "add-1" "pull-entities" "q4")
-
-  (do
-    (require 'datascript.bench.datascript :reload-all)
-    (bench-pull-v3))
+  (require 'datascript.bench.datascript :reload-all)
 
   (bench-add-1)
   (bench-add-5)
@@ -302,13 +263,9 @@
   (bench-q4)
   (bench-qpred1)
   (bench-qpred2)
-  (bench-pull-one-v1)
   (bench-pull-one-entities)
-  (bench-pull-one-v2)
   (bench-pull-one)
-  (bench-pull-many-v1)
   (bench-pull-many-entities)
-  (bench-pull-many-v2)
   (bench-pull-many)
   (bench-pull-all)
   (binding [bench/*profile* true]

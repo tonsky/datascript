@@ -12,8 +12,7 @@
    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple Constant
                                                 FindColl FindRel FindScalar FindTuple PlainSymbol
                                                 RulesVar SrcVar Variable]])]
-   [datascript.pull-api :as dpa]
-   [datascript.pull-parser :as dpp])
+   [datascript.pull-api :as dpa])
   #?(:clj
      (:import
       [datascript.parser BindColl BindIgnore BindScalar BindTuple
@@ -859,17 +858,17 @@
 (defn- pull [find-elements context resultset]
   (let [resolved (for [find find-elements]
                    (when (dp/pull? find)
-                     [(-context-resolve (:source find) context)
-                      (dpp/parse-pull
-                        (-context-resolve (:pattern find) context))]))]
+                     (let [db (-context-resolve (:source find) context)
+                           pattern (-context-resolve (:pattern find) context)]
+                       (dpa/parse-opts db pattern))))]
     (for [tuple resultset]
-      (mapv (fn [env el]
-              (if env
-                (let [[src spec] env]
-                  (dpa/pull-spec src spec el false))
-                el))
-            resolved
-            tuple))))
+      (mapv
+        (fn [parsed-opts el]
+          (if parsed-opts
+            (dpa/pull-impl parsed-opts el)
+            el))
+        resolved
+        tuple))))
 
 (defn q [q & inputs]
   (let [parsed-q      (lru/-cache-get *query-cache* q #(dp/parse-query q))

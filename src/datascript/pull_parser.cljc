@@ -1,243 +1,182 @@
 (ns ^:no-doc datascript.pull-parser
   (:require
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]))
+   [datascript.built-ins :as built-ins]
+   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
 
-(defrecord PullSpec [wildcard? attrs])
+(defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
+(defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
 
-(defprotocol IPullSpecComponent
-  (-as-spec [this]))
+(def default-db-id-attr (map->PullAttr {:name :db/id :as :db/id :xform identity}))
+(def default-pattern-ref (map->PullPattern {:attrs (list default-db-id-attr)}))
+(def default-pattern-component (assoc default-pattern-ref :wildcard? true))
 
-(defrecord PullAttrName [attr]
-  IPullSpecComponent
-  (-as-spec [this]
-    [attr {:attr attr}]))
+(declare parse-pattern parse-attr-spec)
 
-(defrecord PullReverseAttrName [attr rattr]
-  IPullSpecComponent
-  (-as-spec [this]
-    [rattr {:attr attr}]))
+; pattern             = [(attr-spec | map-spec | '* | "*")+]
+; attr-spec           = attr-name | attr-expr | legacy-limit-expr | legacy-default-expr
+; attr-name           = an edn keyword that names an attr
+; attr-expr           = [attr-name attr-option+]
+; map-spec            = {attr-spec (pattern | recursion-limit)}
+; attr-option         = :as any-value | :limit multival-limit | :default any-value | :xform symbol
+; recursion-limit     = positive-number | '...
+; multival-limit      = positive-number | nil
+; legacy-limit-expr   = [("limit" | 'limit) attr-spec multival-limit]
+; legacy-default-expr = [("default" | 'default) attr-spec any-value]
 
-(defrecord PullLimitExpr [attr limit]
-  IPullSpecComponent
-  (-as-spec [this]
-    (-> (-as-spec attr)
-        (assoc-in [1 :limit] limit))))
+(defn check [cond expected fragment]
+  (when-not cond
+    (throw (ex-info (str "Expected " expected ", got: " (pr-str fragment))
+             {:error :parser/pull, :fragment fragment}))))
 
-(defrecord PullDefaultExpr [attr value]
-  IPullSpecComponent
-  (-as-spec [this]
-    (-> (-as-spec attr)
-        (assoc-in [1 :default] value))))
+(defn parse-attr-name [db attr-spec]
+  (let [reverse?   (db/reverse-ref? attr-spec)
+        name       (if reverse? (db/reverse-ref attr-spec) attr-spec)
+        ref?       (db/ref? db name)
+        component? (db/component? db name)
+        multival?  (db/multival? db name)]
+    (map->PullAttr
+      {:as         attr-spec
+       :name       name
+       :xform      identity
+       :multival?  (when multival? true)
+       :limit      (if multival? 1000 nil)
+       :ref?       (when ref? true)
+       :component? (when component? true)
+       :pattern    (cond
+                     (not ref?) nil
+                     reverse?   default-pattern-ref
+                     component? default-pattern-component
+                     :else      default-pattern-ref)
+       :reverse?   (when reverse?
+                     (check ref? "reverse attribute having :db.type/ref" attr-spec)
+                     true)})))
 
-(defrecord PullWildcard [])
+(defn- check-limit [db pull-attr limit]
+  (check (or (and (number? limit) (pos? limit)) (nil? limit)) "(positive-number | nil)" limit)
+  (check (db/multival? db (:name pull-attr)) "limit attribute having :db.cardinality/many" (:name pull-attr)))
 
-(defrecord PullRecursionLimit [limit]
-  IPullSpecComponent
-  (-as-spec [this]
-    [:recursion limit]))
+(defn- resolve-xform [sym-or-fn]
+  (or
+    (when (fn? sym-or-fn)
+      sym-or-fn)
+    (get built-ins/query-fns sym-or-fn)
+    #?(:clj (when (namespace sym-or-fn)
+              (when-some [v (requiring-resolve sym-or-fn)]
+                @v)))
+    (raise "Can't resolve symbol " sym-or-fn {:error :parser/pull, :fragment sym-or-fn})))
 
-(defrecord PullMapSpecEntry [attr porrl]
-  IPullSpecComponent
-  (-as-spec [this]
-    (-> (-as-spec attr)
-        (update 1 conj (-as-spec porrl)))))
+(defn parse-attr-expr [db attr-spec]
+  (when-some [pull-attr (parse-attr-spec db (first attr-spec))]
+    (check (even? (count (next attr-spec))) "even number of opts" attr-spec)
+    (reduce
+      (fn [pull-attr [key value]]
+        (case key
+          :as      (assoc pull-attr :as value)
+          :limit   (do
+                     (check-limit db pull-attr value)
+                     (assoc pull-attr :limit value))
+          :default (assoc pull-attr :default value)
+          :xform   (assoc pull-attr :xform (resolve-xform value))
+          #_else   (check false "one of :as, :limit, :default, :xform" attr-spec)))
+      pull-attr
+      (partition 2 (next attr-spec)))))
 
-(defrecord PullAttrWithOpts [attr opts]
-  IPullSpecComponent
-  (-as-spec [this]
-    (-> (-as-spec attr)
-        (update 1 merge opts))))    
+(defn parse-legacy-limit-expr [db attr-spec]
+  (let [expected "['limit attr-name (positive-number | nil)]"]
+    (when (#{'limit "limit"} (first attr-spec))
+      (check (= (count attr-spec) 3) expected attr-spec)
+      (let [[_ attr limit] attr-spec
+            pull-attr (parse-attr-spec db attr)]
+        (check-limit db pull-attr limit)
+        (assoc pull-attr :limit limit)))))
 
-(defn- aggregate-specs
-  [res part]
-  (if (instance? PullWildcard part)
-    (assoc res :wildcard? true)
-    (update res :attrs conj! (-as-spec part))))
+(defn parse-legacy-default-expr [db attr-spec]
+  (let [expected "['default attr-name any-value]"]
+    (when (#{'default "default"} (first attr-spec))
+      (check (= (count attr-spec) 3) expected attr-spec)
+      (let [[_ attr default] attr-spec
+            pull-attr (parse-attr-spec db attr)]
+          (assoc pull-attr :default default)))))
 
-(defrecord PullPattern [specs]
-  IPullSpecComponent
-  (-as-spec [this]
-    (let [init (PullSpec. false (transient {}))
-          spec (reduce aggregate-specs init specs)]
-      [:subpattern (update spec :attrs persistent!)])))
-
-(declare parse-pattern)
-
-(def ^:private wildcard? #{'* :* "*"})
-
-(defn- parse-wildcard
-  [spec]
-  (when (wildcard? spec)
-    (PullWildcard.)))
-
-(defn- parse-attr-name
-  [spec]
-  (when (or (keyword? spec) (string? spec))
-    (if (db/reverse-ref? spec)
-      (PullReverseAttrName. (db/reverse-ref spec) spec)
-      (PullAttrName. spec))))
-
-(def ^:private unlimited-recursion? #{'... "..."})
-
-(defn- parse-recursion-limit
-  [spec]
+(defn parse-attr-spec [db attr-spec]
   (cond
-    (unlimited-recursion? spec)
-    (PullRecursionLimit. nil)
+    (keyword? attr-spec)
+    (parse-attr-name db attr-spec)
 
-    (and (number? spec) (pos? spec))
-    (PullRecursionLimit. spec)))
+    (sequential? attr-spec)
+    (or
+      (parse-attr-expr db attr-spec)
+      (parse-legacy-limit-expr db attr-spec)
+      (parse-legacy-default-expr db attr-spec)
+      (check false "[attr-name attr-option+] | ['limit attr-name (positive-num | nil)] | ['default attr-name any-val]" attr-spec))
 
-(defn- maybe-attr-expr?
-  [spec]
-  (and (sequential? spec) (= 3 (count spec))))
+    :else nil))
 
-(def ^:private limit? #{'limit :limit "limit"})
+(defn parse-map-spec [db attr-spec pattern]
+  (let [pull-attr (parse-attr-spec db attr-spec)]
+    (check (some? pull-attr) "attr-name | attr-expr" attr-spec)
+    (check (db/ref? db (:name pull-attr)) "attribute having :db.type/ref" attr-spec)
+    (cond
+      (or (= '... pattern) (= "..." pattern))
+      (assoc pull-attr :pattern nil :recursive? true :recursion-limit nil)
 
-(defn- parse-limit-expr
-  [spec]
-  (let [[limit-sym attr-name-spec pos-num] spec]
-    (when (limit? limit-sym)
-      (if-let [attr-name (and (or (nil? pos-num)
-                                  (and (number? pos-num) (pos? pos-num)))
-                              (parse-attr-name attr-name-spec))]
-        (PullLimitExpr. attr-name pos-num)
-        (raise "Expected [\"limit\" attr-name (positive-number | nil)]"
-               {:error :parser/pull, :fragment spec})))))
+      (number? pattern)
+      (do
+        (check (pos? pattern) "(positive-num | ...)" {attr-spec pattern})
+        (assoc pull-attr :pattern nil :recursive? true :recursion-limit pattern))
 
-(def ^:private default? #{'default :default "default"})
+      :else
+      (assoc pull-attr :pattern (parse-pattern db pattern)))))
 
-(defn- parse-default-expr
-  [spec]
-  (let [[default-sym attr-name-spec default-val] spec]
-    (when (default? default-sym)
-      (if-let [attr-name (parse-attr-name attr-name-spec)]
-        (PullDefaultExpr. attr-name default-val)
-        (raise "Expected [\"default\" attr-name any-value]"
-               {:error :parser/pull, :fragment spec})))))
+(defn parse-pattern ^PullPattern [db pattern]
+  (check (sequential? pattern) "pattern to be sequential?" pattern)
+  (loop [pattern pattern
+         ^PullPattern result (map->PullPattern {:attrs [] :reverse-attrs [] :wildcard? nil})]
+    (cond+
+      (empty? pattern)
+      (let [attrs       (.-attrs result)
+            attrs       (if (and
+                              (.-wildcard? result)
+                              (every? #(not= :db/id (.-name ^PullAttr %)) (.-attrs result)))
+                          (conj attrs default-db-id-attr)
+                          attrs)
+            attrs       (list* (sort-by :name attrs))
+            datom-attrs (filter #(not= :db/id (.-name ^PullAttr %)) attrs)
+            first-attr  (first datom-attrs)
+            last-attr   (last datom-attrs)]
+        (map->PullPattern
+          {:attrs         attrs
+           :first-attr    first-attr
+           :last-attr     last-attr
+           :reverse-attrs (list* (sort-by :name (.-reverse-attrs result)))
+           :wildcard?     (.-wildcard? result)}))
 
-(defn- parse-attr-with-opts
-  [spec]
-  (when (sequential? spec)
-    (let [[attr-name-spec & opts-spec] spec]
-      (when-some [attr-name (parse-attr-name attr-name-spec)]
-        (when (and (even? (count opts-spec))
-                   (every? #{:as :limit :default} (->> opts-spec (partition 2) (map first))))
-          (PullAttrWithOpts. attr-name (apply array-map opts-spec)))))))
+      :let [attr-spec (first pattern)]
 
-(defn- parse-map-spec-entry
-  [[k v]]
-  (if-let [attr-name (or (parse-attr-name k)
-                         (parse-attr-with-opts k)
-                         (when (maybe-attr-expr? k)
-                           (parse-limit-expr k)))]
-    (if-let [pattern-or-rec (or (parse-recursion-limit v)
-                                (parse-pattern v))]
-      (PullMapSpecEntry. attr-name pattern-or-rec)
-      (raise "Expected (pattern | recursion-limit)"
-             {:error :parser/pull, :fragment [k v]}))
-    (raise "Expected (attr-name | limit-expr)"
-           {:error :parser/pull, :fragment [k v]})))
+      (or (= '* attr-spec) (= "*" attr-spec) (= :* attr-spec))
+      (recur (next pattern) (assoc result :wildcard? true))
 
-(defn- parse-map-spec
-  [spec]
-  (when (map? spec)
-    (assert (= 1 (count spec)) "Maps should contain exactly 1 entry")
-    (parse-map-spec-entry (first spec))))
+      :let [conj-attr (fn [result pull-attr]
+                        (cond
 
-(defn- parse-attr-expr
-  [spec]
-  (when (maybe-attr-expr? spec)
-    (or (parse-limit-expr spec)
-        (parse-default-expr spec))))
+                          (:reverse? pull-attr)
+                          (update result :reverse-attrs conj pull-attr)
 
-(defn- parse-attr-spec
-  [spec]
-  (or (parse-attr-name spec)
-      (parse-wildcard spec)
-      (parse-map-spec spec)
-      (parse-attr-with-opts spec)
-      (parse-attr-expr spec)
-      (raise "Cannot parse attr-spec, expected: (attr-name | wildcard | map-spec | attr-expr)"
-             {:error :parser/pull, :fragment spec})))
+                          :else
+                          (update result :attrs conj pull-attr)))]
 
-(defn- pattern-clause-type
-  [clause]
-  (cond
-    (map? clause)      :map
-    (wildcard? clause) :wildcard
-    :else              :other))
+      (map? attr-spec)
+      (let [result' (reduce-kv
+                      (fn [result attr-spec pattern]
+                        (conj-attr result (parse-map-spec db attr-spec pattern)))
+                      result
+                      attr-spec)]
+        (recur (next pattern) result'))
+        
+      :let [pull-attr (parse-attr-spec db attr-spec)]
 
-(defn- expand-map-clause
-  [clause]
-  (into [] (map #(conj {} %)) clause))
-
-(defn- simplify-pattern-clauses
-  [pattern]
-  (let [groups (group-by pattern-clause-type pattern)
-        base   (if (not-empty (get groups :wildcard))
-                 ['*] [])]
-    (-> base
-        (into (get groups :other))
-        (into (mapcat expand-map-clause) (get groups :map)))))
-
-(defn parse-pattern
-  "Parse an EDN pull pattern into a tree of records using the following
-grammar:
-
-```
-pattern            = [attr-spec+]
-attr-spec          = attr-name | wildcard | map-spec | attr-expr
-attr-name          = an edn keyword that names an attr
-wildcard           = \"*\" or '*'
-map-spec           = { ((attr-name | limit-expr) (pattern | recursion-limit))+ }
-attr-with-opts     = [attr-name attr-options+]
-attr-options       = :as any-value | :limit (positive-number | nil) | :default any-value
-attr-expr          = limit-expr | default-expr
-limit-expr         = [\"limit\" attr-name (positive-number | nil)]
-default-expr       = [\"default\" attr-name any-value]
-recursion-limit    = positive-number | '...'
-```"
-  [pattern]
-  (when (sequential? pattern)
-    (->> pattern
-         simplify-pattern-clauses
-         (into [] (map parse-attr-spec))
-         (PullPattern.))))
-
-(defn pattern->spec
-  "Convert a parsed tree of pull pattern records into a `PullSpec` instance,
-a record type containing two keys:
-
-* `:wildcard?` - a boolean indicating if the pattern contains a wildcard.
-* `:attrs` - a map of attribute specifications.
-
-The attribute specification map consists of keys which will become the keys
-in the result map, and values which are themselves maps describing the
-attribute:
-
-* `:attr`       (required) - The attr name to pull; for reverse attributes
-                             this will be the normalized attribute name.
-* `:as`         (optional) - Alias, any
-* `:limit`      (optional) - If present, specifies a custom limit for this
-                             attribute; Either `nil`, indicating no limit,
-                             or a positive integer.
-* `:default`    (optional) - If present, specifies a default value for this
-                             attribute
-* `:recursion`  (optional) - If present, specifies a recursion limit for this
-                             attribute; Either `nil`, indicating no limit, or
-                             a positive integer.
-* `:subpattern` (optional) - If present, specifies a sub `PullSpec` instance
-                             to be applied to entities matched by this
-                             attribute."
-  [pattern]
-  (second (-as-spec pattern)))
-
-(defn parse-pull
-  "Parse EDN pull `pattern` specification (see `parse-pattern`), and
-convert the resulting tree into a `PullSpec` instance (see `pattern->spec`).
-Throws an error if the supplied `pattern` cannot be parsed."
-  [pattern]
-  (or (some-> pattern parse-pattern pattern->spec)
-      (raise "Cannot parse pull pattern, expected: [attr-spec+]"
-             {:error :parser/pull, :fragment pattern})))
+      (nil? pull-attr)
+      (check false "attr-name | attr-expr | map-spec | *" attr-spec)
+      
+      :else
+      (recur (next pattern) (conj-attr result pull-attr)))))
