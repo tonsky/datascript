@@ -56,7 +56,7 @@
         :let [^Datom datom (first-seq datoms)]
 
         (or (nil? datom) (not= (.-a datom) (.-name attr)))
-        [(ResultFrame. (not-empty (persistent! acc)) (or datoms ()))]
+        [(ResultFrame. ((.-xform attr) (not-empty (persistent! acc))) (or datoms ()))]
 
         ; got limit, skip rest of the datoms
         (and (.-limit attr) (>= (count acc) (.-limit attr)))
@@ -84,7 +84,7 @@
       :let [^Datom datom (first-seq datoms)]
 
       (or (nil? datom) (not= (.-a datom) (.-name attr)))
-      [(ResultFrame. (not-empty (persistent! acc)) (or datoms ()))]
+      [(ResultFrame. ((.-xform attr) (not-empty (persistent! acc))) (or datoms ()))]
 
       ; got limit, skip rest of the datoms
       (and (.-limit attr) (>= (count acc) (.-limit attr)))
@@ -123,7 +123,7 @@
 
         ;; :db/id
         (and (some? attr) (= :db/id (.-name attr)))
-        (recur (assoc! acc (.-as attr) id) (first-seq attrs) (next-seq attrs) datoms)
+        (recur (assoc! acc (.-as attr) ((.-xform attr) id)) (first-seq attrs) (next-seq attrs) datoms)
 
         :let [^Datom datom (first-seq datoms)
               cmp          (when (and datom attr)
@@ -131,8 +131,7 @@
               attr-ahead?  (or (nil? attr) (and cmp (pos? cmp)))
               datom-ahead? (or (nil? datom) (and cmp (neg? cmp)))]
 
-
-        ; wildcard
+        ;; wildcard
         (and (.-wildcard? pattern) (some? datom) attr-ahead?)
         (let [*attrs-cache (.-*attrs-cache ^Context context)
               datom-attr   (or (@*attrs-cache (.-a datom))
@@ -147,13 +146,19 @@
 
         :do (visit context :db.pull/attr id (.-name attr) nil)
 
-        ; default
-        (and attr (some? (#?(:clj .-default :cljs :default) attr)) datom-ahead?)
+        ;; advance attr
+        (and datom-ahead? (nil? attr))
+        (recur acc (first-seq attrs) (next-seq attrs) datoms)
+
+        ;; default
+        (and datom-ahead? (some? (#?(:clj .-default :cljs :default) attr)))
         (recur (assoc! acc (.-as attr) (#?(:clj .-default :cljs :default) attr)) (first-seq attrs) (next-seq attrs) datoms)
 
-        ;; advance attr
+        ;; xform
         datom-ahead?
-        (recur acc (first-seq attrs) (next-seq attrs) datoms)
+        (if-some [value ((.-xform attr) nil)]
+          (recur (assoc! acc (.-as attr) value) (first-seq attrs) (next-seq attrs) datoms)
+          (recur acc (first-seq attrs) (next-seq attrs) datoms))
 
         ;; matching attr
         (and (.-multival? attr) (.-ref? attr))
@@ -169,7 +174,11 @@
          (ref-frame context seen recursion-limits pattern attr (.-v datom))]
 
         :else
-        (recur (assoc! acc (.-as attr) (.-v datom)) (first-seq attrs) (next-seq attrs) (next-seq datoms))))))
+        (recur
+          (assoc! acc (.-as attr) ((.-xform attr) (.-v datom)))
+          (first-seq attrs)
+          (next-seq attrs)
+          (next-seq datoms))))))
 
 (defrecord ReverseAttrsFrame [seen recursion-limits acc pattern ^PullAttr attr attrs id]
   IFrame

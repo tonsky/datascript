@@ -217,6 +217,22 @@
     (is (= {:bar false}
           (d/pull test-db '[[:foo :as :bar :default false]] 1))))
 
+  (testing "default does not override results"
+    (is (= {:name "Petr", :aka  ["Devil" "Tupen"]
+            :child [{:name "David", :aka "[aka]", :child "[child]"}
+                    {:name "Thomas", :aka "[aka]", :child "[child]"}]}
+         (d/pull test-db
+           '[[:name :default "[name]"]
+             [:aka :default "[aka]"]
+             {[:child :default "[child]"] ...}]
+           1)))
+    (is (= {:name "David", :aka  "[aka]", :child "[child]"}
+         (d/pull test-db
+           '[[:name :default "[name]"]
+             [:aka :default "[aka]"]
+             {[:child :default "[child]"] ...}]
+           2))))
+
   (testing "Ref default"
     (is (= {:child 1 :db/id 2}
           (d/pull test-db '[:db/id [:child :default 1]] 2)))
@@ -421,6 +437,32 @@
                        [:name "Rebecca"]
                        [:name "Unknown"]])))
   (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
+
+(deftest test-xform
+  (is (= {:db/id [1]
+          :name  ["Petr"]
+          :aka   [["Devil" "Tupen"]]
+          :child [[{:db/id [2], :name ["David"],  :aka [nil], :child [nil]}
+                   {:db/id [3], :name ["Thomas"], :aka [nil], :child [nil]}]]}
+       (d/pull test-db
+         '[[:db/id :xform vector]
+           [:name :xform vector]
+           [:aka :xform vector]
+           {[:child :xform vector] ...}]
+         1)))
+  
+  (testing "missing attrs are processed by xform"
+    (is (= {:normal [nil]
+            :aka [nil]
+            :child [nil]}
+          (d/pull test-db
+            '[[:normal :xform vector]
+              [:aka :xform vector]
+              {[:child :xform vector] ...}]
+            2))))
+  (testing "default takes precedence"
+    (is (= {:unknown "[unknown]"}
+          (d/pull test-db '[[:unknown :default "[unknown]" :xform vector]] 1)))))
 
 (deftest test-visitor
   (let [*trace (volatile! nil)

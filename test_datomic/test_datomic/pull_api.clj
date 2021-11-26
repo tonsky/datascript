@@ -138,6 +138,20 @@
   (is (= {:person/name "10", :person/enemy [{:person/name "10", :person/enemy [{:person/name "10"}]}]}
         (datomic/pull test-datomic-db '[:person/name {:person/enemy ...}] [:person/name "10"]))))
 
+(deftest test-xform
+  (is (= {:person/name ["Petr"]}
+        (datomic/pull test-datomic-db '[[:person/name :xform clojure.core/vector]] [:person/name "Petr"])))
+  (is (= {:person/aka [["Devil" "Tupen"]]}
+        (datomic/pull test-datomic-db '[[:person/aka :xform clojure.core/vector]] [:person/name "Petr"])))
+  (is (= {:person/child [[{:person/name "David"} {:person/name "Thomas"}]]}
+        (datomic/pull test-datomic-db '[{[:person/child :xform clojure.core/vector] [:person/name]}] [:person/name "Petr"])))
+  (is (= {:person/child {:person/name "David"}}
+        (datomic/pull test-datomic-db '[{[:person/child :xform clojure.core/first] [:person/name]}] [:person/name "Petr"])))
+  (is (= {:person/aka [nil]}
+        (datomic/pull test-datomic-db '[[:person/aka :xform clojure.core/vector]] [:person/name "Lucy"])))
+  (is (= {:person/child [nil]}
+        (datomic/pull test-datomic-db '[{[:person/child :xform clojure.core/vector] [:person/name]}] [:person/name "Lucy"]))))
+
 (defn -main [& args]
   (let [{:keys [test pass fail error] :as res} (run-tests 'test-datomic.pull-api)]
     (shutdown-agents)

@@ -23,15 +23,15 @@
       (d/create-database url)
       (let [conn (d/connect url)]
         @(d/transact conn
-          [ (schema-attr :id        :db.type/long, :db/unique :db.unique/identity)
-            (schema-attr :name      :db.type/string)
-            (schema-attr :last-name :db.type/string)
-            (schema-attr :full-name :db.type/string)
-            (schema-attr :sex       :db.type/keyword)
-            (schema-attr :age       :db.type/long)
-            (schema-attr :salary    :db.type/long)
-            (schema-attr :alias     :db.type/string, :db/cardinality :db.cardinality/many)
-            (schema-attr :follows   :db.type/ref, :db/cardinality :db.cardinality/many)])
+          [(schema-attr :id        :db.type/long, :db/unique :db.unique/identity)
+           (schema-attr :name      :db.type/string)
+           (schema-attr :last-name :db.type/string)
+           (schema-attr :full-name :db.type/string)
+           (schema-attr :sex       :db.type/keyword)
+           (schema-attr :age       :db.type/long)
+           (schema-attr :salary    :db.type/long)
+           (schema-attr :alias     :db.type/string, :db/cardinality :db.cardinality/many)
+           (schema-attr :follows   :db.type/ref, :db/cardinality :db.cardinality/many)])
         conn))))
 
 (defn db-with [conn tx-data]

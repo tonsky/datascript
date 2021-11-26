@@ -4,6 +4,7 @@
   - Up to 7 times faster than old impl
   - Up to 2,5 times faster than doing pull through entities
   - Up to 4 times faster than Datomic in-memory
+  - Support :xform
   - Cached parse results
   - Fixed wildcard + recursion bug: `[* {:child ...}]` did not work before
   - A callback to track all entities touched by pull (usable for reactive dependency tracking)
