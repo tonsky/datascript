@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#! node
 
 var fs = require('fs'),
     vm = require('vm');

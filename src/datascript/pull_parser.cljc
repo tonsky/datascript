@@ -100,7 +100,9 @@
 
 (defn parse-attr-spec [db attr-spec]
   (cond
-    (keyword? attr-spec)
+    (or (keyword? attr-spec)
+      (and (string? attr-spec)
+        (not (#{"default" "limit"} attr-spec))))
     (parse-attr-name db attr-spec)
 
     (sequential? attr-spec)
@@ -135,20 +137,27 @@
     (cond+
       (empty? pattern)
       (let [attrs       (.-attrs result)
+            db-id?      (fn [^PullAttr attr] (#{:db/id ":db/id"} (.-name attr)))
+            key-fn      (fn [^PullAttr attr]
+                          (let [name (:name attr)]
+                            (cond
+                              (keyword? name) name
+                              (= ":" (subs name 0 1)) (keyword (subs name 1))
+                              :eles (keyword name))))
             attrs       (if (and
                               (.-wildcard? result)
-                              (every? #(not= :db/id (.-name ^PullAttr %)) (.-attrs result)))
+                              (not (some db-id? (.-attrs result))))
                           (conj attrs default-db-id-attr)
                           attrs)
-            attrs       (list* (sort-by :name attrs))
-            datom-attrs (filter #(not= :db/id (.-name ^PullAttr %)) attrs)
+            attrs       (list* (sort-by key-fn attrs))
+            datom-attrs (remove db-id? attrs)
             first-attr  (first datom-attrs)
             last-attr   (last datom-attrs)]
         (map->PullPattern
           {:attrs         attrs
            :first-attr    first-attr
            :last-attr     last-attr
-           :reverse-attrs (list* (sort-by :name (.-reverse-attrs result)))
+           :reverse-attrs (list* (sort-by key-fn (.-reverse-attrs result)))
            :wildcard?     (.-wildcard? result)}))
 
       :let [attr-spec (first pattern)]

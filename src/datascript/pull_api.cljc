@@ -148,8 +148,8 @@
         :do (visit context :db.pull/attr id (.-name attr) nil)
 
         ; default
-        (and attr (some? (.-default attr)) datom-ahead?)
-        (recur (assoc! acc (.-as attr) (.-default attr)) (first-seq attrs) (next-seq attrs) datoms)
+        (and attr (some? (#?(:clj .-default :cljs :default) attr)) datom-ahead?)
+        (recur (assoc! acc (.-as attr) (#?(:clj .-default :cljs :default) attr)) (first-seq attrs) (next-seq attrs) datoms)
 
         ;; advance attr
         datom-ahead?
@@ -192,11 +192,11 @@
 
       :do (visit context :db.pull/reverse nil name id)
 
-      (and (empty? datoms) (some? (.-default attr)))
+      (and (empty? datoms) (some? (#?(:clj .-default :cljs :default) attr)))
       [(ReverseAttrsFrame.
          seen
          recursion-limits
-         (assoc! acc (.-as attr) (.-default attr))
+         (assoc! acc (.-as attr) (#?(:clj .-default :cljs :default) attr))
          pattern
          (first-seq attrs)
          (next-seq attrs)
