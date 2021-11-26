@@ -1,4 +1,4 @@
-# WIP
+# 1.3.0
 
 - New pull implementation:
   - Up to 7 times faster than old impl
