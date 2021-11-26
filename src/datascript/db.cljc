@@ -3,6 +3,7 @@
     #?(:cljs [goog.array :as garray])
     [clojure.walk]
     [clojure.data]
+    [datascript.lru :as lru]
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond+]]))
@@ -495,7 +496,7 @@
     (update :aevt persistent!)
     (update :avet persistent!)))
 
-(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema hash]
+(defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema pull-patterns pull-attrs hash]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
        IEquiv               (-equiv [db other]  (equiv-db db other))
@@ -770,14 +771,16 @@
     {:pre [(or (nil? schema) (map? schema))]}
     (validate-schema schema)
     (map->DB
-      {:schema  schema
-       :rschema (rschema (merge implicit-schema schema))
-       :eavt    (set/sorted-set-by cmp-datoms-eavt)
-       :aevt    (set/sorted-set-by cmp-datoms-aevt)
-       :avet    (set/sorted-set-by cmp-datoms-avet)
-       :max-eid e0
-       :max-tx  tx0
-       :hash    (atom 0)})))
+      {:schema        schema
+       :rschema       (rschema (merge implicit-schema schema))
+       :eavt          (set/sorted-set-by cmp-datoms-eavt)
+       :aevt          (set/sorted-set-by cmp-datoms-aevt)
+       :avet          (set/sorted-set-by cmp-datoms-avet)
+       :max-eid       e0
+       :max-tx        tx0
+       :pull-patterns (lru/cache 100)
+       :pull-attrs    (lru/cache 100)
+       :hash          (atom 0)})))
 
 (defn- init-max-eid [eavt]
   (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
@@ -807,14 +810,16 @@
           max-eid     (init-max-eid eavt)
           max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
       (map->DB {
-        :schema  schema
-        :rschema rschema
-        :eavt    eavt
-        :aevt    aevt
-        :avet    avet
-        :max-eid max-eid
-        :max-tx  max-tx
-        :hash    (atom 0)}))))
+        :schema        schema
+        :rschema       rschema
+        :eavt          eavt
+        :aevt          aevt
+        :avet          avet
+        :max-eid       max-eid
+        :max-tx        max-tx
+        :pull-patterns (lru/cache 100)
+        :pull-attrs    (lru/cache 100)
+        :hash          (atom 0)}))))
 
 (defn- equiv-db-index [x y]
   (loop [xs (seq x)

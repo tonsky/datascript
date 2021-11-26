@@ -30,19 +30,21 @@
         gen       (.-gen lru)
         limit     (.-limit lru)]
     (if-let [g (key-gen k nil)]
-      (->LRU key-value
-             (-> gen-key
-                 (dissoc g)
-                 (assoc gen k))
-             (assoc key-gen k gen)
-             (inc gen)
-             limit)
+      (LRU.
+        key-value
+        (-> gen-key
+            (dissoc g)
+            (assoc gen k))
+        (assoc key-gen k gen)
+        (inc gen)
+        limit)
       (cleanup-lru
-        (->LRU (assoc key-value k v)
-               (assoc gen-key gen k)
-               (assoc key-gen k gen)
-               (inc gen)
-               limit)))))
+        (LRU.
+          (assoc key-value k v)
+          (assoc gen-key gen k)
+          (assoc key-gen k gen)
+          (inc gen)
+          limit)))))
 
 (defn cleanup-lru [^LRU lru]
   (if (> (count (.-key-value lru)) (.-limit lru))
@@ -52,27 +54,26 @@
           gen       (.-gen lru)
           limit     (.-limit lru)
           [g k]     (first gen-key)]
-      (->LRU (dissoc key-value k)
-             (dissoc gen-key g)
-             (dissoc key-gen k)
-             gen
-             limit))
+      (LRU.
+        (dissoc key-value k)
+        (dissoc gen-key g)
+        (dissoc key-gen k)
+        gen
+        limit))
     lru))
 
 (defn lru [limit]
-  (->LRU {} (sorted-map) {} 0 limit))
+  (LRU. {} (sorted-map) {} 0 limit))
 
 (defprotocol ICache
-  (-cache-get [this key compute-fn]))
-
-(defrecord Cache [*lru]
-  ICache
-  (-cache-get [this key compute-fn]
-    (if-some [cached (get @*lru key nil)]
-      cached
-      (let [computed (compute-fn)]
-        (vswap! *lru assoc key computed)
-        computed))))
+  (-get [this key compute-fn]))
 
 (defn cache [limit]
-  (Cache. (volatile! (lru limit))))
+  (let [*impl (volatile! (lru limit))]
+    (reify ICache
+      (-get [this key compute-fn]
+        (if-some [cached (get @*impl key nil)]
+          cached
+          (let [computed (compute-fn)]
+            (vswap! *impl assoc key computed)
+            computed))))))

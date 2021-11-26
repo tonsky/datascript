@@ -871,7 +871,7 @@
         tuple))))
 
 (defn q [q & inputs]
-  (let [parsed-q      (lru/-cache-get *query-cache* q #(dp/parse-query q))
+  (let [parsed-q      (lru/-get *query-cache* q #(dp/parse-query q))
         find          (:qfind parsed-q)
         find-elements (dp/find-elements find)
         find-vars     (dp/find-vars find)

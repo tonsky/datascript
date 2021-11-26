@@ -931,19 +931,11 @@
 ;; Query
 
 
-(def query-cache (volatile! (datascript.lru/lru lru-cache-size)))
-
-
-(defn parse-query [q]
-  (if-let [cached (get @query-cache q nil)]
-    cached
-    (let [qp (dp/parse-query q)]
-      (vswap! query-cache assoc q qp)
-      qp)))
+(def query-cache (lru/cache lru-cache-size))
 
 
 (defn q [q & inputs]
-  (let [parsed-q (parse-query q)
+  (let [parsed-q (lru/-get query-cache q #(dp/parse-query q))
         context  { :rels    []
                     :consts  {}
                     :sources {}

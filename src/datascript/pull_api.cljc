@@ -10,8 +10,6 @@
       [datascript.db Datom DB]
       [datascript.pull_parser PullAttr PullPattern])))
 
-(def ^:dynamic *pattern-cache* (lru/cache 100))
-
 (declare pull-impl attrs-frame ref-frame ->ReverseAttrsFrame)
 
 (defn- first-seq [#?(:clj ^ISeq xs :cljs ^seq xs)]
@@ -35,7 +33,7 @@
 (defn- conj-some! [xs v]
   (if (nil? v) xs (conj! xs v)))
 
-(defrecord Context [db *attrs-cache visitor])
+(defrecord Context [db visitor])
 
 (defn visit [^Context context pattern e a v]
   (when-some [visitor (.-visitor context)]
@@ -133,11 +131,10 @@
 
         ;; wildcard
         (and (.-wildcard? pattern) (some? datom) attr-ahead?)
-        (let [*attrs-cache (.-*attrs-cache ^Context context)
-              datom-attr   (or (@*attrs-cache (.-a datom))
-                             (let [datom-attr (dpp/parse-attr-name (.-db ^Context context) (.-a datom))]
-                               (vswap! *attrs-cache assoc! (.-a datom) datom-attr)
-                               datom-attr))]
+        (let [datom-attr (lru/-get
+                           (.-pull-attrs ^DB (.-db ^Context context))
+                           (.-a datom)
+                           #(dpp/parse-attr-name (.-db ^Context context) (.-a datom)))]
           (recur acc datom-attr (when attr (conj-seq attrs attr)) datoms))
 
         ;; advance datom
@@ -290,8 +287,8 @@
 (defn parse-opts
   ([^DB db pattern] (parse-opts db pattern nil))
   ([^DB db pattern {:keys [visitor]}]
-   {:pattern (lru/-cache-get *pattern-cache* [(.-rschema db) pattern] #(dpp/parse-pattern db pattern))
-    :context (Context. db (volatile! (transient {})) visitor)}))
+   {:pattern (lru/-get (.-pull-patterns db) pattern #(dpp/parse-pattern db pattern))
+    :context (Context. db visitor)}))
 
 (defn pull
   "Supported opts:
