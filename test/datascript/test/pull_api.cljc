@@ -138,7 +138,13 @@
              (d/pull test-db [:name {:_part [:name]}] 11))))
 
     (testing "Like explicit recursion, expansion will not allow loops"
-      (is (= rpart (d/pull recdb '[:name :part] 10))))))
+      (is (= rpart (d/pull recdb '[:name :part] 10))))
+
+    (testing "Reverse recursive component #411"
+      (is (= {:name "Part A.A.A.B" :_part {:name "Part A.A.A" :_part {:name "Part A.A" :_part {:name "Part A"}}}}
+            (d/pull test-db '[:name {:_part ...}] 14)))
+      (is (= {:name "Part A.A.A.B" :_part {:name "Part A.A.A" :_part {:name "Part A.A"}}}
+            (d/pull test-db '[:name {:_part 2}] 14))))))
 
 (deftest test-pull-wildcard
   (is (= {:db/id 1
