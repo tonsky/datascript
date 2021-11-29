@@ -1,3 +1,7 @@
+# 1.3.1
+
+- Fixed reverse recursive pulls #411
+
 # 1.3.0
 
 - New pull implementation:
