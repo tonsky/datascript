@@ -92,7 +92,11 @@
            (d/pull test-db '[:name {:_father [:name]}] 3)))
 
     (is (= {:name "Petr" :_father [{:name "David"} {:name "Thomas"}]}
-           (d/pull test-db '[:name {:_father [:name]}] 1)))))
+           (d/pull test-db '[:name {:_father [:name]}] 1))))
+
+  (testing "Multiple reverse refs #412"
+    (is (= {:name "Petr" :_father [{:db/id 2} {:db/id 3}]}
+          (d/pull test-db '[:name :_father :_child] 1)))))
 
 (deftest test-pull-component-attr
   (let [parts {:name "Part A",

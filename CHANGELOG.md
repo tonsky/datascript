@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed multiple reverse refs bug #412
+
 # 1.3.1
 
 - Fixed reverse recursive pulls #411

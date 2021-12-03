@@ -189,7 +189,7 @@
       (next-seq attrs)
       id))
   (-run [this context]
-    (loop [acc acc
+    (loop [acc   acc
            attr  attr
            attrs attrs]
       (cond+
@@ -208,10 +208,12 @@
         (recur acc (first-seq attrs) (next-seq attrs))
 
         (.-component? attr)
-        [this (ref-frame context seen recursion-limits pattern attr (.-e ^Datom (first-seq datoms)))]
+        [(ReverseAttrsFrame. seen recursion-limits acc pattern attr attrs id)
+         (ref-frame context seen recursion-limits pattern attr (.-e ^Datom (first-seq datoms)))]
 
         :else
-        [this (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)]))))
+        [(ReverseAttrsFrame. seen recursion-limits acc pattern attr attrs id)
+         (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)]))))
 
 (defn ref-frame [context seen recursion-limits pattern ^PullAttr attr id]
   (cond+
