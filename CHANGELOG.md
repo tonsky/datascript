@@ -1,4 +1,4 @@
-# WIP
+# 1.3.2
 
 - Fixed multiple reverse refs bug #412
 
