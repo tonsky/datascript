@@ -116,8 +116,9 @@
     (RulesVar.)))
 
 (defn parse-constant [form]
-  (when (not (symbol? form))
-    (Constant. form)))
+  (when-not (and (symbol? form)
+                 (= (first (name form)) \?))
+   (Constant. form)))
 
 (defn parse-plain-symbol [form]
   (when (and (symbol? form)
@@ -137,9 +138,8 @@
 
 (defn parse-fn-arg [form]
   (or (parse-variable form)
-      (parse-constant form)
-      (parse-src-var form)))
-
+      (parse-src-var form)
+      (parse-constant form)))
 
 ;; rule-vars = [ variable+ | ([ variable+ ] variable*) ]
 
