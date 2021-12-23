@@ -23,7 +23,13 @@
     (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Variable '?a) (dp/->Placeholder) (dp/->Placeholder)])
        
     '[$x _ :name ?v]
-    (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Constant :name) (dp/->Variable '?v)]))
+    (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Constant :name) (dp/->Variable '?v)])
+
+    '[$x _ sym ?v]
+    (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Constant 'sym) (dp/->Variable '?v)])
+
+    '[$x _ $src-sym ?v]
+    (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Constant '$src-sym) (dp/->Variable '?v)]))
 
     (is (thrown-with-msg? ExceptionInfo #"Pattern could not be empty"
                           (dp/parse-clause '[])))
@@ -64,13 +70,13 @@
     (dp/->RuleExpr (dp/->DefaultSrc) (dp/->PlainSymbol 'friends) [(dp/->Constant "Ivan") (dp/->Placeholder)])
 
     '($1 friends ?x ?y)
-    (dp/->RuleExpr (dp/->SrcVar '$1) (dp/->PlainSymbol 'friends) [(dp/->Variable '?x) (dp/->Variable '?y)]))
+    (dp/->RuleExpr (dp/->SrcVar '$1) (dp/->PlainSymbol 'friends) [(dp/->Variable '?x) (dp/->Variable '?y)])
+    
+    '(friends something)
+    (dp/->RuleExpr (dp/->DefaultSrc) (dp/->PlainSymbol 'friends) [(dp/->Constant 'something)]))
 
   (is (thrown-with-msg? ExceptionInfo #"rule-expr requires at least one argument"
-        (dp/parse-clause '(friends))))
-  
-  (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-expr arguments"
-        (dp/parse-clause '(friends something)))))
+        (dp/parse-clause '(friends)))))
 
 (deftest not-clause
   (are [clause res] (= (dp/parse-clause clause) res)
