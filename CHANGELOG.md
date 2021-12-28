@@ -1,3 +1,7 @@
+# 1.3.3
+
+- Allow symbols as constants #416 #417 via @zoren
+
 # 1.3.2
 
 - Fixed multiple reverse refs bug #412
