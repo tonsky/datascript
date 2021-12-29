@@ -165,8 +165,8 @@
 (defn flatten-rule-vars [rule-vars]
   (concat
     (when (:required rule-vars)
-      [(mapv :symbol (:required rule-vars))]
-      (mapv :symbol (:free rule-vars)))))
+      [(mapv :symbol (:required rule-vars))])
+    (mapv :symbol (:free rule-vars))))
 
 (defn rule-vars-arity [rule-vars]
   [(count (:required rule-vars)) (count (:free rule-vars))])
