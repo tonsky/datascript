@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed pull on deserialized DB
+
 # 1.3.3
 
 - Allow symbols as constants #416 #417 via @zoren

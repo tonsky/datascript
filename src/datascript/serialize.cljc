@@ -215,11 +215,13 @@
          aevt     (some->> (dict-get from "aevt") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
          avet     (some->> (dict-get from "avet") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))]
      (db/map->DB
-       {:schema  schema
-        :rschema (#'db/rschema (merge db/implicit-schema schema))
-        :eavt    (set/from-sorted-array db/cmp-datoms-eavt eavt)
-        :aevt    (set/from-sorted-array db/cmp-datoms-aevt aevt)
-        :avet    (set/from-sorted-array db/cmp-datoms-avet avet)
-        :max-eid (dict-get from "max-eid")
-        :max-tx  (dict-get from "max-tx")
-        :hash    (atom 0)}))))
+       {:schema        schema
+        :rschema       (#'db/rschema (merge db/implicit-schema schema))
+        :eavt          (set/from-sorted-array db/cmp-datoms-eavt eavt)
+        :aevt          (set/from-sorted-array db/cmp-datoms-aevt aevt)
+        :avet          (set/from-sorted-array db/cmp-datoms-avet avet)
+        :max-eid       (dict-get from "max-eid")
+        :max-tx        (dict-get from "max-tx")
+        :pull-patterns (lru/cache 100)
+        :pull-attrs    (lru/cache 100)
+        :hash          (atom 0)}))))
