@@ -1,4 +1,4 @@
-# WIP
+# 1.3.4
 
 - Fixed pull on deserialized DB
 
