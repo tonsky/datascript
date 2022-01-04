@@ -659,6 +659,11 @@
   (-index-range [db attr start end]
     (filter (.-pred db) (-index-range (.-unfiltered-db db) attr start end))))
 
+(defn unfiltered-db ^DB [db]
+  (if (instance? FilteredDB db)
+    (.-unfiltered-db ^FilteredDB db)
+    db))
+
 ;; ----------------------------------------------------------------------------
 
 (defn attr->properties [k v]

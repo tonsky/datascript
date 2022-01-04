@@ -1,7 +1,8 @@
 (ns ^:no-doc datascript.pull-api
   (:require
    [datascript.pull-parser :as dpp]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+]]
+   #?(:clj  [datascript.db :as db :refer [cond+]]
+      :cljs [datascript.db :as db :refer [DB] :refer-macros [cond+]])
    [datascript.lru :as lru]
    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
@@ -132,7 +133,7 @@
         ;; wildcard
         (and (.-wildcard? pattern) (some? datom) attr-ahead?)
         (let [datom-attr (lru/-get
-                           (.-pull-attrs ^DB (.-db ^Context context))
+                           (.-pull-attrs (db/unfiltered-db (.-db ^Context context)))
                            (.-a datom)
                            #(dpp/parse-attr-name (.-db ^Context context) (.-a datom)))]
           (recur acc datom-attr (when attr (conj-seq attrs attr)) datoms))
@@ -197,7 +198,10 @@
         [(ResultFrame. (not-empty (persistent! acc)) nil)]
 
         :let [name   (.-name attr)
-              datoms (set/slice (.-avet ^DB (.-db ^Context context)) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax))]
+              db     (.-db ^Context context)
+              datoms (if (instance? DB db)
+                       (set/slice (.-avet ^DB db) (db/datom db/e0 name id db/tx0) (db/datom db/emax name id db/txmax))
+                       (db/-search db [nil name id]))]
 
         :do (visit context :db.pull/reverse nil name id)
 
@@ -239,19 +243,30 @@
 
 
 (defn attrs-frame [^Context context seen recursion-limits ^PullPattern pattern id]
-  (let [datoms (cond+
+  (let [db (.-db context)
+        datoms (cond+
+                 (and (.-wildcard? pattern) (instance? DB db))
+                 (set/slice (.-eavt ^DB db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax))
+                 
                  (.-wildcard? pattern)
-                 (set/slice (.-eavt ^DB (.-db context))
-                   (db/datom id nil nil db/tx0)
-                   (db/datom id nil nil db/txmax))
+                 (db/-search db [id])
 
                  (nil? (.-first-attr pattern))
                  nil
 
+                 :let [from (.-name ^PullAttr (.-first-attr pattern))
+                       to   (.-name ^PullAttr (.-last-attr pattern))]
+                 
+                 (instance? DB db)
+                 (set/slice (.-eavt ^DB db) (db/datom id from nil db/tx0) (db/datom id to nil db/txmax))
+
                  :else
-                 (set/slice (.-eavt ^DB (.-db context))
-                   (db/datom id (.-name ^PullAttr (.-first-attr pattern)) nil db/tx0)
-                   (db/datom id (.-name ^PullAttr (.-last-attr pattern)) nil db/txmax)))]
+                 (->> (db/-seek-datoms db :eavt [id]))
+                   (take-while
+                     (fn [^Datom d]
+                       (and
+                         (= (.-e d) id)
+                         (<= (compare (.-a d) to) 0)))))]
     (when (.-wildcard? pattern)
       (visit context :db.pull/wildcard id nil nil))
     (AttrsFrame.
@@ -286,9 +301,9 @@
           (recur (conj-seq stack'' (-merge penultimate last))))))))
 
 (defn parse-opts
-  ([^DB db pattern] (parse-opts db pattern nil))
-  ([^DB db pattern {:keys [visitor]}]
-   {:pattern (lru/-get (.-pull-patterns db) pattern #(dpp/parse-pattern db pattern))
+  ([db pattern] (parse-opts db pattern nil))
+  ([db pattern {:keys [visitor]}]
+   {:pattern (lru/-get (.-pull-patterns (db/unfiltered-db db)) pattern #(dpp/parse-pattern db pattern))
     :context (Context. db visitor)}))
 
 (defn pull
@@ -299,15 +314,15 @@
    (:db.pull/attr     e   a   nil) - when pulling a normal attribute, no matter if it has value or not
    (:db.pull/wildcard e   nil nil) - when pulling every attribute on an entity
    (:db.pull/reverse  nil a   v  ) - when pulling reverse attribute"
-  ([^DB db pattern id] (pull db pattern id {}))
-  ([^DB db pattern id opts]
+  ([db pattern id] (pull db pattern id {}))
+  ([db pattern id opts]
    {:pre [(db/db? db)]}
    (let [parsed-opts (parse-opts db pattern opts)]
      (pull-impl parsed-opts id))))
 
 (defn pull-many
-  ([^DB db pattern ids] (pull-many db pattern ids {}))
-  ([^DB db pattern ids opts]
+  ([db pattern ids] (pull-many db pattern ids {}))
+  ([db pattern ids opts]
    {:pre [(db/db? db)]}
    (let [parsed-opts (parse-opts db pattern opts)]
      (mapv #(pull-impl parsed-opts %) ids))))
