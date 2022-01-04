@@ -1,3 +1,7 @@
+# 1.3.5
+
+Fixed pull on filtered dbs #419
+
 # 1.3.4
 
 - Fixed pull on deserialized DB
