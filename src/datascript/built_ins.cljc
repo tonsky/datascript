@@ -38,8 +38,13 @@
             (if b (reduced b) b)) nil args))
 
 (def query-fns {
-  '= =, '== ==, 'not= not=, '!= not=, '< <, '> >, '<= <=, '>= >=, '+ +, '- -,
-  '* *, '/ /, 'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
+  '= =, '== ==, 'not= not=, '!= not=, 
+  '< (fn [a b] (neg? (db/value-compare a b))), 
+  '> (fn [a b] (pos? (db/value-compare a b))), 
+  '<= (fn [a b] (not (pos? (db/value-compare a b)))), 
+  '>= (fn [a b] (not (neg? (db/value-compare a b)))), 
+  '+ +, '- -, '* *, '/ /, 
+  'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
   'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'compare compare,
   'rand rand, 'rand-int rand-int,
   'true? true?, 'false? false?, 'nil? nil?, 'some? some?, 'not not, 'and and-fn, 'or or-fn,
