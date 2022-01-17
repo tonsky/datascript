@@ -65,6 +65,39 @@
                            [(< ?a1 18)]
                            [(< 18 ?a2)]] db)
              #{[1 2] [1 3]}))
+       (is (= (d/q '[:find  ?a1
+                     :where [_ :age ?a1]
+                            [(< ?a1 22)]] db)
+              #{[15]}))
+       (is (= (d/q '[:find  ?a1
+                     :where [_ :age ?a1]
+                            [(<= ?a1 22)]] db)
+              #{[15] [22]}))
+       (is (= (d/q '[:find  ?a1
+                     :where [_ :age ?a1]
+                            [(> ?a1 22)]] db)
+              #{[37]}))
+       (is (= (d/q '[:find  ?a1
+                     :where [_ :age ?a1]
+                            [(>= ?a1 22)]] db)
+              #{[22] [37]}))      
+       (testing "compare values of different types"
+         (is (= (d/q '[:find  ?e
+                       :where [?e]
+                       [(< ?e 1)]] [[0] [1] [""]])
+                #{[0]}))
+         (is (= (d/q '[:find  ?e
+                       :where [?e]
+                       [(<= ?e 1)]] [[0] [1] [""]])
+                #{[0] [1]}))
+         (is (= (d/q '[:find  ?e
+                       :where [?e]
+                       [(> ?e 1)]] [[0] [1] [""]])
+                #{[""]}))
+         (is (= (d/q '[:find  ?e
+                       :where [?e]
+                       [(>= ?e 1)]] [[0] [1] [""]])
+                #{[1] [""]})))
       
       (is (= (d/q '[:find  ?x ?c
                     :in    [?x ...]
