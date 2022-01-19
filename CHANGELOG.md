@@ -1,6 +1,10 @@
+# 1.3.6
+
+- Query comparison fns work for all data type and cross-types #420 #421 thx @zoren
+
 # 1.3.5
 
-Fixed pull on filtered dbs #419
+- Fixed pull on filtered dbs #419
 
 # 1.3.4
 
