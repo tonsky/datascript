@@ -62,8 +62,7 @@
       (is (= (d/q '[:find  ?e1 ?e2
                     :where [?e1 :age ?a1]
                            [?e2 :age ?a2]
-                           [(< ?a1 18)]
-                           [(< 18 ?a2)]] db)
+                           [(< ?a1 18 ?a2)]] db)
              #{[1 2] [1 3]}))
        (is (= (d/q '[:find  ?a1
                      :where [_ :age ?a1]

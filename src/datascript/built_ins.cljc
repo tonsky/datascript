@@ -37,12 +37,49 @@
   (reduce (fn [a b]
             (if b (reduced b) b)) nil args))
 
+(defn- less
+  ([x] true)
+  ([x y] (neg? (db/value-compare x y)))
+  ([x y & more]
+   (if (less x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (less y (first more)))
+     false)))
+
+(defn- greater
+  ([x] true)
+  ([x y] (pos? (db/value-compare x y)))
+  ([x y & more]
+   (if (greater x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (greater y (first more)))
+     false)))
+
+(defn- less-equal
+  ([x] true)
+  ([x y] (not (pos? (db/value-compare x y))))
+  ([x y & more]
+   (if (less-equal x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (less-equal y (first more)))
+     false)))
+
+(defn- greater-equal
+  ([x] true)
+  ([x y] (not (neg? (db/value-compare x y))))
+  ([x y & more]
+   (if (greater-equal x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (greater-equal y (first more)))
+     false)))
+
 (def query-fns {
   '= =, '== ==, 'not= not=, '!= not=, 
-  '< (fn [a b] (neg? (db/value-compare a b))), 
-  '> (fn [a b] (pos? (db/value-compare a b))), 
-  '<= (fn [a b] (not (pos? (db/value-compare a b)))), 
-  '>= (fn [a b] (not (neg? (db/value-compare a b)))), 
+  '< less, '> greater, '<= less-equal, '>= greater-equal, 
   '+ +, '- -, '* *, '/ /, 
   'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
   'zero? zero?, 'pos? pos?, 'neg? neg?, 'even? even?, 'odd? odd?, 'compare compare,
