@@ -687,7 +687,7 @@
         (fn [m src-attr idx] ;; e.g. :reg/semester
           (update m src-attr assoc tuple-attr idx))
         m
-        (-> schema tuple-attr :db/tupleAttrs)))
+        (-> schema (get tuple-attr) :db/tupleAttrs)))
     {}
     (:db.type/tuple rschema)))
 

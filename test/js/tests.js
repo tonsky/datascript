@@ -84,7 +84,7 @@ function test_fns(fns) {
       passed++;
       console.log("[ OK ] " + fns[i].name);
     } catch(e) {
-      console.error(fns[i].name + ": " + e);
+      console.error(fns[i].name + ":", e);
       errors++;
       console.error("[ FAIL ] " + fns[i].name);
     }
@@ -190,6 +190,16 @@ function test_schema() {
   var q = '[:find ?aka :in $ ?e :where [?e "aka" ?aka]]'; 
   assert_eq_set([["X"], ["Y"]], d.q(q, db, 1));
   assert_eq_set([["F"], ["G"]], d.q(q, db, 2));
+}
+
+function test_tuple() {
+  var schema = {"a+b+c": {":db/tupleAttrs": ["a", "b", "c"]}};
+  var db = d.db_with(d.empty_db(schema), 
+                         [[":db/add", 1, "a", "A"],
+                          [":db/add", 1, "b", "B"],
+                          [":db/add", 1, "c", "C"]]);
+  var q = '[:find ?e ?a+b+c :in $ :where [?e "a+b+c" ?a+b+c]]';
+  assert_eq_set([[1, ["A", "B", "C"]]], d.q(q, db));
 }
 
 function test_tx_report() {
@@ -503,6 +513,7 @@ function test_datascript_js() {
                     test_init_db,
                     test_dbfn_call,
                     test_schema,
+                    test_tuple,
                     test_tx_report,
                     test_conn,
                     test_entity,
