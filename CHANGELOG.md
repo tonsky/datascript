@@ -1,3 +1,7 @@
+# 1.3.7
+
+- Fixed :tupleAttrs in JS API #422
+
 # 1.3.6
 
 - Query comparison fns work for all data type and cross-types #420 #421 thx @zoren
