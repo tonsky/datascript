@@ -230,6 +230,14 @@
               "X")
          #{["abcX"] ["aXb"]})))
 
+(deftest test-built-in-get
+  (is (= (d/q '[:find ?m ?m-value
+                :in [[?k ?m] ...] ?m-key
+                :where [(get ?m ?m-key) ?m-value]]
+              {:a {:b 1}
+               :c {:d 2}}
+              :d)
+         #{[{:d 2} 2]})))
 
 (deftest ^{:doc "issue-385"} test-join-unrelated
   (is (= #{}
