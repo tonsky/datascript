@@ -1,3 +1,7 @@
+# 1.3.8
+
+- Add get to built-ins for binding on map values #423 thx @logseq-cldwalker 
+
 # 1.3.7
 
 - Fixed :tupleAttrs in JS API #422
