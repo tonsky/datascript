@@ -1,7 +1,7 @@
 (ns ^:no-doc datascript.pull-parser
   (:require
-   [datascript.built-ins :as built-ins]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
+    [datascript.built-ins :as built-ins]
+    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
 
 (defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
 (defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
@@ -96,7 +96,7 @@
       (check (= (count attr-spec) 3) expected attr-spec)
       (let [[_ attr default] attr-spec
             pull-attr (parse-attr-spec db attr)]
-          (assoc pull-attr :default default)))))
+        (assoc pull-attr :default default)))))
 
 (defn parse-attr-spec [db attr-spec]
   (cond
@@ -129,6 +129,15 @@
 
       :else
       (assoc pull-attr :pattern (parse-pattern db pattern)))))
+
+(defn- index-of [pred xs]
+  (some (fn [[x idx]] (when (pred x) idx)) (map vector xs (range))))
+
+(defn- conj-attr [pull-pattern pull-attr]
+  (let [pattern-attr (if (:reverse? pull-attr) :reverse-attrs :attrs)]
+    (if-some [idx (index-of #(= (:as %) (:as pull-attr)) (get pull-pattern pattern-attr))]
+      (update pull-pattern pattern-attr assoc idx pull-attr)
+      (update pull-pattern pattern-attr conj pull-attr))))
 
 (defn parse-pattern ^PullPattern [db pattern]
   (check (sequential? pattern) "pattern to be sequential?" pattern)
@@ -164,15 +173,6 @@
 
       (or (= '* attr-spec) (= "*" attr-spec) (= :* attr-spec))
       (recur (next pattern) (assoc result :wildcard? true))
-
-      :let [conj-attr (fn [result pull-attr]
-                        (cond
-
-                          (:reverse? pull-attr)
-                          (update result :reverse-attrs conj pull-attr)
-
-                          :else
-                          (update result :attrs conj pull-attr)))]
 
       (map? attr-spec)
       (let [result' (reduce-kv

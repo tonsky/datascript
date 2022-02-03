@@ -106,7 +106,12 @@
     ['(default (:multival :limit 100) :xyz)] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
     ['(((limit :multival 100) :default :xyz))] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
     ['(((default :multival :xyz) :limit 100))] (pattern :attrs [(attr :multival, :multival? true, :default :xyz, :limit 100)])
-
+    
+    ; repeated
+    [:multival [:multival :default :xyz] [:multival :limit 100]] (pattern :attrs [(attr :multival, :multival? true, :limit 100)])
+    [:ref {:ref '...}] (pattern :attrs [(attr :ref, :ref? true, :pattern nil, :recursive? true, :recursion-limit nil)])
+    [{:ref '...} :ref] (pattern :attrs [(attr :ref, :ref? true)])
+    
     ; map spec
     [{:ref [:normal]}]                    (pattern :attrs [(attr :ref, :ref? true, :pattern (pattern :attrs [(attr :normal)]))])
     [{:_ref [:normal]}]                   (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern (pattern :attrs [(attr :normal)]))])
