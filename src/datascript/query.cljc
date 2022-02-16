@@ -316,7 +316,7 @@
 
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
-  (let [search-pattern (mapv #(if (symbol? %) nil %) pattern)
+  (let [search-pattern (mapv #(if (or (= % '_) (free-var? %)) nil %) pattern)
         datoms         (db/-search db search-pattern)
         attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
                             (filter (fn [[s _]] (free-var? s)))
@@ -329,7 +329,7 @@
     (if (and tuple pattern)
       (let [t (first tuple)
             p (first pattern)]
-        (if (or (symbol? p) (= t p))
+        (if (or (= p '_) (free-var? p) (= t p))
           (recur (next tuple) (next pattern))
           false))
       true)))

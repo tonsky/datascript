@@ -249,5 +249,21 @@
           (d/db-with (d/empty-db) [{:person/name "Joe"}])
           (fn [] 5)))))
 
+(deftest ^{:doc "issue-425"} test-symbol-comparison
+  (is (= [2]
+         (d/q
+          '[:find [?e ...]
+            :where [?e :s b]]
+          '[[1 :s a]
+            [2 :s b]])))
+  (let [db (-> (d/empty-db)
+               (d/db-with '[{:db/id 1, :s a}
+                            {:db/id 2, :s b}]))]
+    (is (= [2]
+           (d/q
+            '[:find [?e ...]
+              :where [?e :s b]]
+            db)))))
+
 #_(require 'datascript.test.query :reload)
 #_(clojure.test/test-ns 'datascript.test.query)
