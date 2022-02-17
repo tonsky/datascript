@@ -1,3 +1,7 @@
+# 1.3.10
+
+- Allow symbols as data #425 #426 via @zoren
+
 # 1.3.9
 
 - When parsing repeated pull attrs, last definition wins
