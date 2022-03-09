@@ -1,3 +1,7 @@
+# 1.3.11
+
+- Fixed serializable/from-serializable for JS interop #429
+
 # 1.3.10
 
 - Allow symbols as data #425 #426 via @zoren

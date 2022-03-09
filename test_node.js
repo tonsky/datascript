@@ -24,8 +24,10 @@ if (fs.existsSync("./target/none")) {
   nodeGlobalRequire('./target/none/cljs_deps.js');
   goog.require('datascript.test');
   goog.require('datascript.js');
-} else {
+} else if ("--cljs" === process.argv[2]) {
   nodeGlobalRequire('./target/datascript.js');
+} else {
+  nodeGlobalRequire('./release-js/datascript.js');
 }
 
 function merge(m1, m2) {

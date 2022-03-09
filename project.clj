@@ -1,4 +1,4 @@
-(def version "1.3.10")
+(def version "1.3.11")
 
 (defproject datascript (str version (System/getenv "DATASCRIPT_CLASSIFIER"))
   :description "An implementation of Datomic in-memory database and Datalog query engine in ClojureScript"
@@ -22,14 +22,6 @@
 ;;     *unchecked-math* :warn-on-boxed
   }
   :jvm-opts ["-Xmx2g" "-server"]
-
-  :aliases {"test-clj"     ["with-profile" "test" "run" "-m" "datascript.test/test-clj"]
-            "test-cljs"    ["with-profile" "test" "do"
-                            ["cljsbuild" "once" "release" "advanced"]
-                            ["run" "-m" "datascript.test/test-node" "--all"]]
-            "node-repl"    ["run" "-m" "user/node-repl"]
-            "browser-repl" ["run" "-m" "user/browser-repl"]
-            "test-all"     ["do" ["clean"] ["with-profile" "test" "test-clj"] ["test-cljs"]]}
   
   :cljsbuild { 
     :builds [

@@ -492,7 +492,6 @@ function test_upsert() {
     }
   };
   var conn = d.create_conn(schema);
-
   d.transact(conn, [{
     ":my/tid": "5x",
     ":my/name": "Terin"
@@ -506,6 +505,37 @@ function test_upsert() {
   var names = d.q('[:find ?name :where [?e ":my/tid" "5x"] [?e ":my/name" ?name]]', d.db(conn));
   assert_eq_set([["Charlie"]], names);
 }
+
+function test_serialize() {
+  var schema = {
+    ":my/tid": {
+      ":db/unique": ":db.unique/identity"
+    }
+  };
+  var conn = d.create_conn(schema);
+  d.transact(conn, [{":my/email": "a", ":my/name": "A"}]);
+  d.transact(conn, [{":my/email": "b", ":my/name": "B"}]);
+  var db = d.db(conn);
+
+  assert_eq_set(
+    [[1, ":my/email", "a"], [1, ":my/name", "A"], [2, ":my/email", "b"], [2, ":my/name", "B"]],
+    d.q('[:find ?e ?a ?v :where [?e ?a ?v]]', db)
+  );
+
+  var json = JSON.stringify(d.serializable(db));
+  var db2 = d.from_serializable(JSON.parse(json));
+
+  assert_eq_set(
+    [[1, ":my/email", "a"], [1, ":my/name", "A"], [2, ":my/email", "b"], [2, ":my/name", "B"]],
+    d.q('[:find ?e ?a ?v :where [?e ?a ?v]]', db2)
+  );
+
+  assert_eq_set(
+    [[1, "A"], [2, "B"]],
+    d.q('[:find ?e ?v :where [?e ":my/name" ?v]]', db2)
+  );
+}
+
 
 function test_datascript_js() {
   return test_fns([ test_db_with,
@@ -528,7 +558,8 @@ function test_datascript_js() {
                     test_find_specs,
                     test_datoms,
                     test_filter,
-                    test_upsert
+                    test_upsert,
+                    test_serialize,
                   ]);
 }
 

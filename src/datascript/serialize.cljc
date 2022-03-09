@@ -114,8 +114,9 @@
    dtx      :: tx - tx0
    aevt     :: [<index in eavt> ...]
    avet     :: [<index in eavt> ...]"
-  [db {:keys [freeze-fn]
-       :or   {freeze-fn pr-str}}]
+  [db {:keys [freeze-fn freeze-kw]
+       :or   {freeze-fn pr-str
+              freeze-kw freeze-kw}}]
   (let [attrs       (all-attrs db)
         attrs-map   (into {} (map vector attrs (range)))
         *kws        (volatile! (transient []))
@@ -183,8 +184,9 @@
 (defn from-serializable
   ([from] 
    (from-serializable from {}))
-  ([from {:keys [thaw-fn]
-                  :or   {thaw-fn edn/read-string}}]
+  ([from {:keys [thaw-fn thaw-kw]
+          :or   {thaw-fn edn/read-string
+                 thaw-kw thaw-kw}}]
    (let [tx0      (dict-get from "tx0")
          schema   (thaw-fn (dict-get from "schema"))
          _        (#'db/validate-schema schema)
