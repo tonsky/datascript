@@ -50,10 +50,7 @@
 
 (defn run-tests []
   (println "\n\n[ Running tests ]\n")
-  (sh "lein" "test-clj")
-  (sh "lein" "with-profile" "test" "cljsbuild" "once" "advanced")
-  (sh "lein" "cljsbuild" "once" "release")
-  (sh "node" "test_node.js" "--all"))
+  (sh "script/test_all.sh"))
 
 (defn make-commit []
   (println "\n\n[ Making a commit ]\n")
