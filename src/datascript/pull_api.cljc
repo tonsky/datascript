@@ -219,9 +219,16 @@
         [(ReverseAttrsFrame. seen recursion-limits acc pattern attr attrs id)
          (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)]))))
 
+(defn- auto-expanding? [^PullAttr attr]
+  (or
+    (.-recursive? attr)
+    (and
+      (.-component? attr)
+      (.-wildcard? ^PullPattern (.-pattern attr)))))
+
 (defn ref-frame [context seen recursion-limits pattern ^PullAttr attr id]
   (cond+
-    (and (not (.-recursive? attr)) (not (.-component? attr)))
+    (not (auto-expanding? attr))
     (attrs-frame context seen recursion-limits (.-pattern attr) id)
 
     (seen id)

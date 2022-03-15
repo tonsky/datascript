@@ -433,6 +433,19 @@
     (is (= (str "Person-" (dec depth))
            (:name (get-in pulled path))))))
 
+; https://github.com/tonsky/datascript/issues/430
+(deftest test-component-reverse
+  (let [schema {:ref  {:db/valueType :db.type/ref
+                       :db/isComponent true}}
+        db (d/db-with (d/empty-db schema)
+             [{:name "1"
+               :ref {:name "2"
+                     :ref {:name "3"}}}])]
+    (is (= {:name "1", :ref {:name "2", :ref {:name "3", :_ref {:name "2"}}}}
+          (d/pull db
+            [:name {:ref [:name {:ref [:name {:_ref [:name]}]}]}]
+            1)))))
+
 (deftest test-lookup-ref-pull
   (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
          (d/pull test-db '[:name :aka] [:name "Petr"])))

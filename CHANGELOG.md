@@ -1,3 +1,7 @@
+# 1.3.12
+
+- Fixed pull with reverse component references #430
+
 # 1.3.11
 
 - Fixed serializable/from-serializable for JS interop #429
