@@ -1,3 +1,7 @@
+# 1.3.13
+
+- Check for nils in upsert attributes
+
 # 1.3.12
 
 - Fixed pull with reverse component references #430

@@ -9,7 +9,8 @@
    (def Throwable js/Error))
 
 (deftest test-with-validation
-  (let [db (d/empty-db {:profile { :db/valueType :db.type/ref }})]
+  (let [db (d/empty-db {:profile {:db/valueType :db.type/ref}
+                        :id {:db/unique :db.unique/identity}})]
     (are [tx] (thrown-with-msg? Throwable #"Expected number, string or lookup ref for :db/id" (d/db-with db tx))
       [{:db/id #"" :name "Ivan"}])
     
@@ -20,7 +21,10 @@
     
     (are [tx] (thrown-with-msg? Throwable #"Cannot store nil as a value" (d/db-with db tx))
       [[:db/add -1 :name nil]]
-      [{:db/id -1 :name nil}])
+      [{:db/id -1 :name nil}]
+      [[:db/add -1 :id nil]]
+      [{:db/id -1 :id "A"}
+       {:db/id -1 :id nil}])
     
     (are [tx] (thrown-with-msg? Throwable #"Expected number or lookup ref for entity id" (d/db-with db tx))
       [[:db/add nil :name "Ivan"]]
@@ -34,7 +38,7 @@
     (is (thrown-with-msg? Throwable #"Bad transaction data" (d/db-with db {:profile "aaa"})))))
 
 (deftest test-unique
-  (let [db (d/db-with (d/empty-db {:name { :db/unique :db.unique/value }})
+  (let [db (d/db-with (d/empty-db {:name {:db/unique :db.unique/value}})
                       [[:db/add 1 :name "Ivan"]
                        [:db/add 2 :name "Petr"]])]
     (are [tx] (thrown-with-msg? Throwable #"unique constraint" (d/db-with db tx))
