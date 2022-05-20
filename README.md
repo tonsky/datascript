@@ -21,6 +21,14 @@ The intention with DataScript is to be a basic building block in client-side app
 [datascript "1.3.13"]
 ```
 
+Important! If you are using shadow-cljs, add
+
+```clj
+:compiler-options {:externs ["datascript/externs.js"]}
+```
+
+to your build (see #432 #298 #216)
+
 ## Support us
 
 <a href="https://patreon.com/tonsky" target="_blank"><img src="./extras/datascript_patreon.png"></a>
