@@ -91,3 +91,33 @@
     (is (= 777 (:db/id (d/entity db 777))))
     (is (thrown-msg? "Lookup ref attribute should be marked as :db/unique: [:not-an-attr 777]"
           (d/entity db [:not-an-attr 777])))))
+
+(deftest test-entity-equality
+  (let [db1 (-> (d/empty-db {})
+              (d/db-with [{:db/id 1, :name "Ivan"}]))
+        e1  (d/entity db1 1)
+        db2 (d/db-with db1 [])
+        db3 (d/db-with db2 [{:db/id 2, :name "Oleg"}])]
+
+    (testing "Two entities are equal if they have the same :db/id"
+      (is (= e1 e1))
+      (is (= e1 (d/entity db1 1)))
+
+      (testing "and refer to the same database"
+        (is (not= e1 (d/entity db2 1)))
+        (is (not= e1 (d/entity db3 1)))))))
+
+(deftest test-entity-hash
+  (let [db1 (-> (d/empty-db {})
+              (d/db-with [{:db/id 1, :name "Ivan"}]))
+        e1  (d/entity db1 1)
+        db2 (d/db-with db1 [])
+        db3 (d/db-with db1 [{:db/id 2, :name "Oleg"}])]
+
+    (testing "Two entities have the same hash if they have the same :db/id"
+      (is (= (hash e1) (hash e1)))
+      (is (= (hash e1) (hash (d/entity db1 1))))
+
+      (testing "and refer to the same database"
+        (is (not= (hash e1) (hash (d/entity db2 1))))
+        (is (not= (hash e1) (hash (d/entity db3 1))))))))

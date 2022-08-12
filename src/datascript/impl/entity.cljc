@@ -3,7 +3,7 @@
   (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
             [datascript.db :as db]))
 
-(declare entity ->Entity equiv-entity lookup-entity touch)
+(declare entity ->Entity equiv-entity lookup-entity touch hash-entity)
 
 (defn- entid [db eid]
   (when (or (number? eid)
@@ -85,8 +85,8 @@
        (-equiv [this o] (equiv-entity this o))
 
        IHash
-       (-hash [_]
-              (hash eid)) ;; db?
+       (-hash [this]
+              (hash-entity this))
 
        ISeqable
        (-seq [this]
@@ -119,7 +119,7 @@
       :clj
       [Object
        (toString [e]      (pr-str (assoc @cache :db/id eid)))
-       (hashCode [e]      (hash eid)) ; db?
+       (hashCode [e]      (hash-entity e))
        (equals [e o]      (equiv-entity e o))
 
        clojure.lang.Seqable
@@ -153,8 +153,14 @@
 (defn- equiv-entity [^Entity this that]
   (and
    (instance? Entity that)
-   ;; (= db  (.-db ^Entity that))
+   (identical? (.-db this) (.-db ^Entity that)) ; `=` and `hash` on db is expensive
    (= (.-eid this) (.-eid ^Entity that))))
+
+(defn- hash-entity [^Entity e]
+  (db/combine-hashes
+    (hash (.-eid e))
+    ;; A hash compatible with `identical?`. Consistent with `=`.
+    (#?(:clj System/identityHashCode :cljs goog/getUid) (.-db e))))
 
 (defn- lookup-entity
   ([this attr] (lookup-entity this attr nil))
