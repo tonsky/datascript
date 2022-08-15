@@ -1,3 +1,7 @@
+# 1.3.14
+
+- Additionaly compare db identities when `=`/`hash` entities #433 #435 via @ggeoffrey
+
 # 1.3.13
 
 - Check for nils in upsert attributes
