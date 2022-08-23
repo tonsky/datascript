@@ -621,9 +621,19 @@
     (diff-sorted (:eavt a) (:eavt b) cmp-datoms-eav-quick)))
 
 (defn db? [x]
-  (and (satisfies? ISearch x)
-       (satisfies? IIndexAccess x)
-       (satisfies? IDB x)))
+  #?(:clj
+     (or
+      (and x
+           (instance? datascript.db.ISearch x)
+           (instance? datascript.db.IIndexAccess x)
+           (instance? datascript.db.IDB x))
+      (and (satisfies? ISearch x)
+           (satisfies? IIndexAccess x)
+           (satisfies? IDB x)))
+     :cljs
+     (and (satisfies? ISearch x)
+          (satisfies? IIndexAccess x)
+          (satisfies? IDB x))))
 
 ;; ----------------------------------------------------------------------------
 (defrecord-updatable FilteredDB [unfiltered-db pred hash]
