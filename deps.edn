@@ -29,13 +29,14 @@
 
     :bench {
       :extra-paths ["bench"]
-      :jvm-opts ["-Djdk.attach.allowAttachSelf"
+      :jvm-opts ["-server"
                  "-XX:+UnlockDiagnosticVMOptions"
+                 "-Djdk.attach.allowAttachSelf"
                  "-XX:+DebugNonSafepoints"]
       :extra-deps {
         metosin/jsonista    {:mvn/version "0.3.3"}
         criterium/criterium {:mvn/version "0.4.6"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.5.1"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
       }
     }
 
