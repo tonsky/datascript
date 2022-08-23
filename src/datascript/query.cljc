@@ -264,14 +264,20 @@
   (let [idx (attrs attr)]
     (if (contains? *lookup-attrs* attr)
       (fn [tuple]
-        (let [eid (#?(:cljs da/aget :clj get) tuple idx)]
+        (let [eid #?(:cljs (da/aget tuple idx)
+                     :clj (if (.isArray (.getClass ^Object tuple))
+                            (aget ^objects tuple idx)
+                            (get tuple idx)))]
           (cond
             (number? eid)     eid ;; quick path to avoid fn call
             (sequential? eid) (db/entid *implicit-source* eid)
             (da/array? eid)   (db/entid *implicit-source* eid)
             :else             eid)))
       (fn [tuple]
-        (#?(:cljs da/aget :clj get) tuple idx)))))
+        #?(:cljs (da/aget tuple idx)
+           :clj (if (.isArray (.getClass ^Object tuple))
+                  (aget ^objects tuple idx)
+                  (get tuple idx)))))))
 
 (defn tuple-key-fn [getters]
   (if (== (count getters) 1)
