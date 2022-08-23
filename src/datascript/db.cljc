@@ -368,9 +368,15 @@
   #?(:clj  (long (compare (class-name x) (class-name y)))
      :cljs (garray/defaultCompare (type->str (type x)) (type->str (type y)))))
 
+#?(:clj
+   (defn ihash
+     {:inline (fn [x] `(. clojure.lang.Util (hasheq ~x)))}
+     ^long [x]
+     (. clojure.lang.Util (hasheq x))))
+
 (defn value-compare
   ^long [x y]
-  (try 
+  (try
     (cond
       (= x y) 0
       #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
@@ -378,7 +384,7 @@
           :cljs [(satisfies? IComparable x) (-compare x y)])
       (not (class-identical? x y)) (class-compare x y)
       #?@(:cljs [(or (number? x) (string? x) (array? x) (true? x) (false? x)) (garray/defaultCompare x y)])
-      :else (- (hash x) (hash y)))
+      :else #?(:clj (Integer/compare (ihash x) (ihash y)) :cljs (- (hash x) (hash y))))
     (catch #?(:clj ClassCastException :cljs js/Error) e
       (if (not (class-identical? x y))
         (class-compare x y)
