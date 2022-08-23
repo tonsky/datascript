@@ -281,14 +281,17 @@
         (list* #?(:cljs (.map getters #(% tuple))
                   :clj  (to-array (map #(% tuple) getters))))))))
 
+(defn -group-by
+  [f init coll]
+  (persistent!
+   (reduce
+    (fn [ret x]
+      (let [k (f x)]
+        (assoc! ret k (conj (get ret k init) x))))
+    (transient {}) coll)))
+
 (defn hash-attrs [key-fn tuples]
-  (loop [tuples     tuples
-         hash-table (transient {})]
-    (if-some [tuple (first tuples)]
-      (let [key (key-fn tuple)]
-        (recur (next tuples)
-               (assoc! hash-table key (conj (get hash-table key '()) tuple))))
-      (persistent! hash-table))))
+  (-group-by key-fn '() tuples))
 
 (defn hash-join [rel1 rel2]
   (let [tuples1       (:tuples rel1)
