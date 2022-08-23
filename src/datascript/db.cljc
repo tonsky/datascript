@@ -1371,16 +1371,19 @@
       (::queued-tuples report))))
 
 (defn check-value-tempids [report]
-  (let [all-tempids (::value-tempids report)
-        reduce-fn   (fn [tempids datom]
-                      (if (datom-added datom)
-                        (dissoc tempids (:e datom))
-                        tempids))
-        unused      (reduce reduce-fn all-tempids (concat (:tx-data report) (::tx-redundant report)))]
-    (if (empty? unused)
-      (dissoc report ::value-tempids ::tx-redundant)
-      (raise "Tempids used only as value in transaction: " (sort (vals unused))
-        {:error :transact/syntax, :tempids unused}))))
+  (if-let [tempids (::value-tempids report)]
+    (let [all-tempids (transient tempids)
+          reduce-fn   (fn [tempids datom]
+                        (if (datom-added datom)
+                          (dissoc! tempids (:e datom))
+                          tempids))
+          unused      (reduce reduce-fn all-tempids (:tx-data report))
+          unused      (reduce reduce-fn unused (::tx-redundant report))]
+      (if (zero? (count unused))
+        (dissoc report ::value-tempids ::tx-redundant)
+        (raise "Tempids used only as value in transaction: " (sort (vals (persistent! unused)))
+               {:error :transact/syntax, :tempids unused})))
+    (dissoc report ::value-tempids ::tx-redundant)))
 
 (defn transact-tx-data [initial-report initial-es]
   (when-not (or (nil? initial-es)
