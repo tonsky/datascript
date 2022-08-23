@@ -5,8 +5,8 @@
 
 ; Measure time
 
-(def ^:dynamic *warmup-ms* 2000)
-(def ^:dynamic *bench-ms*  1000)
+(def ^:dynamic *warmup-ms* 10000)
+(def ^:dynamic *bench-ms*  20000)
 (def ^:dynamic *samples*   5)
 (def ^:dynamic *batch*     10)
 (def ^:dynamic *profile*   false)
