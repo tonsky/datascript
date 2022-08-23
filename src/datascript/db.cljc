@@ -7,6 +7,7 @@
     [datascript.lru :as lru]
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
+  #?(:clj (:import clojure.lang.IFn$OOL))
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond+]]))
   (:refer-clojure :exclude [seqable? #?(:clj update)]))
 
@@ -404,21 +405,39 @@
      [x y]
      `(long (Integer/compare ~x ~y))))
 
-(defn cmp-datoms-eavt ^long [^Datom d1, ^Datom d2]
+#?(:clj
+   (defmacro defcomp
+     [sym [arg1 arg2] & body]
+     (let [a1 (with-meta arg1 {})
+           a2 (with-meta arg2 {})]
+       `(def ~sym
+          (reify
+            java.util.Comparator
+            (compare [~'_ ~a1 ~a2]
+              (let [~arg1 ~arg1 ~arg2 ~arg2]
+                ~@body))
+            clojure.lang.IFn
+            (invoke [~'this ~a1 ~a2]
+              (.compare ~'this ~a1 ~a2))
+            IFn$OOL
+            (invokePrim [~'this ~a1 ~a2]
+              (.compare ~'this ~a1 ~a2)))))))
+
+(#?(:clj defcomp :cljfs defn) cmp-datoms-eavt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp (.-a d1) (.-a d2))
     (value-cmp (.-v d1) (.-v d2))
     (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-aevt ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-aevt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
     (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (value-cmp (.-v d1) (.-v d2))
     (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-avet ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-avet ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
     (value-cmp (.-v d1) (.-v d2))
@@ -441,27 +460,27 @@
      :clj
      (.compareTo ^Comparable a1 a2)))
 
-(defn cmp-datoms-eav-quick ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-eav-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))))
 
-(defn cmp-datoms-eavt-quick ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-eavt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
     (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-aevt-quick ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-aevt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (value-compare (.-v d1) (.-v d2))
     (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-avet-quick ^long [^Datom d1, ^Datom d2]
+(#?(:clj defcomp :cljfs defn) cmp-datoms-avet-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
