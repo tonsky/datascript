@@ -524,6 +524,16 @@
     (update :aevt persistent!)
     (update :avet persistent!)))
 
+#?(:clj
+   (defn vpred
+     [v]
+     (cond
+       (string? v) (fn [x] (if (string? x) (.equals ^String v x) false))
+       (int? v) (fn [x] (if (int? x) (= (long v) (long x)) false))
+       (keyword? v) (fn [x] (.equals ^Object v x))
+       (nil? v) (fn [x] (nil? x))
+       :else (fn [x] (= v x)))))
+
 (defrecord-updatable DB [schema eavt aevt avet max-eid max-tx rschema pull-patterns pull-attrs hash]
   #?@(:cljs
       [IHash                (-hash  [db]        (hash-db db))
@@ -559,6 +569,7 @@
           eavt       (.-eavt db)
           aevt       (.-aevt db)
           avet       (.-avet db)
+          #?@(:clj [pred (vpred v)])
           multival?  (contains? (-attrs-by db :db.cardinality/many) a)]
       (case-tree [e a (some? v) tx]
         [(set/slice eavt (datom e a v tx) (datom e a v tx))                   ;; e a v tx
@@ -567,10 +578,12 @@
               (->Eduction (filter (fn [^Datom d] (= tx (datom-tx d))))))
          (set/slice eavt (datom e a nil tx0) (datom e a nil txmax))           ;; e a _ _
          (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v tx
-              (->Eduction (filter (fn [^Datom d] (and (= v (.-v d))
+              (->Eduction (filter (fn [^Datom d] (and #?(:clj (pred (.-v d))
+                                                        :cljs (= v (.-v d)))
                                           (= tx (datom-tx d)))))))
          (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ v _
-              (->Eduction (filter (fn [^Datom d] (= v (.-v d))))))
+              (->Eduction (filter (fn [^Datom d] #?(:clj (pred (.-v d))
+                                                   :cljs (= v (.-v d)))))))
          (->> (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))  ;; e _ _ tx
               (->Eduction (filter (fn [^Datom d] (= tx (datom-tx d))))))
          (set/slice eavt (datom e nil nil tx0) (datom e nil nil txmax))       ;; e _ _ _
@@ -578,18 +591,22 @@
            (->> (set/slice avet (datom e0 a v tx0) (datom emax a v txmax))      
                 (->Eduction (filter (fn [^Datom d] (= tx (datom-tx d))))))
            (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
-                (->Eduction (filter (fn [^Datom d] (and (= v (.-v d))
+                (->Eduction (filter (fn [^Datom d] (and #?(:clj (pred (.-v d))
+                                                          :cljs (= v (.-v d)))
                                             (= tx (datom-tx d))))))))
          (if (indexing? db a)                                                   ;; _ a v _
            (set/slice avet (datom e0 a v tx0) (datom emax a v txmax))
            (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))
-                (->Eduction (filter (fn [^Datom d] (= v (.-v d)))))))
+                (->Eduction (filter (fn [^Datom d] #?(:clj (pred (.-v d))
+                                                     :cljs (= v (.-v d))))))))
          (->> (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))  ;; _ a _ tx
               (->Eduction (filter (fn [^Datom d] (= tx (datom-tx d))))))
          (set/slice aevt (datom e0 a nil tx0) (datom emax a nil txmax))       ;; _ a _ _
-         (filter (fn [^Datom d] (and (= v (.-v d))
+         (filter (fn [^Datom d] (and #?(:clj (pred (.-v d))
+                                       :cljs (= v (.-v d)))
                                      (= tx (datom-tx d)))) eavt)                ;; _ _ v tx
-         (filter (fn [^Datom d] (= v (.-v d))) eavt)                            ;; _ _ v _
+         (filter (fn [^Datom d] #?(:clj (pred (.-v d))
+                                  :cljs (= v (.-v d)))) eavt)                            ;; _ _ v _
          (filter (fn [^Datom d] (= tx (datom-tx d))) eavt)                      ;; _ _ _ tx
          eavt])))                                                               ;; _ _ _ _
 
