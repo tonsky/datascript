@@ -1047,13 +1047,21 @@
   ^long [db]
   (inc (long (:max-eid db))))
 
-(defn- #?@(:clj  [^Boolean tx-id?]
-           :cljs [^boolean tx-id?])
-  [e]
-  (or (= e :db/current-tx)
-      (= e ":db/current-tx") ;; for datascript.js interop
-      (= e "datomic.tx")
-      (= e "datascript.tx")))
+#?(:clj
+   (defn- ^Boolean tx-id?
+     [e]
+     (or (identical? :db/current-tx e)
+         (.equals ":db/current-tx" e) ;; for datascript.js interop
+         (.equals "datomic.tx" e)
+         (.equals "datascript.tx" e)))
+
+   :cljs
+   (defn- ^boolean tx-id?
+     [e]
+     (or (= e :db/current-tx)
+         (= e ":db/current-tx") ;; for datascript.js interop
+         (= e "datomic.tx")
+         (= e "datascript.tx"))))
 
 (defn- #?@(:clj  [^Boolean tempid?]
            :cljs [^boolean tempid?])
