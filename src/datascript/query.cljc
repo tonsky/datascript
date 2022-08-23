@@ -308,9 +308,15 @@
         common-gtrs1  (map #(getter-fn attrs1 %) common-attrs)
         common-gtrs2  (map #(getter-fn attrs2 %) common-attrs)
         keep-attrs1   (keys attrs1)
-        keep-attrs2   (vec (set/difference (set (keys attrs2)) (set (keys attrs1))))
-        keep-idxs1    (to-array (map attrs1 keep-attrs1))
-        keep-idxs2    (to-array (map attrs2 keep-attrs2))
+        keep-attrs2   (->> attrs2
+                           (reduce-kv (fn [vec k _]
+                                        (if (attrs1 k)
+                                          vec
+                                          (conj! vec k)))
+                                      (transient []))
+                           persistent!) ; keys in attrs2-attrs1
+        keep-idxs1    (to-array (vals attrs1))
+        keep-idxs2    (to-array (->Eduction (map attrs2) keep-attrs2)) ; vals in attrs2-attrs1 by keys
         key-fn1       (tuple-key-fn common-gtrs1)
         hash          (hash-attrs key-fn1 tuples1)
         key-fn2       (tuple-key-fn common-gtrs2)
