@@ -1037,8 +1037,10 @@
     (raise "Cannot store nil as a value at " at
            {:error :transact/syntax, :value v, :context at})))
 
-(defn- current-tx [report]
-  (inc (get-in report [:db-before :max-tx])))
+(defn- current-tx
+  #?(:clj {:inline (fn [report] `(-> ~report :db-before :max-tx long inc))})
+  ^long [report]
+  (-> report :db-before :max-tx long inc))
 
 (defn- next-eid [db]
   (inc (:max-eid db)))
