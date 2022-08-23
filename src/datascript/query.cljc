@@ -19,6 +19,8 @@
        Constant FindColl FindRel FindScalar FindTuple PlainSymbol
        RulesVar SrcVar Variable])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 ;; ----------------------------------------------------------------------------
 
 (def ^:dynamic *query-cache* (lru/cache 100))
