@@ -1042,8 +1042,10 @@
   ^long [report]
   (-> report :db-before :max-tx long inc))
 
-(defn- next-eid [db]
-  (inc (:max-eid db)))
+(defn- next-eid
+  #?(:clj {:inline (fn [db] `(inc (long (:max-eid ~db))))})
+  ^long [db]
+  (inc (long (:max-eid db))))
 
 (defn- #?@(:clj  [^Boolean tx-id?]
            :cljs [^boolean tx-id?])
