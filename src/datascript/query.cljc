@@ -788,9 +788,7 @@
        symbols))))
 
 (defn collect [context symbols]
-  (->> (-collect context symbols)
-       (map vec)
-       set))
+  (into #{} (map vec) (-collect context symbols)))
 
 (defprotocol IContextResolve
   (-context-resolve [var context]))
