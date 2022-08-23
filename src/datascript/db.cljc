@@ -381,8 +381,11 @@
         (throw e)))))
 
 (defn value-cmp
-  #?(:clj {:inline (fn [x y] `(let [x# ~x y# ~y]
-                               (if (nil? x#) 0 (if (nil? y#) 0 (value-compare x# y#)))))})
+  #?(:clj
+     {:inline
+      (fn [x y]
+        `(let [x# ~x y# ~y]
+           (if (nil? x#) 0 (if (nil? y#) 0 (value-compare x# y#)))))})
   ^long [x y]
   (if (nil? x) 0 (if (nil? y) 0 (value-compare x y))))
 
