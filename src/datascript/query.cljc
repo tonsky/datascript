@@ -754,6 +754,34 @@
   (binding [*implicit-source* (get (:sources context) '$)]
     (reduce resolve-clause context clauses)))
 
+(defn -collect-tuples
+  [acc rel ^long len copy-map]
+  (->Eduction
+   (comp
+    (map
+     (fn [#?(:cljs t1
+            :clj ^{:tag "[[Ljava.lang.Object;"} t1)]
+       (->Eduction
+        (map
+         (fn [t2]
+           (let [res (aclone t1)]
+             #?(:clj
+                (if (.isArray (.getClass ^Object t2))
+                  (dotimes [i len]
+                    (when-some [idx (aget ^objects copy-map i)]
+                      (aset res i (aget ^objects t2 idx))))
+                  (dotimes [i len]
+                    (when-some [idx (aget ^objects copy-map i)]
+                      (aset res i (get t2 idx)))))
+                :cljs
+                (dotimes [i len]
+                  (when-some [idx (aget ^objects copy-map i)]
+                    (aset res i (da/aget ^objects t2 idx)))))
+             res)))
+        (:tuples rel))))
+    cat)
+   acc))
+
 (defn -collect
   ([context symbols]
     (let [rels (:rels context)]
@@ -775,17 +803,7 @@
            len      (count symbols)]
 
      :else
-     (recur
-       (for [#?(:cljs t1
-                :clj ^{:tag "[[Ljava.lang.Object;"} t1) acc
-             t2 (:tuples rel)]
-         (let [res (aclone t1)]
-           (dotimes [i len]
-             (when-some [idx (aget copy-map i)]
-               (aset res i (#?(:cljs da/aget :clj get) t2 idx))))
-           res))
-       (next rels)
-       symbols))))
+     (recur (-collect-tuples acc rel len copy-map) (next rels) symbols))))
 
 (defn collect [context symbols]
   (into #{} (map vec) (-collect context symbols)))
