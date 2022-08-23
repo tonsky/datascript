@@ -9,6 +9,8 @@
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond+]]))
   (:refer-clojure :exclude [seqable?])) 
 
+#?(:clj (set! *warn-on-reflection* true))
+
 ;; ----------------------------------------------------------------------------
 
 #?(:cljs
@@ -334,20 +336,36 @@
    (defmacro case-tree [qs vs]
      (-case-tree qs vs)))
 
-(defn cmp [x y]
-  (if (nil? x) 0
-    (if (nil? y) 0
-      (compare x y))))
+(defn cmp
+  #?(:clj
+     {:inline
+      (fn [x y]
+        `(let [x# ~x y# ~y]
+           (if (nil? x#) 0 (if (nil? y#) 0 (long (compare x# y#))))))})
+  ^long [x y]
+  (if (nil? x) 0 (if (nil? y) 0 (long (compare x y)))))
 
-(defn class-identical? [x y]
+(defn class-identical?
+  #?(:clj  {:inline (fn [x y] `(identical? (class ~x) (class ~y)))})
+  [x y]
   #?(:clj  (identical? (class x) (class y))
      :cljs (identical? (type x) (type y))))
 
-(defn class-compare [x y]
-  #?(:clj  (compare (.getName (class x)) (.getName (class y)))
+#?(:clj
+   (defn class-name
+     {:inline
+      (fn [x]
+        `(let [^Object x# ~x]
+           (if (nil? x#) x# (.getName (. x# (getClass))))))}
+     ^String [^Object x] (if (nil? x) x (.getName (. x (getClass))))))
+
+(defn class-compare
+  ^long [x y]
+  #?(:clj  (long (compare (class-name x) (class-name y)))
      :cljs (garray/defaultCompare (type->str (type x)) (type->str (type y)))))
 
-(defn value-compare [x y]
+(defn value-compare
+  ^long [x y]
   (try 
     (cond
       (= x y) 0
@@ -362,39 +380,49 @@
         (class-compare x y)
         (throw e)))))
 
-(defn value-cmp [x y]
-  (cond 
-    (nil? x) 0
-    (nil? y) 0
-    :else     (value-compare x y)))
+(defn value-cmp
+  #?(:clj {:inline (fn [x y] `(let [x# ~x y# ~y]
+                               (if (nil? x#) 0 (if (nil? y#) 0 (value-compare x# y#)))))})
+  ^long [x y]
+  (if (nil? x) 0 (if (nil? y) 0 (value-compare x y))))
 
 ;; Slower cmp-* fns allows for datom fields to be nil.
 ;; Such datoms come from slice method where they are used as boundary markers.
 
-(defn cmp-datoms-eavt [^Datom d1, ^Datom d2]
-  (combine-cmp
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
-    (cmp (.-a d1) (.-a d2))
-    (value-cmp (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+#?(:clj
+   (defmacro compare-int
+     [x y]
+     `(long (Integer/compare ~x ~y))))
 
-(defn cmp-datoms-aevt [^Datom d1, ^Datom d2]
+(defn cmp-datoms-eavt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp (.-a d1) (.-a d2))
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
     (value-cmp (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-avet [^Datom d1, ^Datom d2]
+(defn cmp-datoms-aevt ^long [^Datom d1, ^Datom d2]
+  (combine-cmp
+    (cmp (.-a d1) (.-a d2))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
+    (value-cmp (.-v d1) (.-v d2))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
+
+(defn cmp-datoms-avet ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
     (value-cmp (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
 ;; fast versions without nil checks
 
-(defn- cmp-attr-quick [a1 a2]
+(defn- cmp-attr-quick
+  #?(:clj
+     {:inline
+      (fn [a1 a2]
+        `(long (.compareTo ~(with-meta a1 {:tag "Comparable"}) ~a2)))})
+  ^long [a1 a2]
   ;; either both are keywords or both are strings
   #?(:cljs
      (if (keyword? a1)
@@ -403,32 +431,32 @@
      :clj
      (.compareTo ^Comparable a1 a2)))
 
-(defn cmp-datoms-eav-quick [^Datom d1, ^Datom d2]
+(defn cmp-datoms-eav-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))))
 
-(defn cmp-datoms-eavt-quick [^Datom d1, ^Datom d2]
+(defn cmp-datoms-eavt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-aevt-quick [^Datom d1, ^Datom d2]
+(defn cmp-datoms-aevt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
     (value-compare (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
-(defn cmp-datoms-avet-quick [^Datom d1, ^Datom d2]
+(defn cmp-datoms-avet-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp-attr-quick (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
-    (#?(:clj Integer/compare :cljs -) (.-e d1) (.-e d2))
-    (#?(:clj Integer/compare :cljs -) (datom-tx d1) (datom-tx d2))))
+    (#?(:clj compare-int :cljs -) (.-e d1) (.-e d2))
+    (#?(:clj compare-int :cljs -) (datom-tx d1) (datom-tx d2))))
 
 (defn- diff-sorted [a b cmp]
   (loop [only-a []
