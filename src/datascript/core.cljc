@@ -260,12 +260,7 @@
     {:pre [(db/db? db)]}
     (if (is-filtered db)
       (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
-      (db/transact-tx-data (db/map->TxReport
-                             { :db-before db
-                               :db-after  db
-                               :tx-data   []
-                               :tempids   {}
-                               :tx-meta   tx-meta}) tx-data))))
+      (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
 
 
 (defn db-with
