@@ -1,17 +1,14 @@
 (ns ^:no-doc ^:lean-ns datascript.db
-  #?(:clj (:refer-clojure :exclude [update]))
   (:require
     #?(:cljs [goog.array :as garray])
     [clojure.walk]
     [clojure.data]
+    [datascript.inline :refer [update]]
     [datascript.lru :as lru]
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp raise defrecord-updatable cond+]]))
-  (:refer-clojure :exclude [seqable?])) 
-
-#?(:clj (ns-unmap *ns* 'update))
-#?(:clj (require '[datascript.inline :refer [update]]))
+  (:refer-clojure :exclude [seqable? #?(:clj update)]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
