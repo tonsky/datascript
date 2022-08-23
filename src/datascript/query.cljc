@@ -97,18 +97,32 @@
 
 ;; Relation algebra
 
-(defn join-tuples [t1 #?(:cljs idxs1
-                         :clj  ^{:tag "[[Ljava.lang.Object;"} idxs1)
-                   t2 #?(:cljs idxs2
-                         :clj  ^{:tag "[[Ljava.lang.Object;"} idxs2)]
-  (let [l1  (alength idxs1)
-        l2  (alength idxs2)
-        res (da/make-array (+ l1 l2))]
-    (dotimes [i l1]
-      (aset res i (#?(:cljs da/aget :clj get) t1 (aget idxs1 i)))) ;; FIXME aget
-    (dotimes [i l2]
-      (aset res (+ l1 i) (#?(:cljs da/aget :clj get) t2 (aget idxs2 i)))) ;; FIXME aget
-    res))
+#?(:clj (set! *unchecked-math* true))
+
+#?(:clj
+   (defn join-tuples [t1 ^{:tag "[[Ljava.lang.Object;"} idxs1
+                      t2 ^{:tag "[[Ljava.lang.Object;"} idxs2]
+     (let [l1  (alength idxs1)
+           l2  (alength idxs2)
+           res (da/make-array (+ l1 l2))]
+       (if (.isArray (.getClass ^Object t1))
+         (dotimes [i l1] (aset res i (aget ^objects t1 (aget idxs1 i))))
+         (dotimes [i l1] (aset res i (get t1 (aget idxs1 i)))))
+       (if (.isArray (.getClass ^Object t2))
+         (dotimes [i l2] (aset res (+ l1 i) (get ^objects t2 (aget idxs2 i))))
+         (dotimes [i l2] (aset res (+ l1 i) (get t2 (aget idxs2 i)))))
+       res))
+   :cljs
+   (defn join-tuples [t1 idxs1
+                      t2 idxs2]
+     (let [l1  (alength idxs1)
+           l2  (alength idxs2)
+           res (da/make-array (+ l1 l2))]
+       (dotimes [i l1] (aset res i (da/aget t1 (aget idxs1 i))))
+       (dotimes [i l2] (aset res (+ l1 i) (da/aget t2 (aget idxs2 i))))
+       res)))
+
+#?(:clj (set! *unchecked-math* false))
 
 (defn sum-rel [a b]
   (let [{attrs-a :attrs, tuples-a :tuples} a
