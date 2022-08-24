@@ -420,15 +420,15 @@
           (def ~sym
             (reify
               java.util.Comparator
-              (compare [~'_ ~a1 ~a2]
+              (compare [_# ~a1 ~a2]
                 (let [~arg1 ~arg1 ~arg2 ~arg2]
                   ~@body))
               clojure.lang.IFn
-              (invoke [~'this ~a1 ~a2]
-                (.compare ~'this ~a1 ~a2))
+              (invoke [this# ~a1 ~a2]
+                (.compare this# ~a1 ~a2))
               IFn$OOL
-              (invokePrim [~'this ~a1 ~a2]
-                (.compare ~'this ~a1 ~a2))))))))
+              (invokePrim [this# ~a1 ~a2]
+                (.compare this# ~a1 ~a2))))))))
 
 (defcomp cmp-datoms-eavt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
