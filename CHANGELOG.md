@@ -1,3 +1,7 @@
+# WIP
+
+- Performance improvement in JVM version #436 via @bsless
+
 # 1.3.14
 
 - Additionaly compare db identities when `=`/`hash` entities #433 #435 via @ggeoffrey
