@@ -138,10 +138,10 @@
           y (range depth)
           :let [from (+ (* x (inc depth)) y)
                 to   (+ (* x (inc depth)) y 1)]]
-      [{:db/id   from
+      [{:db/id   (inc from)
         :name    "Ivan"
-        :follows to}
-       {:db/id   to
+        :follows (inc to)}
+       {:db/id   (inc to)
         :name    "Ivan"}])))
 
 (def people (repeatedly random-man))
