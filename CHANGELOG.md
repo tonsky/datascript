@@ -1,4 +1,4 @@
-# WIP
+# 1.3.15
 
 - Performance improvement in JVM version #436 via @bsless
 
