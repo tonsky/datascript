@@ -15,6 +15,7 @@
    [datascript.pull-api :as dpa])
   #?(:clj
      (:import
+      [clojure.lang ILookup LazilyPersistentVector]
       [datascript.parser BindColl BindIgnore BindScalar BindTuple
        Constant FindColl FindRel FindScalar FindTuple PlainSymbol
        RulesVar SrcVar Variable])))
@@ -263,29 +264,63 @@
 (defn getter-fn [attrs attr]
   (let [idx (attrs attr)]
     (if (contains? *lookup-attrs* attr)
-      (fn [tuple]
-        (let [eid #?(:cljs (da/aget tuple idx)
-                     :clj (if (.isArray (.getClass ^Object tuple))
-                            (aget ^objects tuple idx)
-                            (get tuple idx)))]
-          (cond
-            (number? eid)     eid ;; quick path to avoid fn call
-            (sequential? eid) (db/entid *implicit-source* eid)
-            (da/array? eid)   (db/entid *implicit-source* eid)
-            :else             eid)))
-      (fn [tuple]
-        #?(:cljs (da/aget tuple idx)
-           :clj (if (.isArray (.getClass ^Object tuple))
-                  (aget ^objects tuple idx)
-                  (get tuple idx)))))))
+      (if (int? idx)
+        (let [idx (int idx)]
+          (fn contained-int-getter-fn [tuple]
+            (let [eid #?(:cljs (da/aget tuple idx)
+                         :clj (if (.isArray (.getClass ^Object tuple))
+                                (aget ^objects tuple idx)
+                                (nth tuple idx)))]
+              (cond
+                (number? eid)     eid ;; quick path to avoid fn call
+                (sequential? eid) (db/entid *implicit-source* eid)
+                (da/array? eid)   (db/entid *implicit-source* eid)
+                :else             eid))))
+        ;; If the index is not an int?, the target can never be an array
+        (fn contained-getter-fn [tuple]
+          (let [eid #?(:cljs (da/aget tuple idx)
+                       :clj (.valAt ^ILookup tuple idx))]
+            (cond
+              (number? eid)     eid ;; quick path to avoid fn call
+              (sequential? eid) (db/entid *implicit-source* eid)
+              (da/array? eid)   (db/entid *implicit-source* eid)
+              :else             eid))))
+      (if (int? idx)
+        (let [idx (int idx)]
+          (fn int-getter [tuple]
+            #?(:cljs (da/aget tuple idx)
+               :clj (if (.isArray (.getClass ^Object tuple))
+                      (aget ^objects tuple idx)
+                      (nth tuple idx)))))
+        ;; If the index is not an int?, the target can never be an array
+        (fn getter [tuple]
+          #?(:cljs (da/aget tuple idx)
+             :clj (.valAt ^ILookup tuple idx)))))))
 
-(defn tuple-key-fn [getters]
-  (if (== (count getters) 1)
-    (first getters)
-    (let [getters (to-array getters)]
-      (fn [tuple]
-        (list* #?(:cljs (.map getters #(% tuple))
-                  :clj  (to-array (map #(% tuple) getters))))))))
+
+(defn tuple-key-fn
+  [attrs common-attrs]
+  (let [n (count common-attrs)]
+    (if (== n 1)
+      (getter-fn attrs (first common-attrs))
+      (let [^objects getters-arr #?(:clj (into-array Object common-attrs)
+                                    :cljs (into-array common-attrs))]
+        (loop [i 0]
+          (if (< i n)
+            (do
+              (aset getters-arr i (getter-fn attrs (aget getters-arr i)))
+              (recur (unchecked-inc i)))
+            #?(:clj
+               (fn [tuple]
+                 (let [^objects arr (make-array Object n)]
+                   (loop [i 0]
+                     (if (< i n)
+                       (do
+                         (aset arr i ((aget getters-arr i) tuple))
+                         (recur (unchecked-inc i)))
+                       (LazilyPersistentVector/createOwning arr)))))
+               :cljs (fn [tuple]
+                       (list* (.map getters-arr #(% tuple)))))))))))
 
 (defn -group-by
   [f init coll]
@@ -305,11 +340,9 @@
         attrs1        (:attrs rel1)
         attrs2        (:attrs rel2)
         common-attrs  (vec (intersect-keys (:attrs rel1) (:attrs rel2)))
-        common-gtrs1  (map #(getter-fn attrs1 %) common-attrs)
-        common-gtrs2  (map #(getter-fn attrs2 %) common-attrs)
         keep-attrs1   (keys attrs1)
         keep-attrs2   (->> attrs2
-                           (reduce-kv (fn [vec k _]
+                           (reduce-kv (fn keeper [vec k _]
                                         (if (attrs1 k)
                                           vec
                                           (conj! vec k)))
@@ -317,31 +350,30 @@
                            persistent!) ; keys in attrs2-attrs1
         keep-idxs1    (to-array (vals attrs1))
         keep-idxs2    (to-array (->Eduction (map attrs2) keep-attrs2)) ; vals in attrs2-attrs1 by keys
-        key-fn1       (tuple-key-fn common-gtrs1)
+        key-fn1       (tuple-key-fn attrs1 common-attrs)
+        key-fn2       (tuple-key-fn attrs2 common-attrs)
         hash          (hash-attrs key-fn1 tuples1)
-        key-fn2       (tuple-key-fn common-gtrs2)
         new-tuples    (->>
-                        (reduce (fn [acc tuple2]
-                                  (let [key (key-fn2 tuple2)]
-                                    (if-some [tuples1 (get hash key)]
-                                      (reduce (fn [acc tuple1]
-                                                (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
-                                              acc tuples1)
-                                      acc)))
-                          (transient []) tuples2)
-                        (persistent!))]
+                       tuples2
+                       (reduce (fn outer [acc tuple2]
+                                 (let [key (key-fn2 tuple2)]
+                                   (if-some [tuples1 #?(:clj (hash key) :cljs (get hash key))]
+                                     (reduce (fn inner [acc tuple1]
+                                               (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
+                                             acc tuples1)
+                                     acc)))
+                               (transient []) )
+                       (persistent!))]
     (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
                new-tuples)))
 
 (defn subtract-rel [a b]
   (let [{attrs-a :attrs, tuples-a :tuples} a
         {attrs-b :attrs, tuples-b :tuples} b
-        attrs     (intersect-keys attrs-a attrs-b)
-        getters-b (map #(getter-fn attrs-b %) attrs)
-        key-fn-b  (tuple-key-fn getters-b)
+        attrs     (vec (intersect-keys attrs-a attrs-b))
+        key-fn-b  (tuple-key-fn attrs-b attrs)
         hash      (hash-attrs key-fn-b tuples-b)
-        getters-a (map #(getter-fn attrs-a %) attrs)
-        key-fn-a  (tuple-key-fn getters-a)]
+        key-fn-a  (tuple-key-fn attrs-a attrs)]
     (assoc a
       :tuples (filterv #(nil? (hash (key-fn-a %))) tuples-a))))
 
