@@ -1,6 +1,6 @@
 { 
   :deps {
-    persistent-sorted-set/persistent-sorted-set {:mvn/version "0.1.4"}
+    persistent-sorted-set/persistent-sorted-set {:mvn/version "0.2.3"}
   }
   
   :aliases {
@@ -42,7 +42,7 @@
 
     :nrepl {
       :extra-deps {
-        nrepl/nrepl {:mvn/version "0.9.0"}
+        nrepl/nrepl {:mvn/version "1.0.0"}
         lambdaisland/deep-diff2 {:mvn/version "2.0.108"}
       }
     }

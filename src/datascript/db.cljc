@@ -911,6 +911,19 @@
         :pull-attrs    (lru/cache 100)
         :hash          (atom 0)}))))
 
+(defn restore-db [{:keys [schema eavt aevt avet max-eid max-tx]}]
+  (map->DB
+    {:schema        schema
+     :rschema       (rschema (merge implicit-schema schema))
+     :eavt          eavt
+     :aevt          aevt
+     :avet          avet
+     :max-eid       max-eid
+     :max-tx        max-tx
+     :pull-patterns (lru/cache 100)
+     :pull-attrs    (lru/cache 100)
+     :hash          (atom 0)}))
+
 (defn- equiv-db-index [x y]
   (loop [xs (seq x)
          ys (seq y)]
