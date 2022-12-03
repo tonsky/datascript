@@ -1,3 +1,8 @@
+# 1.4.0
+
+- Bump persistent-sorted-set to 0.2.3
+- Improve performance of getter-fn and tuple-key-fn #438 via @bsless
+
 # 1.3.15
 
 - Performance improvement in JVM version #436 via @bsless
