@@ -48,7 +48,6 @@ Docs:
 - API Docs [![cljdoc badge](https://cljdoc.org/badge/datascript/datascript)](https://cljdoc.org/d/datascript/datascript/CURRENT)
 - [Getting started](https://github.com/tonsky/datascript/wiki/Getting-started)
 - [Tutorials](https://github.com/kristianmandrup/datascript-tutorial)
-- [DataScript 101](https://udayv.com/blog/2016-04-28-datascript101/)
 - [Tips & tricks](https://github.com/tonsky/datascript/wiki/Tips-&-tricks)
 - [Triple Stores overview](https://github.com/threatgrid/asami/wiki/Introduction)
 - [Quick tutorial into Datalog](http://www.learndatalogtoday.org/)
