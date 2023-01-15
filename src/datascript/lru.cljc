@@ -71,9 +71,10 @@
 (defn cache [limit]
   (let [*impl (volatile! (lru limit))]
     (reify ICache
-      (-get [this key compute-fn]
+      (-get [_ key compute-fn]
         (if-some [cached (get @*impl key nil)]
-          cached
+          (do (vswap! *impl assoc key cached)
+              cached)
           (let [computed (compute-fn)]
             (vswap! *impl assoc key computed)
             computed))))))
