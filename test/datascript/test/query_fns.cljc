@@ -333,3 +333,24 @@
 (deftest test-symbol-resolution
   (is (= 42 (d/q '[:find ?x .
                    :where [(datascript.test.query-fns/sample-query-fn) ?x]])))))
+
+
+(deftest test-issue-445
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
+               (d/db-with [{:db/id 1 :name "Ivan" :age 15}
+                           {:db/id 2 :name "Petr" :age 22 :height 240}]))]
+    (testing "get-else using lookup ref"
+      (is (= "Unknown"
+             (d/q '[:find ?height .
+                    :in $ ?e
+                    :where [(get-else $ ?e :height "Unknown") ?height]]
+               db
+               [:name "Ivan"]))))
+
+    (testing "get-some using lookup ref"
+      (is (= #{[[:name "Petr"] :age 22]}
+             (d/q '[:find ?e ?a ?v
+                    :in $ ?e
+                    :where [(get-some $ ?e :weight :age :height) [?a ?v]]]
+               db
+               [:name "Petr"]))))))
