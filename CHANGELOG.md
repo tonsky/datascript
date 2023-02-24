@@ -1,3 +1,7 @@
+# 1.4.1
+
+- Allow the use of lookup refs in get-else and get-some #446 via @jjttjj
+
 # 1.4.0
 
 - Bump persistent-sorted-set to 0.2.3
