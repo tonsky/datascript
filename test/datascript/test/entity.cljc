@@ -88,7 +88,7 @@
     (is (nil? (d/entity db "abc")))
     (is (nil? (d/entity db :keyword)))
     (is (nil? (d/entity db [:name "Petr"])))
-    (is (= 777 (:db/id (d/entity db 777))))
+    (is (nil? (d/entity db 777)))
     (is (thrown-msg? "Lookup ref attribute should be marked as :db/unique: [:not-an-attr 777]"
           (d/entity db [:not-an-attr 777])))))
 

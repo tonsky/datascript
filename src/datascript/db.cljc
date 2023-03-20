@@ -1066,6 +1066,9 @@
     (raise "Expected number or lookup ref for entity id, got " eid
       {:error :entity-id/syntax, :entity-id eid})))
 
+(defn numeric-eid-exists? [db eid]
+  (= eid (-> (-seek-datoms db :eavt [eid]) first :e)))
+
 (defn entid-strict [db eid]
   (or (entid db eid)
       (raise "Nothing found for entity id " eid

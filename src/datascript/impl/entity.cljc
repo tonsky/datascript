@@ -14,7 +14,8 @@
 (defn entity [db eid]
   {:pre [(db/db? db)]}
   (when-let [e (entid db eid)]
-    (->Entity db e (volatile! false) (volatile! {}))))
+    (when (db/numeric-eid-exists? db e)
+      (->Entity db e (volatile! false) (volatile! {})))))
 
 (defn- entity-attr [db a datoms]
   (if (db/multival? db a)

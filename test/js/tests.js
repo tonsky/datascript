@@ -253,9 +253,7 @@ function test_entity() {
   assert_ident(db, e.db);
   
   var e2 = d.entity(db, 2);
-  assert_eq(null, e2.get("name"));
-  assert_eq(null, e2.get("aka"));
-  assert_eq(2,    e2.get(":db/id"));
+  assert_eq(null, e2);
 
   // js interop
   assert_eq_set(["name", "aka"], e.key_set());
@@ -283,10 +281,10 @@ function test_entity_refs() {
   var db = d.db_with(d.empty_db(schema), 
                          [{":db/id": 1,   "children": [10]},
                           {":db/id": 10,  "father":   1, "children": [100, 101]},
-                          {":db/id": 100, "father":   10}]);
+                          {":db/id": 100, "father":   10},
+                          {":db/id": 101, "father":   10}]);
   
   var e = function(id) { return d.entity(db, id); };
-  
   assert_eq_refs([10], e(1).get("children"));
   assert_eq_refs([101, 100], e(10).get("children"));
   
@@ -299,11 +297,11 @@ function test_entity_refs() {
   assert_eq_refs([10],       e(10).get("father").get("children"));
   
   // backward navigation
-  assert_eq     (null,  e(1).get("_children"));
-  assert_eq_refs([10],  e(1).get("_father"));
-  assert_eq_refs([1],   e(10).get("_children"));
-  assert_eq_refs([100], e(10).get("_father"));
-  assert_eq_refs([1],   e(100).get("_children")[0].get("_children"));
+  assert_eq     (null,       e(1).get("_children"));
+  assert_eq_refs([10],       e(1).get("_father"));
+  assert_eq_refs([1],        e(10).get("_children"));
+  assert_eq_refs([100, 101], e(10).get("_father"));
+  assert_eq_refs([1],        e(100).get("_children")[0].get("_children"));
 }
 
 function test_pull() {
@@ -313,7 +311,8 @@ function test_pull() {
   var db = d.db_with(d.empty_db(schema),
                          [{":db/id": 1,   "name": "Ivan", "children": [10]},
                           {":db/id": 10,  "father":   1, "children": [100, 101]},
-                          {":db/id": 100, "father":   10}]);
+                          {":db/id": 100, "father":   10},
+                          {":db/id": 101, "father":   10}]);
 
   var actual, expected;
 

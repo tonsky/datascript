@@ -75,9 +75,7 @@
 (def ^{:arglists '([db eid])
        :doc "Given lookup ref `[unique-attr value]`, returns numberic entity id.
 
-             If entity does not exist, returns `nil`.
-
-             For numeric `eid` returns `eid` itself (does not check for entity existence in that case)."}
+             If entity does not exist, returns `nil`."}
   entid db/entid)
 
 

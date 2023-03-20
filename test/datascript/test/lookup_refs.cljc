@@ -83,7 +83,7 @@
       {:db/id 1 :name "Ivan"}
          
       [[:db.fn/retractEntity [:name "Ivan"]]]
-      {:db/id 1})
+      nil)
     
     (are [tx msg] (thrown-msg? msg (d/db-with db tx))
       [{:db/id [:name "Oleg"], :age 10}]
