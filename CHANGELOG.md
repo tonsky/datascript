@@ -1,6 +1,6 @@
 # 1.4.2
 
-- Entity should return nil for numeric eids that don't correspond to entities #447 #448 via @lynaghk
+- [BREAKING] `d/entity` now returns `nil` for numeric eids if entity doesn’t exist #447 #448 via @lynaghk
 
 # 1.4.1
 
