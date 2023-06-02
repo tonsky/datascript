@@ -257,14 +257,26 @@
 ;; keep it fast by duplicating for both keyword and string cases
 ;; instead of using sets or some other matching func
 (defn- val-at-datom [^Datom d k not-found]
-  (case k
-    :e      (.-e d) "e"     (.-e d)
-    :a      (.-a d) "a"     (.-a d)
-    :v      (.-v d) "v"     (.-v d)
-    :tx     (datom-tx d)
-    "tx"    (datom-tx d)
-    :added  (datom-added d)
-    "added" (datom-added d)
+  (cond
+    (keyword? k)
+    (case k
+      :e     (.-e d)
+      :a     (.-a d)
+      :v     (.-v d)
+      :tx    (datom-tx d)
+      :added (datom-added d)
+      not-found)
+    
+    (string? k)
+    (case k
+      "e"     (.-e d)
+      "a"     (.-a d)
+      "v"     (.-v d)
+      "tx"    (datom-tx d)
+      "added" (datom-added d)
+      not-found)
+    
+    :else
     not-found))
 
 (defn- nth-datom

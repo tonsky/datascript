@@ -27,3 +27,4 @@ web/*.js
 web/out
 web/target-cljs
 .rebl
+.shadow-cljs

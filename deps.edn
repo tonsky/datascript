@@ -40,13 +40,6 @@
       }
     }
 
-    :nrepl {
-      :extra-deps {
-        nrepl/nrepl {:mvn/version "1.0.0"}
-        lambdaisland/deep-diff2 {:mvn/version "2.0.108"}
-      }
-    }
-
     :datomic {
       :extra-paths ["test_datomic"]
       :extra-deps {
