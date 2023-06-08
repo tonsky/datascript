@@ -8,7 +8,7 @@
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:clj (:import clojure.lang.IFn$OOL))
-  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp cond+ defcomp defrecord-updatable int-compare raise]]))
+  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp cond+ defcomp defrecord-updatable int-compare ihash raise]]))
   (:refer-clojure :exclude [seqable? #?(:clj update)]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -357,7 +357,11 @@
         `(let [x# ~x y# ~y]
            (if (nil? x#) 0 (if (nil? y#) 0 (long (compare x# y#))))))})
   ^long [x y]
-  (if (nil? x) 0 (if (nil? y) 0 (long (compare x y)))))
+  (if (nil? x)
+    0
+    (if (nil? y)
+      0
+      (long (compare x y)))))
 
 (defn class-identical?
   #?(:clj  {:inline (fn [x y] `(identical? (class ~x) (class ~y)))})
@@ -379,16 +383,38 @@
      :cljs (garray/defaultCompare (type->str (type x)) (type->str (type y)))))
 
 #?(:clj
-    (defmacro int-compare [x y]
-      `(if-cljs
-         (- ~x ~y)
-         (long (Integer/compare ~x ~y)))))
+   (defmacro int-compare [x y]
+     `(if-cljs
+        (- ~x ~y)
+        (long (Integer/compare (int ~x) (int ~y))))))
 
-(defn ihash
-  {:inline (fn [x] `(. clojure.lang.Util (hasheq ~x)))}
-  ^long [x]
-  #?(:clj  (. clojure.lang.Util (hasheq x))
-     :cljs (hash x)))
+#?(:clj
+   (defmacro ihash [x]
+     `(if-cljs
+        (cljs.core/-hash ~x)
+        (let [^clojure.lang.IHashEq x# ~x]
+          (.hasheq x#)))))
+
+(defn attr-compare
+  ^long [a1 a2]
+  (int-compare (ihash a1) (ihash a2)))
+
+(defn attr-cmp
+  #?(:clj
+     {:inline
+      (fn [x y]
+        `(let [x# ~x y# ~y]
+           (if (nil? x#)
+             0
+             (if (nil? y#)
+               0
+               (attr-compare x# y#)))))})
+  ^long [x y]
+  (if (nil? x)
+    0
+    (if (nil? y)
+      0
+      (attr-compare x y))))
 
 (defn value-compare
   ^long [x y]
@@ -445,66 +471,52 @@
 (defcomp cmp-datoms-eavt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (int-compare (.-e d1) (.-e d2))
-    (cmp (.-a d1) (.-a d2))
-    (value-cmp (.-v d1) (.-v d2))
+    (attr-cmp    (.-a d1) (.-a d2))
+    (value-cmp   (.-v d1) (.-v d2))
     (int-compare (datom-tx d1) (datom-tx d2))))
 
 (defcomp cmp-datoms-aevt ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp (.-a d1) (.-a d2))
+    (attr-cmp    (.-a d1) (.-a d2))
     (int-compare (.-e d1) (.-e d2))
-    (value-cmp (.-v d1) (.-v d2))
+    (value-cmp   (.-v d1) (.-v d2))
     (int-compare (datom-tx d1) (datom-tx d2))))
 
 (defcomp cmp-datoms-avet ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp (.-a d1) (.-a d2))
-    (value-cmp (.-v d1) (.-v d2))
+    (attr-cmp    (.-a d1) (.-a d2))
+    (value-cmp   (.-v d1) (.-v d2))
     (int-compare (.-e d1) (.-e d2))
     (int-compare (datom-tx d1) (datom-tx d2))))
 
 ;; fast versions without nil checks
 
-(defn- cmp-attr-quick
-  #?(:clj
-     {:inline
-      (fn [a1 a2]
-        `(long (.compareTo ~(with-meta a1 {:tag "Comparable"}) ~a2)))})
-  ^long [a1 a2]
-  ;; either both are keywords or both are strings
-  #?(:cljs
-     (if (keyword? a1)
-       (-compare a1 a2)
-       (garray/defaultCompare a1 a2))
-     :clj
-     (.compareTo ^Comparable a1 a2)))
-
 (defcomp cmp-datoms-eav-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (int-compare (.-e d1) (.-e d2))
-    (cmp-attr-quick (.-a d1) (.-a d2))
+    (int-compare   (.-e d1) (.-e d2))
+    (attr-compare  (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))))
 
 (defcomp cmp-datoms-eavt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (int-compare (.-e d1) (.-e d2))
-    (cmp-attr-quick (.-a d1) (.-a d2))
+    (int-compare   (.-e d1) (.-e d2))
+    (attr-compare  (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
-    (int-compare (datom-tx d1) (datom-tx d2))))
+    (int-compare   (datom-tx d1) (datom-tx d2))))
 
 (defcomp cmp-datoms-aevt-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp-attr-quick (.-a d1) (.-a d2))
-    (int-compare (.-e d1) (.-e d2))
+    (attr-compare  (.-a d1) (.-a d2))
+    (int-compare   (.-e d1) (.-e d2))
     (value-compare (.-v d1) (.-v d2))
-    (int-compare (datom-tx d1) (datom-tx d2))))
+    (int-compare   (datom-tx d1) (datom-tx d2))))
 
 (defcomp cmp-datoms-avet-quick ^long [^Datom d1, ^Datom d2]
   (combine-cmp
-    (cmp-attr-quick (.-a d1) (.-a d2))
+    (attr-compare  (.-a d1) (.-a d2))
     (value-compare (.-v d1) (.-v d2))
-    (int-compare (.-e d1) (.-e d2))
-    (int-compare (datom-tx d1) (datom-tx d2))))
+    (int-compare   (.-e d1) (.-e d2))
+    (int-compare   (datom-tx d1) (datom-tx d2))))
 
 (defn- diff-sorted [a b cmp]
   (loop [only-a []

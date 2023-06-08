@@ -1,16 +1,16 @@
 (ns datascript.serialize
   (:refer-clojure :exclude [amap array?])
   (:require
-   [clojure.edn :as edn]
-   [clojure.string :as str]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
-   [datascript.lru :as lru]
-   [me.tonsky.persistent-sorted-set :as set]
-   [me.tonsky.persistent-sorted-set.arrays :as arrays])
+    [clojure.edn :as edn]
+    [clojure.string :as str]
+    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
+    [datascript.lru :as lru]
+    [me.tonsky.persistent-sorted-set :as set]
+    [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.serialize :refer [array dict]]))
   #?(:clj
      (:import
-      [datascript.db Datom])))
+       [datascript.db Datom])))
 
 (def ^:const ^:private marker-kw 0)
 (def ^:const ^:private marker-other 1)
@@ -74,7 +74,7 @@
   [^Datom d1 ^Datom d2]
   (cond 
     (nil? (.-a d2)) -1
-    (<= (compare (.-a d1) (.-a d2)) 0) -1
+    (<= (db/attr-compare (.-a d1) (.-a d2)) 0) -1
     true 1))
 
 (defn- all-attrs
@@ -159,17 +159,17 @@
         schema      (freeze-fn (:schema db))
         attrs       (amap freeze-kw attrs)
         kws         (amap freeze-kw (persistent! @*kws))]
-      (dict
-        "count"    (count (:eavt db))
-        "tx0"      db/tx0
-        "max-eid"  (:max-eid db)
-        "max-tx"   (:max-tx db)
-        "schema"   schema
-        "attrs"    attrs
-        "keywords" kws
-        "eavt"     eavt
-        "aevt"     aevt
-        "avet"     avet)))
+    (dict
+      "count"    (count (:eavt db))
+      "tx0"      db/tx0
+      "max-eid"  (:max-eid db)
+      "max-tx"   (:max-tx db)
+      "schema"   schema
+      "attrs"    attrs
+      "keywords" kws
+      "eavt"     eavt
+      "aevt"     aevt
+      "avet"     avet)))
 
 #?(:clj
    (let [lock (Object.)]

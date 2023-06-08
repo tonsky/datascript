@@ -1,7 +1,7 @@
 (ns ^:no-doc datascript.pull-parser
   (:require
     [datascript.built-ins :as built-ins]
-    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
+    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise ihash]]))
 
 (defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
 (defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
@@ -148,11 +148,12 @@
       (let [attrs       (.-attrs result)
             db-id?      (fn [^PullAttr attr] (#{:db/id ":db/id"} (.-name attr)))
             key-fn      (fn [^PullAttr attr]
-                          (let [name (:name attr)]
-                            (cond
-                              (keyword? name) name
-                              (= ":" (subs name 0 1)) (keyword (subs name 1))
-                              :eles (keyword name))))
+                          (let [name (:name attr)
+                                kw   (cond
+                                       (keyword? name) name
+                                       (= ":" (subs name 0 1)) (keyword (subs name 1))
+                                       :else (keyword name))]
+                            (ihash kw)))
             attrs       (if (and
                               (.-wildcard? result)
                               (not (some db-id? (.-attrs result))))

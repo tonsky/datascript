@@ -126,7 +126,7 @@
 
         :let [^Datom datom (first-seq datoms)
               cmp          (when (and datom attr)
-                             (compare (.-name attr) (.-a datom)))
+                             (db/attr-compare (.-name attr) (.-a datom)))
               attr-ahead?  (or (nil? attr) (and cmp (pos? cmp)))
               datom-ahead? (or (nil? datom) (and cmp (neg? cmp)))]
 
@@ -273,7 +273,7 @@
                      (fn [^Datom d]
                        (and
                          (= (.-e d) id)
-                         (<= (compare (.-a d) to) 0)))))]
+                         (<= (db/attr-compare (.-a d) to) 0)))))]
     (when (.-wildcard? pattern)
       (visit context :db.pull/wildcard id nil nil))
     (AttrsFrame.
