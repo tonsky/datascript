@@ -183,6 +183,25 @@
   (let [db (long-db 30 5)]
     (bench/bench (bench-rules db))))
 
+(def *ids10k
+  (delay 
+    (->> (d/datoms @*db100k :aevt :salary)
+      (map :e)
+      (distinct)
+      (shuffle)
+      (take 10000)
+      (vec))))
+
+(defn bench-subslice-eavt []
+  (bench/bench
+    (doseq [id @*ids10k]
+      (-> (d/datoms @*db100k :eavt id :namespaced/full-name) first :v))))
+
+(defn bench-subslice-aevt []
+  (bench/bench
+    (doseq [id @*ids10k]
+      (-> (d/datoms @*db100k :aevt :namespaced/full-name id) first :v))))
+
 (def *serialize-db 
   (delay
     (d/db-with empty-db
@@ -225,6 +244,8 @@
    "rules-long-10x3"    bench-rules-long-10x3
    "rules-long-30x3"    bench-rules-long-30x3
    "rules-long-30x5"    bench-rules-long-30x5
+   "subslice-eavt"      bench-subslice-eavt
+   "subslice-aevt"      bench-subslice-aevt
    "freeze"             bench-freeze
    "thaw"               bench-thaw})
 

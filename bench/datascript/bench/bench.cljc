@@ -89,6 +89,7 @@
      :name      name
      :last-name last-name
      :full-name (str name " " last-name)
+     :namespaced/full-name (str name " " last-name)
      :alias     (vec
                   (repeatedly (rand-int 10) #(rand-nth ["A. C. Q. W." "A. J. Finn" "A.A. Fair" "Aapeli" "Aaron Wolfe" "Abigail Van Buren" "Jeanne Phillips" "Abram Tertz" "Abu Nuwas" "Acton Bell" "Adunis"])))
      :sex       (rand-nth [:male :female])
