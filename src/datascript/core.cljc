@@ -341,11 +341,11 @@
    - Will not return datoms that are not part of the index (e.g. attributes with no `:db/index` in schema when querying `:avet` index).
      - `:eavt` and `:aevt` contain all datoms.
      - `:avet` only contains datoms for references, `:db/unique` and `:db/index` attributes."
-  ([db index]             {:pre [(db/db? db)]} (db/-datoms db index []))
-  ([db index c1]          {:pre [(db/db? db)]} (db/-datoms db index [c1]))
-  ([db index c1 c2]       {:pre [(db/db? db)]} (db/-datoms db index [c1 c2]))
-  ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3]))
-  ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-datoms db index [c1 c2 c3 c4])))
+  ([db index]             {:pre [(db/db? db)]} (db/-datoms db index nil nil nil nil))
+  ([db index c0]          {:pre [(db/db? db)]} (db/-datoms db index c0  nil nil nil))
+  ([db index c0 c1]       {:pre [(db/db? db)]} (db/-datoms db index c0  c1  nil nil))
+  ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  nil))
+  ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  c3)))
 
 
 (defn seek-datoms
@@ -379,20 +379,20 @@
        (seek-datoms db :eavt 2 :likes \"fish\")
        ; => (#datascript/Datom [2 :likes \"pie\"]
        ;     #datascript/Datom [2 :likes \"pizza\"])"
-  ([db index]             {:pre [(db/db? db)]} (db/-seek-datoms db index []))
-  ([db index c1]          {:pre [(db/db? db)]} (db/-seek-datoms db index [c1]))
-  ([db index c1 c2]       {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2]))
-  ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3]))
-  ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-seek-datoms db index [c1 c2 c3 c4])))
+  ([db index]             {:pre [(db/db? db)]} (db/-seek-datoms db index nil nil nil nil))
+  ([db index c0]          {:pre [(db/db? db)]} (db/-seek-datoms db index c0  nil nil nil))
+  ([db index c0 c1]       {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  nil nil))
+  ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  c2  nil))
+  ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  c2  c3)))
 
 
 (defn rseek-datoms
   "Same as [[seek-datoms]], but goes backwards until the beginning of the index."
-  ([db index]             {:pre [(db/db? db)]} (db/-rseek-datoms db index []))
-  ([db index c1]          {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1]))
-  ([db index c1 c2]       {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2]))
-  ([db index c1 c2 c3]    {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2 c3]))
-  ([db index c1 c2 c3 c4] {:pre [(db/db? db)]} (db/-rseek-datoms db index [c1 c2 c3 c4])))
+  ([db index]             {:pre [(db/db? db)]} (db/-rseek-datoms db index nil nil nil nil))
+  ([db index c0]          {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  nil nil nil))
+  ([db index c0 c1]       {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  nil nil))
+  ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  c2  nil))
+  ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  c2  c3)))
 
 
 (defn index-range

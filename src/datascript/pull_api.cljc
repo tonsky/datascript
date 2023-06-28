@@ -268,7 +268,7 @@
                  (set/slice (.-eavt ^DB db) (db/datom id from nil db/tx0) (db/datom id to nil db/txmax))
 
                  :else
-                 (->> (db/-seek-datoms db :eavt [id]))
+                 (->> (db/-seek-datoms db :eavt id nil nil nil))
                    (take-while
                      (fn [^Datom d]
                        (and
