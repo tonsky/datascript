@@ -1,5 +1,6 @@
 (ns ^:no-doc datascript.pull-api
   (:require
+   [clojure.string :as str]
    [datascript.pull-parser :as dpp]
    #?(:clj  [datascript.db :as db :refer [cond+]]
       :cljs [datascript.db :as db :refer [DB] :refer-macros [cond+]])
@@ -42,9 +43,16 @@
 
 (defprotocol IFrame
   (-merge [this result])
-  (-run [this context]))
+  (-run [this context])
+  (-str [this]))
 
-(defrecord ResultFrame [value datoms])
+(defn- attr-str [attr]
+  (or (:as attr) (:name attr)))
+
+(defrecord ResultFrame [value datoms]
+  IFrame
+  (-str [this]
+    (str "ResultFrame<value=" value ">")))
 
 (defrecord MultivalAttrFrame [acc ^PullAttr attr datoms]
   IFrame
@@ -66,7 +74,10 @@
               (recur (next-seq datoms)))))
 
         :else
-        (recur (conj! acc (.-v datom)) (next-seq datoms))))))
+        (recur (conj! acc (.-v datom)) (next-seq datoms)))))
+  
+  (-str [this]
+    (str "MultivalAttrFrame<attr=" (attr-str attr) ">")))
 
 (defrecord MultivalRefAttrFrame [seen recursion-limits acc pattern ^PullAttr attr datoms]
   IFrame
@@ -78,6 +89,7 @@
       pattern
       attr
       (next-seq datoms)))
+  
   (-run [this context]
     (cond+
       :let [^Datom datom (first-seq datoms)]
@@ -96,7 +108,10 @@
       :let [id (if (.-reverse? attr) (.-e datom) (.-v datom))]
 
       :else
-      [this (ref-frame context seen recursion-limits pattern attr id)])))
+      [this (ref-frame context seen recursion-limits pattern attr id)]))
+  
+  (-str [this]
+    (str "MultivalAttrFrame<attr=" (attr-str attr) ">")))
 
 (defrecord AttrsFrame [seen recursion-limits acc ^PullPattern pattern ^PullAttr attr attrs datoms id]
   IFrame
@@ -176,7 +191,10 @@
           (assoc! acc (.-as attr) ((.-xform attr) (.-v datom)))
           (first-seq attrs)
           (next-seq attrs)
-          (next-seq datoms))))))
+          (next-seq datoms)))))
+  
+  (-str [this]
+    (str "AttrsFrame<id=" id ", attr=" (attr-str attr) ", attrs=" (str/join " " (map attr-str attrs)) ">")))
 
 (defrecord ReverseAttrsFrame [seen recursion-limits acc pattern ^PullAttr attr attrs id]
   IFrame
@@ -189,6 +207,7 @@
       (first-seq attrs)
       (next-seq attrs)
       id))
+  
   (-run [this context]
     (loop [acc   acc
            attr  attr
@@ -217,7 +236,10 @@
 
         :else
         [(ReverseAttrsFrame. seen recursion-limits acc pattern attr attrs id)
-         (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)]))))
+         (MultivalRefAttrFrame. seen recursion-limits (transient []) pattern attr datoms)])))
+  
+  (-str [this]
+    (str "ReverseAttrsFrame<id=" id ", attr=" (attr-str attr) ", attrs=" (str/join " " (map attr-str attrs)) ">")))
 
 (defn- auto-expanding? [^PullAttr attr]
   (or

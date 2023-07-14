@@ -43,11 +43,7 @@
     :datomic {
       :extra-paths ["test_datomic"]
       :extra-deps {
-        ;; datomic-pro is not available on Clojars or Maven Central
-        ;; 1. download it from https://my.datomic.com/downloads/pro
-        ;; 2. unzip
-        ;; 3. run bin/maven-install
-        com.datomic/datomic-pro {:mvn/version "1.0.6344"}
+        com.datomic/peer {:mvn/version "1.0.6735"}
       }
     }
   }
