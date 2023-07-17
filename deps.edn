@@ -41,7 +41,7 @@
     }
 
     :datomic {
-      :extra-paths ["test_datomic"]
+      :extra-paths ["bench_datomic" "test_datomic"]
       :extra-deps {
         com.datomic/peer {:mvn/version "1.0.6735"}
       }
