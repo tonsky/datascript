@@ -61,6 +61,19 @@
     (bench/bench
       (d/init-db datoms))))
 
+(defn bench-find-datoms []
+  (bench/bench
+    (doseq [id (range 9000 11000)]
+      (-> (d/datoms @*db100k :eavt id :full-name)
+        first
+        :v))))
+
+(defn bench-find-datom []
+  (bench/bench
+    (doseq [id (range 9000 11000)]
+      (-> (d/find-datom @*db100k :eavt id :full-name)
+        :v))))
+
 (defn bench-retract-5 []
   (let [db   (d/db-with empty-db @bench/*people20k)
         eids (->> (d/datoms db :aevt :name) (map :e) (shuffle))]
@@ -206,6 +219,8 @@
    "add-5"              bench-add-5
    "add-all"            bench-add-all
    "init"               bench-init
+   "find-datoms"        bench-find-datoms
+   "find-datom"         bench-find-datom
    "retract-5"          bench-retract-5
    "q1"                 bench-q1
    "q2"                 bench-q2

@@ -1,3 +1,8 @@
+# WIP
+
+- New API: `d/find-datom`. Works like `d/datoms`, but only returns single datom, but is faster than `(first (d/datoms ...))`
+- Optimized various parts of CLJS version related to compilation and index access
+
 # 1.4.2
 
 - [BREAKING] `d/entity` now returns `nil` for numeric eids if entity doesn’t exist #447 #448 via @lynaghk

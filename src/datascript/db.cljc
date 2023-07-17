@@ -1104,6 +1104,16 @@
     :aevt (resolve-datom db c1 c0 c2 c3 default-e default-tx)
     :avet (resolve-datom db c2 c0 c1 c3 default-e default-tx)))
 
+(defn find-datom [db index c0 c1 c2 c3]
+  (validate-indexed db index c0 c1 c2 c3)
+  (let [set     (get db index)
+        cmp     #?(:clj (.comparator ^clojure.lang.Sorted set) :cljs (.-comparator set))
+        from    (components->pattern db index c0 c1 c2 c3 e0 tx0)
+        to      (components->pattern db index c0 c1 c2 c3 emax txmax)
+        datom   (first (set/seek (seq set) from))]
+    (when (and datom (<= 0 (cmp to datom)))
+      datom)))
+
 ;; ----------------------------------------------------------------------------
 
 (defrecord TxReport [db-before db-after tx-data tempids tx-meta])

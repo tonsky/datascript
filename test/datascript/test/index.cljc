@@ -65,6 +65,28 @@
       (is (thrown-msg? "Attribute :name should be marked as :db/index true"
             (d/datoms db :avet :name "Ivan" 1))))))
 
+(deftest test-datom
+  (let [dvec #(when % (vector (:e %) (:a %) (:v %)))
+        db (-> (d/empty-db {:age {:db/index true}})
+               (d/db-with [ [:db/add 1 :name "Petr"]
+                            [:db/add 1 :age 44]
+                            [:db/add 2 :name "Ivan"]
+                            [:db/add 2 :age 25]
+                            [:db/add 3 :name "Sergey"]
+                            [:db/add 3 :age 11] ]))]
+    (is (= [1 :age 44] (dvec (d/find-datom db :eavt))))
+    (is (= [1 :age 44] (dvec (d/find-datom db :eavt 1))))
+    (is (= [1 :age 44] (dvec (d/find-datom db :eavt 1 :age))))
+    (is (= [1 :name "Petr"] (dvec (d/find-datom db :eavt 1 :name))))
+    (is (= [1 :name "Petr"] (dvec (d/find-datom db :eavt 1 :name "Petr"))))
+    
+    (is (= [2 :age 25] (dvec (d/find-datom db :eavt 2))))
+    (is (= [2 :age 25] (dvec (d/find-datom db :eavt 2 :age))))
+    (is (= [2 :name "Ivan"] (dvec (d/find-datom db :eavt 2 :name))))
+    
+    (is (= nil (dvec (d/find-datom db :eavt 1 :name "Ivan"))))
+    (is (= nil (dvec (d/find-datom db :eavt 4))))))
+
 (deftest test-seek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))
         db (-> (d/empty-db { :name { :db/index true }

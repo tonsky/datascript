@@ -347,6 +347,13 @@
   ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  nil))
   ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  c3)))
 
+(defn find-datom
+  "Same as [[datoms]], but only returns single datom. Faster than `(first (datoms ...))`"
+  ([db index]             {:pre [(db/db? db)]} (db/find-datom db index nil nil nil nil))
+  ([db index c0]          {:pre [(db/db? db)]} (db/find-datom db index c0  nil nil nil))
+  ([db index c0 c1]       {:pre [(db/db? db)]} (db/find-datom db index c0  c1  nil nil))
+  ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/find-datom db index c0  c1  c2  nil))
+  ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/find-datom db index c0  c1  c2  c3)))
 
 (defn seek-datoms
   "Similar to [[datoms]], but will return datoms starting from specified components and including rest of the database until the end of the index.
@@ -393,7 +400,6 @@
   ([db index c0 c1]       {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  nil nil))
   ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  c2  nil))
   ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-rseek-datoms db index c0  c1  c2  c3)))
-
 
 (defn index-range
   "Returns part of `:avet` index between `[_ attr start]` and `[_ attr end]` in AVET sort order.
