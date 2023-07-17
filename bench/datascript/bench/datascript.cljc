@@ -1,10 +1,18 @@
 (ns datascript.bench.datascript
   (:require
-   [datascript.core :as d]
-   [datascript.bench.bench :as bench]
-   #?(:clj [jsonista.core :as jsonista])))
+    [datascript.core :as d]
+    [datascript.db :as db]
+    [datascript.bench.bench :as bench]
+    [datascript.test]
+    [me.tonsky.persistent-sorted-set :as pss]
+    [me.tonsky.persistent-sorted-set.arrays :as arrays]
+    #?(:clj [jsonista.core :as jsonista])
+    #?(:cljs [goog.object :as gobj])))
 
 #?(:cljs (enable-console-print!))
+
+#?(:cljs
+   (def fs (js/require "fs")))
 
 (def schema
   {:id      {:db/unique :db.unique/identity}
@@ -77,31 +85,31 @@
   (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
-                  [?e :age ?a]]
+           [?e :age ?a]]
       @*db100k)))
 
 (defn bench-q3 []
   (bench/bench
     (d/q '[:find ?e ?a
            :where [?e :name "Ivan"]
-                  [?e :age ?a]
-                  [?e :sex :male]]
+           [?e :age ?a]
+           [?e :sex :male]]
       @*db100k)))
 
 (defn bench-q4 []
   (bench/bench
     (d/q '[:find ?e ?l ?a
            :where [?e :name "Ivan"]
-                  [?e :last-name ?l]
-                  [?e :age ?a]
-                  [?e :sex :male]]
+           [?e :last-name ?l]
+           [?e :age ?a]
+           [?e :sex :male]]
       @*db100k)))
 
 (defn bench-qpred1 []
   (bench/bench
     (d/q '[:find ?e ?s
            :where [?e :salary ?s]
-                  [(> ?s 50000)]]
+           [(> ?s 50000)]]
       @*db100k)))
 
 (defn bench-qpred2 []
@@ -109,7 +117,7 @@
     (d/q '[:find ?e ?s
            :in   $ ?min_s
            :where [?e :salary ?s]
-                  [(> ?s ?min_s)]]
+           [(> ?s ?min_s)]]
       @*db100k 50000)))
 
 (def *pull-db
@@ -148,12 +156,12 @@
   (d/q '[:find ?e ?e2
          :in   $ %
          :where (follows ?e ?e2)]
-       db
-       '[[(follows ?x ?y)
-          [?x :follows ?y]]
-         [(follows ?x ?y)
-          [?x :follows ?t]
-          (follows ?t ?y)]]))
+    db
+    '[[(follows ?x ?y)
+       [?x :follows ?y]]
+      [(follows ?x ?y)
+       [?x :follows ?t]
+       (follows ?t ?y)]]))
 
 (defn bench-rules-wide-3x3 []
   (let [db (wide-db 3 3)]
@@ -192,15 +200,128 @@
       (take 10000)
       (vec))))
 
-(defn bench-subslice-eavt []
+(defn bench-slice-eavt []
   (bench/bench
     (doseq [id @*ids10k]
       (-> (d/datoms @*db100k :eavt id :namespaced/full-name) first :v))))
 
-(defn bench-subslice-aevt []
+(defn bench-slice-aevt []
   (bench/bench
     (doseq [id @*ids10k]
       (-> (d/datoms @*db100k :aevt :namespaced/full-name id) first :v))))
+
+(defn bench-subslice-aevt-cp []
+  (bench/bench
+    (doseq [:let [db    @*db100k
+                  slice (d/datoms db :aevt :namespaced/full-name)]
+            id @*ids10k
+            :let [from (db/components->pattern db :aevt :namespaced/full-name id nil nil db/e0 db/tx0)
+                  to   (db/components->pattern db :aevt :namespaced/full-name id nil nil db/emax db/txmax)]]
+      (-> (pss/slice slice from to db/cmp-datoms-evt) first :v))))
+
+(defn bench-seek []
+  (bench/bench
+    (doseq [:let [db   @*db100k]
+            id @*ids10k
+            :let [from (db/datom id :namespaced/full-name nil db/tx0)
+                  to   (db/datom id :namespaced/full-name nil db/txmax)]])))
+
+(defn bench-seek-rd []
+  (bench/bench
+    (doseq [:let [db   @*db100k]
+            id @*ids10k
+            :let [from (db/resolve-datom db id :namespaced/full-name nil nil db/e0 db/tx0)
+                  to   (db/resolve-datom db id :namespaced/full-name nil nil db/emax db/txmax)]])))
+
+(defn bench-seek-cp []
+  (bench/bench
+    (doseq [:let [db   @*db100k]
+            id @*ids10k
+            :let [from (db/components->pattern db :aevt :namespaced/full-name id nil nil db/e0 db/tx0)
+                  to   (db/components->pattern db :aevt :namespaced/full-name id nil nil db/emax db/txmax)]])))
+            
+(defn bench-subslice-aevt []
+  (bench/bench
+    (doseq [:let [db    @*db100k
+                  slice (d/datoms db :aevt :namespaced/full-name)]
+            id @*ids10k
+            :let [from (db/datom id :namespaced/full-name nil db/tx0)
+                  to   (db/datom id :namespaced/full-name nil db/txmax)]]
+      (-> (pss/slice slice from to db/cmp-datoms-evt) first :v))))
+
+(defn map-to [ks val-fn]
+  (persistent!
+    (reduce
+      (fn [m k]
+        (assoc! m k (val-fn k)))
+      (transient {})
+      ks)))
+
+#?(:cljs
+   (def *roam-db
+     (delay
+       (let [fun    (gobj/get fs "readFileSync")
+             file   (fun "/Users/tonsky/ws/roam/db_3M.json")
+             parsed (js/JSON.parse file)]
+         (d/from-serializable parsed)))))
+
+#?(:cljs
+   (def *roam-ids
+     (delay
+       (let [index (vec (d/datoms @*roam-db :aevt :block/parents))]
+         (->> #(rand-nth index)
+           (repeatedly 10000)
+           (map :e)
+           (into #{}))))))
+
+#?(:cljs
+   (defn bench-roam-index []
+     (bench/bench
+       (let [index (js/Object.)]
+         (doseq [d (d/datoms @*roam-db :aevt :block/parents)]
+           (gobj/set index (.-e d) (.-v d)))
+         (map-to @*roam-ids #(gobj/get index %))))))
+
+#?(:cljs
+   (defn bench-roam-eavt []
+     (bench/bench
+       (map-to @*roam-ids
+         #(-> (d/datoms @*roam-db :eavt % :block/parents)
+            first
+            :v)))))
+
+#?(:cljs
+   (defn bench-roam-aevt []
+     (bench/bench
+       (map-to @*roam-ids
+         #(-> (d/datoms @*roam-db :aevt :block/parents %)
+            first
+            :v)))))
+
+#?(:cljs
+   (defn bench-roam-aevt-slice []
+     (bench/bench
+       (let [slice (d/datoms @*roam-db :aevt :block/parents)]
+         (map-to @*roam-ids
+           (fn [id]
+             (let [from (db/datom id :block/parents nil db/tx0)
+                   to   (db/datom id :block/parents nil db/txmax)]
+              (some-> (pss/slice slice from to db/cmp-datoms-evt)
+                first
+                (.-v)))))))))
+
+#?(:cljs
+   (defn bench-roam-aevt-slice-cp []
+     (bench/bench
+       (let [db    @*roam-db
+             slice (d/datoms db :aevt :block/parents)]
+         (map-to @*roam-ids
+           (fn [id]
+             (let [from (db/components->pattern db :aevt :block/parents id nil nil db/e0 db/tx0)
+                   to   (db/components->pattern db :aevt :block/parents id nil nil db/emax db/txmax)]
+              (some-> (pss/slice slice from to db/cmp-datoms-evt)
+                first
+                (.-v)))))))))
 
 (def *serialize-db 
   (delay
@@ -244,15 +365,25 @@
    "rules-long-10x3"    bench-rules-long-10x3
    "rules-long-30x3"    bench-rules-long-30x3
    "rules-long-30x5"    bench-rules-long-30x5
-   "subslice-eavt"      bench-subslice-eavt
+   "seek"               bench-seek
+   "seek-cp"            bench-seek-cp
+   "seek-rd"            bench-seek-rd
+   "slice-eavt"         bench-slice-eavt
+   "slice-aevt"         bench-slice-aevt
    "subslice-aevt"      bench-subslice-aevt
+   "subslice-aevt-cp"   bench-subslice-aevt-cp
    "freeze"             bench-freeze
-   "thaw"               bench-thaw})
+   "thaw"               bench-thaw
+   #?@(:cljs ["roam-index" bench-roam-index
+              "roam-eavt" bench-roam-eavt
+              "roam-aevt" bench-roam-aevt
+              "roam-aevt-slice" bench-roam-aevt-slice
+              "roam-aevt-slice-cp" bench-roam-aevt-slice-cp])})
 
 (defn ^:export -main
   "clj -A:bench -M -m datascript.bench.datascript [--profile] (add-1 | add-5 | ...)*"
   [& args]
-  (let [profile? (.contains (or args ()) "--profile")
+  (let [profile? (contains? (set (or args ())) "--profile")
         args     (remove #{"--profile"} args)
         names    (or (not-empty args) (sort (keys benches)))
         _        (apply println #?(:clj "CLJ:" :cljs "CLJS:") names)

@@ -6,10 +6,17 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :url "https://github.com/tonsky/datascript"
   
+  
+  :source-paths [
+    "src"
+    "/Users/tonsky/ws/persistent-sorted-set/src-clojure"
+    "/Users/tonsky/ws/persistent-sorted-set/target/classes"
+  ]
+  
   :dependencies [
     [org.clojure/clojure       "1.10.2"   :scope "provided"]
     [org.clojure/clojurescript "1.10.844" :scope "provided"]
-    [persistent-sorted-set     "0.2.3"]
+    #_[persistent-sorted-set     "0.2.3"]
   ]
   
   :plugins [
@@ -52,19 +59,20 @@
         }}
 
       { :id "bench"
-        :source-paths ["src" "bench"]
+        :source-paths ["src" "bench" "/Users/tonsky/ws/persistent-sorted-set/src-clojure"]
         :compiler {
           :main          datascript.bench.datascript
           :output-to     "target/datascript.js"
           :optimizations :advanced
           ; :source-map    "target/datascript.js.map"
-          ; :pretty-print  true
+          :pretty-print  true
           :recompile-dependents false
           :parallel-build true
           :checked-arrays :warn
-          ; :pseudo-names  true
+          :pseudo-names  true
           :fn-invoke-direct true
           :elide-asserts true
+          :target :nodejs
         }}
 
       { :id "none"

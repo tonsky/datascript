@@ -503,6 +503,12 @@
     (value-cmp (.-v d1) (.-v d2))
     (int-compare (datom-tx d1) (datom-tx d2))))
 
+(defcomp cmp-datoms-evt ^long [^Datom d1, ^Datom d2]
+  (combine-cmp
+    (int-compare (.-e d1) (.-e d2))
+    (value-cmp (.-v d1) (.-v d2))
+    (int-compare (datom-tx d1) (datom-tx d2))))
+
 (defcomp cmp-datoms-avet ^long [^Datom d1, ^Datom d2]
   (combine-cmp
     (cmp (.-a d1) (.-a d2))
