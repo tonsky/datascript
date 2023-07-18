@@ -1111,7 +1111,7 @@
         from    (components->pattern db index c0 c1 c2 c3 e0 tx0)
         to      (components->pattern db index c0 c1 c2 c3 emax txmax)
         datom   (first (set/seek (seq set) from))]
-    (when (and datom (<= 0 (cmp to datom)))
+    (when (and (some? datom) (<= 0 (cmp to datom)))
       datom)))
 
 ;; ----------------------------------------------------------------------------
