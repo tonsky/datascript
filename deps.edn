@@ -16,8 +16,15 @@
       }
     }
 
+    :dev {
+      :extra-paths ["dev"]
+      :extra-deps {
+        org.clojure/tools.namespace {:mvn/version "1.3.0"}
+      }
+    }
+            
     :test {
-      :extra-paths ["test"]
+      :extra-paths ["test" "test_storage"]
       :extra-deps {
         org.clojure/clojurescript  {:mvn/version "1.10.520"}
         metosin/jsonista           {:mvn/version "0.3.3"}
