@@ -1,6 +1,7 @@
 (ns datascript.test-storage
   (:refer-clojure :exclude [time])
   (:require    
+    [clojure.edn :as edn]
     [clojure.java.io :as io]
     [clojure.string :as str]
     [cheshire.core :as json]
@@ -46,26 +47,28 @@
          dt#  (- (System/currentTimeMillis) t0#)]
      (merge {:time dt#} @*stats res#)))
 
-(def storage ;; 12 sec
-  (d/file-storage "target/db_edn"))
+(def streaming-edn-storage
+  (d/file-storage "target/db_streaming_edn"))
 
-(def storage ;; 99 sec
-  (d/file-storage "target/db_json"
+(def inmemory-edn-storage
+  (d/file-storage "target/db_inmemory_edn"
+    {:freeze-fn pr-str
+     :thaw-fn   edn/read-string}))
+
+(def streaming-transit-json-storage
+  (d/file-storage "target/db_streaming_transint_json"
     {:read-fn  (fn [is]
                  (t/read (t/reader is :json)))
      :write-fn (fn [os o]
                  (t/write (t/writer os :json) o))}))
 
-(def storage ;; 5.9 sec
-  (d/file-storage "target/db_json"
-    {:write-fn (fn [os o]
-                 (with-open [wrt (io/writer os)]
-                   (.write ^java.io.Writer wrt ^String (write-transit-str o))))
-     :read-fn  (fn [is]
-                 (read-transit-str (slurp (io/reader is))))}))
+(def inmemory-transit-json-storage
+  (d/file-storage "target/db_inmemory_transit_json"
+    {:freeze-fn write-transit-str
+     :thaw-fn read-transit-str}))
 
-(def storage ;; 5.7 sec
-  (d/file-storage "target/db_msgpack"
+(def streaming-transit-msgpack-storage
+  (d/file-storage "target/db_streaming_transit_msgpack"
     {:read-fn  (fn [is]
                  (t/read (t/reader is :msgpack)))
      :write-fn (fn [os o]
@@ -80,7 +83,13 @@
     (def db (d/from-serializable json))
     (count db))
 
-  (d/store storage db)
+  (d/store streaming-edn-storage db)             ;; 10 sec
+  (d/store inmemory-edn-storage db)              ;; 10 sec
+  (d/store streaming-transit-json-storage db)    ;; 7.5 sec
+  (d/store inmemory-transit-json-storage db)     ;; 6.4 sec
+  (d/store streaming-transit-msgpack-storage db) ;; 6.3 sec
+  
+  (def storage streaming-transit-msgpack-storage)
     
   (def db' (d/restore storage))
 

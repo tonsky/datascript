@@ -9,8 +9,8 @@
 
 (import
   '[datascript.db Datom]
-  '[java.io PushbackReader]
   '[java.util List]
+  '[java.io BufferedOutputStream File FileOutputStream OutputStream PushbackReader] 
   '[me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet])
 
 (def ^:private root-addr
@@ -20,23 +20,40 @@
   (-store [_ addr data])
   (-restore [_ addr]))
 
+(defn output-stream ^OutputStream [^File file]
+  (let [os (FileOutputStream. file)]
+    (proxy [BufferedOutputStream] [os]
+      (flush [])
+      (close []
+        (.flush os)
+        (.close os)))))
+
 (defn file-storage
   ([dir]
    (file-storage dir {}))
   ([dir opts]
    (.mkdirs (io/file dir))
-   (let [{:keys [name-fn write-fn read-fn]
-          :or   {name-fn  str
-                 write-fn (fn [os o]
-                            (with-open [wrt (io/writer os)]
-                              (binding [*out* wrt]
-                                (pr o))))
-                 read-fn  (fn [is]
-                            (with-open [rdr (PushbackReader. (io/reader is))]
-                              (edn/read rdr)))}} opts]
+   (let [name-fn   (or (:name-fn opts) str)
+         write-fn  (or 
+                     (:write-fn opts)
+                     (when-some [freeze-fn (:freeze-fn opts)]
+                       (fn [os o]
+                         (spit os (freeze-fn o))))
+                     (fn [os o]
+                       (with-open [wrt (io/writer os)]
+                         (binding [*out* wrt]
+                           (pr o)))))
+         read-fn   (or 
+                     (:read-fn opts)
+                     (when-some [thaw-fn (:thaw-fn opts)]
+                       (fn [is]
+                         (thaw-fn (slurp is))))
+                     (fn [is]
+                       (with-open [rdr (PushbackReader. (io/reader is))]
+                         (edn/read rdr))))]
      (reify IStorage
        (-store [_ addr data]
-         (with-open [os (io/output-stream (io/file dir (name-fn addr)))]
+         (with-open [os (output-stream (io/file dir (name-fn addr)))]
            (write-fn os data)))
        (-restore [_ addr]
          (with-open [is (io/input-stream (io/file dir (name-fn addr)))]
