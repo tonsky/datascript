@@ -11,7 +11,7 @@
   '[datascript.db Datom]
   '[java.util List]
   '[java.io BufferedOutputStream File FileOutputStream OutputStream PushbackReader] 
-  '[me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet])
+  '[me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet RefType Settings])
 
 (def ^:private root-addr
   #uuid "d5695966-036d-6740-8541-d80034219c28")
@@ -25,8 +25,9 @@
     (proxy [BufferedOutputStream] [os]
       (flush [])
       (close []
-        (.flush os)
-        (.close os)))))
+        (let [this ^BufferedOutputStream this]
+          (proxy-super flush)
+          (proxy-super close))))))
 
 (defn file-storage
   ([dir]
@@ -59,7 +60,8 @@
          (with-open [is (io/input-stream (io/file dir (name-fn addr)))]
            (read-fn is)))))))
 
-(deftype PSSStorage [istorage]
+(deftype StorageAdapter [^me.tonsky.persistent_sorted_set.IStorage istorage
+                         ^Settings settings]
   me.tonsky.persistent_sorted_set.IStorage
   (store [_ ^ANode node]
     (let [addr (squuid)
@@ -76,12 +78,12 @@
     (let [{:keys [level keys addresses]} (-restore istorage addr)
           keys' ^List (map (fn [[e a v tx]] (db/datom e a v tx)) keys)]
       (if addresses
-        (Branch. (int level) keys' ^List addresses)
-        (Leaf. keys')))))
+        (Branch. (int level) keys' ^List addresses settings)
+        (Leaf. keys' settings)))))
 
 (defn validate-storage [^PersistentSortedSet set istorage]
-  (when-some [^PSSStorage pss-storage (.-_storage set)]
-    (let [istorage' (.-istorage pss-storage)]
+  (when-some [^StorageAdapter adapter (.-_storage set)]
+    (let [istorage' (.-istorage adapter)]
       (when-not (identical? istorage' istorage)
         (throw (ex-info "Database is already stored with another IStorage"
                  {:istorage istorage'}))))))
@@ -93,25 +95,31 @@
    (validate-storage (:eavt db) istorage)
    (validate-storage (:aevt db) istorage)
    (validate-storage (:avet db) istorage)
-   (let [pss-storage (PSSStorage. istorage)
-         meta {:schema  (:schema db)
-               :max-eid (:max-eid db)
-               :max-tx  (:max-tx db)
-               :eavt    (set/store (:eavt db) pss-storage)
-               :aevt    (set/store (:aevt db) pss-storage)
-               :avet    (set/store (:avet db) pss-storage)}]
+   (let [eavt     ^PersistentSortedSet (:eavt db)
+         settings (.-_settings eavt)
+         adapter  (StorageAdapter. istorage settings)
+         meta     (merge
+                    {:schema   (:schema db)
+                     :max-eid  (:max-eid db)
+                     :max-tx   (:max-tx db)
+                     :eavt     (set/store (:eavt db) adapter)
+                     :aevt     (set/store (:aevt db) adapter)
+                     :avet     (set/store (:avet db) adapter)}
+                    (@#'set/settings->map settings))]
      (-store istorage root-addr meta))))
 
 (defn restore
   ([istorage]
    (restore istorage {}))
   ([istorage opts]
-   (let [{:keys [schema eavt aevt avet max-eid max-tx]} (-restore istorage root-addr)
-         pss-storage (PSSStorage. istorage)]
+   (let [root (-restore istorage root-addr)
+         {:keys [schema eavt aevt avet max-eid max-tx]} root
+         settings    (@#'set/map->settings root)
+         adapter (StorageAdapter. istorage settings)]
      (db/restore-db
        {:schema  schema
-        :eavt    (set/restore-by db/cmp-datoms-eavt eavt pss-storage)
-        :aevt    (set/restore-by db/cmp-datoms-aevt aevt pss-storage)
-        :avet    (set/restore-by db/cmp-datoms-avet avet pss-storage)
+        :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter root)
+        :aevt    (set/restore-by db/cmp-datoms-aevt aevt adapter root)
+        :avet    (set/restore-by db/cmp-datoms-avet avet adapter root)
         :max-eid max-eid
         :max-tx  max-tx}))))

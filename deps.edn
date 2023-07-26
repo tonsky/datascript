@@ -16,6 +16,12 @@
       }
     }
 
+    :1.11.1 {
+      :override-deps {
+        org.clojure/clojure {:mvn/version "1.11.1"}
+      }
+    }
+
     :dev {
       :extra-paths ["dev"]
       :extra-deps {

@@ -9,10 +9,10 @@
     [datascript.query :as dq]
     [datascript.impl.entity :as de])
   #?(:clj
-    (:import
-      [datascript.db FilteredDB]
-      [datascript.impl.entity Entity]
-      [java.util UUID])))
+     (:import
+       [datascript.db FilteredDB]
+       [datascript.impl.entity Entity]
+       [java.util UUID])))
 
 
 (def ^:const ^:no-doc tx0 db/tx0)
@@ -255,10 +255,10 @@
   "Same as [[transact!]], but applies to an immutable database value. Returns transaction report (see [[transact!]])."
   ([db tx-data] (with db tx-data nil))
   ([db tx-data tx-meta]
-    {:pre [(db/db? db)]}
-    (if (is-filtered db)
-      (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
-      (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
+   {:pre [(db/db? db)]}
+   (if (is-filtered db)
+     (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
+     (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
 
 
 (defn db-with
@@ -458,8 +458,12 @@
    Connections are lightweight in-memory structures (~atoms) with direct support of transaction listeners ([[listen!]], [[unlisten!]]) and other handy DataScript APIs ([[transact!]], [[reset-conn!]], [[db]]).
 
    To access underlying immutable DB value, deref: `@conn`."
-  ([]       (conn-from-db (empty-db)))
-  ([schema] (conn-from-db (empty-db schema))))
+  ([]
+   (conn-from-db (empty-db)))
+  ([schema]
+   (conn-from-db (empty-db schema)))
+  ([schema opts]
+   (conn-from-db (empty-db schema opts))))
 
 
 (defn ^:no-doc -transact! [conn tx-data tx-meta]
@@ -559,28 +563,28 @@
                        [:db/add 296 :friend -1]])"
   ([conn tx-data] (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (let [report (-transact! conn tx-data tx-meta)]
-      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
-        (callback report))
-      report)))
+   {:pre [(conn? conn)]}
+   (let [report (-transact! conn tx-data tx-meta)]
+     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
+       (callback report))
+     report)))
 
 
 (defn reset-conn!
   "Forces underlying `conn` value to become `db`. Will generate a tx-report that will remove everything from old value and insert everything from the new one."
   ([conn db] (reset-conn! conn db nil))
   ([conn db tx-meta]
-    (let [report (db/map->TxReport
+   (let [report (db/map->TxReport
                   { :db-before @conn
-                    :db-after  db
-                    :tx-data   (concat
-                                 (map #(assoc % :added false) (datoms @conn :eavt))
-                                 (datoms db :eavt))
-                    :tx-meta   tx-meta})]
-      (reset! conn db)
-      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
-        (callback report))
-      db)))
+                   :db-after  db
+                   :tx-data   (concat
+                                (map #(assoc % :added false) (datoms @conn :eavt))
+                                (datoms db :eavt))
+                   :tx-meta   tx-meta})]
+     (reset! conn db)
+     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
+       (callback report))
+     db)))
 
 
 (defn- atom? [a]
@@ -597,9 +601,9 @@
    Returns the key under which this listener is registered. See also [[unlisten!]]."
   ([conn callback] (listen! conn (rand) callback))
   ([conn key callback]
-     {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
-     (swap! (:listeners (meta conn)) assoc key callback)
-     key))
+   {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
+   (swap! (:listeners (meta conn)) assoc key callback)
+   key))
 
 
 (defn unlisten!
@@ -633,13 +637,13 @@
   
    Exists for Datomic API compatibility. Prefer using negative integers directly if possible."
   ([part]
-    (if (= part :db.part/tx)
-      :db/current-tx
-      (swap! last-tempid dec)))
+   (if (= part :db.part/tx)
+     :db/current-tx
+     (swap! last-tempid dec)))
   ([part x]
-    (if (= part :db.part/tx)
-      :db/current-tx
-      x)))
+   (if (= part :db.part/tx)
+     :db/current-tx
+     x)))
 
 
 (defn resolve-tempid
@@ -665,24 +669,24 @@
    Exists for Datomic API compatibility. Prefer using [[transact!]] if possible."
   ([conn tx-data] (transact conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (let [res (transact! conn tx-data tx-meta)]
-      #?(:cljs
-         (reify
-           IDeref
-           (-deref [_] res)
-           IDerefWithTimeout
-           (-deref-with-timeout [_ _ _] res)
-           IPending
-           (-realized? [_] true))
-         :clj
-         (reify
-           clojure.lang.IDeref
-           (deref [_] res)
-           clojure.lang.IBlockingDeref
-           (deref [_ _ _] res)
-           clojure.lang.IPending
-           (isRealized [_] true))))))
+   {:pre [(conn? conn)]}
+   (let [res (transact! conn tx-data tx-meta)]
+     #?(:cljs
+        (reify
+          IDeref
+          (-deref [_] res)
+          IDerefWithTimeout
+          (-deref-with-timeout [_ _ _] res)
+          IPending
+          (-realized? [_] true))
+        :clj
+        (reify
+          clojure.lang.IDeref
+          (deref [_] res)
+          clojure.lang.IBlockingDeref
+          (deref [_ _ _] res)
+          clojure.lang.IPending
+          (isRealized [_] true))))))
 
 
 ;; ersatz future without proper blocking
@@ -706,8 +710,8 @@
    In CLJS, just calls [[transact!]] and returns a realized future."
   ([conn tx-data] (transact-async conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (future-call #(transact! conn tx-data tx-meta))))
+   {:pre [(conn? conn)]}
+   (future-call #(transact! conn tx-data tx-meta))))
 
 
 (defn- rand-bits [pow]
@@ -715,13 +719,13 @@
 
 
 #?(:cljs
-  (defn- to-hex-string [n l]
-    (let [s (.toString n 16)
-          c (count s)]
-      (cond
-        (> c l) (subs s 0 l)
-        (< c l) (str (apply str (repeat (- l c) "0")) s)
-        :else   s))))
+   (defn- to-hex-string [n l]
+     (let [s (.toString n 16)
+           c (count s)]
+       (cond
+         (> c l) (subs s 0 l)
+         (< c l) (str (apply str (repeat (- l c) "0")) s)
+         :else   s))))
 
 
 (defn squuid
@@ -729,37 +733,37 @@
   
    Consist of 64 bits of current UNIX timestamp (in seconds) and 64 random bits (2^64 different unique values per second)."
   ([]
-    (squuid #?(:clj  (System/currentTimeMillis)
-               :cljs (.getTime (js/Date.)))))
+   (squuid #?(:clj  (System/currentTimeMillis)
+              :cljs (.getTime (js/Date.)))))
   ([msec]
-  #?(:clj
+   #?(:clj
       (let [uuid     (UUID/randomUUID)
             time     (int (/ msec 1000))
             high     (.getMostSignificantBits uuid)
             low      (.getLeastSignificantBits uuid)
             new-high (bit-or (bit-and high 0x00000000FFFFFFFF)
-                             (bit-shift-left time 32)) ]
+                       (bit-shift-left time 32)) ]
         (UUID. new-high low))
-     :cljs
-       (uuid
-         (str
-               (-> (int (/ msec 1000))
-                   (to-hex-string 8))
-           "-" (-> (rand-bits 16) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (to-hex-string 4))
-               (-> (rand-bits 16) (to-hex-string 4))
-               (-> (rand-bits 16) (to-hex-string 4)))))))
+      :cljs
+      (uuid
+        (str
+          (-> (int (/ msec 1000))
+            (to-hex-string 8))
+          "-" (-> (rand-bits 16) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (to-hex-string 4))
+          (-> (rand-bits 16) (to-hex-string 4))
+          (-> (rand-bits 16) (to-hex-string 4)))))))
 
 (defn squuid-time-millis
   "Returns time that was used in [[squuid]] call, in milliseconds, rounded to the closest second."
   [uuid]
   #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
-              (bit-shift-right 32)
-              (* 1000))
+            (bit-shift-right 32)
+            (* 1000))
      :cljs (-> (subs (str uuid) 0 8)
-               (js/parseInt 16)
-               (* 1000))))
+             (js/parseInt 16)
+             (* 1000))))
 
 #?(:clj (load "storage"))

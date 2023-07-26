@@ -75,13 +75,12 @@
                  (t/write (t/writer os :msgpack) o))}))
 
 (comment
-  (set/set-branching-factor! 512)
-  me.tonsky.persistent_sorted_set.PersistentSortedSet/MAX_LEN
-
   (let [json (with-open [rdr (io/reader (io/file "/Users/tonsky/ws/roam/db_3M.json"))]
                (json/parse-stream rdr))]
-    (def db (d/from-serializable json))
+    (def db (d/from-serializable json {:max-len 512}))
     (count db))
+  
+  (d/store streaming-edn-storage (d/empty-db))
 
   (d/store streaming-edn-storage db)             ;; 10 sec
   (d/store inmemory-edn-storage db)              ;; 10 sec
@@ -89,9 +88,7 @@
   (d/store inmemory-transit-json-storage db)     ;; 6.4 sec
   (d/store streaming-transit-msgpack-storage db) ;; 6.3 sec
   
-  (def storage streaming-transit-msgpack-storage)
-    
-  (def db' (d/restore storage))
+  (def db' (d/restore streaming-edn-storage))
 
   (first (:eavt db'))
   
