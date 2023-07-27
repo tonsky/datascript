@@ -766,4 +766,4 @@
              (js/parseInt 16)
              (* 1000))))
 
-#?(:clj (load "storage"))
+#?(:clj (load "core_storage"))

@@ -174,8 +174,8 @@
       "aevt"     aevt
       "avet"     avet
       #?@(:clj
-          ["max-len"  (:max-len settings)
-           "ref-type" (name (:ref-type settings))]))))
+          ["branching-factor" (:branching-factor settings)
+           "ref-type"         (name (:ref-type settings))]))))
 
 #?(:clj
    (let [lock (Object.)]
@@ -225,9 +225,9 @@
          aevt     (some->> (dict-get from "aevt") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
          avet     (some->> (dict-get from "avet") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
          settings (merge
-                    {:max-len  (dict-get from "max-len")
-                     :ref-type (some-> (dict-get from "ref-type") keyword)}
-                    (select-keys opts [:max-len :ref-type]))]
+                    {:branching-factor (dict-get from "branching-factor")
+                     :ref-type         (some-> (dict-get from "ref-type") keyword)}
+                    (select-keys opts [:branching-factor :ref-type]))]
      (db/restore-db
        {:schema  schema
         :eavt    (set/from-sorted-array db/cmp-datoms-eavt eavt (arrays/alength eavt) settings)

@@ -77,7 +77,7 @@
 (comment
   (let [json (with-open [rdr (io/reader (io/file "/Users/tonsky/ws/roam/db_3M.json"))]
                (json/parse-stream rdr))]
-    (def db (d/from-serializable json {:max-len 512}))
+    (def db (d/from-serializable json {:branching-factor 512}))
     (count db))
   
   (d/store streaming-edn-storage (d/empty-db))
