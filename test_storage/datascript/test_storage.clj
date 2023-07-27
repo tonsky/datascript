@@ -89,6 +89,10 @@
   (d/store streaming-transit-msgpack-storage db) ;; 6.3 sec
   
   (def db' (d/restore streaming-edn-storage))
+  
+  (count (d/addresses db'))
+  (count (d/-list-addresses streaming-edn-storage))
+  (d/collect-garbage streaming-edn-storage db')
 
   (first (:eavt db'))
   
