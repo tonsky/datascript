@@ -80,19 +80,19 @@
     (def db (d/from-serializable json {:branching-factor 512}))
     (count db))
   
-  (d/store streaming-edn-storage (d/empty-db))
+  (d/store! (d/empty-db) streaming-edn-storage)
 
-  (d/store streaming-edn-storage db)             ;; 10 sec
-  (d/store inmemory-edn-storage db)              ;; 10 sec
-  (d/store streaming-transit-json-storage db)    ;; 7.5 sec
-  (d/store inmemory-transit-json-storage db)     ;; 6.4 sec
-  (d/store streaming-transit-msgpack-storage db) ;; 6.3 sec
+  (d/store! db streaming-edn-storage)             ;; 10 sec
+  (d/store! db inmemory-edn-storage)              ;; 10 sec
+  (d/store! db streaming-transit-json-storage)    ;; 7.5 sec
+  (d/store! db inmemory-transit-json-storage)     ;; 6.4 sec
+  (d/store! db streaming-transit-msgpack-storage) ;; 6.3 sec
   
   (def db' (d/restore streaming-edn-storage))
   
   (count (d/addresses db'))
   (count (d/-list-addresses streaming-edn-storage))
-  (d/collect-garbage streaming-edn-storage db')
+  (d/collect-garbage! db')
 
   (first (:eavt db'))
   
