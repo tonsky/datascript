@@ -953,6 +953,16 @@
             (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
               (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
 
+#?(:clj
+   (declare+ ^:private make-adapter [storage opts]))
+  
+(defn- update-opts [opts]
+  #?(:clj
+     (if-some [storage (:storage opts)]
+       (assoc opts :storage (make-adapter storage opts))
+       opts)
+     :cljs opts))
+
 (defn+ ^DB empty-db
   ([]
    (empty-db nil))
@@ -961,17 +971,18 @@
   ([schema opts]
    {:pre [(or (nil? schema) (map? schema))]}
    (validate-schema schema)
-   (map->DB
-     {:schema        schema
-      :rschema       (rschema (merge implicit-schema schema))
-      :eavt          (set/sorted-set* (assoc opts :cmp cmp-datoms-eavt))
-      :aevt          (set/sorted-set* (assoc opts :cmp cmp-datoms-aevt))
-      :avet          (set/sorted-set* (assoc opts :cmp cmp-datoms-avet))
-      :max-eid       e0
-      :max-tx        tx0
-      :pull-patterns (lru/cache 100)
-      :pull-attrs    (lru/cache 100)
-      :hash          (atom 0)})))
+   (let [opts (update-opts opts)]
+     (map->DB
+       {:schema        schema
+        :rschema       (rschema (merge implicit-schema schema))
+        :eavt          (set/sorted-set* (assoc opts :cmp cmp-datoms-eavt))
+        :aevt          (set/sorted-set* (assoc opts :cmp cmp-datoms-aevt))
+        :avet          (set/sorted-set* (assoc opts :cmp cmp-datoms-avet))
+        :max-eid       e0
+        :max-tx        tx0
+        :pull-patterns (lru/cache 100)
+        :pull-attrs    (lru/cache 100)
+        :hash          (atom 0)}))))
 
 (defn- init-max-eid [eavt]
   (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
@@ -989,7 +1000,8 @@
      (raise "init-db expects list of Datoms, got " (type not-datom)
        {:error :init-db}))
    (validate-schema schema)
-   (let [rschema     (rschema (merge implicit-schema schema))
+   (let [opts        (update-opts opts)
+         rschema     (rschema (merge implicit-schema schema))
          indexed     (:db/index rschema)
          arr         (cond-> datoms
                        (not (arrays/array? datoms)) (arrays/into-array))
@@ -1003,17 +1015,17 @@
          avet        (set/from-sorted-array cmp-datoms-avet avet-arr (arrays/alength avet-arr) opts)
          max-eid     (init-max-eid eavt)
          max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
-     (map->DB {
-       :schema        schema
-       :rschema       rschema
-       :eavt          eavt
-       :aevt          aevt
-       :avet          avet
-       :max-eid       max-eid
-       :max-tx        max-tx
-       :pull-patterns (lru/cache 100)
-       :pull-attrs    (lru/cache 100)
-       :hash          (atom 0)}))))
+     (map->DB
+       {:schema        schema
+        :rschema       rschema
+        :eavt          eavt
+        :aevt          aevt
+        :avet          avet
+        :max-eid       max-eid
+        :max-tx        max-tx
+        :pull-patterns (lru/cache 100)
+        :pull-attrs    (lru/cache 100)
+        :hash          (atom 0)}))))
 
 (defn restore-db [{:keys [schema eavt aevt avet max-eid max-tx]}]
   (map->DB

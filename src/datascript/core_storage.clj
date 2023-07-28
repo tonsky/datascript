@@ -73,16 +73,17 @@
 
 (defn- store-impl! [db adapter opts]
   (binding [*store-buffer* (volatile! (transient []))]
-    (let [eavt     ^PersistentSortedSet (:eavt db)
-          settings (.-_settings eavt)
-          meta     (merge
-                     {:schema  (:schema db)
-                      :max-eid (:max-eid db)
-                      :max-tx  (:max-tx db)
-                      :eavt    (set/store (:eavt db) adapter)
-                      :aevt    (set/store (:aevt db) adapter)
-                      :avet    (set/store (:avet db) adapter)}
-                     (@#'set/settings->map settings))]
+    (let [eavt-addr (set/store (:eavt db) adapter)
+          aevt-addr (set/store (:aevt db) adapter)
+          avet-addr (set/store (:avet db) adapter)
+          meta (merge
+                 {:schema  (:schema db)
+                  :max-eid (:max-eid db)
+                  :max-tx  (:max-tx db)
+                  :eavt    eavt-addr
+                  :aevt    aevt-addr
+                  :avet    avet-addr}
+                 (set/settings (:eavt db)))]
       (vswap! *store-buffer* conj! [root-addr meta])
       (-store (:storage adapter) (persistent! @*store-buffer*))
       db)))

@@ -161,7 +161,7 @@
         attrs       (amap freeze-kw attrs)
         kws         (amap freeze-kw (persistent! @*kws))
         #?@(:clj
-            [settings (@#'set/settings->map (.-_settings ^PersistentSortedSet (:eavt db)))])]
+            [settings (set/settings (:eavt db))])]
     (dict
       "count"    (count (:eavt db))
       "tx0"      db/tx0
