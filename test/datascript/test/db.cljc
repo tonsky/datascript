@@ -23,7 +23,7 @@
 
 ;; whitebox test to confirm that hash cache caches
 (deftest test-db-hash-cache
-  (let [db (db/empty-db)]
+  (let [db (d/empty-db)]
     (is (= 0         @(.-hash db)))
     (let [h (hash db)]
       (is (= h @(.-hash db))))))

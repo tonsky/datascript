@@ -1,22 +1,19 @@
-(in-ns 'datascript.core)
-
-(require
-  '[clojure.edn :as edn]
-  '[clojure.java.io :as io]
-  '[datascript.db :as db]
-  '[me.tonsky.persistent-sorted-set :as set])
-
-(import
-  '[datascript.db Datom]
-  '[java.util List HashSet]
-  '[java.io BufferedOutputStream File FileOutputStream OutputStream PushbackReader] 
-  '[me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet RefType Settings])
-
-;; datascriptstorageroot23718
-(def ^:private root-addr
-  #uuid "d5695966-036d-6740-8541-d80034219c28")
+(ns datascript.storage
+  (:require
+    [clojure.edn :as edn]
+    [clojure.java.io :as io]
+    [datascript.db :as db]
+    [datascript.util :as util]
+    [me.tonsky.persistent-sorted-set :as set])
+  (:import
+    [datascript.db Datom]
+    [java.util List HashSet UUID]
+    [java.io BufferedOutputStream File FileOutputStream OutputStream PushbackReader] 
+    [me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet RefType Settings]))
 
 (defprotocol IStorage
+  :extend-via-metadata true
+  
   (-store [_ addr+data-seq]
     "Gives you a sequence of `[addr data]` pairs to serialize and store.
      
@@ -33,15 +30,12 @@
   (-delete [_ addrs-seq]
     "Delete data stored under `addrs` (seq). Will be called during GC"))
 
-; (defprotocol ICache
-;   (-compute-if-absent [_ key compute-fn]))
-
 (def ^:private ^:dynamic *store-buffer*)
 
 (defrecord StorageAdapter [storage ^Settings settings]
   me.tonsky.persistent_sorted_set.IStorage
   (store [_ ^ANode node]
-    (let [addr (squuid)
+    (let [addr (util/squuid)
           keys (map (fn [^Datom d] 
                       [(.-e d) (.-a d) (.-v d) (.-tx d)])
                  (.keys node))
@@ -58,18 +52,24 @@
         (Branch. (int level) keys' ^List addresses settings)
         (Leaf. keys' settings)))))
 
-(defn- make-adapter [storage opts]
+(defn- make-storage-adapter [storage opts]
   (let [settings (@#'set/map->settings opts)]
     (->StorageAdapter storage settings)))
 
-(defn- adapter ^StorageAdapter [db]
+(defn- storage-adapter ^StorageAdapter [db]
   (.-_storage ^PersistentSortedSet (:eavt db)))
 
-(defn storage
-  "Returns IStorage used by current DB instance"
-  [db]
-  (when-some [adapter (adapter db)]
+(defn storage [db]
+  (when-some [adapter (storage-adapter db)]
     (:storage adapter)))
+
+;; datascriptstorageroot23718
+(def ^:private root-addr
+  #uuid "d5695966-036d-6740-8541-d80034219c28")
+
+;; datascriptstoragetail23728
+(def ^:private tail-addr
+  #uuid "d5695966-036d-6740-8541-da5042219c48")
 
 (defn- store-impl! [db adapter opts]
   (binding [*store-buffer* (volatile! (transient []))]
@@ -90,11 +90,11 @@
 
 (defn store!
   ([db]
-   (if-some [adapter (adapter db)]
+   (if-some [adapter (storage-adapter db)]
      (store-impl! db adapter {})
      (throw (ex-info "Database has no associated storage" {}))))
   ([db storage]
-   (if-some [adapter (adapter db)]
+   (if-some [adapter (storage-adapter db)]
      (let [current-storage (:storage adapter)]
        (if (identical? current-storage storage)
          (store-impl! db adapter {})
@@ -110,7 +110,7 @@
    (let [root (-restore storage root-addr)
          {:keys [schema eavt aevt avet max-eid max-tx]} root
          opts    (merge root opts)
-         adapter (make-adapter storage opts)]
+         adapter (make-storage-adapter storage opts)]
      (db/restore-db
        {:schema  schema
         :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter opts)
@@ -126,20 +126,13 @@
     (.walkAddresses ^PersistentSortedSet (:aevt db) visit-fn)
     (.walkAddresses ^PersistentSortedSet (:avet db) visit-fn)))
   
-(defn addresses
-  "Returns all addresses in use by current db. Anything that is not in
-   the return set is safe to be deleted"
-  [& dbs]
+(defn addresses [& dbs]
   (let [*set (volatile! (transient #{}))]
     (doseq [db dbs]
       (addresses-impl db *set))
     (persistent! @*set)))
 
 (defn collect-garbage!
-  "Deletes all keys from storage that are not referenced by any of the provided dbs.
-   Careful! If you have a lazy-loaded database and do GC on a newer version of it,
-   old version might stop working. Make sure to always pass all alive references
-   to DBs you are using"
   [& dbs]
   (let [used (apply addresses dbs)]
     (doseq [db dbs
@@ -163,18 +156,6 @@
           (proxy-super close))))))
 
 (defn file-storage
-  "Default implementation that stores data in files in a dir.
-   
-   Options are:
-   
-   :freeze-fn :: (data)   -> String. A serialization function
-   :thaw-fn   :: (String) -> data. A deserialization function
-   :write-fn  :: (OutputStream data) -> void. Implement your own writer to FileOutputStream
-   :read-fn   :: (InputStream) -> Object. Implement your own reader from FileInputStream
-   :addr->filename-fn :: (UUID) -> String. Construct file name from address
-   :filename->addr-fn :: (String) -> UUID. Reconstruct address from file name
-   
-   All options are optional."
   ([dir]
    (file-storage dir {}))
   ([dir opts]

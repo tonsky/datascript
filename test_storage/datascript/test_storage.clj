@@ -8,11 +8,11 @@
     [cognitect.transit :as t]
     [datascript.db :as db]
     [datascript.core :as d]
+    [datascript.storage :as storage]
     [me.tonsky.persistent-sorted-set :as set])
   (:import
     [datascript.db Datom]
-    [java.io ByteArrayInputStream ByteArrayOutputStream]
-    [datascript.core IStorage]))
+    [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
 (defn read-transit [is]
   (t/read (t/reader is :json)))
@@ -80,8 +80,10 @@
     (def db (d/from-serializable json {:branching-factor 512}))
     (count db))
   
+  (d/empty-db {} {:storage streaming-edn-storage})
+  
   (d/store! (d/empty-db) streaming-edn-storage)
-
+     
   (d/store! db streaming-edn-storage)             ;; 10 sec
   (d/store! db inmemory-edn-storage)              ;; 10 sec
   (d/store! db streaming-transit-json-storage)    ;; 7.5 sec
@@ -91,7 +93,7 @@
   (def db' (d/restore streaming-edn-storage))
   
   (count (d/addresses db'))
-  (count (d/-list-addresses streaming-edn-storage))
+  (count (storage/-list-addresses streaming-edn-storage))
   (d/collect-garbage! db')
 
   (first (:eavt db'))

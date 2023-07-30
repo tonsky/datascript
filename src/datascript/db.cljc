@@ -113,9 +113,9 @@
       This allows CLJS to generate more efficient code when calling this fn
       before it’s declared"
      [name & arglists]
-     (let [name'     (vary-meta name patch-tag (cljs-env? &env))
-           arglists' (map #(list %) arglists)]
-       `(defn ~name' ~@arglists'))))
+     (let [name'  (vary-meta name patch-tag (cljs-env? &env))
+           bodies (map #(list % `(throw (ex-info (str "Not implemented: (" ~name (clojure.string/join " " ~%)) {}))) arglists)]
+       `(defn ~name' ~@bodies))))
 
 #?(:clj
    (defmacro defn+
@@ -583,7 +583,7 @@
 
 (declare+ ^boolean equiv-db [db other])
 
-(declare+ empty-db [] [schema] [schema opts])
+(declare+ empty-db [schema opts])
 
 (declare+ ^boolean indexing? [db attr])
 
@@ -952,37 +952,21 @@
 
             (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
               (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
-
-#?(:clj
-   (declare+ ^:private make-adapter [storage opts]))
   
-(defn- update-opts [opts]
-  #?(:clj
-     (if-some [storage (:storage opts)]
-       (assoc opts :storage (make-adapter storage opts))
-       opts)
-     :cljs opts))
-
-(defn+ ^DB empty-db
-  ([]
-   (empty-db nil))
-  ([schema]
-   (empty-db schema {}))
-  ([schema opts]
-   {:pre [(or (nil? schema) (map? schema))]}
-   (validate-schema schema)
-   (let [opts (update-opts opts)]
-     (map->DB
-       {:schema        schema
-        :rschema       (rschema (merge implicit-schema schema))
-        :eavt          (set/sorted-set* (assoc opts :cmp cmp-datoms-eavt))
-        :aevt          (set/sorted-set* (assoc opts :cmp cmp-datoms-aevt))
-        :avet          (set/sorted-set* (assoc opts :cmp cmp-datoms-avet))
-        :max-eid       e0
-        :max-tx        tx0
-        :pull-patterns (lru/cache 100)
-        :pull-attrs    (lru/cache 100)
-        :hash          (atom 0)}))))
+(defn+ ^DB empty-db [schema opts]
+  {:pre [(or (nil? schema) (map? schema))]}
+  (validate-schema schema)
+  (map->DB
+    {:schema        schema
+     :rschema       (rschema (merge implicit-schema schema))
+     :eavt          (set/sorted-set* (assoc opts :cmp cmp-datoms-eavt))
+     :aevt          (set/sorted-set* (assoc opts :cmp cmp-datoms-aevt))
+     :avet          (set/sorted-set* (assoc opts :cmp cmp-datoms-avet))
+     :max-eid       e0
+     :max-tx        tx0
+     :pull-patterns (lru/cache 100)
+     :pull-attrs    (lru/cache 100)
+     :hash          (atom 0)}))
 
 (defn- init-max-eid [eavt]
   (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
@@ -990,42 +974,36 @@
         (:e))
     e0))
 
-(defn ^DB init-db
-  ([datoms]
-   (init-db datoms nil {}))
-  ([datoms schema]
-   (init-db datoms schema {}))
-  ([datoms schema opts]
-   (when-some [not-datom (first (drop-while datom? datoms))]
-     (raise "init-db expects list of Datoms, got " (type not-datom)
-       {:error :init-db}))
-   (validate-schema schema)
-   (let [opts        (update-opts opts)
-         rschema     (rschema (merge implicit-schema schema))
-         indexed     (:db/index rschema)
-         arr         (cond-> datoms
-                       (not (arrays/array? datoms)) (arrays/into-array))
-         _           (arrays/asort arr cmp-datoms-eavt-quick)
-         eavt        (set/from-sorted-array cmp-datoms-eavt arr (arrays/alength arr) opts)
-         _           (arrays/asort arr cmp-datoms-aevt-quick)
-         aevt        (set/from-sorted-array cmp-datoms-aevt arr (arrays/alength arr) opts)
-         avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-         avet-arr    (to-array avet-datoms)
-         _           (arrays/asort avet-arr cmp-datoms-avet-quick)
-         avet        (set/from-sorted-array cmp-datoms-avet avet-arr (arrays/alength avet-arr) opts)
-         max-eid     (init-max-eid eavt)
-         max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
-     (map->DB
-       {:schema        schema
-        :rschema       rschema
-        :eavt          eavt
-        :aevt          aevt
-        :avet          avet
-        :max-eid       max-eid
-        :max-tx        max-tx
-        :pull-patterns (lru/cache 100)
-        :pull-attrs    (lru/cache 100)
-        :hash          (atom 0)}))))
+(defn ^DB init-db [datoms schema opts]
+  (when-some [not-datom (first (drop-while datom? datoms))]
+    (raise "init-db expects list of Datoms, got " (type not-datom)
+      {:error :init-db}))
+  (validate-schema schema)
+  (let [rschema     (rschema (merge implicit-schema schema))
+        indexed     (:db/index rschema)
+        arr         (cond-> datoms
+                      (not (arrays/array? datoms)) (arrays/into-array))
+        _           (arrays/asort arr cmp-datoms-eavt-quick)
+        eavt        (set/from-sorted-array cmp-datoms-eavt arr (arrays/alength arr) opts)
+        _           (arrays/asort arr cmp-datoms-aevt-quick)
+        aevt        (set/from-sorted-array cmp-datoms-aevt arr (arrays/alength arr) opts)
+        avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
+        avet-arr    (to-array avet-datoms)
+        _           (arrays/asort avet-arr cmp-datoms-avet-quick)
+        avet        (set/from-sorted-array cmp-datoms-avet avet-arr (arrays/alength avet-arr) opts)
+        max-eid     (init-max-eid eavt)
+        max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
+    (map->DB
+      {:schema        schema
+       :rschema       rschema
+       :eavt          eavt
+       :aevt          aevt
+       :avet          avet
+       :max-eid       max-eid
+       :max-tx        max-tx
+       :pull-patterns (lru/cache 100)
+       :pull-attrs    (lru/cache 100)
+       :hash          (atom 0)})))
 
 (defn restore-db [{:keys [schema eavt aevt avet max-eid max-tx]}]
   (map->DB
@@ -1097,7 +1075,7 @@
 ))
 
 (defn db-from-reader [{:keys [schema datoms]}]
-  (init-db (map (fn [[e a v tx]] (datom e a v tx)) datoms) schema))
+  (init-db (map (fn [[e a v tx]] (datom e a v tx)) datoms) schema {}))
 
 ;; ----------------------------------------------------------------------------
 
