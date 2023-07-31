@@ -8,16 +8,16 @@
     [datascript.storage :as storage]
     [datascript.test.core :as tdc]))
 
-(defrecord Storage [*disk *reads *writes *deletes freeze-fn thaw-fn]
+(defrecord Storage [*disk *reads *writes *deletes]
   storage/IStorage
   (-store [_ addr+data-seq]
     (doseq [[addr data] addr+data-seq]
-      (vswap! *disk assoc addr (freeze-fn data))
+      (vswap! *disk assoc addr (pr-str data))
       (vswap! *writes conj addr)))
   
   (-restore [_ addr]
     (vswap! *reads conj addr)
-    (-> @*disk (get addr) thaw-fn))
+    (-> @*disk (get addr) edn/read-string))
 
   (-list-addresses [_]
     (keys @*disk))
@@ -29,12 +29,10 @@
 
 (defn make-storage [& [opts]]
   (map->Storage
-    {:*disk     (volatile! {})
-     :*reads    (volatile! [])
-     :*writes   (volatile! [])
-     :*deletes  (volatile! [])
-     :freeze-fn (or (:freeze-fn opts) pr-str)
-     :thaw-fn   (or (:thaw-fn opts) edn/read-string)}))  
+    {:*disk    (volatile! {})
+     :*reads   (volatile! [])
+     :*writes  (volatile! [])
+     :*deletes (volatile! [])}))  
 
 (defn reset-stats [storage]
   (vreset! (:*reads storage) [])
@@ -216,8 +214,76 @@
       
       (is (= 6 (count @(:*deletes storage)))))))
 
-(t/test-ns *ns*)
-; (t/run-test-var #'test-gc)
+(deftest test-conn
+  (let [storage (make-storage)
+        conn    (d/create-conn nil {:storage          storage
+                                    :branching-factor 32
+                                    :ref-type         :strong})]
+    (is (= 5 (count @(:*writes storage)))) ;; initial store
+    
+    (d/transact! conn [[:db/add 1 :name "Ivan"]])
+    (is (= 6 (count @(:*writes storage))))
+    (is (= @#'storage/tail-addr (last @(:*writes storage))))
+    
+    ;; only writing tail
+    (d/transact! conn [[:db/add 2 :name "Oleg"]])
+    (is (= 7 (count @(:*writes storage))))
+    (is (= @#'storage/tail-addr (last @(:*writes storage))))
+    (is (= 2 (count @(:tx-tail (meta conn)))))
+    (is (= 2 (count (apply concat @(:tx-tail (meta conn))))))
+    
+    ;; bigger tx, still writing tail
+    (d/transact! conn (mapv #(vector :db/add % :name (str %)) (range 3 33)))
+    (is (= 8 (count @(:*writes storage))))
+    (is (= @#'storage/tail-addr (last @(:*writes storage))))
+    (is (= 3 (count @(:tx-tail (meta conn)))))
+    (is (= 32 (count (apply concat @(:tx-tail (meta conn))))))
+    
+    ;; tail overflows, flush db
+    (d/transact! conn [[:db/add 33 :name "Petr"]])
+    (is (= 16 (count @(:*writes storage))))
+    
+    ;; and start over
+    (d/transact! conn [[:db/add 34 :name "Anna"]])
+    (is (= 17 (count @(:*writes storage))))
+    (is (= @#'storage/tail-addr (last @(:*writes storage))))
+    
+    ;; restore conn with tail
+    (let [conn' (d/restore-conn storage)]
+      (is (= @conn @conn'))
+      
+      ;; transact keeps working on restored conn
+      (d/transact! conn' [[:db/add 35 :name "Vera"]])
+      (is (= 18 (count @(:*writes storage))))
+      (is (= @#'storage/tail-addr (last @(:*writes storage))))
+      
+      ;; overflow keeps working on restored conn
+      (d/transact! conn' (mapv #(vector :db/add % :name (str %)) (range 36 80)))
+      (is (= 28 (count @(:*writes storage))))
+      (is (= @#'storage/tail-addr (last @(:*writes storage))))
+      
+      ;; restore conn without tail
+      (let [conn'' (d/restore-conn storage)]
+        (is (= @conn' @conn''))
+      
+        (d/transact! conn'' [[:db/add 80 :name "Ilya"]])
+        (is (= 29 (count @(:*writes storage))))
+        (is (= @#'storage/tail-addr (last @(:*writes storage))))
+        
+        ;; gc on conn
+        (is (> (count (storage/-list-addresses storage))
+              (count (d/addresses @(:db-last-stored (meta conn''))))))
+        
+        (d/collect-garbage-conn! conn'')
+        (is (= (count (storage/-list-addresses storage))
+              (count (d/addresses @(:db-last-stored (meta conn''))))))
+        
+        (let [conn''' (d/restore-conn storage)]
+          (is (= @conn'' @conn''')))))))
+
+
+; (t/test-ns *ns*)
+; (t/run-test-var #'test-conn)
 
 (comment  
   (let [serializable (with-open [is (io/input-stream (io/file "/Users/tonsky/ws/roam/db_3M.json_transit"))]

@@ -466,7 +466,7 @@
       (atom db 
         :meta {:listeners      (atom {})
                :tx-tail        (atom [])
-               :db-last-stored db}))
+               :db-last-stored (atom db)}))
     (atom db
       :meta {:listeners (atom {})})))
 
@@ -506,33 +506,33 @@
             db' (storage/db-with-tail db tail)]
         (atom db'
           :meta {:listeners      (atom {})
-                 :tx-tail        tail
-                 :db-last-stored db})))))
+                 :tx-tail        (atom tail)
+                 :db-last-stored (atom db)})))))
 
 (defn ^:no-doc -transact! [conn tx-data tx-meta]
   {:pre [(conn? conn)]}
-  (let [report (atom nil)]
+  (let [*report (atom nil)]
     (swap! conn
       (fn [db]
         (let [r (with db tx-data tx-meta)]
-          (reset! report r)
+          (reset! *report r)
           (:db-after r))))
     #?(:clj
        (when-some [storage (storage/storage @conn)]
          (let [{db     :db-after
-                datoms :tx-data} report
+                datoms :tx-data} @*report
                settings (set/settings (:eavt db))
                *tx-tail (:tx-tail (meta conn))
                tx-tail' (swap! *tx-tail conj datoms)]
            (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
              ;; overflow tail
              (do
-               (storage/store-impl! db (storage/storage-adapter db) [])
+               (storage/store-impl! db (storage/storage-adapter db))
                (reset! *tx-tail [])
                (reset! (:db-last-stored (meta conn)) db))
              ;; just update tail
              (storage/store-tail! db tx-tail')))))
-    @report))
+    @*report))
 
 (defn transact!
   "Applies transaction the underlying database value and atomically updates connection reference to point to the result of that transaction, new db value.
@@ -658,7 +658,7 @@
      [conn]
      {:pre [(conn? conn)
             (some? (storage/storage @conn))]}
-     (storage/collect-garbage! (:db-last-stored (meta conn)))))
+     (storage/collect-garbage! @(:db-last-stored (meta conn)))))
 
 (defn- atom? [a]
   #?(:cljs (instance? Atom a)
