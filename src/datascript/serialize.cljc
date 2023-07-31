@@ -5,6 +5,7 @@
     [clojure.string :as str]
     [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
     [datascript.lru :as lru]
+    [datascript.storage :as storage]
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.serialize :refer [array dict]]))
@@ -118,6 +119,8 @@
   [db {:keys [freeze-fn freeze-kw]
        :or   {freeze-fn pr-str
               freeze-kw freeze-kw}}]
+  (when (storage/storage db)
+    (throw (ex-info "serializable doesn't work with databases that have :storage" {})))
   (let [attrs       (all-attrs db)
         attrs-map   (into {} (map vector attrs (range)))
         *kws        (volatile! (transient []))

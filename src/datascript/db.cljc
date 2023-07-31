@@ -583,7 +583,7 @@
 
 (declare+ ^boolean equiv-db [db other])
 
-(declare+ empty-db [schema opts])
+(declare+ restore-db [keys])
 
 (declare+ ^boolean indexing? [db attr])
 
@@ -667,7 +667,13 @@
        IEquiv               (-equiv [db other]  (equiv-db db other))
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
-       IEmptyableCollection (-empty [db]        (with-meta (empty-db (.-schema db)) (meta db)))
+       IEmptyableCollection (-empty [db]        (-> (restore-db
+                                                      {:schema  (.-schema db)
+                                                       :rschema (.-rschema db)
+                                                       :eavt    (empty (.-eavt db))
+                                                       :aevt    (empty (.-aevt db))
+                                                       :avet    (empty (.-avet db))})
+                                                  (with-meta (meta db))))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
        IEditableCollection  (-as-transient [db] (db-transient db))
        ITransientCollection (-conj! [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
@@ -680,7 +686,13 @@
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
        clojure.lang.IEditableCollection 
-                            (empty [db]         (with-meta (empty-db schema) (meta db)))
+                            (empty [db]         (-> (restore-db
+                                                      {:schema  (.-schema db)
+                                                       :rschema (.-rschema db)
+                                                       :eavt    (empty (.-eavt db))
+                                                       :aevt    (empty (.-aevt db))
+                                                       :avet    (empty (.-avet db))})
+                                                  (with-meta (meta db))))
                             (asTransient [db] (db-transient db))
        clojure.lang.ITransientCollection
                             (conj [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
@@ -953,7 +965,7 @@
             (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
               (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
   
-(defn+ ^DB empty-db [schema opts]
+(defn ^DB empty-db [schema opts]
   {:pre [(or (nil? schema) (map? schema))]}
   (validate-schema schema)
   (map->DB
@@ -1005,15 +1017,16 @@
        :pull-attrs    (lru/cache 100)
        :hash          (atom 0)})))
 
-(defn restore-db [{:keys [schema eavt aevt avet max-eid max-tx]}]
+(defn+ ^DB restore-db [{:keys [schema eavt aevt avet max-eid max-tx] :as keys}]
   (map->DB
     {:schema        schema
-     :rschema       (rschema (merge implicit-schema schema))
+     :rschema       (or (:rschema keys)
+                      (rschema (merge implicit-schema schema)))
      :eavt          eavt
      :aevt          aevt
      :avet          avet
-     :max-eid       max-eid
-     :max-tx        max-tx
+     :max-eid       (or max-eid e0)
+     :max-tx        (or max-tx tx0)
      :pull-patterns (lru/cache 100)
      :pull-attrs    (lru/cache 100)
      :hash          (atom 0)}))
@@ -1251,7 +1264,7 @@
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
 
-(defn- with-datom [db ^Datom datom]
+(defn with-datom [db ^Datom datom]
   (validate-datom db datom)
   (let [indexing? (indexing? db (.-a datom))]
     (if (datom-added datom)

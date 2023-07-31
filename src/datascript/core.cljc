@@ -6,10 +6,11 @@
     #?(:clj [datascript.pprint])
     [datascript.pull-api :as dp]
     [datascript.serialize :as ds]
-    #?(:clj [datascript.storage :as storage])
+    [datascript.storage :as storage]
     [datascript.query :as dq]
     [datascript.impl.entity :as de]
-    [datascript.util :as util])
+    [datascript.util :as util]
+    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
        [datascript.db Datom DB FilteredDB]
@@ -148,7 +149,7 @@
 (defn- maybe-adapt-storage [opts]
   #?(:clj
      (if-some [storage (:storage opts)]
-       (assoc opts :storage (@#'storage/make-storage-adapter storage opts))
+       (update opts :storage storage/make-storage-adapter opts)
        opts)
      :cljs opts))
 
@@ -458,7 +459,16 @@
 (defn conn-from-db
   "Creates a mutable reference to a given immutable database. See [[create-conn]]."
   [db]
-  (atom db :meta {:listeners (atom {})}))
+  {:pre [(db/db? db)]}
+  (if-some [storage (storage/storage db)]
+    (do
+      (storage/store! db)
+      (atom db 
+        :meta {:listeners      (atom {})
+               :tx-tail        (atom [])
+               :db-last-stored db}))
+    (atom db
+      :meta {:listeners (atom {})})))
 
 (defn conn-from-datoms
   "Creates an empty DB and a mutable reference to it. See [[create-conn]]."
@@ -474,7 +484,11 @@
 
    Connections are lightweight in-memory structures (~atoms) with direct support of transaction listeners ([[listen!]], [[unlisten!]]) and other handy DataScript APIs ([[transact!]], [[reset-conn!]], [[db]]).
 
-   To access underlying immutable DB value, deref: `@conn`."
+   To access underlying immutable DB value, deref: `@conn`.
+   
+   For list of options, see [[empty-db]].
+   
+   If you specify `:storage` option, conn will be stored automatically after each transaction"
   ([]
    (conn-from-db (empty-db)))
   ([schema]
@@ -482,13 +496,42 @@
   ([schema opts]
    (conn-from-db (empty-db schema opts))))
 
+#?(:clj
+   (defn restore-conn
+     "Lazy-load database from storage and make conn out of it"
+     ([storage]
+      (restore-conn storage {}))
+     ([storage opts]
+      (let [[db tail] (storage/restore-impl storage opts)
+            db' (storage/db-with-tail db tail)]
+        (atom db'
+          :meta {:listeners      (atom {})
+                 :tx-tail        tail
+                 :db-last-stored db})))))
+
 (defn ^:no-doc -transact! [conn tx-data tx-meta]
   {:pre [(conn? conn)]}
   (let [report (atom nil)]
-    (swap! conn (fn [db]
-                  (let [r (with db tx-data tx-meta)]
-                    (reset! report r)
-                    (:db-after r))))
+    (swap! conn
+      (fn [db]
+        (let [r (with db tx-data tx-meta)]
+          (reset! report r)
+          (:db-after r))))
+    #?(:clj
+       (when-some [storage (storage/storage @conn)]
+         (let [{db     :db-after
+                datoms :tx-data} report
+               settings (set/settings (:eavt db))
+               *tx-tail (:tx-tail (meta conn))
+               tx-tail' (swap! *tx-tail conj datoms)]
+           (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
+             ;; overflow tail
+             (do
+               (storage/store-impl! db (storage/storage-adapter db) [])
+               (reset! *tx-tail [])
+               (reset! (:db-last-stored (meta conn)) db))
+             ;; just update tail
+             (storage/store-tail! db tx-tail')))))
     @report))
 
 (defn transact!
@@ -586,19 +629,36 @@
 
 (defn reset-conn!
   "Forces underlying `conn` value to become `db`. Will generate a tx-report that will remove everything from old value and insert everything from the new one."
-  ([conn db] (reset-conn! conn db nil))
+  ([conn db]
+   (reset-conn! conn db nil))
   ([conn db tx-meta]
-   (let [report (db/map->TxReport
-                  { :db-before @conn
-                   :db-after  db
-                   :tx-data   (concat
-                                (map #(assoc % :added false) (datoms @conn :eavt))
-                                (datoms db :eavt))
-                   :tx-meta   tx-meta})]
+   {:pre [(conn? conn)
+          (db/db? db)]}
+   (let [db-before @conn
+         report    (db/map->TxReport
+                     {:db-before db-before
+                      :db-after  db
+                      :tx-data   (concat
+                                   (map #(assoc % :added false) (datoms db-before :eavt))
+                                   (datoms db :eavt))
+                      :tx-meta   tx-meta})]
+     #?(:clj
+        (when-some [storage (storage/storage db-before)]
+          (storage/store! db)
+          (reset! (:tx-tail (meta conn)) [])
+          (reset! (:db-last-stored (meta conn)) db)))
      (reset! conn db)
      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
        (callback report))
      db)))
+
+#?(:clj
+   (defn collect-garbage-conn!
+     "Removes everything from storage that isn’t directly reachabel from current DB roots"
+     [conn]
+     {:pre [(conn? conn)
+            (some? (storage/storage @conn))]}
+     (storage/collect-garbage! (:db-last-stored (meta conn)))))
 
 (defn- atom? [a]
   #?(:cljs (instance? Atom a)
@@ -611,16 +671,19 @@
    Idempotent. Calling [[listen!]] with the same key twice will override old callback with the new value.
    
    Returns the key under which this listener is registered. See also [[unlisten!]]."
-  ([conn callback] (listen! conn (rand) callback))
+  ([conn callback]
+   (listen! conn (rand) callback))
   ([conn key callback]
-   {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
+   {:pre [(conn? conn)
+          (atom? (:listeners (meta conn)))]}
    (swap! (:listeners (meta conn)) assoc key callback)
    key))
 
 (defn unlisten!
   "Removes registered listener from connection. See also [[listen!]]."
   [conn key]
-  {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
+  {:pre [(conn? conn)
+         (atom? (:listeners (meta conn)))]}
   (swap! (:listeners (meta conn)) dissoc key))
 
 
@@ -750,7 +813,7 @@
       Storing already stored dbs into another storage is not supported (may change)."
      storage/store!))
 
-#?(:clj
+#?(:clj 
    (def ^{:arglists '([storage] [storage opts])} restore
      "Lazy-loads database from storage. Ultra-fast, fetches the rest as it’s needed"
      storage/restore))

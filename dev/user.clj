@@ -24,7 +24,8 @@
     (str "[" (clojure.lang.Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
 
 (defn p [form]
-  `(let [res# ~form]
+  `(let [t# (System/currentTimeMillis)
+         res# ~form]
      (locking lock
-       (println (str "#p" (position) " " '~form " => " res#)))
+       (println (str "#p" (position) " " '~form " => (" (- (System/currentTimeMillis) t#) " ms) " res#)))
      res#))

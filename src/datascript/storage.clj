@@ -32,13 +32,14 @@
 
 (def ^:private ^:dynamic *store-buffer*)
 
+(defn serializable-datom [^Datom d]
+  [(.-e d) (.-a d) (.-v d) (.-tx d)])
+
 (defrecord StorageAdapter [storage ^Settings settings]
   me.tonsky.persistent_sorted_set.IStorage
   (store [_ ^ANode node]
     (let [addr (util/squuid)
-          keys (map (fn [^Datom d] 
-                      [(.-e d) (.-a d) (.-v d) (.-tx d)])
-                 (.keys node))
+          keys (mapv serializable-datom (.keys node))
           data (cond-> {:level (.level node)
                         :keys  keys}
                  (instance? Branch node)
@@ -52,11 +53,11 @@
         (Branch. (int level) keys' ^List addresses settings)
         (Leaf. keys' settings)))))
 
-(defn- make-storage-adapter [storage opts]
+(defn make-storage-adapter [storage opts]
   (let [settings (@#'set/map->settings opts)]
     (->StorageAdapter storage settings)))
 
-(defn- storage-adapter ^StorageAdapter [db]
+(defn storage-adapter ^StorageAdapter [db]
   (.-_storage ^PersistentSortedSet (:eavt db)))
 
 (defn storage [db]
@@ -71,7 +72,7 @@
 (def ^:private tail-addr
   #uuid "d5695966-036d-6740-8541-da5042219c48")
 
-(defn- store-impl! [db adapter opts]
+(defn store-impl! [db adapter]
   (binding [*store-buffer* (volatile! (transient []))]
     (let [eavt-addr (set/store (:eavt db) adapter)
           aevt-addr (set/store (:aevt db) adapter)
@@ -85,55 +86,71 @@
                   :avet    avet-addr}
                  (set/settings (:eavt db)))]
       (vswap! *store-buffer* conj! [root-addr meta])
+      (vswap! *store-buffer* conj! [tail-addr []])
       (-store (:storage adapter) (persistent! @*store-buffer*))
       db)))
 
 (defn store!
   ([db]
    (if-some [adapter (storage-adapter db)]
-     (store-impl! db adapter {})
+     (store-impl! db adapter)
      (throw (ex-info "Database has no associated storage" {}))))
   ([db storage]
    (if-some [adapter (storage-adapter db)]
      (let [current-storage (:storage adapter)]
        (if (identical? current-storage storage)
-         (store-impl! db adapter {})
+         (store-impl! db adapter)
          (throw (ex-info "Database is already stored with another IStorage" {:storage current-storage}))))
      (let [settings (.-_settings ^PersistentSortedSet (:eavt db))
            adapter  (StorageAdapter. storage settings)]
-       (store-impl! db adapter {})))))
+       (store-impl! db adapter)))))
+
+(defn store-tail! [db tail]
+  (-store (storage db) [[tail-addr (mapv #(mapv serializable-datom %) tail)]]))
+
+(defn restore-impl [storage opts]
+  ;; TODO restore tail
+  (let [root (-restore storage root-addr)
+        tail (-restore storage tail-addr)
+        {:keys [schema eavt aevt avet max-eid max-tx]} root
+        opts    (merge root opts)
+        adapter (make-storage-adapter storage opts)
+        db      (db/restore-db
+                  {:schema  schema
+                   :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter opts)
+                   :aevt    (set/restore-by db/cmp-datoms-aevt aevt adapter opts)
+                   :avet    (set/restore-by db/cmp-datoms-avet avet adapter opts)
+                   :max-eid max-eid
+                   :max-tx  max-tx})]
+    [db (mapv #(mapv (fn [[e a v tx]] (db/datom e a v tx)) %) tail)]))
+
+(defn db-with-tail [db tail]
+  (reduce
+    (fn [db datoms]
+      (reduce db/with-datom db datoms))
+    db tail))
 
 (defn restore
   ([storage]
    (restore storage {}))
   ([storage opts]
-   (let [root (-restore storage root-addr)
-         {:keys [schema eavt aevt avet max-eid max-tx]} root
-         opts    (merge root opts)
-         adapter (make-storage-adapter storage opts)]
-     (db/restore-db
-       {:schema  schema
-        :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter opts)
-        :aevt    (set/restore-by db/cmp-datoms-aevt aevt adapter opts)
-        :avet    (set/restore-by db/cmp-datoms-avet avet adapter opts)
-        :max-eid max-eid
-        :max-tx  max-tx}))))
+   (let [[db tail] (restore-impl storage opts)]
+     (db-with-tail db tail))))
 
 (defn- addresses-impl [db *set]
+  {:pre [(db/db? db)]}
   (let [visit-fn #(vswap! *set conj! %)]
-    (visit-fn root-addr)
     (.walkAddresses ^PersistentSortedSet (:eavt db) visit-fn)
     (.walkAddresses ^PersistentSortedSet (:aevt db) visit-fn)
     (.walkAddresses ^PersistentSortedSet (:avet db) visit-fn)))
   
 (defn addresses [& dbs]
-  (let [*set (volatile! (transient #{}))]
+  (let [*set (volatile! (transient #{root-addr tail-addr}))]
     (doseq [db dbs]
       (addresses-impl db *set))
     (persistent! @*set)))
 
-(defn collect-garbage!
-  [& dbs]
+(defn collect-garbage! [& dbs]
   (let [used (apply addresses dbs)]
     (doseq [db dbs
             :let [storage (storage db)]
