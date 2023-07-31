@@ -847,3 +847,6 @@
    
    All options are optional."
      storage/file-storage))
+
+(defn settings [db]
+  (set/settings (:eavt db)))

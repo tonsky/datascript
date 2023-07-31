@@ -85,9 +85,10 @@
                   :aevt    aevt-addr
                   :avet    avet-addr}
                  (set/settings (:eavt db)))]
-      (vswap! *store-buffer* conj! [root-addr meta])
-      (vswap! *store-buffer* conj! [tail-addr []])
-      (-store (:storage adapter) (persistent! @*store-buffer*))
+      (when (pos? (count @*store-buffer*))
+        (vswap! *store-buffer* conj! [root-addr meta])
+        (vswap! *store-buffer* conj! [tail-addr []])
+        (-store (:storage adapter) (persistent! @*store-buffer*)))
       db)))
 
 (defn store!

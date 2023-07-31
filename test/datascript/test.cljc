@@ -35,6 +35,7 @@
     datascript.test.query-rules
     datascript.test.query-v3
     datascript.test.serialize
+    #?(:clj datascript.test.storage)
     datascript.test.transact
     datascript.test.tuples
     datascript.test.validation

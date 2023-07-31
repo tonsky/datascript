@@ -30,7 +30,7 @@
     }
             
     :test {
-      :extra-paths ["test" "test_storage"]
+      :extra-paths ["test"]
       :extra-deps {
         org.clojure/clojurescript  {:mvn/version "1.10.520"}
         metosin/jsonista           {:mvn/version "0.3.3"}

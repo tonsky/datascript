@@ -3,7 +3,6 @@
    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
       :clj  [clojure.test :as t :refer        [is are deftest testing]])
-   [cognitect.transit :as transit]
    [datascript.core :as d]
    [datascript.db :as db]
    [datascript.test.core :as tdc]
@@ -111,29 +110,6 @@
             (d/init-db [[:add -1 :name "Ivan"] {:add -1 :age 35}] schema))))))
 
 
-(defn transit-write [o type]
-  #?(:clj
-     (with-open [os (java.io.ByteArrayOutputStream.)]
-       (let [writer (transit/writer os type)]
-         (transit/write writer o)
-         (.toByteArray os)))
-     :cljs
-     (transit/write (transit/writer type) o)))
-
-(defn transit-write-str [o]
-  #?(:clj (String. ^bytes (transit-write o :json) "UTF-8")
-     :cljs (transit-write o :json)))
-
-(defn transit-read [s type]
-  #?(:clj
-     (with-open [is (java.io.ByteArrayInputStream. s)]
-       (transit/read (transit/reader is type)))
-     :cljs
-     (transit/read (transit/reader type) s)))
-
-(defn transit-read-str [s]
-  #?(:clj  (transit-read (.getBytes ^String s "UTF-8") :json)
-     :cljs (transit-read s :json)))
 
 (deftest serialize
   (let [db (d/db-with
@@ -141,10 +117,10 @@
              (map (fn [[e a v]] [:db/add e a v]) data))]
     (is (= db (-> db d/serializable d/from-serializable)))
     (is (= db (-> db d/serializable pr-str edn/read-string d/from-serializable)))
-    (is (= db (-> db (d/serializable {:freeze-fn transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn transit-read-str}))))
+    (is (= db (-> db (d/serializable {:freeze-fn tdc/transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn tdc/transit-read-str}))))
     (doseq [type [:json :json-verbose #?(:clj :msgpack)]]
       (testing type
-        (is (= db (-> db d/serializable (transit-write type) (transit-read type) d/from-serializable)))))
+        (is (= db (-> db d/serializable (tdc/transit-write type) (tdc/transit-read type) d/from-serializable)))))
     #?(:clj
        (is (= db (-> db d/serializable jsonista/write-value-as-string jsonista/read-value d/from-serializable))))
     #?(:clj
@@ -163,10 +139,10 @@
         valid? #(#?(:clj Double/isNaN :cljs js/isNaN) (:nan (d/entity % 1)))]
     (is (valid? (-> db d/serializable d/from-serializable)))
     (is (valid? (-> db d/serializable pr-str edn/read-string d/from-serializable)))
-    (is (valid? (-> db (d/serializable {:freeze-fn transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn transit-read-str}))))
+    (is (valid? (-> db (d/serializable {:freeze-fn tdc/transit-write-str}) pr-str edn/read-string (d/from-serializable {:thaw-fn tdc/transit-read-str}))))
     (doseq [type [:json :json-verbose #?(:clj :msgpack)]]
       (testing type
-        (is (valid? (-> db d/serializable (transit-write type) (transit-read type) d/from-serializable)))))
+        (is (valid? (-> db d/serializable (tdc/transit-write type) (tdc/transit-read type) d/from-serializable)))))
     #?(:clj
        (is (valid? (-> db d/serializable jsonista/write-value-as-string jsonista/read-value d/from-serializable))))
     #?(:clj
