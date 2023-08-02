@@ -7,7 +7,7 @@
     [me.tonsky.persistent-sorted-set :as set])
   (:import
     [datascript.db Datom]
-    [java.util List HashSet UUID]
+    [java.util List HashSet]
     [java.io BufferedOutputStream File FileOutputStream OutputStream PushbackReader] 
     [me.tonsky.persistent_sorted_set ANode Branch Leaf PersistentSortedSet RefType Settings]))
 
@@ -17,8 +17,8 @@
   (-store [_ addr+data-seq]
     "Gives you a sequence of `[addr data]` pairs to serialize and store.
      
-     `addr`s are java.util.UUID.
-     `data`s are clojure-serializable data structure (maps, keywords, lists, ints etc)")
+     `addr`s are longs.
+     `data`s are clojure-serializable data structure (maps, keywords, lists, longs etc)")
   
   (-restore [_ addr]
     "Read back and deserialize data stored under single `addr`")
@@ -35,10 +35,22 @@
 (defn serializable-datom [^Datom d]
   [(.-e d) (.-a d) (.-v d) (.-tx d)])
 
+(def ^:private root-addr
+  0)
+
+(def ^:private tail-addr
+  1)
+
+(def ^:private *max-addr
+  (volatile! 0x10000000))
+
+(defn- gen-addr []
+  (vswap! *max-addr inc))
+
 (defrecord StorageAdapter [storage ^Settings settings]
   me.tonsky.persistent_sorted_set.IStorage
   (store [_ ^ANode node]
-    (let [addr (util/squuid)
+    (let [addr (gen-addr)
           keys (mapv serializable-datom (.keys node))
           data (cond-> {:level (.level node)
                         :keys  keys}
@@ -64,26 +76,19 @@
   (when-some [adapter (storage-adapter db)]
     (:storage adapter)))
 
-;; datascriptstorageroot23718
-(def ^:private root-addr
-  #uuid "d5695966-036d-6740-8541-d80034219c28")
-
-;; datascriptstoragetail23728
-(def ^:private tail-addr
-  #uuid "d5695966-036d-6740-8541-da5042219c48")
-
 (defn store-impl! [db adapter]
   (binding [*store-buffer* (volatile! (transient []))]
     (let [eavt-addr (set/store (:eavt db) adapter)
           aevt-addr (set/store (:aevt db) adapter)
           avet-addr (set/store (:avet db) adapter)
           meta (merge
-                 {:schema  (:schema db)
-                  :max-eid (:max-eid db)
-                  :max-tx  (:max-tx db)
-                  :eavt    eavt-addr
-                  :aevt    aevt-addr
-                  :avet    avet-addr}
+                 {:schema   (:schema db)
+                  :max-eid  (:max-eid db)
+                  :max-tx   (:max-tx db)
+                  :eavt     eavt-addr
+                  :aevt     aevt-addr
+                  :avet     avet-addr
+                  :max-addr @*max-addr}
                  (set/settings (:eavt db)))]
       (when (pos? (count @*store-buffer*))
         (vswap! *store-buffer* conj! [root-addr meta])
@@ -110,10 +115,10 @@
   (-store (storage db) [[tail-addr (mapv #(mapv serializable-datom %) tail)]]))
 
 (defn restore-impl [storage opts]
-  ;; TODO restore tail
   (let [root (-restore storage root-addr)
         tail (-restore storage tail-addr)
-        {:keys [schema eavt aevt avet max-eid max-tx]} root
+        {:keys [schema eavt aevt avet max-eid max-tx max-addr]} root
+        _       (vswap! *max-addr max max-addr)
         opts    (merge root opts)
         adapter (make-storage-adapter storage opts)
         db      (db/restore-db
@@ -178,8 +183,8 @@
    (file-storage dir {}))
   ([dir opts]
    (.mkdirs (io/file dir))
-   (let [addr->filename-fn (or (:addr->filename-fn opts) str)
-         filename->addr-fn (or (:filename->addr-fn opts) #(UUID/fromString %))
+   (let [addr->filename-fn (or (:addr->filename-fn opts) #(format "%08x" %))
+         filename->addr-fn (or (:filename->addr-fn opts) #(Long/parseLong % 16))
          write-fn  (or 
                      (:write-fn opts)
                      (when-some [freeze-fn (:freeze-fn opts)]

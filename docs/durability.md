@@ -205,8 +205,8 @@ If you want to read/write from/to input/output stream yourself:
 And finally, if you want to control how addresses are converted to file names:
 
 ```
-:addr->filename-fn :: (UUID) -> String. Construct file name from address
-:filename->addr-fn :: (String) -> UUID. Reconstruct address from file name
+:addr->filename-fn :: (Long) -> String. Construct file name from address
+:filename->addr-fn :: (String) -> Long. Reconstruct address from file name
 ```
 
 All these options are optional.
