@@ -52,7 +52,7 @@
 
 (deftest test-basics
   (testing "empty db"
-    (let [db (d/empty-db)
+    (let [db      (d/empty-db)
           storage (make-storage)]
       (d/store! db storage)
       (is (= 5 (count @(:*writes storage))))
@@ -197,22 +197,35 @@
                 (is (= (:avet db) (:avet db')))))))))))
 
 (deftest test-gc
-  (let [storage (make-storage)
-        db      (large-db {:storage storage})]
-    (d/store! db)
-    (is (= 135 (count (d/addresses db))))
-    (is (= 135 (count (storage/-list-addresses storage))))
-    (is (= (d/addresses db) (set (storage/-list-addresses storage))))
+  (let [storage (make-storage)]
+    (let [db (large-db {:storage storage})]
+      (d/store! db)
+      (is (= 135 (count (d/addresses db))))
+      (is (= 135 (count (storage/-list-addresses storage))))
+      (is (= (d/addresses db) (set (storage/-list-addresses storage))))
     
-    (let [db' (d/db-with db [[:db/add 1001 :str "1001"]])]
-      (d/store! db')
-      (is (> (count (storage/-list-addresses storage))
-            (count (d/addresses db'))))
+      (let [db' (d/db-with db [[:db/add 1001 :str "1001"]])]
+        (d/store! db')
+        (is (> (count (storage/-list-addresses storage))
+              (count (d/addresses db'))))
       
-      (d/collect-garbage! db')
-      (is (= (d/addresses db') (set (storage/-list-addresses storage))))
-      
-      (is (= 6 (count @(:*deletes storage)))))))
+        ;; no GC because both dbs are alive
+        (d/collect-garbage! storage)
+        (is (= (into (set (d/addresses db))
+                 (set (d/addresses db')))
+              (set (storage/-list-addresses storage))))
+        (is (= 0 (count @(:*deletes storage))))))
+    
+    ;; if we lose other refs, GC will happen
+    (let [db'' (d/restore storage)]
+      (d/collect-garbage! storage)
+      (is (= (d/addresses db'') (set (storage/-list-addresses storage))))
+      (is (= 6 (count @(:*deletes storage)))))
+    
+    (testing "don’t delete currently stored db"
+      (System/gc)
+      (d/collect-garbage! storage)
+      (is (pos? (count (storage/-list-addresses storage)))))))
 
 (deftest test-conn
   (let [storage (make-storage)
@@ -274,7 +287,7 @@
         (is (> (count (storage/-list-addresses storage))
               (count (d/addresses @(:db-last-stored (meta conn''))))))
         
-        (d/collect-garbage-conn! conn'')
+        (d/collect-garbage! storage)
         (is (= (count (storage/-list-addresses storage))
               (count (d/addresses @(:db-last-stored (meta conn''))))))
         
@@ -290,21 +303,25 @@
                        (transit/read (transit/reader is :json)))]
     (def db (d/from-serializable serializable {:branching-factor 512}))
     (count db))
-       
-  (d/store! db (streaming-edn-storage "target/db_streaming_edn"))                         ;; ~10 sec
-  (d/store! db (inmemory-edn-storage "target/db_inmemory_edn"))                           ;; ~10 sec
-  (d/store! db (streaming-transit-json-storage "target/db_streaming_transit_json"))       ;; ~7.5 sec
-  (d/store! db (inmemory-transit-json-storage "target/db_inmemory_transit_json"))         ;; ~6.4 sec
-  (d/store! db (streaming-transit-msgpack-storage "target/db_streaming_transit_msgpack")) ;; ~6.3 sec
+  
+  (count db)
   
   (def storage
-    (streaming-edn-storage "target/db_streaming_edn"))
+    (streaming-edn-storage "target/db_streaming_edn")
+    #_(inmemory-edn-storage "target/db_inmemory_edn")
+    #_(streaming-transit-json-storage "target/db_streaming_transit_json")
+    #_(inmemory-transit-json-storage "target/db_inmemory_transit_json")
+    #_(streaming-transit-msgpack-storage "target/db_streaming_transit_msgpack"))
   
-  (def db' (d/restore storage))
+  (d/store! db storage)
   
+  (def db'
+    (d/restore storage))
+  
+  (count (d/addresses db))
   (count (d/addresses db'))
   (count (storage/-list-addresses storage))
-  (d/collect-garbage! db')
+  (d/collect-garbage! storage)
 
   (first (:eavt db'))
   

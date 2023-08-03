@@ -3,6 +3,13 @@
      (:import
        [java.util UUID])))
 
+(def ^:dynamic *debug*
+  false)
+
+(defmacro log [& body]
+  `(when *debug*
+     (println ~@body)))
+
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
 

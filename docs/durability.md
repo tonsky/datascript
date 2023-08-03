@@ -239,34 +239,12 @@ Noticed the catch? New tree lost some nodes because it no longer needs them but 
 That’s why garbage collection exists. Your storage needs to provide us with list of all the addresses that are currently in use, and a way to delete them. Then you call:
 
 ```
-(d/collect-garbage! db)
+(d/collect-garbage! storage)
 ```
 
-and you are done! It will clean up everything that is not referenced by the current DB value.
+and you are done! It will clean up everything that is not referenced by the current version of DB stored there or any past references that were restored from it and are still alive.
 
-Two gotchas here:
-
-1. It will have to read the entire DB in memory for that. So expect it to be expensive operation.
-2. Any live references to _other_ databases that were lazy-loaded from the same storage might stop working.
-
-E.g.:
-
-```
-(let [db (d/restore storage)
-      db' (d/db-with db [[:db/add -1 :name "Ivan"]])]
-  (d/collect-garbage! db'))
-  ;; after that, db will stop working
-```
-
-We are currently thinking what to do about that.
-
-Connection has its own version:
-
-```
-(d/collect-garbage-conn! conn)
-```
-
-Please don’t do `(d/collect-garbage! @conn)`, as conn has some extra optimization that won’t work with database version of GC.
+In the current implementation, expect that `d/collect-garbage!` might be slow.
 
 ## Options
 

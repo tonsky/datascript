@@ -652,14 +652,6 @@
        (callback report))
      db)))
 
-#?(:clj
-   (defn collect-garbage-conn!
-     "Removes everything from storage that isn’t directly reachabel from current DB roots"
-     [conn]
-     {:pre [(conn? conn)
-            (some? (storage/storage @conn))]}
-     (storage/collect-garbage! @(:db-last-stored (meta conn)))))
-
 (defn- atom? [a]
   #?(:cljs (instance? Atom a)
      :clj  (instance? clojure.lang.IAtom a)))
@@ -797,7 +789,6 @@
 
 
 ;; Storage
-
 #?(:clj
    (def ^{:arglists '([db])} storage
      "Returns IStorage used by DB instance"
@@ -819,17 +810,16 @@
      storage/restore))
 
 #?(:clj
-   (def ^{:arglists '([& dbs])} addresses
-     "Returns all addresses in use by current db. Anything that is not in
-   the return set is safe to be deleted"
-     storage/addresses))
+   (defn addresses
+     "Returns all addresses in use by current db (as java.util.HashSet).
+      Anything that is not in the return set is safe to be deleted"
+     [& dbs]
+     (storage/addresses dbs)))
 
 #?(:clj
-   (def ^{:arglists '([& dbs])} collect-garbage!
-     "Deletes all keys from storage that are not referenced by any of the provided dbs.
-   Careful! If you have a lazy-loaded database and do GC on a newer version of it,
-   old version might stop working. Make sure to always pass all currently used db references.
-   Has a side-effect of fully loading database into memory"
+   (def ^{:arglists '([storage])} collect-garbage!
+     "Deletes all keys from storage that are not referenced by any of the currently alive db refs.
+      Has a side-effect of fully loading databases fully into memory, so, can be slow"
      storage/collect-garbage!))
 
 #?(:clj
