@@ -27,7 +27,7 @@ Important! If you are using shadow-cljs, add
 :compiler-options {:externs ["datascript/externs.js"]}
 ```
 
-to your build (see #432 #298 #216)
+to your build (see [#432](https://github.com/tonsky/datascript/issues/432) [#298](https://github.com/tonsky/datascript/issues/298) [#216](https://github.com/tonsky/datascript/pull/216))
 
 ## Support us
 
