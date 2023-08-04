@@ -54,7 +54,7 @@
   (testing "empty db"
     (let [db      (d/empty-db)
           storage (make-storage)]
-      (d/store! db storage)
+      (d/store db storage)
       (is (= 5 (count @(:*writes storage))))
       (let [db' (d/restore storage)]
         (is (= 2 (count @(:*reads storage))))   ;; read root + tail
@@ -64,8 +64,8 @@
   (testing "small db"
     (let [db      (small-db)
           storage (make-storage)]
-      (testing "store!"
-        (d/store! db storage)
+      (testing "store"
+        (d/store db storage)
         (is (= 0 (count @(:*reads storage))))
         (is (= 5 (count @(:*writes storage)))))  ;; write root, tail + 1 level * 3 indexes
       (testing "restore"
@@ -92,11 +92,11 @@
     (let [db      (large-db)
           storage (make-storage)]
     
-      (testing "store!"
-        (d/store! db storage)
+      (testing "store"
+        (d/store db storage)
         (is (= 135 (count @(:*writes storage))))  ;; root, tail, avet root + 66 * 2 indexes
     
-        (d/store! db)
+        (d/store db)
         (is (= 135 (count @(:*writes storage))))) ;; store nothing if nothing changed
     
       (testing "restore"
@@ -129,7 +129,7 @@
       (testing "incremental store"
         (reset-stats storage)
         (let [db' (d/db-with db [[:db/add 1001 :str "1001"]])]
-          (d/store! db')
+          (d/store db')
           (is (= 8 (count @(:*writes storage))))))) ;; root, tail + 3 leves * 2 indexes
     ))
 
@@ -189,7 +189,7 @@
         (testing (str "branching-factor: " order)
           (testing (str "size: " size)
             (with-dir temp-dir
-              (d/store! db storage)
+              (d/store db storage)
               (let [db'     (d/restore storage)]
                 (is (= db db'))
                 (is (= (:eavt db) (:eavt db')))
@@ -197,20 +197,21 @@
                 (is (= (:avet db) (:avet db')))))))))))
 
 (deftest test-gc
+  (Thread/sleep 10000)
   (let [storage (make-storage)]
     (let [db (large-db {:storage storage})]
-      (d/store! db)
+      (d/store db)
       (is (= 135 (count (d/addresses db))))
       (is (= 135 (count (storage/-list-addresses storage))))
       (is (= (d/addresses db) (set (storage/-list-addresses storage))))
     
       (let [db' (d/db-with db [[:db/add 1001 :str "1001"]])]
-        (d/store! db')
+        (d/store db')
         (is (> (count (storage/-list-addresses storage))
               (count (d/addresses db'))))
       
         ;; no GC because both dbs are alive
-        (d/collect-garbage! storage)
+        (d/collect-garbage storage)
         (is (= (into (set (d/addresses db))
                  (set (d/addresses db')))
               (set (storage/-list-addresses storage))))
@@ -218,13 +219,13 @@
     
     ;; if we lose other refs, GC will happen
     (let [db'' (d/restore storage)]
-      (d/collect-garbage! storage)
+      (d/collect-garbage storage)
       (is (= (d/addresses db'') (set (storage/-list-addresses storage))))
       (is (= 6 (count @(:*deletes storage)))))
     
     (testing "don’t delete currently stored db"
       (System/gc)
-      (d/collect-garbage! storage)
+      (d/collect-garbage storage)
       (is (pos? (count (storage/-list-addresses storage)))))))
 
 (deftest test-conn
@@ -287,7 +288,7 @@
         (is (> (count (storage/-list-addresses storage))
               (count (d/addresses @(:db-last-stored (meta conn''))))))
         
-        (d/collect-garbage! storage)
+        (d/collect-garbage storage)
         (is (= (count (storage/-list-addresses storage))
               (count (d/addresses @(:db-last-stored (meta conn''))))))
         
@@ -313,7 +314,7 @@
     #_(inmemory-transit-json-storage "target/db_inmemory_transit_json")
     #_(streaming-transit-msgpack-storage "target/db_streaming_transit_msgpack"))
   
-  (d/store! db storage)
+  (d/store db storage)
   
   (def db'
     (d/restore storage))
@@ -321,7 +322,7 @@
   (count (d/addresses db))
   (count (d/addresses db'))
   (count (storage/-list-addresses storage))
-  (d/collect-garbage! storage)
+  (d/collect-garbage storage)
 
   (first (:eavt db'))
   

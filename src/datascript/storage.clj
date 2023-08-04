@@ -106,7 +106,7 @@
           (-store (:storage adapter) (persistent! @*store-buffer*)))
         db))))
 
-(defn store!
+(defn store
   ([db]
    (if-some [adapter (storage-adapter db)]
      (store-impl! db adapter)
@@ -121,7 +121,7 @@
            adapter  (StorageAdapter. storage settings)]
        (store-impl! db adapter)))))
 
-(defn store-tail! [db tail]
+(defn store-tail [db tail]
   (-store (storage db) [[tail-addr (mapv #(mapv serializable-datom %) tail)]]))
 
 (defn restore-impl [storage opts]
@@ -190,7 +190,7 @@
             (recur res)))
         (persistent! res)))))
 
-(defn collect-garbage! [storage']
+(defn collect-garbage [storage']
   (System/gc) ;; we want all unnecessary weak refs to die as much as possible
   (locking storage'
     (let [dbs    (conj

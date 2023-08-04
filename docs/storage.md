@@ -100,32 +100,32 @@ Storing database is easy. First, you have to implement `datascript.storage/IStor
 After you’re done implementing a store, call
 
 ```
-(d/store! db storage)
+(d/store db storage)
 ```
 
 and you are done!
 
-`d/store!` is slightly mutable under-the-hood. In a sense that it remembers the storage, which nodes are stored, etc. It shouldn’t affect your regular use of a database, but still, I think you should know.
+`d/store` is slightly mutable under-the-hood. In a sense that it remembers the storage, which nodes are stored, etc. It shouldn’t affect your regular use of a database, but still, I think you should know.
 
 The good part about this is, if you modify your database, it’ll remember which parts of the B-tree were stored, and on a next store do an incremental update!
 
 ```
 (let [db' (d/db-with db
             tx-data)]
-  (d/store! db' storage))
+  (d/store db' storage))
 ```
 
 The code above will do much less `-store` calls because only some parts of the tress have changed. That’s one of the main propositions of this approach.
 
-BTW, you can also specify storage during db creation, and then call `d/store!` without storage argument:
+BTW, you can also specify storage during db creation, and then call `d/store` without storage argument:
 
 ```
 (let [schema nil
       db (d/empty-db schema {:storage storage})]
-  (d/store! db))
+  (d/store db))
 ```
 
-Just a possibility. Once stored, DB will remember its storage. Actually, storing into different storage is not supported (yet? ever?), so you can just as well start calling `(d/store! db)` without storage argument.
+Just a possibility. Once stored, DB will remember its storage. Actually, storing into different storage is not supported (yet? ever?), so you can just as well start calling `(d/store db)` without storage argument.
 
 Ok, now for the fun stuff. How to read database from disk? Simple:
 
@@ -142,13 +142,13 @@ The fun part is, that `d/restore` does exactly zero reads! That’s right, resto
 
 Will do approximately 3-6 reads depending on how deep your db is (~ 2 + log512(datoms)).
 
-Restored DB should work exactly as a normal DB. You can read whatever you want, query as much as you want, `entity`, `pull`, `datoms`, all should work as usual. If you modify restored DB, then `store!` it, store will be incremental as well.
+Restored DB should work exactly as a normal DB. You can read whatever you want, query as much as you want, `entity`, `pull`, `datoms`, all should work as usual. If you modify restored DB, then `store` it, store will be incremental as well.
 
 And that’s it! That’s all you need to know.
 
 ## Storage + conn
 
-Storage also work with `conn`, and, as a convenience, if you specify `:storage` when creating `conn`, it’ll then `store!` after each `transact!`:
+Storage also work with `conn`, and, as a convenience, if you specify `:storage` when creating `conn`, it’ll then `store` after each `transact!`:
 
 ```
 (def conn
@@ -239,12 +239,12 @@ Noticed the catch? New tree lost some nodes because it no longer needs them but 
 That’s why garbage collection exists. Your storage needs to provide us with list of all the addresses that are currently in use, and a way to delete them. Then you call:
 
 ```
-(d/collect-garbage! storage)
+(d/collect-garbage storage)
 ```
 
 and you are done! It will clean up everything that is not referenced by the current version of DB stored there or any past references that were restored from it and are still alive.
 
-In the current implementation, expect that `d/collect-garbage!` might be slow.
+In the current implementation, expect that `d/collect-garbage` might be slow.
 
 ## Options
 

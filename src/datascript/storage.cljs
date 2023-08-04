@@ -3,8 +3,8 @@
 (defn storage [db]
   nil)
 
-(defn store!
+(defn store
   ([db]
-   (throw (ex-info "Not implemented: (storage/store! db)" {})))
+   (throw (ex-info "Not implemented: (storage/store db)" {})))
   ([db storage]
-   (throw (ex-info "Not implemented: (storage/store! db storage)" {}))))
+   (throw (ex-info "Not implemented: (storage/store db storage)" {}))))

@@ -462,7 +462,7 @@
   {:pre [(db/db? db)]}
   (if-some [storage (storage/storage db)]
     (do
-      (storage/store! db)
+      (storage/store db)
       (atom db 
         :meta {:listeners      (atom {})
                :tx-tail        (atom [])
@@ -531,7 +531,7 @@
                (reset! *tx-tail [])
                (reset! (:db-last-stored (meta conn)) db))
              ;; just update tail
-             (storage/store-tail! db tx-tail')))))
+             (storage/store-tail db tx-tail')))))
     @*report))
 
 (defn transact!
@@ -644,7 +644,7 @@
                       :tx-meta   tx-meta})]
      #?(:clj
         (when-some [storage (storage/storage db-before)]
-          (storage/store! db)
+          (storage/store db)
           (reset! (:tx-tail (meta conn)) [])
           (reset! (:db-last-stored (meta conn)) db)))
      (reset! conn db)
@@ -795,14 +795,14 @@
      storage/storage))
 
 #?(:clj
-   (def ^{:arglists '([db] [db storage])} store!
+   (def ^{:arglists '([db] [db storage])} store
      "Stores databases to provided storage. If database was created
       with :storage option or restored from storage, use single-argument version.
       
-      Subsequent store!-s are incremental, i.e. only newly added nodes will be actually stored.
+      Subsequent stores are incremental, i.e. only newly added nodes will be actually stored.
       
       Storing already stored dbs into another storage is not supported (may change)."
-     storage/store!))
+     storage/store))
 
 #?(:clj 
    (def ^{:arglists '([storage] [storage opts])} restore
@@ -817,10 +817,10 @@
      (storage/addresses dbs)))
 
 #?(:clj
-   (def ^{:arglists '([storage])} collect-garbage!
+   (def ^{:arglists '([storage])} collect-garbage
      "Deletes all keys from storage that are not referenced by any of the currently alive db refs.
       Has a side-effect of fully loading databases fully into memory, so, can be slow"
-     storage/collect-garbage!))
+     storage/collect-garbage))
 
 #?(:clj
    (def ^{:arglists '([dir] [dir opts])} file-storage
