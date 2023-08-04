@@ -1,7 +1,9 @@
 # WIP
 
+- JVM: Storage! `d/storage`, `d/store`, `d/restore`, `d/addresses`, `d/collect-garbage`, `d/file-storage`, `d/restore-conn`. See [docs/storage.md](docs/storage.md) for details
+- `d/settings` and per-database `:branching-factor` (passed via :opts)
 - New API: `d/find-datom`. Works like `d/datoms`, but only returns single datom, but is faster than `(first (d/datoms ...))`
-- Optimized various parts of CLJS version related to compilation and index access
+- CLJS: Optimized various parts of CLJS version related to compilation and index access
 
 # 1.4.2
 

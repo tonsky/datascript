@@ -246,7 +246,8 @@
 (defn ^:export -main
   "clj -A:bench -M -m datascript.bench.datascript [--profile] (add-1 | add-5 | ...)*"
   [& args]
-  (let [profile? (.contains (or args ()) "--profile")
+  (let [args     (or args ())
+        profile? (.contains ^java.util.List args "--profile")
         args     (remove #{"--profile"} args)
         names    (or (not-empty args) (sort (keys benches)))
         _        (apply println #?(:clj "CLJ:" :cljs "CLJS:") names)

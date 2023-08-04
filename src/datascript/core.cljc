@@ -2,25 +2,28 @@
   (:refer-clojure :exclude [filter])
   (:require
     [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-    [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
+    [datascript.db :as db #?@(:cljs [:refer [Datom DB FilteredDB]])]
     #?(:clj [datascript.pprint])
     [datascript.pull-api :as dp]
     [datascript.serialize :as ds]
+    [datascript.storage :as storage]
     [datascript.query :as dq]
-    [datascript.impl.entity :as de])
+    [datascript.impl.entity :as de]
+    [datascript.util :as util]
+    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
-    (:import
-      [datascript.db FilteredDB]
-      [datascript.impl.entity Entity]
-      [java.util UUID])))
-
+     (:import
+       [datascript.db Datom DB FilteredDB]
+       [datascript.impl.entity Entity]
+       [java.util UUID])))
 
 (def ^:const ^:no-doc tx0 db/tx0)
 
 
 ; Entities
 
-(def ^{:arglists '([db eid])
+(def ^{:tag Entity
+       :arglists '([db eid])
        :doc "Retrieves an entity by its id from database. Entities are lazy map-like structures to navigate DataScript database content.
 
              For `eid` pass entity id or lookup attr:
@@ -71,22 +74,20 @@
              - When printing, only cached attributes (the ones you have accessed before) are printed. See [[touch]]."}
   entity de/entity)
 
-
 (def ^{:arglists '([db eid])
        :doc "Given lookup ref `[unique-attr value]`, returns numberic entity id.
 
              If entity does not exist, returns `nil`."}
   entid db/entid)
 
-
-(defn entity-db
+(defn ^DB entity-db
   "Returns a db that entity was created from."
   [^Entity entity]
   {:pre [(de/entity? entity)]}
   (.-db entity))
 
-
-(def ^{:arglists '([e])
+(def ^{:tag Entity
+       :arglists '([e])
        :doc "Forces all entity attributes to be eagerly fetched and cached. Only usable for debug output.
 
              Usage:
@@ -114,7 +115,6 @@
                  ;     :friends [{:db/id 2, :name \"Oleg\"}]}"}
   pull dp/pull)
 
-
 (def ^{:arglists '([db selector eids])
        :doc "Same as [[pull]], but accepts sequence of ids and returns sequence of maps.
 
@@ -126,7 +126,6 @@
              ;     {:db/id 2, :name \"Oleg\"}]
              ```"}
   pull-many dp/pull-many)
-
 
 ; Query
 
@@ -147,27 +146,46 @@
 
 ; Creating DB
 
-(def ^{:arglists '([] [schema])
-       :doc "Creates an empty database with an optional schema.
+(defn- maybe-adapt-storage [opts]
+  #?(:clj
+     (if-some [storage (:storage opts)]
+       (update opts :storage storage/make-storage-adapter opts)
+       opts)
+     :cljs opts))
 
-             Usage:
-             
-             ```
-             (empty-db) ; => #datascript/DB {:schema {}, :datoms []}
-  
-             (empty-db {:likes {:db/cardinality :db.cardinality/many}})
-             ; => #datascript/DB {:schema {:likes {:db/cardinality :db.cardinality/many}}
-             ;                    :datoms []}
-             ```"}
-  empty-db db/empty-db)
+(defn ^DB empty-db
+  "Creates an empty database with an optional schema.
 
+   Usage:
+   
+   ```
+   (empty-db) ; => #datascript/DB {:schema {}, :datoms []}
+
+   (empty-db {:likes {:db/cardinality :db.cardinality/many}})
+   ; => #datascript/DB {:schema {:likes {:db/cardinality :db.cardinality/many}}
+   ;                    :datoms []}
+   ```
+   
+   Options are:
+   
+   :branching-factor <int>, default 512. B-tree max node length
+   :ref-type         :strong | :soft | :weak, default :soft. How will nodes that are already
+                     stored on disk be referenced. Soft or weak means they might be unloaded
+                     from memory under memory pressure and later fetched from storage again.
+   :storage          <IStorage>. Will be used to store this db later with `(d/store db)`"
+  ([]
+   (db/empty-db nil {}))
+  ([schema]
+   (db/empty-db schema {}))
+  ([schema opts]
+   (db/empty-db schema (maybe-adapt-storage opts))))
 
 (def ^{:arglists '([x])
        :doc "Returns `true` if the given value is an immutable database, `false` otherwise."}
   db? db/db?)
 
-
-(def ^{:arglists '([e a v] [e a v tx] [e a v tx added])
+(def ^{:tag Datom
+       :arglists '([e a v] [e a v tx] [e a v tx added])
        :doc "Low-level fn to create raw datoms.
 
              Optionally with transaction id (number) and `added` flag (`true` for addition, `false` for retraction).
@@ -175,20 +193,21 @@
              See also [[init-db]]."}
   datom db/datom)
 
-
 (def ^{:arglists '([x])
        :doc "Returns `true` if the given value is a datom, `false` otherwise."}
   datom? db/datom?)
 
-
-(def ^{:arglists '([datoms] [datoms schema])
-       :doc "Low-level fn for creating database quickly from a trusted sequence of datoms.
-
-             Does no validation on inputs, so `datoms` must be well-formed and match schema.
-
-             Used internally in db (de)serialization. See also [[datom]]."}
-  init-db db/init-db)
-
+(defn ^DB init-db
+  "Low-level fn for creating database quickly from a trusted sequence of datoms.
+   Does no validation on inputs, so `datoms` must be well-formed and match schema.
+   Used internally in db (de)serialization. See also [[datom]].
+   For options, see [[empty-db]]"
+  ([datoms]
+   (db/init-db datoms nil {}))
+  ([datoms schema]
+   (db/init-db datoms schema {}))
+  ([datoms schema opts]
+   (db/init-db datoms schema (maybe-adapt-storage opts))))
 
 (def ^{:arglists '([db] [db opts])
        :doc "Converts db into a data structure (not string!) that can be fed to serializer
@@ -204,8 +223,8 @@
              `pr-str` by default."}
   serializable ds/serializable)
 
-
-(def ^{:arglists '([serializable] [serializable opts])
+(def ^{:tag DB
+       :arglists '([serializable] [serializable opts])
        :doc "Creates db from a data structure (not string!) produced by serializable.
 
              Opts:
@@ -222,13 +241,13 @@
        :doc "Returns a schema of a database."}
   schema db/-schema)
 
+
 ; Filtered db
 
 (defn is-filtered
   "Returns `true` if this database was filtered using [[filter]], `false` otherwise."
   [x]
   (instance? FilteredDB x))
-
 
 (defn filter
   "Returns a view over database that has same interface but only includes datoms for which the `(pred db datom)` is true. Can be applied multiple times.
@@ -255,13 +274,12 @@
   "Same as [[transact!]], but applies to an immutable database value. Returns transaction report (see [[transact!]])."
   ([db tx-data] (with db tx-data nil))
   ([db tx-data tx-meta]
-    {:pre [(db/db? db)]}
-    (if (is-filtered db)
-      (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
-      (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
+   {:pre [(db/db? db)]}
+   (if (is-filtered db)
+     (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
+     (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
 
-
-(defn db-with
+(defn ^DB db-with
   "Applies transaction to an immutable db value, returning new immutable db value. Same as `(:db-after (with db tx-data))`."
   [db tx-data]
   {:pre [(db/db? db)]}
@@ -347,7 +365,7 @@
   ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  nil))
   ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-datoms db index c0  c1  c2  c3)))
 
-(defn find-datom
+(defn ^Datom find-datom
   "Same as [[datoms]], but only returns single datom. Faster than `(first (datoms ...))`"
   ([db index]             {:pre [(db/db? db)]} (db/find-datom db index nil nil nil nil))
   ([db index c0]          {:pre [(db/db? db)]} (db/find-datom db index c0  nil nil nil))
@@ -391,7 +409,6 @@
   ([db index c0 c1]       {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  nil nil))
   ([db index c0 c1 c2]    {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  c2  nil))
   ([db index c0 c1 c2 c3] {:pre [(db/db? db)]} (db/-seek-datoms db index c0  c1  c2  c3)))
-
 
 (defn rseek-datoms
   "Same as [[seek-datoms]], but goes backwards until the beginning of the index."
@@ -439,38 +456,83 @@
           :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
-
 (defn conn-from-db
   "Creates a mutable reference to a given immutable database. See [[create-conn]]."
   [db]
-  (atom db :meta { :listeners (atom {}) }))
-
+  {:pre [(db/db? db)]}
+  (if-some [storage (storage/storage db)]
+    (do
+      (storage/store db)
+      (atom db 
+        :meta {:listeners      (atom {})
+               :tx-tail        (atom [])
+               :db-last-stored (atom db)}))
+    (atom db
+      :meta {:listeners (atom {})})))
 
 (defn conn-from-datoms
   "Creates an empty DB and a mutable reference to it. See [[create-conn]]."
-  ([datoms]        (conn-from-db (init-db datoms)))
-  ([datoms schema] (conn-from-db (init-db datoms schema))))
-
+  ([datoms]
+   (conn-from-db (init-db datoms)))
+  ([datoms schema]
+   (conn-from-db (init-db datoms schema)))
+  ([datoms schema opts]
+   (conn-from-db (init-db datoms schema opts))))
 
 (defn create-conn
   "Creates a mutable reference (a “connection”) to an empty immutable database.
 
    Connections are lightweight in-memory structures (~atoms) with direct support of transaction listeners ([[listen!]], [[unlisten!]]) and other handy DataScript APIs ([[transact!]], [[reset-conn!]], [[db]]).
 
-   To access underlying immutable DB value, deref: `@conn`."
-  ([]       (conn-from-db (empty-db)))
-  ([schema] (conn-from-db (empty-db schema))))
+   To access underlying immutable DB value, deref: `@conn`.
+   
+   For list of options, see [[empty-db]].
+   
+   If you specify `:storage` option, conn will be stored automatically after each transaction"
+  ([]
+   (conn-from-db (empty-db)))
+  ([schema]
+   (conn-from-db (empty-db schema)))
+  ([schema opts]
+   (conn-from-db (empty-db schema opts))))
 
+#?(:clj
+   (defn restore-conn
+     "Lazy-load database from storage and make conn out of it"
+     ([storage]
+      (restore-conn storage {}))
+     ([storage opts]
+      (let [[db tail] (storage/restore-impl storage opts)
+            db' (storage/db-with-tail db tail)]
+        (atom db'
+          :meta {:listeners      (atom {})
+                 :tx-tail        (atom tail)
+                 :db-last-stored (atom db)})))))
 
 (defn ^:no-doc -transact! [conn tx-data tx-meta]
   {:pre [(conn? conn)]}
-  (let [report (atom nil)]
-    (swap! conn (fn [db]
-                  (let [r (with db tx-data tx-meta)]
-                    (reset! report r)
-                    (:db-after r))))
-    @report))
-
+  (let [*report (atom nil)]
+    (swap! conn
+      (fn [db]
+        (let [r (with db tx-data tx-meta)]
+          (reset! *report r)
+          (:db-after r))))
+    #?(:clj
+       (when-some [storage (storage/storage @conn)]
+         (let [{db     :db-after
+                datoms :tx-data} @*report
+               settings (set/settings (:eavt db))
+               *tx-tail (:tx-tail (meta conn))
+               tx-tail' (swap! *tx-tail conj datoms)]
+           (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
+             ;; overflow tail
+             (do
+               (storage/store-impl! db (storage/storage-adapter db))
+               (reset! *tx-tail [])
+               (reset! (:db-last-stored (meta conn)) db))
+             ;; just update tail
+             (storage/store-tail db tx-tail')))))
+    @*report))
 
 (defn transact!
   "Applies transaction the underlying database value and atomically updates connection reference to point to the result of that transaction, new db value.
@@ -559,34 +621,40 @@
                        [:db/add 296 :friend -1]])"
   ([conn tx-data] (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (let [report (-transact! conn tx-data tx-meta)]
-      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
-        (callback report))
-      report)))
-
+   {:pre [(conn? conn)]}
+   (let [report (-transact! conn tx-data tx-meta)]
+     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
+       (callback report))
+     report)))
 
 (defn reset-conn!
   "Forces underlying `conn` value to become `db`. Will generate a tx-report that will remove everything from old value and insert everything from the new one."
-  ([conn db] (reset-conn! conn db nil))
+  ([conn db]
+   (reset-conn! conn db nil))
   ([conn db tx-meta]
-    (let [report (db/map->TxReport
-                  { :db-before @conn
-                    :db-after  db
-                    :tx-data   (concat
-                                 (map #(assoc % :added false) (datoms @conn :eavt))
-                                 (datoms db :eavt))
-                    :tx-meta   tx-meta})]
-      (reset! conn db)
-      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
-        (callback report))
-      db)))
-
+   {:pre [(conn? conn)
+          (db/db? db)]}
+   (let [db-before @conn
+         report    (db/map->TxReport
+                     {:db-before db-before
+                      :db-after  db
+                      :tx-data   (concat
+                                   (map #(assoc % :added false) (datoms db-before :eavt))
+                                   (datoms db :eavt))
+                      :tx-meta   tx-meta})]
+     #?(:clj
+        (when-some [storage (storage/storage db-before)]
+          (storage/store db)
+          (reset! (:tx-tail (meta conn)) [])
+          (reset! (:db-last-stored (meta conn)) db)))
+     (reset! conn db)
+     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
+       (callback report))
+     db)))
 
 (defn- atom? [a]
   #?(:cljs (instance? Atom a)
      :clj  (instance? clojure.lang.IAtom a)))
-
 
 (defn listen!
   "Listen for changes on the given connection. Whenever a transaction is applied to the database via [[transact!]], the callback is called
@@ -595,17 +663,19 @@
    Idempotent. Calling [[listen!]] with the same key twice will override old callback with the new value.
    
    Returns the key under which this listener is registered. See also [[unlisten!]]."
-  ([conn callback] (listen! conn (rand) callback))
+  ([conn callback]
+   (listen! conn (rand) callback))
   ([conn key callback]
-     {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
-     (swap! (:listeners (meta conn)) assoc key callback)
-     key))
-
+   {:pre [(conn? conn)
+          (atom? (:listeners (meta conn)))]}
+   (swap! (:listeners (meta conn)) assoc key callback)
+   key))
 
 (defn unlisten!
   "Removes registered listener from connection. See also [[listen!]]."
   [conn key]
-  {:pre [(conn? conn) (atom? (:listeners (meta conn)))]}
+  {:pre [(conn? conn)
+         (atom? (:listeners (meta conn)))]}
   (swap! (:listeners (meta conn)) dissoc key))
 
 
@@ -627,20 +697,18 @@
 
 (def ^:private last-tempid (atom -1000000))
 
-
 (defn tempid
   "Allocates and returns an unique temporary id (a negative integer). Ignores `part`. Returns `x` if it is specified.
   
    Exists for Datomic API compatibility. Prefer using negative integers directly if possible."
   ([part]
-    (if (= part :db.part/tx)
-      :db/current-tx
-      (swap! last-tempid dec)))
+   (if (= part :db.part/tx)
+     :db/current-tx
+     (swap! last-tempid dec)))
   ([part x]
-    (if (= part :db.part/tx)
-      :db/current-tx
-      x)))
-
+   (if (= part :db.part/tx)
+     :db/current-tx
+     x)))
 
 (defn resolve-tempid
   "Does a lookup in tempids map, returning an entity id that tempid was resolved to.
@@ -649,8 +717,7 @@
   [_db tempids tempid]
   (get tempids tempid))
 
-
-(defn db
+(defn ^DB db
   "Returns the underlying immutable database value from a connection.
    
    Exists for Datomic API compatibility. Prefer using `@conn` directly if possible."
@@ -658,31 +725,30 @@
   {:pre [(conn? conn)]}
   @conn)
 
-
 (defn transact
   "Same as [[transact!]], but returns an immediately realized future.
   
    Exists for Datomic API compatibility. Prefer using [[transact!]] if possible."
   ([conn tx-data] (transact conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (let [res (transact! conn tx-data tx-meta)]
-      #?(:cljs
-         (reify
-           IDeref
-           (-deref [_] res)
-           IDerefWithTimeout
-           (-deref-with-timeout [_ _ _] res)
-           IPending
-           (-realized? [_] true))
-         :clj
-         (reify
-           clojure.lang.IDeref
-           (deref [_] res)
-           clojure.lang.IBlockingDeref
-           (deref [_ _ _] res)
-           clojure.lang.IPending
-           (isRealized [_] true))))))
+   {:pre [(conn? conn)]}
+   (let [res (transact! conn tx-data tx-meta)]
+     #?(:cljs
+        (reify
+          IDeref
+          (-deref [_] res)
+          IDerefWithTimeout
+          (-deref-with-timeout [_ _ _] res)
+          IPending
+          (-realized? [_] true))
+        :clj
+        (reify
+          clojure.lang.IDeref
+          (deref [_] res)
+          clojure.lang.IBlockingDeref
+          (deref [_ _ _] res)
+          clojure.lang.IPending
+          (isRealized [_] true))))))
 
 
 ;; ersatz future without proper blocking
@@ -699,65 +765,78 @@
          IPending
          (-realized? [_] @realized)))))
 
-
 (defn transact-async
   "In CLJ, calls [[transact!]] on a future thread pool, returning immediately.
   
    In CLJS, just calls [[transact!]] and returns a realized future."
   ([conn tx-data] (transact-async conn tx-data nil))
   ([conn tx-data tx-meta]
-    {:pre [(conn? conn)]}
-    (future-call #(transact! conn tx-data tx-meta))))
+   {:pre [(conn? conn)]}
+   (future-call #(transact! conn tx-data tx-meta))))
 
 
-(defn- rand-bits [pow]
-  (rand-int (bit-shift-left 1 pow)))
+;; squuid
 
-
-#?(:cljs
-  (defn- to-hex-string [n l]
-    (let [s (.toString n 16)
-          c (count s)]
-      (cond
-        (> c l) (subs s 0 l)
-        (< c l) (str (apply str (repeat (- l c) "0")) s)
-        :else   s))))
-
-
-(defn squuid
+(def ^{:arglists '([] [msec])} squuid
   "Generates a UUID that grow with time. Such UUIDs will always go to the end  of the index and that will minimize insertions in the middle.
   
    Consist of 64 bits of current UNIX timestamp (in seconds) and 64 random bits (2^64 different unique values per second)."
-  ([]
-    (squuid #?(:clj  (System/currentTimeMillis)
-               :cljs (.getTime (js/Date.)))))
-  ([msec]
-  #?(:clj
-      (let [uuid     (UUID/randomUUID)
-            time     (int (/ msec 1000))
-            high     (.getMostSignificantBits uuid)
-            low      (.getLeastSignificantBits uuid)
-            new-high (bit-or (bit-and high 0x00000000FFFFFFFF)
-                             (bit-shift-left time 32)) ]
-        (UUID. new-high low))
-     :cljs
-       (uuid
-         (str
-               (-> (int (/ msec 1000))
-                   (to-hex-string 8))
-           "-" (-> (rand-bits 16) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (to-hex-string 4))
-           "-" (-> (rand-bits 16) (to-hex-string 4))
-               (-> (rand-bits 16) (to-hex-string 4))
-               (-> (rand-bits 16) (to-hex-string 4)))))))
+  util/squuid)
 
-(defn squuid-time-millis
+(def ^{:arglists '([uuid])} squuid-time-millis
   "Returns time that was used in [[squuid]] call, in milliseconds, rounded to the closest second."
-  [uuid]
-  #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
-              (bit-shift-right 32)
-              (* 1000))
-     :cljs (-> (subs (str uuid) 0 8)
-               (js/parseInt 16)
-               (* 1000))))
+  util/squuid-time-millis)
+
+
+;; Storage
+#?(:clj
+   (def ^{:arglists '([db])} storage
+     "Returns IStorage used by DB instance"
+     storage/storage))
+
+#?(:clj
+   (def ^{:arglists '([db] [db storage])} store
+     "Stores databases to provided storage. If database was created
+      with :storage option or restored from storage, use single-argument version.
+      
+      Subsequent stores are incremental, i.e. only newly added nodes will be actually stored.
+      
+      Storing already stored dbs into another storage is not supported (may change)."
+     storage/store))
+
+#?(:clj 
+   (def ^{:arglists '([storage] [storage opts])} restore
+     "Lazy-loads database from storage. Ultra-fast, fetches the rest as it’s needed"
+     storage/restore))
+
+#?(:clj
+   (defn addresses
+     "Returns all addresses in use by current db (as java.util.HashSet).
+      Anything that is not in the return set is safe to be deleted"
+     [& dbs]
+     (storage/addresses dbs)))
+
+#?(:clj
+   (def ^{:arglists '([storage])} collect-garbage
+     "Deletes all keys from storage that are not referenced by any of the currently alive db refs.
+      Has a side-effect of fully loading databases fully into memory, so, can be slow"
+     storage/collect-garbage))
+
+#?(:clj
+   (def ^{:arglists '([dir] [dir opts])} file-storage
+     "Default implementation that stores data in files in a dir.
+   
+   Options are:
+   
+   :freeze-fn :: (data)   -> String. A serialization function
+   :thaw-fn   :: (String) -> data. A deserialization function
+   :write-fn  :: (OutputStream data) -> void. Implement your own writer to FileOutputStream
+   :read-fn   :: (InputStream) -> Object. Implement your own reader from FileInputStream
+   :addr->filename-fn :: (UUID) -> String. Construct file name from address
+   :filename->addr-fn :: (String) -> UUID. Reconstruct address from file name
+   
+   All options are optional."
+     storage/file-storage))
+
+(defn settings [db]
+  (set/settings (:eavt db)))

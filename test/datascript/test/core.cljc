@@ -4,6 +4,7 @@
     #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
        :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [clojure.string :as str]
+    [cognitect.transit :as transit]
     [datascript.core :as d]
     [datascript.impl.entity :as de]
     [datascript.db :as db #?@(:cljs [:refer-macros [defrecord-updatable]]
@@ -71,6 +72,30 @@
     (t)))
 :cljs
 (def no-namespace-maps {:before #(set! *print-namespace-maps* false)}))
+
+(defn transit-write [o type]
+  #?(:clj
+     (with-open [os (java.io.ByteArrayOutputStream.)]
+       (let [writer (transit/writer os type)]
+         (transit/write writer o)
+         (.toByteArray os)))
+     :cljs
+     (transit/write (transit/writer type) o)))
+
+(defn transit-write-str [o]
+  #?(:clj (String. ^bytes (transit-write o :json) "UTF-8")
+     :cljs (transit-write o :json)))
+
+(defn transit-read [s type]
+  #?(:clj
+     (with-open [is (java.io.ByteArrayInputStream. s)]
+       (transit/read (transit/reader is type)))
+     :cljs
+     (transit/read (transit/reader type) s)))
+
+(defn transit-read-str [s]
+  #?(:clj  (transit-read (.getBytes ^String s "UTF-8") :json)
+     :cljs (transit-read s :json)))
 
 ;; Core tests
 

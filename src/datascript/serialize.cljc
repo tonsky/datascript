@@ -1,16 +1,18 @@
 (ns datascript.serialize
   (:refer-clojure :exclude [amap array?])
   (:require
-   [clojure.edn :as edn]
-   [clojure.string :as str]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
-   [datascript.lru :as lru]
-   [me.tonsky.persistent-sorted-set :as set]
-   [me.tonsky.persistent-sorted-set.arrays :as arrays])
+    [clojure.edn :as edn]
+    [clojure.string :as str]
+    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
+    [datascript.lru :as lru]
+    [datascript.storage :as storage]
+    [me.tonsky.persistent-sorted-set :as set]
+    [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.serialize :refer [array dict]]))
   #?(:clj
      (:import
-      [datascript.db Datom])))
+       [datascript.db Datom]
+       [me.tonsky.persistent_sorted_set PersistentSortedSet])))
 
 (def ^:const ^:private marker-kw 0)
 (def ^:const ^:private marker-other 1)
@@ -117,6 +119,8 @@
   [db {:keys [freeze-fn freeze-kw]
        :or   {freeze-fn pr-str
               freeze-kw freeze-kw}}]
+  (when (storage/storage db)
+    (throw (ex-info "serializable doesn't work with databases that have :storage" {})))
   (let [attrs       (all-attrs db)
         attrs-map   (into {} (map vector attrs (range)))
         *kws        (volatile! (transient []))
@@ -158,18 +162,23 @@
         avet        (amap-indexed (fn [_ ^Datom d] (db/datom-get-idx d)) (:avet db))
         schema      (freeze-fn (:schema db))
         attrs       (amap freeze-kw attrs)
-        kws         (amap freeze-kw (persistent! @*kws))]
-      (dict
-        "count"    (count (:eavt db))
-        "tx0"      db/tx0
-        "max-eid"  (:max-eid db)
-        "max-tx"   (:max-tx db)
-        "schema"   schema
-        "attrs"    attrs
-        "keywords" kws
-        "eavt"     eavt
-        "aevt"     aevt
-        "avet"     avet)))
+        kws         (amap freeze-kw (persistent! @*kws))
+        #?@(:clj
+            [settings (set/settings (:eavt db))])]
+    (dict
+      "count"    (count (:eavt db))
+      "tx0"      db/tx0
+      "max-eid"  (:max-eid db)
+      "max-tx"   (:max-tx db)
+      "schema"   schema
+      "attrs"    attrs
+      "keywords" kws
+      "eavt"     eavt
+      "aevt"     aevt
+      "avet"     avet
+      #?@(:clj
+          ["branching-factor" (:branching-factor settings)
+           "ref-type"         (name (:ref-type settings))]))))
 
 #?(:clj
    (let [lock (Object.)]
@@ -186,7 +195,8 @@
    (from-serializable from {}))
   ([from {:keys [thaw-fn thaw-kw]
           :or   {thaw-fn edn/read-string
-                 thaw-kw thaw-kw}}]
+                 thaw-kw thaw-kw}
+          :as opts}]
    (let [tx0      (dict-get from "tx0")
          schema   (thaw-fn (dict-get from "schema"))
          _        (#'db/validate-schema schema)
@@ -216,11 +226,15 @@
                               (db/datom e a v tx))))
                     #?(:clj arrays/into-array))
          aevt     (some->> (dict-get from "aevt") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
-         avet     (some->> (dict-get from "avet") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))]
+         avet     (some->> (dict-get from "avet") (amap #(arrays/aget eavt %)) #?(:clj arrays/into-array))
+         settings (merge
+                    {:branching-factor (dict-get from "branching-factor")
+                     :ref-type         (some-> (dict-get from "ref-type") keyword)}
+                    (select-keys opts [:branching-factor :ref-type]))]
      (db/restore-db
        {:schema  schema
-        :eavt    (set/from-sorted-array db/cmp-datoms-eavt eavt)
-        :aevt    (set/from-sorted-array db/cmp-datoms-aevt aevt)
-        :avet    (set/from-sorted-array db/cmp-datoms-avet avet)
+        :eavt    (set/from-sorted-array db/cmp-datoms-eavt eavt (arrays/alength eavt) settings)
+        :aevt    (set/from-sorted-array db/cmp-datoms-aevt aevt (arrays/alength aevt) settings)
+        :avet    (set/from-sorted-array db/cmp-datoms-avet avet (arrays/alength avet) settings)
         :max-eid (dict-get from "max-eid")
         :max-tx  (dict-get from "max-tx")}))))

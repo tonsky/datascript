@@ -46,6 +46,9 @@ Books:
 Docs:
 
 - API Docs [![cljdoc badge](https://cljdoc.org/badge/datascript/datascript)](https://cljdoc.org/d/datascript/datascript/CURRENT)
+- [docs/queries.md](docs/queries.md)
+- [docs/tuples.md](docs/tuples.md)
+- [docs/storage.md](docs/storage.md)
 - [Getting started](https://github.com/tonsky/datascript/wiki/Getting-started)
 - [Tutorials](https://github.com/kristianmandrup/datascript-tutorial)
 - [Tips & tricks](https://github.com/tonsky/datascript/wiki/Tips-&-tricks)

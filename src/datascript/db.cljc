@@ -113,9 +113,9 @@
       This allows CLJS to generate more efficient code when calling this fn
       before it’s declared"
      [name & arglists]
-     (let [name'     (vary-meta name patch-tag (cljs-env? &env))
-           arglists' (map #(list %) arglists)]
-       `(defn ~name' ~@arglists'))))
+     (let [name'  (vary-meta name patch-tag (cljs-env? &env))
+           bodies (map #(list % `(throw (ex-info (str "Not implemented: (" ~name (clojure.string/join " " ~%)) {}))) arglists)]
+       `(defn ~name' ~@bodies))))
 
 #?(:clj
    (defmacro defn+
@@ -583,7 +583,7 @@
 
 (declare+ ^boolean equiv-db [db other])
 
-(declare+ empty-db [] [schema])
+(declare+ restore-db [keys])
 
 (declare+ ^boolean indexing? [db attr])
 
@@ -667,7 +667,13 @@
        IEquiv               (-equiv [db other]  (equiv-db db other))
        IReversible          (-rseq  [db]        (-rseq (.-eavt db)))
        ICounted             (-count [db]        (count (.-eavt db)))
-       IEmptyableCollection (-empty [db]        (with-meta (empty-db (.-schema db)) (meta db)))
+       IEmptyableCollection (-empty [db]        (-> (restore-db
+                                                      {:schema  (.-schema db)
+                                                       :rschema (.-rschema db)
+                                                       :eavt    (empty (.-eavt db))
+                                                       :aevt    (empty (.-aevt db))
+                                                       :avet    (empty (.-avet db))})
+                                                  (with-meta (meta db))))
        IPrintWithWriter     (-pr-writer [db w opts] (pr-db db w opts))
        IEditableCollection  (-as-transient [db] (db-transient db))
        ITransientCollection (-conj! [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
@@ -680,7 +686,13 @@
                             (count [db]         (count eavt))
                             (equiv [db other]   (equiv-db db other))
        clojure.lang.IEditableCollection 
-                            (empty [db]         (with-meta (empty-db schema) (meta db)))
+                            (empty [db]         (-> (restore-db
+                                                      {:schema  (.-schema db)
+                                                       :rschema (.-rschema db)
+                                                       :eavt    (empty (.-eavt db))
+                                                       :aevt    (empty (.-aevt db))
+                                                       :avet    (empty (.-avet db))})
+                                                  (with-meta (meta db))))
                             (asTransient [db] (db-transient db))
        clojure.lang.ITransientCollection
                             (conj [db key] (throw (ex-info "datascript.DB/conj! is not supported" {})))
@@ -952,23 +964,21 @@
 
             (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
               (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
-
-(defn+ ^DB empty-db
-  ([] (empty-db nil))
-  ([schema]
-    {:pre [(or (nil? schema) (map? schema))]}
-    (validate-schema schema)
-    (map->DB
-      {:schema        schema
-       :rschema       (rschema (merge implicit-schema schema))
-       :eavt          (set/sorted-set-by cmp-datoms-eavt)
-       :aevt          (set/sorted-set-by cmp-datoms-aevt)
-       :avet          (set/sorted-set-by cmp-datoms-avet)
-       :max-eid       e0
-       :max-tx        tx0
-       :pull-patterns (lru/cache 100)
-       :pull-attrs    (lru/cache 100)
-       :hash          (atom 0)})))
+  
+(defn ^DB empty-db [schema opts]
+  {:pre [(or (nil? schema) (map? schema))]}
+  (validate-schema schema)
+  (map->DB
+    {:schema        schema
+     :rschema       (rschema (merge implicit-schema schema))
+     :eavt          (set/sorted-set* (assoc opts :cmp cmp-datoms-eavt))
+     :aevt          (set/sorted-set* (assoc opts :cmp cmp-datoms-aevt))
+     :avet          (set/sorted-set* (assoc opts :cmp cmp-datoms-avet))
+     :max-eid       e0
+     :max-tx        tx0
+     :pull-patterns (lru/cache 100)
+     :pull-attrs    (lru/cache 100)
+     :hash          (atom 0)}))
 
 (defn- init-max-eid [eavt]
   (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
@@ -976,48 +986,47 @@
         (:e))
     e0))
 
-(defn ^DB init-db
-  ([datoms] (init-db datoms nil))
-  ([datoms schema]
-    (when-some [not-datom (first (drop-while datom? datoms))]
-      (raise "init-db expects list of Datoms, got " (type not-datom)
-        {:error :init-db}))
-    (validate-schema schema)
-    (let [rschema     (rschema (merge implicit-schema schema))
-          indexed     (:db/index rschema)
-          arr         (cond-> datoms
-                        (not (arrays/array? datoms)) (arrays/into-array))
-          _           (arrays/asort arr cmp-datoms-eavt-quick)
-          eavt        (set/from-sorted-array cmp-datoms-eavt arr)
-          _           (arrays/asort arr cmp-datoms-aevt-quick)
-          aevt        (set/from-sorted-array cmp-datoms-aevt arr)
-          avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
-          avet-arr    (to-array avet-datoms)
-          _           (arrays/asort avet-arr cmp-datoms-avet-quick)
-          avet        (set/from-sorted-array cmp-datoms-avet avet-arr)
-          max-eid     (init-max-eid eavt)
-          max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
-      (map->DB {
-        :schema        schema
-        :rschema       rschema
-        :eavt          eavt
-        :aevt          aevt
-        :avet          avet
-        :max-eid       max-eid
-        :max-tx        max-tx
-        :pull-patterns (lru/cache 100)
-        :pull-attrs    (lru/cache 100)
-        :hash          (atom 0)}))))
+(defn ^DB init-db [datoms schema opts]
+  (when-some [not-datom (first (drop-while datom? datoms))]
+    (raise "init-db expects list of Datoms, got " (type not-datom)
+      {:error :init-db}))
+  (validate-schema schema)
+  (let [rschema     (rschema (merge implicit-schema schema))
+        indexed     (:db/index rschema)
+        arr         (cond-> datoms
+                      (not (arrays/array? datoms)) (arrays/into-array))
+        _           (arrays/asort arr cmp-datoms-eavt-quick)
+        eavt        (set/from-sorted-array cmp-datoms-eavt arr (arrays/alength arr) opts)
+        _           (arrays/asort arr cmp-datoms-aevt-quick)
+        aevt        (set/from-sorted-array cmp-datoms-aevt arr (arrays/alength arr) opts)
+        avet-datoms (filter (fn [^Datom d] (contains? indexed (.-a d))) datoms)
+        avet-arr    (to-array avet-datoms)
+        _           (arrays/asort avet-arr cmp-datoms-avet-quick)
+        avet        (set/from-sorted-array cmp-datoms-avet avet-arr (arrays/alength avet-arr) opts)
+        max-eid     (init-max-eid eavt)
+        max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
+    (map->DB
+      {:schema        schema
+       :rschema       rschema
+       :eavt          eavt
+       :aevt          aevt
+       :avet          avet
+       :max-eid       max-eid
+       :max-tx        max-tx
+       :pull-patterns (lru/cache 100)
+       :pull-attrs    (lru/cache 100)
+       :hash          (atom 0)})))
 
-(defn restore-db [{:keys [schema eavt aevt avet max-eid max-tx]}]
+(defn+ ^DB restore-db [{:keys [schema eavt aevt avet max-eid max-tx] :as keys}]
   (map->DB
     {:schema        schema
-     :rschema       (rschema (merge implicit-schema schema))
+     :rschema       (or (:rschema keys)
+                      (rschema (merge implicit-schema schema)))
      :eavt          eavt
      :aevt          aevt
      :avet          avet
-     :max-eid       max-eid
-     :max-tx        max-tx
+     :max-eid       (or max-eid e0)
+     :max-tx        (or max-tx tx0)
      :pull-patterns (lru/cache 100)
      :pull-attrs    (lru/cache 100)
      :hash          (atom 0)}))
@@ -1079,7 +1088,7 @@
 ))
 
 (defn db-from-reader [{:keys [schema datoms]}]
-  (init-db (map (fn [[e a v tx]] (datom e a v tx)) datoms) schema))
+  (init-db (map (fn [[e a v tx]] (datom e a v tx)) datoms) schema {}))
 
 ;; ----------------------------------------------------------------------------
 
@@ -1111,7 +1120,7 @@
         from    (components->pattern db index c0 c1 c2 c3 e0 tx0)
         to      (components->pattern db index c0 c1 c2 c3 emax txmax)
         datom   (first (set/seek (seq set) from))]
-    (when (and datom (<= 0 (cmp to datom)))
+    (when (and (some? datom) (<= 0 (cmp to datom)))
       datom)))
 
 ;; ----------------------------------------------------------------------------
@@ -1255,7 +1264,7 @@
 ;; In context of `with-datom` we can use faster comparators which
 ;; do not check for nil (~10-15% performance gain in `transact`)
 
-(defn- with-datom [db ^Datom datom]
+(defn with-datom [db ^Datom datom]
   (validate-datom db datom)
   (let [indexing? (indexing? db (.-a datom))]
     (if (datom-added datom)
