@@ -1,3 +1,7 @@
+# 1.5.1
+
+- CLJS: Fixed shadow-cljs warning
+
 # 1.5.0
 
 - JVM: Storage! `d/storage`, `d/store`, `d/restore`, `d/addresses`, `d/collect-garbage`, `d/file-storage`, `d/restore-conn`. See [docs/storage.md](docs/storage.md) for details
