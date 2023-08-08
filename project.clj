@@ -97,4 +97,11 @@
     "release-js/datascript.bare.js"
     "release-js/datascript.js"
   ]
+  
+  :deploy-repositories
+  {"clojars"
+   {:url "https://clojars.org/repo"
+    :username "tonsky"
+    :password :env/clojars_token_datascript
+    :sign-releases false}}
 )

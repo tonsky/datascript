@@ -99,13 +99,14 @@
      [then else]
      (if (cljs-env? &env) then else)))
 
-(defn patch-tag [meta cljs-env?]
-  (if cljs-env?
-    meta
-    (condp = (:tag meta)
-      'boolean (assoc meta :tag java.lang.Boolean)
-      'number  (assoc meta :tag clojure.core$long)
-      meta)))
+#?(:clj
+   (defn patch-tag [meta cljs-env?]
+     (if cljs-env?
+       meta
+       (condp = (:tag meta)
+         'boolean (assoc meta :tag java.lang.Boolean)
+         'number  (assoc meta :tag clojure.core$long)
+         meta))))
 
 #?(:clj
    (defmacro declare+ 
