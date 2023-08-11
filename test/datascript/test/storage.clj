@@ -197,7 +197,6 @@
                 (is (= (:avet db) (:avet db')))))))))))
 
 (deftest test-gc
-  (Thread/sleep 10000)
   (let [storage (make-storage)]
     (let [db (large-db {:storage storage})]
       (d/store db)

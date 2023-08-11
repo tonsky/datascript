@@ -126,21 +126,21 @@
 
 (defn restore-impl [storage opts]
   (locking storage
-    (let [root (-restore storage root-addr)
-          tail (-restore storage tail-addr)
-          {:keys [schema eavt aevt avet max-eid max-tx max-addr]} root
-          _       (vswap! *max-addr max max-addr)
-          opts    (merge root opts)
-          adapter (make-storage-adapter storage opts)
-          db      (db/restore-db
-                    {:schema  schema
-                     :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter opts)
-                     :aevt    (set/restore-by db/cmp-datoms-aevt aevt adapter opts)
-                     :avet    (set/restore-by db/cmp-datoms-avet avet adapter opts)
-                     :max-eid max-eid
-                     :max-tx  max-tx})]
-      (remember-db db)
-      [db (mapv #(mapv (fn [[e a v tx]] (db/datom e a v tx)) %) tail)])))
+    (when-some [root (-restore storage root-addr)]
+      (let [tail    (-restore storage tail-addr)
+            {:keys [schema eavt aevt avet max-eid max-tx max-addr]} root
+            _       (vswap! *max-addr max max-addr)
+            opts    (merge root opts)
+            adapter (make-storage-adapter storage opts)
+            db      (db/restore-db
+                      {:schema  schema
+                       :eavt    (set/restore-by db/cmp-datoms-eavt eavt adapter opts)
+                       :aevt    (set/restore-by db/cmp-datoms-aevt aevt adapter opts)
+                       :avet    (set/restore-by db/cmp-datoms-avet avet adapter opts)
+                       :max-eid max-eid
+                       :max-tx  max-tx})]
+        (remember-db db)
+        [db (mapv #(mapv (fn [[e a v tx]] (db/datom e a v tx)) %) tail)]))))
 
 (defn db-with-tail [db tail]
   (reduce
@@ -162,14 +162,14 @@
     (.walkAddresses ^PersistentSortedSet (:aevt db) visit-fn)
     (.walkAddresses ^PersistentSortedSet (:avet db) visit-fn)))
   
-(defn ^HashSet addresses [dbs]
-  (let [set      (HashSet.)
-        visit-fn #(.add set %)]
-    (.add set root-addr)
-    (.add set tail-addr)
+(defn addresses [dbs]
+  (let [*set     (volatile! (transient #{}))
+        visit-fn #(vswap! *set conj! %)]
+    (visit-fn root-addr)
+    (visit-fn tail-addr)
     (doseq [db dbs]
       (addresses-impl db visit-fn))
-    set))
+    (persistent! @*set)))
 
 (defn- read-stored-dbs [storage']
   (let [iter ^Iterator (.iterator stored-dbs)]
@@ -198,7 +198,7 @@
                    (restore storage')) ;; make sure we won’t gc currently stored db
           used   (addresses dbs)
           all    (-list-addresses storage')
-          unused (into [] (remove #(.contains used %)) all)]
+          unused (into [] (remove used) all)]
       (util/log "GC: found" (count dbs) "alive db refs," (count used) "used addrs," (count all) "total addrs," (count unused) "unused")
       (-delete storage' unused))))
 

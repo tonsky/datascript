@@ -1,3 +1,8 @@
+# 1.5.2
+
+- JVM: Fixed `d/collect-garbage`
+- JVM: Return nil instead of throwing from `d/restore` if there is no db
+
 # 1.5.1
 
 - CLJS: Fixed shadow-cljs warning
