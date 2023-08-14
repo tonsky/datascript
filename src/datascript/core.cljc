@@ -498,13 +498,13 @@
 
 #?(:clj
    (defn restore-conn
-     "Lazy-load database from storage and make conn out of it"
+     "Lazy-load database from storage and make conn out of it.
+      Returns nil if there’s no database yet in storage"
      ([storage]
       (restore-conn storage {}))
      ([storage opts]
-      (let [[db tail] (storage/restore-impl storage opts)
-            db' (storage/db-with-tail db tail)]
-        (atom db'
+      (when-some [[db tail] (storage/restore-impl storage opts)]
+        (atom (storage/db-with-tail db tail)
           :meta {:listeners      (atom {})
                  :tx-tail        (atom tail)
                  :db-last-stored (atom db)})))))
