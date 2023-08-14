@@ -1,3 +1,8 @@
+# WIP
+
+- JVM: Return `nil` from `d/restore-conn` if there is no db
+- Do not throw from d/touch when finding hanging refs
+
 # 1.5.2
 
 - JVM: Fixed `d/collect-garbage`

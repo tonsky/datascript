@@ -181,14 +181,15 @@
              not-found)))))))
 
 (defn touch-components [db a->v]
-  (reduce-kv (fn [acc a v]
-               (assoc acc a
-                 (if (db/component? db a)
-                   (if (db/multival? db a)
-                     (set (map touch v))
-                     (touch v))
-                   v)))
-             {} a->v))
+  (reduce-kv
+    (fn [acc a v]
+      (assoc acc a
+        (if (db/component? db a)
+          (if (db/multival? db a)
+            (set (map touch v))
+            (touch v))
+          v)))
+    {} a->v))
 
 (defn- datoms->cache [db datoms]
   (reduce (fn [acc part]
@@ -197,13 +198,14 @@
     {} (partition-by :a datoms)))
 
 (defn touch [^Entity e]
-  {:pre [(entity? e)]}
-  (when-not @(.-touched e)
-    (when-let [datoms (not-empty (db/-search (.-db e) [(.-eid e)]))]
-      (vreset! (.-cache e) (->> datoms
-                                (datoms->cache (.-db e))
-                                (touch-components (.-db e))))
-      (vreset! (.-touched e) true)))
-  e)
+  {:pre [(or (nil? e) (entity? e))]}
+  (when (some? e)
+    (when-not @(.-touched e)
+      (when-let [datoms (not-empty (db/-search (.-db e) [(.-eid e)]))]
+        (vreset! (.-cache e) (->> datoms
+                                  (datoms->cache (.-db e))
+                                  (touch-components (.-db e))))
+        (vreset! (.-touched e) true)))
+    e))
 
 #?(:cljs (goog/exportSymbol "datascript.impl.entity.Entity" Entity))
