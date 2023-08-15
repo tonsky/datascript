@@ -52,6 +52,7 @@
   me.tonsky.persistent_sorted_set.IStorage
   (store [_ ^ANode node]
     (let [addr (gen-addr)
+          _    (util/log "store" addr)
           keys (mapv serializable-datom (.keys node))
           data (cond-> {:level (.level node)
                         :keys  keys}
@@ -60,6 +61,7 @@
       (vswap! *store-buffer* conj! [addr data])
       addr))
   (restore [_ addr]
+    (util/log "restore" addr)
     (let [{:keys [level keys addresses]} (-restore storage addr)
           ^List keys' (map (fn [[e a v tx]] (db/datom e a v tx)) keys)]
       (if addresses
@@ -84,7 +86,7 @@
 (defn- remember-db [db]
   (.add stored-dbs (WeakReference. db)))
 
-(defn store-impl! [db adapter]
+(defn store-impl! [db adapter force?]
   (locking (:storage adapter)
     (remember-db db)
     (binding [*store-buffer* (volatile! (transient []))]
@@ -100,7 +102,7 @@
                     :avet     avet-addr
                     :max-addr @*max-addr}
                    (set/settings (:eavt db)))]
-        (when (pos? (count @*store-buffer*))
+        (when (or force? (pos? (count @*store-buffer*)))
           (vswap! *store-buffer* conj! [root-addr meta])
           (vswap! *store-buffer* conj! [tail-addr []])
           (-store (:storage adapter) (persistent! @*store-buffer*)))
@@ -109,17 +111,17 @@
 (defn store
   ([db]
    (if-some [adapter (storage-adapter db)]
-     (store-impl! db adapter)
+     (store-impl! db adapter false)
      (throw (ex-info "Database has no associated storage" {}))))
   ([db storage]
    (if-some [adapter (storage-adapter db)]
      (let [current-storage (:storage adapter)]
        (if (identical? current-storage storage)
-         (store-impl! db adapter)
+         (store-impl! db adapter false)
          (throw (ex-info "Database is already stored with another IStorage" {:storage current-storage}))))
      (let [settings (.-_settings ^PersistentSortedSet (:eavt db))
            adapter  (StorageAdapter. storage settings)]
-       (store-impl! db adapter)))))
+       (store-impl! db adapter false)))))
 
 (defn store-tail [db tail]
   (-store (storage db) [[tail-addr (mapv #(mapv serializable-datom %) tail)]]))

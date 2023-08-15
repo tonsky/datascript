@@ -1032,6 +1032,15 @@
      :pull-attrs    (lru/cache 100)
      :hash          (atom 0)}))
 
+(defn with-schema [db schema]
+  {:pre [(db? db) (or (nil? schema) (map? schema))]}
+  (assoc db
+    :schema        schema
+    :rschema       (rschema (merge implicit-schema schema))
+    :pull-patterns (lru/cache 100)
+    :pull-attrs    (lru/cache 100)
+    :hash          (atom 0)))
+
 (defn- equiv-db-index [x y]
   (loop [xs (seq x)
          ys (seq y)]

@@ -1,5 +1,6 @@
 # WIP
 
+- Added: `d/reset-schema!`, `d/with-schema`
 - JVM: Return `nil` from `d/restore-conn` if there is no db
 - Do not throw from d/touch when finding hanging refs
 

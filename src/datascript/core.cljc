@@ -285,6 +285,10 @@
   {:pre [(db/db? db)]}
   (:db-after (with db tx-data)))
 
+(defn ^DB with-schema
+  "Warning! No validation or conversion. Only change schema in a compatible way"
+  [db schema]
+  (db/with-schema db schema))
 
 ; Index lookups
 
@@ -527,7 +531,7 @@
            (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
              ;; overflow tail
              (do
-               (storage/store-impl! db (storage/storage-adapter db))
+               (storage/store-impl! db (storage/storage-adapter db) false)
                (reset! *tx-tail [])
                (reset! (:db-last-stored (meta conn)) db))
              ;; just update tail
@@ -651,6 +655,17 @@
      (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
        (callback report))
      db)))
+
+(defn reset-schema! [conn schema]
+  "Warning! Does not perform any validation or data conversion. Only change schema in a compatible way"
+  {:pre [(conn? conn)]}
+  (let [db (swap! conn db/with-schema schema)]
+    #?(:clj
+       (when-some [storage (storage/storage @conn)]
+         (storage/store-impl! db (storage/storage-adapter db) true)
+         (reset! (:tx-tail (meta conn)) [])
+         (reset! (:db-last-stored (meta conn)) db)))
+    db))
 
 (defn- atom? [a]
   #?(:cljs (instance? Atom a)
