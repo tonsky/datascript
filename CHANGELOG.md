@@ -1,4 +1,4 @@
-# WIP
+# 1.5.3
 
 - Added: `d/reset-schema!`, `d/with-schema`
 - JVM: Return `nil` from `d/restore-conn` if there is no db

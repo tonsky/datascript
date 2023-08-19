@@ -42,8 +42,8 @@
 (def ^:private tail-addr
   1)
 
-(def ^:private *max-addr
-  (volatile! 0x10000000))
+(defonce ^:private *max-addr
+  (volatile! 1000000))
 
 (defn- gen-addr []
   (vswap! *max-addr inc))
