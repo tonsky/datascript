@@ -213,6 +213,10 @@ All these options are optional.
 
 Also, remember, it’s never safe to write to file system yourself. Always do it through battle-tested layer like SQLite or RocksDB or something. If you put `file-storage` in production, expect problems :)
 
+## SQL Storage
+
+See https://github.com/tonsky/datascript-storage-sql
+
 ## Garbage collection
 
 The IStorage protocol actually has two more methods to implement:
