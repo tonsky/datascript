@@ -1,3 +1,7 @@
+# 1.5.4
+
+- Fixed: `:xform` is not called on ref attributes #455
+
 # 1.5.3
 
 - Added: `d/reset-schema!`, `d/with-schema`
