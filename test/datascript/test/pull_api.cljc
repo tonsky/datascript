@@ -467,12 +467,24 @@
           :aka   [["Devil" "Tupen"]]
           :child [[{:db/id [2], :name ["David"],  :aka [nil], :child [nil]}
                    {:db/id [3], :name ["Thomas"], :aka [nil], :child [nil]}]]}
-       (d/pull test-db
-         '[[:db/id :xform vector]
+        (d/pull test-db
+          [[:db/id :xform vector]
            [:name :xform vector]
            [:aka :xform vector]
-           {[:child :xform vector] ...}]
-         1)))
+           {[:child :xform vector] '...}]
+          1)))
+  
+  (testing ":xform on cardinality/one ref #455"
+    (is (= {:name "David" :father "Petr"}
+          (d/pull test-db [:name {[:father :xform #(:name %)] ['*]}] 2))))
+  
+  (testing ":xform on reverse ref"
+    (is (= {:name "Petr" :_father ["David" "Thomas"]}
+          (d/pull test-db [:name {[:_father :xform #(mapv :name %)] [:name]}] 1))))
+
+  (testing ":xform on reverse component ref"
+    (is (= {:name "Part A.A" :_part "Part A"}
+          (d/pull test-db [:name {[:_part :xform #(:name %)] [:name]}] 11))))
   
   (testing "missing attrs are processed by xform"
     (is (= {:normal [nil]

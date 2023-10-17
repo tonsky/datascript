@@ -1,5 +1,6 @@
 (ns user
   (:require
+    [clojure.test :as t]
     [clojure.tools.namespace.repl :as ns]))
 
 (ns/set-refresh-dirs "src" "bench" "test" #_"bench_datomic" #_"test_datomic")
@@ -29,3 +30,7 @@
      (locking lock
        (println (str "#p" (position) " " '~form " => (" (- (System/currentTimeMillis) t#) " ms) " res#)))
      res#))
+
+(defn test-all []
+  (reload)
+  (t/run-all-tests #"datascript\..*"))
