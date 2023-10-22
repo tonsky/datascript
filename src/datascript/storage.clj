@@ -72,6 +72,11 @@
   (let [settings (@#'set/map->settings opts)]
     (StorageAdapter. storage settings)))
 
+(defn maybe-adapt-storage [opts]
+  (if-some [storage (:storage opts)]
+    (update opts :storage make-storage-adapter opts)
+    opts))
+
 (defn storage-adapter ^StorageAdapter [db]
   (when db
     (.-_storage ^PersistentSortedSet (:eavt db))))

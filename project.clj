@@ -21,7 +21,7 @@
     *print-namespace-maps* false
 ;;     *unchecked-math* :warn-on-boxed
   }
-  :jvm-opts ["-Xmx2g" "-server"]
+  :jvm-opts ["-Xmx2g" "-server" "-Dclojure.main.report=stderr"]
   
   :cljsbuild { 
     :builds [

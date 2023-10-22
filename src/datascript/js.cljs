@@ -1,11 +1,12 @@
 (ns ^:no-doc datascript.js
   (:refer-clojure :exclude [filter])
   (:require
-   [cljs.reader]
-   [goog.object :as go]
-   [clojure.walk :as walk]
-   [datascript.core :as d]
-   [datascript.serialize :as serialize]))
+    [cljs.reader]
+    [goog.object :as go]
+    [clojure.walk :as walk]
+    [datascript.conn :as conn]
+    [datascript.core :as d]
+    [datascript.serialize :as serialize]))
 
 ;; Conversions
 
@@ -124,7 +125,7 @@
 
 (defn ^:export transact [conn entities & [tx-meta]]
   (let [entities (entities->clj entities)
-        report   (-> (d/-transact! conn entities tx-meta)
+        report   (-> (conn/-transact! conn entities tx-meta)
                      tx-report->js)]
     (doseq [[_ callback] @(:listeners (meta conn))]
       (callback report))
