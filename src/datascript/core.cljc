@@ -268,11 +268,9 @@
   "Same as [[transact!]], but applies to an immutable database value. Returns transaction report (see [[transact!]])."
   conn/with)
 
-(defn ^DB db-with
+(def ^{:arglists '([db tx-data]) :tag DB} db-with
   "Applies transaction to an immutable db value, returning new immutable db value. Same as `(:db-after (with db tx-data))`."
-  [db tx-data]
-  {:pre [(db/db? db)]}
-  (:db-after (with db tx-data)))
+  conn/db-with)
 
 (defn ^DB with-schema
   "Warning! No validation or conversion. Only change schema in a compatible way"

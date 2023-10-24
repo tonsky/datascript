@@ -1,11 +1,11 @@
 (ns datascript.conn
   (:require
-    [datascript.db :as db #?@(:cljs [:refer [FilteredDB]])]
+    [datascript.db :as db #?@(:cljs [:refer [DB FilteredDB]])]
     [datascript.storage :as storage]
     [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
-       [datascript.db FilteredDB])))
+       [datascript.db DB FilteredDB])))
 
 (defn with
   ([db tx-data] (with db tx-data nil))
@@ -15,22 +15,29 @@
      (throw (ex-info "Filtered DB cannot be modified" {:error :transaction/filtered}))
      (db/transact-tx-data (db/->TxReport db db [] {} tx-meta) tx-data))))
 
+(defn ^DB db-with
+  "Applies transaction to an immutable db value, returning new immutable db value. Same as `(:db-after (with db tx-data))`."
+  [db tx-data]
+  {:pre [(db/db? db)]}
+  (:db-after (with db tx-data)))
+
 (defn conn? [conn]
-  (and #?(:clj  (instance? clojure.lang.IDeref conn)
-          :cljs (satisfies? cljs.core/IDeref conn))
+  (and
+    #?(:clj  (instance? clojure.lang.IDeref conn)
+       :cljs (satisfies? cljs.core/IDeref conn))
     (db/db? @conn)))
 
 (defn conn-from-db [db]
   {:pre [(db/db? db)]}
-  (if-some [storage (storage/storage db)]
-    (do
-      (storage/store db)
-      (atom db 
-        :meta {:listeners      (atom {})
-               :tx-tail        (atom [])
-               :db-last-stored (atom db)}))
-    (atom db
-      :meta {:listeners (atom {})})))
+  (let [storage (storage/storage db)
+        meta    (cond-> {:listeners (atom {})
+                         :clients   (atom {})}
+                  storage
+                  (merge {:tx-tail        (atom [])
+                          :db-last-stored (atom db)}))]
+    (when storage                    
+      (storage/store db))
+    (atom db :meta meta)))
 
 (defn conn-from-datoms
   ([datoms]
@@ -85,7 +92,8 @@
     @*report))
 
 (defn transact!
-  ([conn tx-data] (transact! conn tx-data nil))
+  ([conn tx-data]
+   (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
    {:pre [(conn? conn)]}
    (let [report (-transact! conn tx-data tx-meta)]
