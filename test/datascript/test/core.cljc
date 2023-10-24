@@ -97,6 +97,14 @@
   #?(:clj  (transit-read (.getBytes ^String s "UTF-8") :json)
      :cljs (transit-read s :json)))
 
+#?(:clj
+   (def lock (Object.)))
+
+(defn log [& args]
+  #?(:clj (locking lock
+            (apply println args))
+     :cljs (apply println args)))
+
 ;; Core tests
 
 (deftest test-protocols

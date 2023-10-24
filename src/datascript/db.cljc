@@ -1779,3 +1779,7 @@
        :else
        (raise "Bad entity type at " entity ", expected map or vector"
               {:error :transact/syntax, :tx-data entity})))))
+
+(defn tx-from-datoms [datoms]
+  (mapv #(vector (if (:added %) :db/add :db/retract) (:e %) (:a %) (:v %)) datoms))
+    

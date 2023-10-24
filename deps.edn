@@ -38,6 +38,7 @@
         cheshire/cheshire          {:mvn/version "5.10.0"}
         com.cognitect/transit-clj  {:mvn/version "1.0.324"}
         com.cognitect/transit-cljs {:mvn/version "0.8.269"}
+        org.clojure/core.async     {:mvn/version "1.6.681"}
       }
     }
 

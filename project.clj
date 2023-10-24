@@ -86,7 +86,8 @@
     :test    {:dependencies [[metosin/jsonista            "0.3.3"]
                              [cheshire                    "5.10.0"]
                              [com.cognitect/transit-clj   "1.0.324"]
-                             [com.cognitect/transit-cljs "0.8.269"]]}
+                             [com.cognitect/transit-cljs  "0.8.269"]
+                             [org.clojure/core.async      "1.6.681"]]}
     :bench   {:dependencies [[criterium "0.4.6"]
                              [metosin/jsonista "0.3.3"]
                              [com.clojure-goes-fast/clj-async-profiler "0.5.1"]]}
