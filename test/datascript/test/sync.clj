@@ -22,14 +22,10 @@
         (throw (ex-info "Timeout" {}))))))
 
 (def freeze
-  ; identity
-  tdc/transit-write-str
-  )
+  tdc/transit-write-str)
 
 (def thaw
-  ; identity
-  tdc/transit-read-str
-  )
+  tdc/transit-read-str)
 
 (defn setup []
   (let [server (d/create-conn)
@@ -80,7 +76,7 @@
           (tdc/all-datoms @c2)))
     (is (= #{[1 :name "Ivan"]}
           (tdc/all-datoms @server)))))
-  
+
 
 ; (t/test-ns *ns*)
 ; (t/run-test-var #'test-conn)

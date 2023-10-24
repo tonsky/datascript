@@ -5,7 +5,7 @@
     [datascript.serialize :as serialize]))
 
 (defn client-id []
-  (long (* (rand) 9007199254740991)))
+  (long (* (rand) 0x1FFFFFFFFFFFFF)))
 
 (def *last-tx-id
   (atom 0))

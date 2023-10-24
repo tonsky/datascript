@@ -8,15 +8,20 @@
   (get @(:clients (meta conn)) channel))
 
 (defn on-tx [conn report]
-  ;; TODO filter what to send where
-  (let [msg {:message    :transacted
-             :tx-data    (db/tx-from-datoms (:tx-data report))
-             :tx-id      (:tx-id (:tx-meta report))
-             :server-idx (:db/current-tx (:tempids report))}]
-    (doseq [[channel {:keys [status send-fn]}] @(:clients (meta conn))
-            ; :let [_ (prn "broadcasting to" channel status)]
-            :when (= :active status)]
-      (send-fn channel msg))))
+  (let [*clients (:clients (meta conn))
+        msg      {:message    :transacted
+                  :tx-data    (db/tx-from-datoms (:tx-data report))
+                  :tx-id      (:tx-id (:tx-meta report))
+                  :server-idx (:db/current-tx (:tempids report))}]
+    (doseq [[channel {:keys [status send-fn pending]}] @*clients]
+      (if (= :active status)
+        (do
+          (when pending
+            (doseq [msg pending]
+              (send-fn channel msg))
+            (swap! *clients update client dissoc :pending))
+          (send-fn channel msg))
+        (swap! *clients update client update :pending (fnil conj []) msg)))))
 
 (defn client-connected [conn channel send-fn]
   (let [*clients (:clients (meta conn))
@@ -27,18 +32,26 @@
       (conn/listen! conn :sync #(on-tx conn %)))
     nil))
 
+(defn drop-before [txs server-idx]
+  (vec
+    (drop-while #(<= (:server-idx %) server-idx) txs)))
+
 (defn client-message [conn channel body]
   (case (:message body)
     :catching-up
     (let [{:keys [patterns server-idx]} body ;; TODO delta from server-idx
           {:keys [send-fn]}             (client conn channel)
-          db                            @conn]
+          db                            @conn
+          server-idx                    (:max-tx db)]
       (send-fn channel
         {:message    :catched-up
          :snapshot   (serialize/serializable db) ;; TODO patterns
-         :server-idx (:max-tx db)})
-      ;; TODO race - external txs between (:max-tx db) and after :status :active
-      (swap! (:clients (meta conn)) update channel assoc :status :active))
+         :server-idx server-idx})
+      (swap! (:clients (meta conn)) update channel
+        (fn [client]
+          (-> client
+            (assoc :status :active)
+            (update :pending drop-before server-idx)))))
     
     :transacting
     (doseq [{:keys [tx-data tx-id]} (:txs body)]
