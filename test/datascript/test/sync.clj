@@ -61,15 +61,19 @@
      :c2     c2}))
 
 (defn wait-all [{:keys [server c1 c2]}]
-  (wait-on (:pending (meta c1)) empty?)
-  (wait-on (:pending (meta c2)) empty?)
-  (wait-on (:server-idx (meta c1)) #(= % (:max-tx @server)))
-  (wait-on (:server-idx (meta c2)) #(= % (:max-tx @server))))
+  (wait-on (:atom c1)
+    #(and
+       (empty? (:pending %))
+       (= (:server-idx %) (:max-tx @server))))
+  (wait-on (:atom c2)
+    #(and
+       (empty? (:pending %))
+       (= (:server-idx %) (:max-tx @server)))))
 
 (deftest test-sync
   (let [{:keys [server c1 c2] :as setup} (setup)]
     (d/transact! c1 [[:db/add 1 :name "Ivan"]])
-    (wait-all setup)
+    (wait-all setup)    
     (is (= #{[1 :name "Ivan"]}
           (tdc/all-datoms @c1)))
     (is (= #{[1 :name "Ivan"]}
@@ -78,6 +82,6 @@
           (tdc/all-datoms @server)))))
 
 
-; (t/test-ns *ns*)
-; (t/run-test-var #'test-conn)
-
+(comment
+  (t/test-ns *ns*)
+  (t/run-test-var #'test-conn))

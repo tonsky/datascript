@@ -5,29 +5,29 @@
     [datascript.serialize :as serialize]))
 
 (defn- client [conn channel]
-  (get @(:clients (meta conn)) channel))
+  (-> conn :atom deref :clients (get channel)))
 
 (defn on-tx [conn report]
-  (let [*clients (:clients (meta conn))
+  (let [clients  (:clients @(:atom conn))
         msg      {:message    :transacted
                   :tx-data    (db/tx-from-datoms (:tx-data report))
                   :tx-id      (:tx-id (:tx-meta report))
                   :server-idx (:db/current-tx (:tempids report))}]
-    (doseq [[channel {:keys [status send-fn pending]}] @*clients]
+    (doseq [[channel {:keys [status send-fn pending]}] clients]
       (if (= :active status)
         (do
           (when pending
             (doseq [msg pending]
               (send-fn channel msg))
-            (swap! *clients update client dissoc :pending))
+            (swap! (:atom conn) update :clients update client dissoc :pending))
           (send-fn channel msg))
-        (swap! *clients update client update :pending (fnil conj []) msg)))))
+        (swap! (:atom conn) update :clients update client update :pending (fnil conj []) msg)))))
 
 (defn client-connected [conn channel send-fn]
-  (let [*clients (:clients (meta conn))
-        clients' (swap! *clients assoc channel
-                   {:status  :connected
-                    :send-fn send-fn})]
+  (let [clients' (:clients
+                   (swap! (:atom conn) update :clients assoc channel
+                     {:status  :connected
+                      :send-fn send-fn}))]
     (when (= 1 (count clients'))
       (conn/listen! conn :sync #(on-tx conn %)))
     nil))
@@ -47,7 +47,7 @@
         {:message    :catched-up
          :snapshot   (serialize/serializable db) ;; TODO patterns
          :server-idx server-idx})
-      (swap! (:clients (meta conn)) update channel
+      (swap! (:atom conn) update :clients update channel
         (fn [client]
           (-> client
             (assoc :status :active)
@@ -60,8 +60,7 @@
   nil)
 
 (defn client-disconnected [conn channel]
-  (let [*clients (:clients (meta conn))
-        clients' (swap! *clients dissoc channel)]
+  (let [clients' (:clients (swap! (:atom conn) update :clients dissoc channel))]
     (when (= 0 (count clients'))
       (conn/unlisten! conn :sync))
     nil))

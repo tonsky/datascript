@@ -10,6 +10,10 @@
   `(when *debug*
      (println ~@body)))
 
+(def empty-queue
+  #?(:clj  clojure.lang.PersistentQueue/EMPTY
+     :cljs cljs.core.PersistentQueue.EMPTY))
+
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
 
