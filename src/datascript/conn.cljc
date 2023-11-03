@@ -2,10 +2,23 @@
   (:require
     [datascript.db :as db #?@(:cljs [:refer [DB FilteredDB]])]
     [datascript.storage :as storage]
+    [extend-clj.core :as extend]
     [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
        [datascript.db DB FilteredDB])))
+
+(extend/deftype-atom Conn [atom]
+  (deref-impl [this]
+    (:db @atom))
+  (compare-and-set-impl [this oldv newv]
+    (compare-and-set!
+      atom
+      (assoc @atom :db oldv)
+      (assoc @atom :db newv))))
+
+(defn- make-conn [opts]
+  (->Conn (atom opts)))
 
 (defn with
   ([db tx-data] (with db tx-data nil))
@@ -25,19 +38,20 @@
   (and
     #?(:clj  (instance? clojure.lang.IDeref conn)
        :cljs (satisfies? cljs.core/IDeref conn))
-    (db/db? @conn)))
+    (if-some [db @conn]
+      (db/db? db)
+      true)))
 
 (defn conn-from-db [db]
   {:pre [(db/db? db)]}
-  (let [storage (storage/storage db)
-        meta    (cond-> {:listeners (atom {})
-                         :clients   (atom {})}
-                  storage
-                  (merge {:tx-tail        (atom [])
-                          :db-last-stored (atom db)}))]
-    (when storage                    
-      (storage/store db))
-    (atom db :meta meta)))
+  (if-some [storage (storage/storage db)]
+    (do
+      (storage/store db)
+      (make-conn
+        {:db db
+         :tx-tail []
+         :db-last-stored db}))
+    (make-conn {:db db})))
 
 (defn conn-from-datoms
   ([datoms]
@@ -61,32 +75,33 @@
       (restore-conn storage {}))
      ([storage opts]
       (when-some [[db tail] (storage/restore-impl storage opts)]
-        (atom (storage/db-with-tail db tail)
-          :meta {:listeners      (atom {})
-                 :tx-tail        (atom tail)
-                 :db-last-stored (atom db)})))))
+        (make-conn
+          {:db (storage/db-with-tail db tail)
+           :tx-tail tail
+           :db-last-stored db})))))
 
 (defn ^:no-doc -transact! [conn tx-data tx-meta]
   {:pre [(conn? conn)]}
-  (let [*report (atom nil)]
+  (let [*report (volatile! nil)]
     (swap! conn
       (fn [db]
         (let [r (with db tx-data tx-meta)]
-          (reset! *report r)
+          (vreset! *report r)
           (:db-after r))))
     #?(:clj
        (when-some [storage (storage/storage @conn)]
          (let [{db     :db-after
                 datoms :tx-data} @*report
                settings (set/settings (:eavt db))
-               *tx-tail (:tx-tail (meta conn))
-               tx-tail' (swap! *tx-tail conj datoms)]
+               *atom    (:atom conn)
+               tx-tail' (:tx-tail (swap! *atom update :tx-tail conj datoms))]
            (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
              ;; overflow tail
              (do
                (storage/store-impl! db (storage/storage-adapter db) false)
-               (reset! *tx-tail [])
-               (reset! (:db-last-stored (meta conn)) db))
+               (swap! *atom assoc
+                 :tx-tail []
+                 :db-last-stored db))
              ;; just update tail
              (storage/store-tail db tx-tail')))))
     @*report))
@@ -96,10 +111,11 @@
    (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
    {:pre [(conn? conn)]}
-   (let [report (-transact! conn tx-data tx-meta)]
-     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
-       (callback report))
-     report)))
+   (locking conn
+     (let [report (-transact! conn tx-data tx-meta)]
+       (doseq [[_ callback] (:listeners @(:atom conn))]
+         (callback report))
+       report))))
 
 (defn reset-conn!
   ([conn db]
@@ -112,16 +128,19 @@
                      {:db-before db-before
                       :db-after  db
                       :tx-data   (concat
-                                   (map #(assoc % :added false) (db/-datoms db-before :eavt nil nil nil nil))
+                                   (when db-before
+                                     (map #(assoc % :added false) (db/-datoms db-before :eavt nil nil nil nil)))
                                    (db/-datoms db :eavt nil nil nil nil))
                       :tx-meta   tx-meta})]
-     #?(:clj
-        (when-some [storage (storage/storage db-before)]
-          (storage/store db)
-          (reset! (:tx-tail (meta conn)) [])
-          (reset! (:db-last-stored (meta conn)) db)))
-     (reset! conn db)
-     (doseq [[_ callback] (some-> (:listeners (meta conn)) (deref))]
+     (if-some [storage (storage/storage db-before)]
+       (do
+         (storage/store db)
+         (swap! (:atom conn) assoc
+           :db db
+           :tx-tail []
+           :db-last-stored db))
+       (reset! conn db))
+     (doseq [[_ callback] (:listeners @(:atom conn))]
        (callback report))
      db)))
 
@@ -131,25 +150,19 @@
     #?(:clj
        (when-some [storage (storage/storage @conn)]
          (storage/store-impl! db (storage/storage-adapter db) true)
-         (reset! (:tx-tail (meta conn)) [])
-         (reset! (:db-last-stored (meta conn)) db)))
+         (swap! (:atom conn) assoc
+           :tx-tail []
+           :db-last-stored db)))
     db))
-
-(defn- atom? [a]
-  #?(:cljs (instance? Atom a)
-     :clj  (instance? clojure.lang.IAtom a)))
 
 (defn listen!
   ([conn callback]
    (listen! conn (rand) callback))
   ([conn key callback]
-   {:pre [(conn? conn)
-          (atom? (:listeners (meta conn)))]}
-   (swap! (:listeners (meta conn)) assoc key callback)
+   {:pre [(conn? conn)]}
+   (swap! (:atom conn) update :listeners assoc key callback)
    key))
 
-(defn unlisten!
-  [conn key]
-  {:pre [(conn? conn)
-         (atom? (:listeners (meta conn)))]}
-  (swap! (:listeners (meta conn)) dissoc key))
+(defn unlisten! [conn key]
+  {:pre [(conn? conn)]}
+  (swap! (:atom conn) update :listeners dissoc key))
