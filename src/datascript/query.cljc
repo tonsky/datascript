@@ -26,7 +26,7 @@
 
 (def ^:dynamic *query-cache* (lru/cache 100))
 
-(declare -collect -resolve-clause resolve-clause)
+(declare -collect collect -resolve-clause resolve-clause)
 
 ;; Records
 
@@ -609,7 +609,7 @@
 
             ;; no rules -> expand, collect, sum
             (let [context (solve (:prefix-context frame) clauses)
-                  tuples  (-collect context final-attrs)
+                  tuples  (collect context final-attrs)
                   new-rel (Relation. final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
 
