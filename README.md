@@ -18,7 +18,12 @@ The intention with DataScript is to be a basic building block in client-side app
 ## Latest version [![Build Status](https://travis-ci.org/tonsky/datascript.svg?branch=master)](https://travis-ci.org/tonsky/datascript)
 
 ```clj
+;; lein
 [datascript "1.5.4"]
+```
+```clj
+;; deps.edn
+datascript/datascript {:mvn/version "1.5.4"}
 ```
 
 Important! If you are using shadow-cljs, add
