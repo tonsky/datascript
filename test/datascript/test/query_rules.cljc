@@ -195,35 +195,38 @@
 ; https://github.com/tonsky/datascript/issues/456
 ; this used to stall for nearly a minute and/or fail with an OOM exception
 ; due to propagation of a relation with duplicate tuples during rule solving
-(deftest test-rule-performance-on-larger-datasets
-  (letfn [(inline [db]
-            (d/q '[:find ?e
-                   :where
-                   [?e :item/status ?status]
-                   [(ground "pending") ?status]]
-                 db))
-          (rule [db]
-            (d/q '[:find ?e
-                   :in $ %
-                   :where
-                   [?e :item/status ?status]
-                   (pending? ?status)]
-                 db
-                 '[[(pending? ?status)
-                    [(ground "pending") ?status]]]))
-          (measure [f & args]
-            (let [start  (System/currentTimeMillis)
-                  result (apply f args)
-                  end    (System/currentTimeMillis)]
-              [(- end start) result]))]
-    (let [db (-> (d/empty-db)
-                 (d/db-with (for [x    (range 50000)
-                                  :let [temp (str (gensym))]
-                                  fact [[:db/add temp :item/id x]
-                                        [:db/add temp :item/status (rand-nth ["started" "pending" "stopped"])]]]
-                              fact)))
-          [inline-time inline-result] (measure inline db)
-          [rule-time rule-result] (measure rule db)]
-      (is (= inline-result rule-result))
-      ; show that rule performance continues to be within an order of magnitude of inline performance
-      (is (<= 0 rule-time (* 10 inline-time))))))
+#?(:clj
+   (deftest test-rule-performance-on-larger-datasets
+     (letfn [(timestamp []
+               (System/currentTimeMillis))
+             (inline [db]
+               (d/q '[:find ?e
+                      :where
+                      [?e :item/status ?status]
+                      [(ground "pending") ?status]]
+                    db))
+             (rule [db]
+               (d/q '[:find ?e
+                      :in $ %
+                      :where
+                      [?e :item/status ?status]
+                      (pending? ?status)]
+                    db
+                    '[[(pending? ?status)
+                       [(ground "pending") ?status]]]))
+             (measure [f & args]
+               (let [start  (timestamp)
+                     result (apply f args)
+                     end    (timestamp)]
+                 [(- end start) result]))]
+       (let [db (-> (d/empty-db)
+                    (d/db-with (for [x    (range 50000)
+                                     :let [temp (str (gensym))]
+                                     fact [[:db/add temp :item/id x]
+                                           [:db/add temp :item/status (rand-nth ["started" "pending" "stopped"])]]]
+                                 fact)))
+             [inline-time inline-result] (measure inline db)
+             [rule-time rule-result] (measure rule db)]
+         (is (= inline-result rule-result))
+         ; show that rule performance continues to be within an order of magnitude of inline performance
+         (is (<= 0 rule-time (* 10 inline-time)))))))

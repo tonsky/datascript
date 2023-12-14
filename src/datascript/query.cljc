@@ -609,7 +609,8 @@
 
             ;; no rules -> expand, collect, sum
             (let [context (solve (:prefix-context frame) clauses)
-                  tuples  (collect context final-attrs)
+                  tuples  #?(:clj (collect context final-attrs)
+                             :cljs (-collect context final-attrs))
                   new-rel (Relation. final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
 
