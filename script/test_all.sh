@@ -2,7 +2,9 @@
 set -o nounset -o pipefail
 cd "`dirname $0`/.."
 
-./script/test_clj.sh
-./script/test_cljs.sh
-./script/test_js.sh
-./script/test_datomic.sh
+EXIT=0
+./script/test_clj.sh || EXIT=$((EXIT + $?))
+./script/test_cljs.sh || EXIT=$((EXIT + $?))
+./script/test_js.sh || EXIT=$((EXIT + $?))
+./script/test_datomic.sh || EXIT=$((EXIT + $?))
+exit $EXIT

@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed JS version bug caused by Conn rewrite
+
 # 1.6.0
 
 - [ BREAKING ] Implement Conn as a single atom with extend-clj
