@@ -1,5 +1,7 @@
 (ns user
   (:require
+    [clojure.core.server :as server]
+    [clojure.java.io :as io]
     [clojure.test :as t]
     [clojure.tools.namespace.repl :as ns]))
 
@@ -30,6 +32,22 @@
      (locking lock
        (println (str "#p" (position) " " '~form " => (" (- (System/currentTimeMillis) t#) " ms) " res#)))
      res#))
+
+(defn -main [& args]
+  ;; setup repl
+  (let [args (apply array-map args)
+        port (or
+               (some-> (get args "--port") parse-long)
+               (+ 1024 (rand-int 64512)))
+        file (io/file ".repl-port")]
+    (println "Started Server Socket REPL on port" port)
+    (spit file port)
+    (.deleteOnExit file)
+    (server/start-server
+      {:name          "repl"
+       :port          port
+       :accept        'clojure.core.server/repl
+       :server-daemon false})))
 
 (defn test-all []
   (reload)
