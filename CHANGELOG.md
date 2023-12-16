@@ -1,3 +1,11 @@
+# 1.6.0
+
+- [ BREAKING ] Implement Conn as a single atom with extend-clj
+  - Only breaking if you relied on getting listneres from Conn meta
+  - Before: `@(:listeners (meta conn))`
+  - After: `(:listeners @(:atom conn))`
+- prevent explosion of redundant tuples during rule solving #457, thx @RutledgePaulV
+
 # 1.5.4
 
 - Fixed: `:xform` is not called on ref attributes #455
