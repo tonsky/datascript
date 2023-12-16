@@ -361,8 +361,8 @@
     @*exception))
 
 (defn -main [& {:as opts}]
-  (let [opts' {:time             (some-> (opts "--time") parse-long)
-               :branching-factor (some-> (opts "--branching-factor") parse-long)
+  (let [opts' {:time             (some-> (opts "--time") Long/parseLong)
+               :branching-factor (some-> (opts "--branching-factor") Long/parseLong)
                :ref-type         (some-> (opts "--ref-type") keyword)}]
     (when (stress-test opts')
       (System/exit 1))))
