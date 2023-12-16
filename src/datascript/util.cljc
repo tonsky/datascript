@@ -56,3 +56,16 @@
      :cljs (-> (subs (str uuid) 0 8)
              (js/parseInt 16)
              (* 1000))))
+
+(defn distinct-by [f coll]
+  (->>
+    (reduce
+      (fn [[seen res :as acc] el]
+        (let [key (f el)]
+          (if (contains? seen key)
+            acc
+            [(conj! seen key) (conj! res el)])))
+      [(transient #{}) (transient [])]
+      coll)
+    second
+    persistent!))

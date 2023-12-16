@@ -12,7 +12,8 @@
    [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple Constant
                                                 FindColl FindRel FindScalar FindTuple PlainSymbol
                                                 RulesVar SrcVar Variable]])]
-   [datascript.pull-api :as dpa])
+   [datascript.pull-api :as dpa]
+   [datascript.util :as util])
   #?(:clj
      (:import
       [clojure.lang ILookup LazilyPersistentVector]
@@ -26,7 +27,7 @@
 
 (def ^:dynamic *query-cache* (lru/cache 100))
 
-(declare -collect -resolve-clause resolve-clause)
+(declare -collect collect -resolve-clause resolve-clause)
 
 ;; Records
 
@@ -609,7 +610,7 @@
 
             ;; no rules -> expand, collect, sum
             (let [context (solve (:prefix-context frame) clauses)
-                  tuples  (-collect context final-attrs)
+                  tuples  (util/distinct-by vec (-collect context final-attrs))
                   new-rel (Relation. final-attrs-map tuples)]
               (recur (next stack) (sum-rel rel new-rel)))
 

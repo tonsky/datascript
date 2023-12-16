@@ -190,3 +190,40 @@
           (d/q '[:find ?id :in $ %
                  :where (is ?id false)]
             db rules)))))
+
+
+; https://github.com/tonsky/datascript/issues/456
+; this used to stall for nearly a minute and/or fail with an OOM exception
+; due to propagation of a relation with duplicate tuples during rule solving
+(deftest test-rule-performance-on-larger-datasets
+  (let [now     (fn []
+                  #?(:clj  (/ (System/nanoTime) 1000000.0)
+                     :cljs (js/performance.now)))
+        inline  (fn [db]
+                  (d/q '[:find ?e
+                         :where [?e :item/status ?status]
+                                [(ground "pending") ?status]]
+                    db))
+        rule    (fn [db]
+                  (d/q '[:find ?e
+                         :in $ %
+                         :where [?e :item/status ?status]
+                                (pending? ?status)]
+                    db
+                    '[[(pending? ?status)
+                       [(ground "pending") ?status]]]))
+        measure (fn [f & args]
+                  (let [start  (now)
+                        result (apply f args)]
+                    [(- (now) start) result]))
+        db      (-> (d/empty-db)
+                  (d/db-with (for [x (range 1 50000)]
+                               {:db/id       (- x)
+                                :item/id     x
+                                :item/status (rand-nth ["started" "pending" "stopped"])})))
+        [inline-time inline-result] (measure inline db)
+        [rule-time rule-result] (measure rule db)]
+    ; (println "inline-time" inline-time "ms, rule-time" rule-time "ms")
+    (is (= inline-result rule-result))
+    ; show that rule performance continues to be within an order of magnitude of inline performance
+    (is (<= 0 rule-time (* 10 inline-time)))))
