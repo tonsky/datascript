@@ -1,4 +1,4 @@
-# WIP
+# 1.6.1
 
 - Fixed JS version bug caused by Conn rewrite
 
