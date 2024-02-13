@@ -791,12 +791,14 @@
          (update context :rels collapse-rels relation))))))
 
 (defn resolve-clause [context clause]
-  (if (rule? context clause)
-    (if (source? (first clause))
-      (binding [*implicit-source* (get (:sources context) (first clause))]
-        (resolve-clause context (next clause)))
-      (update context :rels collapse-rels (solve-rule context clause)))
-    (-resolve-clause context clause)))
+  (if (->> (:rels context) (some (comp empty? :tuples)))
+    context ; The result is empty; short-circuit processing
+    (if (rule? context clause)
+      (if (source? (first clause))
+        (binding [*implicit-source* (get (:sources context) (first clause))]
+          (resolve-clause context (next clause)))
+        (update context :rels collapse-rels (solve-rule context clause)))
+      (-resolve-clause context clause))))
 
 (defn -q [context clauses]
   (binding [*implicit-source* (get (:sources context) '$)]

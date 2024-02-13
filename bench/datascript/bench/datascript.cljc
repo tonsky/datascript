@@ -110,6 +110,19 @@
                   [?e :sex :male]]
       @*db100k)))
 
+(defn bench-q5-shortcircuit []
+  (bench/bench
+    (d/q '[:find ?e ?n ?l ?a ?s ?al
+           :in $ ?n ?a
+           :where [?e :name ?n]
+                  [?e :age ?a]
+                  [?e :last-name ?l]
+                  [?e :sex ?s]
+                  [?e :alias ?al]]
+      @*db100k
+      "Anastasia"
+      35)))
+
 (defn bench-qpred1 []
   (bench/bench
     (d/q '[:find ?e ?s
@@ -226,6 +239,7 @@
    "q2"                 bench-q2
    "q3"                 bench-q3
    "q4"                 bench-q4
+   "q5-shortcircuit"    bench-q5-shortcircuit
    "qpred1"             bench-qpred1
    "qpred2"             bench-qpred2
    "pull-one-entities"  bench-pull-one-entities
@@ -277,6 +291,7 @@
   (bench-q2)
   (bench-q3)
   (bench-q4)
+  (bench-q5-shortcircuit)
   (bench-qpred1)
   (bench-qpred2)
   (bench-pull-one-entities)
