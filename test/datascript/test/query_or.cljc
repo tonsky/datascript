@@ -81,7 +81,23 @@
      (or-join [?e]
        (and [?e  :age ?a]
             [?e2 :age ?a]))]
-    #{1 2 3 4 5 6})
+    #{1 2 3 4 5 6}
+
+    [(or-join [?e ?n]
+       (and [?e :age 30] ; no matches, so this branch short-circuits
+            [?e :name ?n])
+       (and [?e :age 20]
+            [?e :name ?n]))
+     [(ground "Ivan") ?n]]
+    #{2 6}
+
+    [(or
+       (and [?e :age 30] ; no matches, so this branch short-circuits
+            [?e :name ?n])
+       (and [?e :age 20]
+            [?e :name ?n]))
+     [(ground "Ivan") ?n]]
+    #{2 6})
 
   ;; #348
   (is (= #{[1] [3] [4] [5]}

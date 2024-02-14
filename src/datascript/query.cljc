@@ -133,7 +133,9 @@
       (= attrs-a attrs-b)
       (Relation. attrs-a (into (vec tuples-a) tuples-b))
 
-      (not (same-keys? attrs-a attrs-b))
+      (and (not (same-keys? attrs-a attrs-b))
+           (seq tuples-a)  ; could be empty because
+           (seq tuples-b)) ; a query short-circuited
       (raise "Can’t sum relations with different attrs: " attrs-a " and " attrs-b
              {:error :query/where})
 
