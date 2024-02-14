@@ -65,7 +65,16 @@
          (and [2  :age  ?a]
               [?e :name "Oleg"]))
      [?e :age ?a]]
-    #{1 5 4}))
+    #{1 5 4}
+
+    ;; One branch of or short-circuits resolution
+    [(or
+       (and [?e :age 30] ; no matches in db
+            [?e :name ?n])
+       (and [?e :age 20]
+            [?e :name ?n]))
+     [(ground "Ivan") ?n]]
+    #{2 6}))
 
 (deftest test-or-join
   (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
@@ -83,16 +92,9 @@
             [?e2 :age ?a]))]
     #{1 2 3 4 5 6}
 
+    ;; One branch of or-join short-circuits resolution
     [(or-join [?e ?n]
-       (and [?e :age 30] ; no matches, so this branch short-circuits
-            [?e :name ?n])
-       (and [?e :age 20]
-            [?e :name ?n]))
-     [(ground "Ivan") ?n]]
-    #{2 6}
-
-    [(or
-       (and [?e :age 30] ; no matches, so this branch short-circuits
+       (and [?e :age 30] ; no matches in db
             [?e :name ?n])
        (and [?e :age 20]
             [?e :name ?n]))
