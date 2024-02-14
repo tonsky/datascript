@@ -184,4 +184,10 @@
         (d/q '[:find ?e
                :where (or-join [[?e]]
                         [?e :name "Ivan"])]
+             @test-db)))
+
+  (is (thrown-msg? "???"
+        (d/q '[:find ?e
+               :where
+               [(or ?e 1)]]
              @test-db))))
