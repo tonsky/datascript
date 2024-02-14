@@ -1,3 +1,7 @@
+# 1.6.2
+
+- Query: shortcircuit clause resolution when result is guaranteed to be empty #459 via @galdre
+
 # 1.6.1
 
 - Fixed JS version bug caused by Conn rewrite
