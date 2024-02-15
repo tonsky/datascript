@@ -1,3 +1,7 @@
+# 1.6.3
+
+- Fix regression in 1.6.2 #460 via @galdre
+
 # 1.6.2
 
 - Query: shortcircuit clause resolution when result is guaranteed to be empty #459 via @galdre
