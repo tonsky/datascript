@@ -138,6 +138,7 @@
                       (cond
                         (string? v)  v
                         #?@(:clj [(ratio? v) (write-other v)])
+                        #?@(:clj [(decimal? v) (write-other v)])
                         
                         (number? v)  
                         (cond
