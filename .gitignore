@@ -28,3 +28,4 @@ web/out
 web/target-cljs
 .rebl
 .shadow-cljs
+.clj-kondo

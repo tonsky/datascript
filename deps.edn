@@ -26,7 +26,8 @@
     :dev {
       :extra-paths ["dev"]
       :extra-deps {
-        org.clojure/tools.namespace {:mvn/version "1.3.0"}
+        io.github.tonsky/clj-reload {:mvn/version "0.4.3"}
+        io.github.tonsky/duti       {:git/sha "78bbf61953b9a685d02ff8cc63d04e4e8da81eb9"}
       }
     }
             
