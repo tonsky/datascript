@@ -95,7 +95,10 @@
   (or (keyword? form) (string? form)))
 
 (defn lookup-ref? [form]
-  (looks-like? [attr? '_] form))
+  (and
+    (or (sequential? form) (da/array? form))
+    (= 2 (count form))
+    (attr? (first form))))
 
 ;; Relation algebra
 
@@ -666,13 +669,17 @@
 
 (defn resolve-pattern-lookup-refs [source pattern]
   (if (satisfies? db/IDB source)
-    (let [[e a v tx] pattern]
-      (->
-        [(if (or (lookup-ref? e) (attr? e)) (db/entid-strict source e) e)
-         a
-         (if (and v (attr? a) (db/ref? source a) (or (lookup-ref? v) (attr? v))) (db/entid-strict source v) v)
-         (if (lookup-ref? tx) (db/entid-strict source tx) tx)]
-        (subvec 0 (count pattern))))
+    (let [[e a v tx] pattern
+          e'         (if (or (lookup-ref? e) (attr? e))
+                       (db/entid-strict source e)
+                       e)
+          v'         (if (and v (attr? a) (db/ref? source a) (or (lookup-ref? v) (attr? v)))
+                       (db/entid-strict source v)
+                       v)
+          tx'        (if (lookup-ref? tx)
+                       (db/entid-strict source tx)
+                       tx)]
+      (subvec [e' a v' tx'] 0 (count pattern)))
     pattern))
 
 (defn dynamic-lookup-attrs [source pattern]
