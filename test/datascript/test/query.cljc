@@ -265,5 +265,33 @@
               :where [?e :s b]]
             db)))))
 
+(deftest ^{:doc "issue-462"} test-constant-substitution
+  (let [cnt+q (fn [query db & sources]
+                (let [*cnt (volatile! 0)
+                      db'  (d/filter db
+                             (fn [db datom]
+                               (vswap! *cnt inc)
+                               true))
+                      res  (apply d/q query db' sources)]
+                  [@*cnt res]))
+        schema {:a {:db/index true}
+                :b {:db/index true}
+                :c {:db/index true}}
+        db     (-> (d/empty-db schema)
+                 (d/db-with
+                   (for [eid  (range 1 11)
+                         attr [:a :b :c]]
+                     [:db/add eid attr (str eid (name attr))])))]
+    (is (= [1 #{["5b"]}] (cnt+q '[:find ?v :where [5 :b ?v]] db)))
+    (is (= [1 #{[:b]}]   (cnt+q '[:find ?a :where [5 ?a "5b"]] db)))
+    (is (= [1 #{[5]}]    (cnt+q '[:find ?e :where [?e :b "5b"]] db)))
+    (is (= [1 #{[5 :b "5b"]}] (cnt+q '[:find ?e ?a ?v :in $ ?e ?a :where [?e ?a ?v]] db 5 :b)))
+    (is (= [2 #{[5 :b "5b"]}] (cnt+q '[:find ?e2 ?a ?v :in $ ?a ?v :where [?e ?a ?v] [?e2 ?a ?v]] db :b "5b")))
+    (is (= [3 #{[:a "5a"] [:b "5b"] [:c "5c"]}] (cnt+q '[:find ?a ?v :in $ ?e :where [?e ?a ?v]] db 5)))
+    (is (= [1 #{[5 :b]}] (cnt+q '[:find ?e ?a :where [?e ?a "5b"]] db)))
+    (is (= [1 #{[5 :b]}] (cnt+q '[:find ?e ?a :in $ ?v :where [?e ?a ?v]] db "5b")))
+    (is (= [1 #{[5 :b]}] (cnt+q '[:find ?e ?a :in $ [?v ...] :where [?e ?a ?v]] db ["5b"])))
+    (is (= [1 #{[5 :b]}] (cnt+q '[:find ?e ?a :where [(ground "5b") ?v] [?e ?a ?v]] db)))))
+
 #_(require 'datascript.test.query :reload)
 #_(clojure.test/test-ns 'datascript.test.query)

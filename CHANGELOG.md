@@ -1,3 +1,7 @@
+# WIP
+
+- Implement “constant substitution” optimization for queries #462
+
 # 1.6.3
 
 - Fix regression in 1.6.2 #460 via @galdre
