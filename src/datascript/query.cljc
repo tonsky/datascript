@@ -831,7 +831,6 @@
                  (sum-rel relation (Relation. bindings (:tuples rel')))))
              (Relation. bindings [])
              bound-patterns)]
-       (println "relation" relation)
        (binding [*lookup-attrs*
                  *lookup-attrs*]
          (update context :rels collapse-rels relation))))))
