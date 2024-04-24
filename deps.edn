@@ -26,8 +26,7 @@
     :dev {
       :extra-paths ["dev"]
       :extra-deps {
-        io.github.tonsky/clj-reload {:mvn/version "0.4.3"}
-        io.github.tonsky/duti       {:git/sha "78bbf61953b9a685d02ff8cc63d04e4e8da81eb9"}
+        io.github.tonsky/duti {:git/sha "0e934d934b0b5d1ab1a608f26b68f5467934b028"}
       }
     }
             

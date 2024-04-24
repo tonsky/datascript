@@ -1,26 +1,16 @@
 (ns user
   (:require
-    [clj-reload.core :as reload]
     [duti.core :as duti]))
 
-(reload/init
-  {:dirs ["src" "bench" "test" #_"bench_datomic" #_"test_datomic"]
-   :no-reload '#{user}})
+(duti/set-dirs "src" "bench" "test" #_"bench_datomic" #_"test_datomic")
 
-(defn reload [& [opts]]
+(def reload
+  duti/reload)
+
+(defn -main [& {:as args}]
   (set! *warn-on-reflection* true)
-  (let [res (reload/reload opts)
-        cnt (count (:loaded res))]
-    (str "Reloaded " cnt " namespace" (when (not= 1 cnt) "s"))))
-
-(defn -main [& args]
-  (let [args (apply array-map args)
-        ;; starting app
-        _    (set! *warn-on-reflection* true)
-        _    (require 'datascript.test)
-        ;; starting socket repl
-        port (some-> (get args "--port") parse-long)
-        _    (duti/start-socket-repl {:port port})]))
+  (require 'datascript.test)
+  (duti/start-socket-repl))
 
 (defn test-all []
   (reload)
