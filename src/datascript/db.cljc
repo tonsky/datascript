@@ -981,11 +981,26 @@
      :pull-attrs    (lru/cache 100)
      :hash          (atom 0)}))
 
-(defn- init-max-eid [eavt]
-  (or (-> (set/rslice eavt (datom (dec tx0) nil nil txmax) (datom e0 nil nil tx0))
-        (first)
-        (:e))
-    e0))
+(defn- init-max-eid [rschema eavt avet]
+  (let [max     #(if (and %2 (> %2 %1)) %2 %1)
+        max-eid (some->
+                  (set/rslice eavt
+                    (datom (dec tx0) nil nil txmax)
+                    (datom e0 nil nil tx0))
+                  first :e)
+        res     (max e0 max-eid)
+        max-ref (fn [attr]
+                  (some->
+                    (set/rslice avet
+                      (datom (dec tx0) attr (dec tx0) txmax)
+                      (datom e0 attr e0 tx0))
+                    first :v))
+        refs    (:db.type/ref rschema)
+        res     (reduce
+                  (fn [res attr]
+                    (max res (max-ref attr)))
+                  res refs)]
+    res))
 
 (defn ^DB init-db [datoms schema opts]
   (when-some [not-datom (first (drop-while datom? datoms))]
@@ -1004,7 +1019,7 @@
         avet-arr    (to-array avet-datoms)
         _           (arrays/asort avet-arr cmp-datoms-avet-quick)
         avet        (set/from-sorted-array cmp-datoms-avet avet-arr (arrays/alength avet-arr) opts)
-        max-eid     (init-max-eid eavt)
+        max-eid     (init-max-eid rschema eavt avet)
         max-tx      (transduce (map (fn [^Datom d] (datom-tx d))) max tx0 eavt)]
     (map->DB
       {:schema        schema

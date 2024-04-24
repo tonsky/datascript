@@ -1,6 +1,7 @@
 # WIP
 
 - Implement “constant substitution” optimization for queries #462
+- Fixed :max-eid for dangling entities during reader-based serialization #463
 
 # 1.6.3
 
