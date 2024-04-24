@@ -137,7 +137,12 @@
         write-v     (fn [v]
                       (cond
                         (string? v)  v
-                        #?@(:clj [(ratio? v) (write-other v)])
+                        #?@(:clj [(or
+                                    (instance? BigInteger v)
+                                    (instance? BigDecimal v)
+                                    (instance? clojure.lang.Ratio v)
+                                    (instance? clojure.lang.BigInt v))
+                                  (write-other v)])
                         
                         (number? v)  
                         (cond

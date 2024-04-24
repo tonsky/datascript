@@ -1,15 +1,15 @@
 (ns datascript.test.serialize
   (:require
-   [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-   #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-      :clj  [clojure.test :as t :refer        [is are deftest testing]])
-   [datascript.core :as d]
-   [datascript.db :as db]
-   [datascript.test.core :as tdc]
-   #?(:clj [cheshire.core :as cheshire])
-   #?(:clj [jsonista.core :as jsonista]))
-   #?(:clj
-      (:import [clojure.lang ExceptionInfo])))
+    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
+    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [datascript.core :as d]
+    [datascript.db :as db]
+    [datascript.test.core :as tdc]
+    #?(:clj [cheshire.core :as cheshire])
+    #?(:clj [jsonista.core :as jsonista]))
+  #?(:clj
+     (:import [clojure.lang ExceptionInfo])))
 
 (t/use-fixtures :once tdc/no-namespace-maps)
 
@@ -31,17 +31,17 @@
         (is (= d (read-fn (pr-str d)))))
       
       (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
-                   (d/db-with [ [:db/add 1 :name "Petr"]
-                                [:db/add 1 :age 44] ])
-                   (d/db-with [ [:db/add 2 :name "Ivan"] ]))]
+                 (d/db-with [[:db/add 1 :name "Petr"]
+                             [:db/add 1 :age 44]])
+                 (d/db-with [[:db/add 2 :name "Ivan"]]))]
         (is (= (pr-str db)
-               (str "#datascript/DB {"
-                    ":schema {:name {:db/unique :db.unique/identity}}, "
-                    ":datoms ["
-                      "[1 :age 44 536870913] "
-                      "[1 :name \"Petr\" 536870913] "
-                      "[2 :name \"Ivan\" 536870914]"
-                    "]}")))
+              (str "#datascript/DB {"
+                ":schema {:name {:db/unique :db.unique/identity}}, "
+                ":datoms ["
+                "[1 :age 44 536870913] "
+                "[1 :name \"Petr\" 536870913] "
+                "[2 :name \"Ivan\" 536870914]"
+                "]}")))
         (is (= db (read-fn (pr-str db))))))))
 
 
@@ -54,34 +54,38 @@
    [1 :email   "petr@gmail.com"]
    [1 :avatar  10]
    [10 :url    "http://"]
-   [1 :attach  { :some-key :some-value }]
+   [1 :attach  {:some-key :some-value}]
    [2 :name    "Oleg"]
    [2 :age     30]
    [2 :email   "oleg@gmail.com"]
-   [2 :attach  [ :just :values ]]
+   [2 :attach  [:just :values]]
    [3 :name    "Ivan"]
    [3 :age     15]
    [3 :follows 2]
-   [3 :attach  { :another :map }]
+   [3 :attach  {:another :map}]
    [3 :avatar  30]
    [4 :name    "Nick" d/tx0]
    [5 :inf     ##Inf]
    [5 :-inf    ##-Inf]
+   #?@(:clj [[5 :ratio      22/7]
+             [5 :bigint     (bigint 100)]
+             [5 :biginteger (biginteger 100)]
+             [5 :bigdec     (bigdec 100.005)]])
    ;; check that facts about transactions doesn’t set off max-eid
    [d/tx0      :txInstant 0xdeadbeef]
-   [30 :url    "https://" ]])
+   [30 :url    "https://"]])
 
 
 (def schema 
-  { :name    { } ;; nothing special about name
-    :aka     { :db/cardinality :db.cardinality/many }
-    :age     { :db/index true }
-    :follows { :db/valueType :db.type/ref }
-    :email   { :db/unique :db.unique/identity }
-    :avatar  { :db/valueType :db.type/ref, :db/isComponent true }
-    :url     { } ;; just a component prop
-    :attach  { } ;; should skip index
-})
+  {:name    {} ;; nothing special about name
+   :aka     {:db/cardinality :db.cardinality/many}
+   :age     {:db/index true}
+   :follows {:db/valueType :db.type/ref}
+   :email   {:db/unique :db.unique/identity}
+   :avatar  {:db/valueType :db.type/ref, :db/isComponent true}
+   :url     {} ;; just a component prop
+   :attach  {} ;; should skip index
+   })
 
 
 (deftest test-init-db
@@ -98,7 +102,7 @@
     (testing "db-init produces the same max-eid as regular transactions"
       (let [assertions [ [:db/add -1 :name "Lex"] ]]
         (is (= (d/db-with db-init assertions)
-               (d/db-with db-transact assertions)))))
+              (d/db-with db-transact assertions)))))
     
     (testing "Roundtrip"
       (doseq [[r read-fn] readers]
