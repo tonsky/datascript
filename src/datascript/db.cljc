@@ -1377,7 +1377,12 @@
   [db entity]
   (if-some [idents (not-empty (-attrs-by db :db.unique/identity))]
     (let [resolve (fn [a v]
-                    (:e (first (-datoms db :avet a v nil nil))))
+                    (cond
+                      (not (ref? db a))
+                      (:e (first (-datoms db :avet a v nil nil)))
+                      
+                      (not (tempid? v))
+                      (:e (first (-datoms db :avet a (entid db v) nil nil)))))
           split   (fn [a vs]
                     (reduce
                       (fn [acc v]

@@ -2,6 +2,7 @@
 
 - Implement “constant substitution” optimization for queries #462
 - Fixed :max-eid for dangling entities during reader-based serialization #463
+- Fixed tempid in unique refs #464
 
 # 1.6.3
 
