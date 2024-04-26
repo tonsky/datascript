@@ -391,8 +391,9 @@
 (defn lookup-pattern-db [db pattern]
   ;; TODO optimize with bound attrs min/max values here
   (let [search-pattern (mapv #(if (or (= % '_) (free-var? %)) nil %) pattern)
-        datoms         (db/-search db search-pattern)
-        attr->prop     (->> (map vector pattern ["e" "a" "v" "tx"])
+        datoms         (for [d (db/-search db search-pattern)]
+                         (into-array Object d))
+        attr->prop     (->> (map vector pattern (range))
                             (filter (fn [[s _]] (free-var? s)))
                             (into {}))]
     (Relation. attr->prop datoms)))
@@ -529,16 +530,26 @@
                    (prod-rel (assoc production :tuples []) (empty-rel binding)))]
     (update context :rels collapse-rels new-rel)))
 
-(defn substitute-constant [context pattern-el]
-  (when (free-var? pattern-el)
-    (when-some [rel (rel-with-attr context pattern-el)]
-      (when-some [tuple (first (:tuples rel))]
-        (when (nil? (fnext (:tuples rel)))
-          (let [idx (get (:attrs rel) pattern-el)]
-            (#?(:cljs da/aget :clj get) tuple idx)))))))
-
-(defn substitute-constants [context pattern]
-  (mapv #(or (substitute-constant context %) %) pattern))
+(defn expand-patterns [context pattern]
+  (let [[bindings candidates]
+        (reduce
+          (fn [[bindings pattern-candidates] [pattern-el pos]]
+            (if (free-var? pattern-el)
+              (if-some [rel (rel-with-attr context pattern-el)]
+                (let [tuples (:tuples rel)
+                      idx    (get (:attrs rel) pattern-el)]
+                  [(assoc bindings pattern-el pos) (conj pattern-candidates (into #{} (map (fn [tuple] (#?(:cljs da/aget :clj get) tuple idx))) tuples))])
+                [(assoc bindings pattern-el pos) (conj pattern-candidates #{pattern-el})])
+              [bindings (conj pattern-candidates #{pattern-el})]))
+          [{} []]
+          (zipmap pattern (range)))]
+    [bindings
+     (case (count candidates)
+       1 (let [[es] candidates] (for [e es] [e]))
+       2 (let [[es as] candidates] (for [e es a as] [e a]))
+       3 (let [[es as vs] candidates] (for [e es a as v vs] [e a v]))
+       4 (let [[es as vs ts] candidates] (for [e es a as v vs t ts] [e a v t]))
+       5 (let [[es as vs ts ops] candidates] (for [e es a as v vs t ts op ops] [e a v t op])))]))
 
 ;;; RULES
 
@@ -805,16 +816,23 @@
                               (single (:rels context'))
                               (reduce hash-join (:rels negation-context)))]
        (assoc context' :rels [negation]))
-     
-     '[*] ;; pattern
-     (let [source   *implicit-source*
-           pattern  (->> clause
-                      (substitute-constants context)
-                      (resolve-pattern-lookup-refs source))
-           relation (lookup-pattern source pattern)]
-       (binding [*lookup-attrs* (if (satisfies? db/IDB source)
-                                  (dynamic-lookup-attrs source pattern)
-                                  *lookup-attrs*)]
+
+     '[*]                                                   ;; pattern
+     (let [source
+           *implicit-source*
+           generic-pattern
+           (resolve-pattern-lookup-refs source clause)
+           [bindings bound-patterns]
+           (expand-patterns context generic-pattern)
+           relation
+           (reduce
+             (fn [relation pattern]
+               (let [rel' (lookup-pattern source pattern)]
+                 (sum-rel relation (Relation. bindings (:tuples rel')))))
+             (Relation. bindings [])
+             bound-patterns)]
+       (binding [*lookup-attrs*
+                 *lookup-attrs*]
          (update context :rels collapse-rels relation))))))
 
 (defn resolve-clause [context clause]
