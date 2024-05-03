@@ -190,6 +190,34 @@
        ($2 or ($ or [?e :name "Ivan"]))]
       #{1})))
 
+(deftest ^{:doc "issue-468, issue-469"} test-const-substitution
+  (let [db (-> (d/empty-db {:parent {:db/valueType :db.type/ref}})
+             (d/db-with [{:db/id "Ivan" :name "Ivan"}
+                         {:db/id "Oleg" :name "Oleg" :parent "Ivan"}
+                         {:db/id "Petr" :name "Petr" :parent "Oleg"}]))]
+    (is (= #{["Ivan" 1 2]}
+          (d/q '[:find ?name ?x ?y
+                 :in $ ?name
+                 :where
+                 [?x :name ?name]
+                 (or-join [?x ?y]
+                   (and
+                     [?x :parent ?z]
+                     [?z :parent ?y])
+                   [?y :parent ?x])]
+            db "Ivan")))
+
+    (is (= #{}
+          (d/q '[:find ?name ?x ?y
+                 :in $ ?name
+                 :where
+                 [?x :name ?name]
+                 (or-join [?x ?y]
+                   (and
+                     [?x :parent ?z]
+                     [?z :parent ?y])
+                   [?x :parent ?y])]
+            db "Ivan")))))
 
 (deftest test-errors
   (is (thrown-with-msg? ExceptionInfo #"All clauses in 'or' must use same set of free vars, had \[#\{\?e\} #\{(\?a \?e|\?e \?a)\}\] in \(or \[\?e :name _\] \[\?e :age \?a\]\)"

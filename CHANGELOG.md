@@ -1,3 +1,7 @@
+# 1.6.5 - May 3, 2024
+
+- Regression: fixed some OR queries broken in 1.6.4 #468 #469
+
 # 1.6.4
 
 - Implement “constant substitution” optimization for queries #462
