@@ -19,11 +19,11 @@ The intention with DataScript is to be a basic building block in client-side app
 
 ```clj
 ;; lein
-[datascript "1.6.4"]
+[datascript "1.6.5"]
 ```
 ```clj
 ;; deps.edn
-datascript/datascript {:mvn/version "1.6.4"}
+datascript/datascript {:mvn/version "1.6.5"}
 ```
 
 Important! If you are using shadow-cljs, add
@@ -182,7 +182,7 @@ For more examples, see [our acceptance test suite](test/datascript/test/).
 DataScript can be used from any JS engine without additional dependencies:
 
 ```html
-<script src="https://github.com/tonsky/datascript/releases/download/1.6.4/datascript-1.6.4.min.js"></script>
+<script src="https://github.com/tonsky/datascript/releases/download/1.6.5/datascript-1.6.5.min.js"></script>
 ```
 
 or as a CommonJS module ([npm page](https://www.npmjs.org/package/datascript)):
