@@ -272,6 +272,8 @@
     ;; restore conn with tail
     (let [conn' (d/restore-conn storage)]
       (is (= @conn @conn'))
+      (is (= (:max-eid @conn) (:max-eid @conn')))
+      (is (= (:max-tx @conn) (:max-tx @conn')))
       
       ;; transact keeps working on restored conn
       (d/transact! conn' [[:db/add 35 :name "Vera"]])

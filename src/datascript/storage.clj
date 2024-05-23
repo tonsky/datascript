@@ -152,7 +152,11 @@
 (defn db-with-tail [db tail]
   (reduce
     (fn [db datoms]
-      (reduce db/with-datom db datoms))
+      (if (empty? datoms)
+        db
+        (as-> db %
+          (reduce db/with-datom % datoms)
+          (assoc % :max-tx (:tx (first datoms))))))
     db tail))
 
 (defn restore
