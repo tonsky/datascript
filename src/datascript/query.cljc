@@ -556,17 +556,6 @@
                    (prod-rel (assoc production :tuples []) (empty-rel binding)))]
     (update context :rels collapse-rels new-rel)))
 
-(defn substitute-constant [context pattern-el]
-  (when (free-var? pattern-el)
-    (when-some [rel (rel-with-attr context pattern-el)]
-      (when-some [tuple (first (:tuples rel))]
-        (when (nil? (fnext (:tuples rel)))
-          (let [idx (get (:attrs rel) pattern-el)]
-            (#?(:cljs da/aget :clj get) tuple idx)))))))
-
-(defn substitute-constants [context pattern]
-  (mapv #(or (substitute-constant context %) %) pattern))
-
 ;;; RULES
 
 (defn rule? [context clause]
