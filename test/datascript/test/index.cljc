@@ -63,7 +63,25 @@
             (d/datoms db :avet :name "Ivan")))
 
       (is (thrown-msg? "Attribute :name should be marked as :db/index true"
-            (d/datoms db :avet :name "Ivan" 1))))))
+            (d/datoms db :avet :name "Ivan" 1))))
+    
+    (testing "Sequence compare issue-470"
+      (let [db (-> (d/empty-db {:path {:db/index true}})
+                 (d/db-with [{:db/id 1 :path [1 2]}
+                             {:db/id 2 :path [1 2 3]}]))]
+        (are [value result] (= result (mapv :e (d/datoms db :avet :path value)))
+          [1]                 []
+          [1 1]               []
+          [1 2]               [1]
+          (list 1 2)          [1]
+          (butlast [1 2 3])   [1]
+          [1 3]               []
+          [1 2 2]             []
+          [1 2 3]             [2]
+          (list 1 2 3)        [2]
+          (butlast [1 2 3 4]) [2]
+          [1 2 4]             []
+          [1 2 3 4]           [])))))
 
 (deftest test-datom
   (let [dvec #(when % (vector (:e %) (:a %) (:v %)))

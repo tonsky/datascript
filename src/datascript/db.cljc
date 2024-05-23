@@ -438,11 +438,46 @@
   #?(:clj  (. clojure.lang.Util (hasheq x))
      :cljs (hash x)))
 
-(defn value-compare
-  ^long [x y]
+(declare+ ^number value-compare [x y])
+
+(defn- seq-compare [xs ys]
+  (let [cx (count xs)
+        cy (count ys)]
+    (cond
+      (< cx cy)
+      -1
+      
+      (> cx cy)
+      1
+      
+      :else
+      (loop [xs xs
+             ys ys]
+        (if (empty? xs)
+          0
+          (let [x (first xs)
+                y (first ys)]
+            (cond
+              (and (nil? x) (nil? y))
+              (recur (next xs) (next ys))
+                
+              (nil? x)
+              -1
+                
+              (nil? y)
+              1
+                
+              :else
+              (let [v (value-compare x y)]
+                (if (= v 0)
+                  (recur (next xs) (next ys))
+                  v)))))))))
+
+(defn+ ^number value-compare [x y]
   (try
     (cond
       (= x y) 0
+      (and (sequential? x) (sequential? y)) (seq-compare x y)
       #?@(:clj  [(instance? Number x)       (clojure.lang.Numbers/compare x y)])
       #?@(:clj  [(instance? Comparable x)   (.compareTo ^Comparable x y)]
           :cljs [(satisfies? IComparable x) (-compare x y)])
