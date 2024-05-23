@@ -264,11 +264,7 @@ Interface differences:
 * Custom aggregate functions are called via aggregate keyword: `:find (aggregate ?myfn ?e) :in $ ?myfn`
 * Additional `:db.fn/retractAttribute` shortcut
 * Transactions are not annotated by default with `:db/txInstant`
-
-Expected soon:
-
-* Better error reporting
-* Proper documentation
+* When “transaction function” is called, the db that this function receive is a “partial db” relative to it's position in transaction.
 
 ## Differences from Datomic
 
@@ -277,13 +273,10 @@ Expected soon:
 * Simplified schema, not queryable
 * Attributes do not have to be declared in advance. Put them to schema only when you need special behaviour from them
 * Any type can be used for values
-* No `:db/ident` attributes, keywords are _literally_ attribute values, no integer id behind them
+* No `:db/ident` for attributes, keywords are _literally_ attribute values, no integer id behind them
 * No schema migrations
-* No cache segments management, no laziness. Entire DB must reside in memory
-* No facilities to persist, transfer over the wire or sync DB with the server
-* No pluggable storage options, no full-text search, no partitions
+* No full-text search, no partitions
 * No external dependencies
-* Free
 
 Aimed at interactive, long-living browser applications, DataScript DBs operate in constant space. If you do not add new entities, just update existing ones, or clean up database from time to time, memory consumption will be limited. This is unlike Datomic which keeps history of all changes, thus grows monotonically. DataScript does not track history by default, but you can do it via your own code if needed.
 
@@ -324,6 +317,6 @@ Benchmark:
 
 ## License
 
-Copyright © 2014–2021 Nikita Prokopov
+Copyright © 2014–2024 Nikita Prokopov
 
 Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
