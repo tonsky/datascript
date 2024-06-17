@@ -2,6 +2,7 @@
 
 - Stable sorting of sequences of various types #470
 - Correctly restore `:max-tx` from storage
+- Fixed tempid/upsert resolution when multiple tempids are added first #472
 
 # 1.6.5 - May 3, 2024
 

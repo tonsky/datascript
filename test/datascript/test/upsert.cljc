@@ -196,7 +196,6 @@
     
     ))
 
-
 (deftest test-redefining-ids
   (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity }})
              (d/db-with [{:db/id -1 :name "Ivan"}]))]
@@ -252,6 +251,26 @@
     (is (= expected (tdc/all-datoms
                       (d/db-with db [[:db/add -1, :name "Alice"]
                                      {:age 36, :ref -1}]))))))
+
+;; https://github.com/tonsky/datascript/issues/472
+(deftest test-two-tempids-two-retries
+  (let [schema   {:name {:db/unique :db.unique/identity}
+                  :ref {:db/valueType :db.type/ref}}
+        db       (d/db-with
+                   (d/empty-db schema)
+                   [{:name "Alice"}
+                    {:name "Bob"}])
+        expected #{[1 :name "Alice"]
+                   [2 :name "Bob"]
+                   [3 :ref 1]
+                   [4 :ref 2]}]
+    (is (= expected
+          (tdc/all-datoms
+            (d/db-with db
+              [{:db/id 3, :ref "A"}
+               {:db/id 4, :ref "B"}
+               {:db/id "A", :name "Alice"}
+               {:db/id "B", :name "Bob"}]))))))
 
 (deftest test-vector-upsert
   (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})

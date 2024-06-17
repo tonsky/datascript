@@ -1562,15 +1562,17 @@
 (declare+ transact-tx-data [initial-report initial-es])
 
 (defn- retry-with-tempid [initial-report report es tempid upserted-eid]
-  (if (contains? (:tempids initial-report) tempid)
+  (if-some [eid (get (::upserted-tempids initial-report) tempid)]
     (raise "Conflicting upsert: " tempid " resolves"
-           " both to " upserted-eid " and " (get-in initial-report [:tempids tempid])
+      " both to " upserted-eid " and " eid
       {:error :transact/upsert})
     ;; try to re-run from the beginning
     ;; but remembering that `tempid` will resolve to `upserted-eid`
     (let [tempids' (-> (:tempids report)
                      (assoc tempid upserted-eid))
-          report'  (assoc initial-report :tempids tempids')]
+          report'  (-> initial-report
+                     (assoc :tempids tempids')
+                     (update ::upserted-tempids assoc tempid upserted-eid))] 
       (transact-tx-data report' es))))
 
 (def builtin-fn?
@@ -1634,6 +1636,7 @@
         (empty? es)
         (-> report
           (check-value-tempids)
+          (dissoc ::upserted-tempids)
           (update :tempids assoc :db/current-tx (current-tx report))
           (update :db-after update :max-tx inc)
           #_(update :db-after persistent!))
