@@ -7,10 +7,8 @@
 (def reload
   duti/reload)
 
-(defn -main [& {:as args}]
-  (set! *warn-on-reflection* true)
-  (require 'datascript.test)
-  (duti/start-socket-repl))
+(def -main
+  duti/-main)
 
 (defn test-all []
   (duti/test #"datascript\.test\..*"))

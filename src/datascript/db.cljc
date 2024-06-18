@@ -56,7 +56,7 @@
         :do   `(do ~expr (cond+ ~@rest))
         :let  `(let ~expr (cond+ ~@rest))
         :some `(or ~expr (cond+ ~@rest))
-              `(if ~test ~expr (cond+ ~@rest))))))
+              `(util/if+ ~test ~expr (cond+ ~@rest))))))
 
 #?(:clj
 (defmacro some-of
@@ -1354,17 +1354,13 @@
           entity
           (assoc entity :db/id (auto-tempid))))
        
-      (not (sequential? entity))
-      entity
-       
-      :let [[op e a v] entity]
-        
-      (and (= :db/add op) (ref? db a))
-      (cond
-        (and (multival? db a) (sequential? v))
+      (and
+        (sequential? entity)
+        :let [[op e a v] entity]
+        (= :db/add op)
+        (ref? db a))
+      (if (and (multival? db a) (sequential? v))
         [op e a (assoc-auto-tempids db v)]
-          
-        :else
         [op e a (first (assoc-auto-tempids db [v]))])
         
       :else
@@ -1664,7 +1660,8 @@
                      (assoc tempid upserted-eid))
           report'  (-> initial-report
                      (assoc :tempids tempids')
-                     (update ::upserted-tempids assoc tempid upserted-eid))] 
+                     (update ::upserted-tempids assoc tempid upserted-eid))]
+      (util/log "retry" tempid "->" upserted-eid)
       (transact-tx-data-impl report' es))))
 
 (def builtin-fn?
@@ -1718,6 +1715,7 @@
                           initial-es)]
     (loop [report initial-report'
            es     initial-es']
+      (util/log "transact" es)
       (cond+
         (empty? es)
         (-> report
@@ -1858,8 +1856,9 @@
               (or (= op :db/add) (= op :db/retract))
               (not (::internal (meta entity)))
               (tuple? db a)
-              (not= v (resolve-tuple-refs db a v)))
-            (recur report (cons [op e a (resolve-tuple-refs db a v)] entities))
+              :let [v' (resolve-tuple-refs db a v)]
+              (not= v v'))
+            (recur report (cons [op e a v'] entities))
 
             (tempid? e)
             (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
@@ -1873,11 +1872,12 @@
             (and
               (is-attr? db a :db.unique/identity)
               (contains? (::reverse-tempids report) e)
-              (let [upserted-eid (:e (first (-datoms db :avet a v nil nil)))]
-                (and e upserted-eid (not= e upserted-eid))))
+              :let [upserted-eid (:e (first (-datoms db :avet a v nil nil)))]
+              e
+              upserted-eid
+              (not= e upserted-eid))
             (let [tempids      (get (::reverse-tempids report) e)
-                  tempid       (util/find #(not (contains? (::upserted-tempids report) %)) tempids)
-                  upserted-eid (:e (first (-datoms db :avet a v nil nil)))]
+                  tempid       (util/find #(not (contains? (::upserted-tempids report) %)) tempids)]
               (if tempid
                 (retry-with-tempid initial-report report initial-es tempid upserted-eid)
                 (raise "Conflicting upsert: " e " resolves to " upserted-eid " via " entity
