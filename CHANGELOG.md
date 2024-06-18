@@ -4,6 +4,7 @@
 - Correctly restore `:max-tx` from storage
 - Fixed tempid/upsert resolution when multiple tempids are added first #472
 - Allow upsert by implicit tuple when only tuple components are specified #473
+- Allow lookup-refs inside tuples used for lookup-refs #452
 
 # 1.6.5 - May 3, 2024
 

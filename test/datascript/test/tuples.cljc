@@ -293,6 +293,37 @@
             :c     "c"}
           (d/pull (d/db conn) '[*] [:a+b ["a" "b"]])))))
 
+;; https://github.com/tonsky/datascript/issues/452
+(deftest lookup-refs-in-tuple
+  (let [schema {:ref      {:db/valueType :db.type/ref}
+                :name     {:db/unique :db.unique/identity}
+                :ref+name {:db/valueType :db.type/tuple
+                           :db/tupleAttrs [:ref :name]
+                           :db/unique :db.unique/identity}}
+        db     (-> (d/empty-db schema)
+                 (d/db-with
+                   [{:db/id -1 :name "Ivan"}
+                    {:db/id -2 :name "Oleg"}
+                    {:db/id -3 :name "Petr" :ref -1}
+                    {:db/id -4 :name "Yuri" :ref -2}]))]
+    (let [db' (d/db-with db [{:ref+name [1 "Petr"], :age 32}])]
+      (is (= {:age 32} (d/pull db' [:age] 3))))
+    
+    (let [db' (d/db-with db [{:ref+name [[:name "Ivan"] "Petr"], :age 32}])]
+      (is (= {:age 32} (d/pull db' [:age] 3))))
+    
+    (let [db' (d/db-with db [[:db/add -1 :ref+name [1 "Petr"]]
+                             [:db/add -1 :age 32]])]
+      (is (= {:age 32} (d/pull db' [:age] 3))))
+    
+    (let [db' (d/db-with db [[:db/add -1 :ref+name [[:name "Ivan"] "Petr"]]
+                             [:db/add -1 :age 32]])]
+      (is (= {:age 32} (d/pull db' [:age] 3))))
+    
+    (is (= 1 (:db/id (d/entity db [:name "Ivan"]))))
+    (is (= 3 (:db/id (d/entity db [:ref+name [1 "Petr"]]))))
+    (is (= 3 (:db/id (d/entity db [:ref+name [[:name "Ivan"] "Petr"]]))))))
+
 (deftest test-validation
   (let [db  (d/empty-db {:a+b {:db/tupleAttrs [:a :b]}})
         db1 (d/db-with db [[:db/add 1 :a "a"]])]

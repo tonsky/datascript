@@ -1238,6 +1238,14 @@
     (raise "Bad attribute type: " attr ", expected keyword or string"
       {:error :transact/syntax, :attribute attr})))
 
+(defn resolve-tuple-refs [db a vs]
+  (mapv
+    (fn [a v]
+      (if (and (ref? db a) (sequential? v)) ;; lookup-ref
+        (entid-strict db v)
+        v))
+    (-> db -schema (get a) :db/tupleAttrs) vs))
+
 (defn+ ^number entid [db eid]
   {:pre [(db? db)]}
   (cond
@@ -1250,15 +1258,22 @@
     (let [[attr value] eid]
       (cond
         (not= (count eid) 2)
-          (raise "Lookup ref should contain 2 elements: " eid
-            {:error :lookup-ref/syntax, :entity-id eid})
+        (raise "Lookup ref should contain 2 elements: " eid
+          {:error :lookup-ref/syntax, :entity-id eid})
+        
         (not (is-attr? db attr :db/unique))
-          (raise "Lookup ref attribute should be marked as :db/unique: " eid
-            {:error :lookup-ref/unique, :entity-id eid})
+        (raise "Lookup ref attribute should be marked as :db/unique: " eid
+          {:error :lookup-ref/unique, :entity-id eid})
+        
+        (tuple? db attr)
+        (let [value' (resolve-tuple-refs db attr value)]
+          (-> (-datoms db :avet attr value' nil nil) first :e))
+        
         (nil? value)
-          nil
+        nil
+        
         :else
-          (-> (-datoms db :avet attr value nil nil) first :e)))
+        (-> (-datoms db :avet attr value nil nil) first :e)))
     
     #?@(:cljs [(array? eid) (recur db (array-seq eid))])
     
@@ -1838,6 +1853,13 @@
                                (allocate-eid v resolved)
                                (update ::value-tempids assoc resolved v))]
                 (recur report' es)))
+            
+            (and
+              (or (= op :db/add) (= op :db/retract))
+              (not (::internal (meta entity)))
+              (tuple? db a)
+              (not= v (resolve-tuple-refs db a v)))
+            (recur report (cons [op e a (resolve-tuple-refs db a v)] entities))
 
             (tempid? e)
             (let [upserted-eid  (when (is-attr? db a :db.unique/identity)
@@ -1861,7 +1883,8 @@
                 (raise "Conflicting upsert: " e " resolves to " upserted-eid " via " entity
                   {:error :transact/upsert})))
             
-            (and (not (::internal (meta entity)))
+            (and
+              (not (::internal (meta entity)))
               (tuple? db a))
             ;; allow transacting in tuples if they fully match already existing values
             (let [tuple-attrs (get-in db [:schema a :db/tupleAttrs])]
