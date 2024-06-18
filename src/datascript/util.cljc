@@ -1,7 +1,8 @@
 (ns datascript.util
   #?(:clj
      (:import
-       [java.util UUID])))
+       [java.util UUID]))
+  (:refer-clojure :exclude [find]))
 
 (def ^:dynamic *debug*
   false)
@@ -69,3 +70,19 @@
       coll)
     second
     persistent!))
+
+(defn find [pred xs]
+  (reduce
+    (fn [_ x]
+      (when (pred x)
+        (reduced x)))
+    nil xs))
+
+(defn removem [key-pred m]
+  (persistent!
+    (reduce-kv
+      (fn [m k v]
+        (if (key-pred k)
+          m
+          (assoc! m k v)))
+      (transient (empty m)) m)))

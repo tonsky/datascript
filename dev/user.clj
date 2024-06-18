@@ -13,9 +13,7 @@
   (duti/start-socket-repl))
 
 (defn test-all []
-  (reload)
   (duti/test #"datascript\.test\..*"))
 
 (defn -test-main [_]
-  (reload {:only #"datascript\.test\..*"})
   (duti/test-exit #"datascript\.test\..*"))

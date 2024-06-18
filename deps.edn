@@ -1,64 +1,51 @@
-{ 
-  :deps {
-    persistent-sorted-set/persistent-sorted-set {:mvn/version "0.3.0"}
-    io.github.tonsky/extend-clj {:mvn/version "0.1.0"}
-  }
+{:deps
+ {persistent-sorted-set/persistent-sorted-set {:mvn/version "0.3.0"}
+  io.github.tonsky/extend-clj {:mvn/version "0.1.0"}}
   
-  :aliases {
-    :1.9 {
-      :override-deps {
-        org.clojure/clojure {:mvn/version "1.9.0"}
-      }
-    }
+ :aliases
+ {:cljs
+  {:extra-paths ["test"]
+   :extra-deps
+   {org.clojure/clojurescript {:mvn/version "1.11.132"}}}
   
-    :1.10 {
-      :override-deps {
-        org.clojure/clojure {:mvn/version "1.10.2"}
-      }
-    }
+  :1.9
+  {:override-deps
+   {org.clojure/clojure {:mvn/version "1.9.0"}}}
+  
+  :1.10
+  {:override-deps
+   {org.clojure/clojure {:mvn/version "1.10.2"}}}
 
-    :1.11.1 {
-      :override-deps {
-        org.clojure/clojure {:mvn/version "1.11.1"}
-      }
-    }
+  :1.11.1
+  {:override-deps
+   {org.clojure/clojure {:mvn/version "1.11.1"}}}
 
-    :dev {
-      :extra-paths ["dev"]
-      :extra-deps {
-        io.github.tonsky/duti {:git/sha "0e934d934b0b5d1ab1a608f26b68f5467934b028"}
-      }
-    }
+  :dev
+  {:extra-paths ["dev"]
+   :extra-deps
+   {io.github.tonsky/duti {:git/sha "fc833a87a8687b67e66281e216eeee1ad6048168"}}}
             
-    :test {
-      :extra-paths ["test"]
-      :extra-deps {
-        org.clojure/clojurescript  {:mvn/version "1.10.520"}
-        metosin/jsonista           {:mvn/version "0.3.3"}
-        cheshire/cheshire          {:mvn/version "5.10.0"}
-        com.cognitect/transit-clj  {:mvn/version "1.0.324"}
-        com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-      }
-    }
+  :test
+  {:extra-paths ["test"]
+   :extra-deps
+   {org.clojure/clojurescript  {:mvn/version "1.10.520"}
+    metosin/jsonista           {:mvn/version "0.3.3"}
+    cheshire/cheshire          {:mvn/version "5.10.0"}
+    com.cognitect/transit-clj  {:mvn/version "1.0.324"}
+    com.cognitect/transit-cljs {:mvn/version "0.8.269"}}}
 
-    :bench {
-      :extra-paths ["bench"]
-      :jvm-opts ["-server"
-                 "-XX:+UnlockDiagnosticVMOptions"
-                 "-Djdk.attach.allowAttachSelf"
-                 "-XX:+DebugNonSafepoints"]
-      :extra-deps {
-        metosin/jsonista    {:mvn/version "0.3.3"}
-        criterium/criterium {:mvn/version "0.4.6"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
-      }
-    }
+  :bench
+  {:extra-paths ["bench"]
+   :jvm-opts ["-server"
+              "-XX:+UnlockDiagnosticVMOptions"
+              "-Djdk.attach.allowAttachSelf"
+              "-XX:+DebugNonSafepoints"]
+   :extra-deps
+   {metosin/jsonista    {:mvn/version "0.3.3"}
+    criterium/criterium {:mvn/version "0.4.6"}
+    com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}}}
 
-    :datomic {
-      :extra-paths ["bench_datomic" "test_datomic"]
-      :extra-deps {
-        com.datomic/peer {:mvn/version "1.0.6735"}
-      }
-    }
-  }
-}
+  :datomic
+  {:extra-paths ["bench_datomic" "test_datomic"]
+   :extra-deps
+   {com.datomic/peer {:mvn/version "1.0.6735"}}}}}

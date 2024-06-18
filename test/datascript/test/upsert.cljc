@@ -29,15 +29,15 @@
       (let [tx (d/with db [{:name "Ivan" :age 35}])]
         (is (= {:db/id 1 :name "Ivan" :email "@1" :age 35}
               (pull tx 1)))
-        (is (= (tempids tx)
-              {}))))
+        (is (= {}
+              (tempids tx)))))
 
     (testing "upsert by 2 attrs, no tempid"
       (let [tx (d/with db [{:name "Ivan" :email "@1" :age 35}])]
         (is (= {:db/id 1 :name "Ivan" :email "@1" :age 35}
               (pull tx 1)))
-        (is (= (tempids tx)
-              {}))))
+        (is (= {}
+              (tempids tx)))))
     
     (testing "upsert with tempid"
       (let [tx (d/with db [{:db/id -1 :name "Ivan" :age 35}])]
@@ -114,8 +114,8 @@
       (let [tx (d/with db [{:name "Ivan" :email "@5" :age 35}])]
         (is (= {:db/id 1 :name "Ivan" :email "@5" :age 35}
               (pull tx 1)))
-        (is (= (tempids tx)
-              {}))))
+        (is (= {}
+              (tempids tx)))))
 
     (testing "upsert by 2 conflicting fields"
       (is (thrown-with-msg? Throwable #"Conflicting upserts: \[:name \"Ivan\"\] resolves to 1, but \[:email \"@2\"\] resolves to 2"
@@ -126,8 +126,8 @@
                            {:name "Igor" :age 36}])]
         (is (= {:db/id 5 :name "Igor" :age 36}
               (pull tx 5)))
-        (is (= (tempids tx)
-              {5 5}))))
+        (is (= {}
+              (tempids tx)))))
     
     (testing "upsert over intermediate db, tempids"
       (let [tx (d/with db [{:db/id -1 :name "Igor" :age 35}

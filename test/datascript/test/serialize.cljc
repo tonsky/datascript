@@ -117,7 +117,7 @@
 (deftest ^{:doc "issue-463"} test-max-eid-from-refs
   (let [db (-> (d/empty-db {:ref {:db/valueType :db.type/ref}})
              (d/db-with [[:db/add 1 :name "Ivan"]])
-             (d/db-with [{:db/id 1 :ref {}}]))]
+             (d/db-with [{:db/id 1 :ref {:name "Oleg"}}]))]
     (is (= 2 (:max-eid db)))
     (doseq [[r read-fn] readers]
       (testing r

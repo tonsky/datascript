@@ -58,21 +58,21 @@
 (deftest test-explode-nested-maps
   (let [schema { :profile { :db/valueType :db.type/ref }}
         db     (d/empty-db schema)]
-    (are [tx res] (= (d/q '[:find ?e ?a ?v
-                            :where [?e ?a ?v]]
-                          (d/db-with db tx)) res)
-      [ {:db/id 5 :name "Ivan" :profile {:db/id 7 :email "@2"}} ]
-      #{ [5 :name "Ivan"] [5 :profile 7] [7 :email "@2"] }
+    (are [tx res] (= res (d/q '[:find ?e ?a ?v
+                                :where [?e ?a ?v]]
+                           (d/db-with db tx)))
+      [{:db/id 5 :name "Ivan" :profile {:db/id 7 :email "@2"}}]
+      #{[5 :name "Ivan"] [5 :profile 7] [7 :email "@2"]}
          
-      [ {:name "Ivan" :profile {:email "@2"}} ]
-      #{ [1 :name "Ivan"] [1 :profile 2] [2 :email "@2"] }
+      [{:name "Ivan" :profile {:email "@2"}}]
+      #{[1 :name "Ivan"] [1 :profile 2] [2 :email "@2"]}
          
-      [ {:profile {:email "@2"}} ] ;; issue #59
-      #{ [1 :profile 2] [2 :email "@2"] }
+      ;; https://github.com/tonsky/datascript/issues/59
+      [{:profile {:email "@2"}}]
+      #{[2 :profile 1] [1 :email "@2"]}
          
-      [ {:email "@2" :_profile {:name "Ivan"}} ]
-      #{ [1 :email "@2"] [2 :name "Ivan"] [2 :profile 1] }
-    ))
+      [{:email "@2" :_profile {:name "Ivan"}}]
+      #{[1 :email "@2"] [2 :name "Ivan"] [2 :profile 1]}))
   
   (testing "multi-valued"
     (let [schema { :profile { :db/valueType :db.type/ref
@@ -104,32 +104,40 @@
   (let [schema {:comp {:db/valueType   :db.type/ref
                        :db/cardinality :db.cardinality/many
                        :db/isComponent true}}
-        db     (d/db-with (d/empty-db schema)
-                 [{:db/id 1, :comp [{:name "C"}]}])]
-    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+        db     (-> (d/empty-db schema)
+                 (d/db-with [{:db/id -1 :name "Name"}])
+                 (d/db-with [{:db/id 1, :comp [{:name "C"}]}]))]
+    (is (= [[1 :comp 2]
+            [1 :name "Name"]
+            [2 :name "C"]]
+          (mapv (juxt :e :a :v) (d/datoms db :eavt)))))
   
   (let [schema {:comp {:db/valueType   :db.type/ref
                        :db/cardinality :db.cardinality/many}}
-        db     (d/db-with (d/empty-db schema)
-                 [{:db/id 1, :comp [{:name "C"}]}])]
-    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+        db     (-> (d/empty-db schema)
+                 (d/db-with [{:db/id -1 :name "Name"}])
+                 (d/db-with [{:db/id 1, :comp [{:name "C"}]}]))]
+    (is (= [[1 :comp 2]
+            [1 :name "Name"]
+            [2 :name "C"]]
+          (mapv (juxt :e :a :v) (d/datoms db :eavt)))))
   
   (let [schema {:comp {:db/valueType   :db.type/ref
                        :db/isComponent true}}
-        db     (d/db-with (d/empty-db schema)
-                 [{:db/id 1, :comp {:name "C"}}])]
-    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ])))
+        db     (-> (d/empty-db schema)
+                 (d/db-with [{:db/id -1 :name "Name"}])
+                 (d/db-with [{:db/id 1, :comp {:name "C"}}]))]
+    (is (= [[1 :comp 2]
+            [1 :name "Name"]
+            [2 :name "C"]]
+          (mapv (juxt :e :a :v) (d/datoms db :eavt)))))
   
   (let [schema {:comp {:db/valueType   :db.type/ref}}
-        db     (d/db-with (d/empty-db schema)
-                 [{:db/id 1, :comp {:name "C"}}])]
-    (is (= (mapv (juxt :e :a :v) (d/datoms db :eavt))
-           [ [ 1 :comp 2  ]
-             [ 2 :name "C"] ]))))
+        db     (-> (d/empty-db schema)
+                 (d/db-with [{:db/id -1 :name "Name"}])
+                 (d/db-with [{:db/id 1, :comp {:name "C"}}]))]
+    (is (= [[1 :comp 2]
+            [1 :name "Name"]
+            [2 :name "C"]]
+          (mapv (juxt :e :a :v) (d/datoms db :eavt))))))
  
