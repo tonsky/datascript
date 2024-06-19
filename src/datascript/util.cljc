@@ -1,8 +1,8 @@
 (ns datascript.util
+  (:refer-clojure :exclude [find])
   #?(:clj
      (:import
-       [java.util UUID]))
-  (:refer-clojure :exclude [find]))
+       [java.util UUID])))
 
 (def ^:dynamic *debug*
   false)
@@ -179,6 +179,19 @@
       (when (pred x)
         (reduced x)))
     nil xs))
+
+(defn single [coll]
+  (assert (nil? (next coll)) "Expected single element")
+  (first coll))
+
+(defn concatv [& xs]
+  (into [] cat xs))
+
+(defn zip
+  ([a b]
+   (mapv vector a b))
+  ([a b & rest]
+   (apply mapv vector a b rest)))
 
 (defn removem [key-pred m]
   (persistent!

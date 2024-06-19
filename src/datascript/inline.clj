@@ -16,7 +16,7 @@
        (if (next kvs)
          (recur ret (first kvs) (second kvs) (nnext kvs))
          (throw (IllegalArgumentException.
-                 "assoc expects even number of arguments after map/vector, found odd number")))
+                  "assoc expects even number of arguments after map/vector, found odd number")))
        ret))))
 
 (defn update

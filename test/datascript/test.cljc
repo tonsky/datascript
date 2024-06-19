@@ -1,7 +1,6 @@
 (ns datascript.test
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     #?(:clj [clojure.java.shell :as sh])
     datascript.test.core
    
@@ -50,14 +49,9 @@
   (datascript.test.core/wrap-res #(t/run-all-tests #"datascript\..*")))
 
 #?(:clj
-(defn test-node [& args]
-  (let [res (apply sh/sh "node" "test_node.js" args)]
-    (println (:out res))
-    (binding [*out* *err*]
-      (println (:err res)))
-    (System/exit (:exit res)))))
-
-(comment
-  (do
-    (require 'datascript.test :reload-all)
-    (t/run-all-tests #"datascript\..*")))
+   (defn test-node [& args]
+     (let [res (apply sh/sh "node" "test_node.js" args)]
+       (println (:out res))
+       (binding [*out* *err*]
+         (println (:err res)))
+       (System/exit (:exit res)))))

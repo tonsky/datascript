@@ -1,13 +1,13 @@
 (ns datascript.test.upsert
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
 #?(:cljs
-   (def Throwable js/Error))
+   (def Throwable
+     js/Error))
 
 (deftest test-upsert
   (let [ivan    {:db/id 1 :name "Ivan" :email "@1"}

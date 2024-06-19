@@ -1,12 +1,12 @@
 (ns datascript.test.validation
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.test.core :as tdc]))
 
 #?(:cljs
-   (def Throwable js/Error))
+   (def Throwable
+     js/Error))
 
 (deftest test-with-validation
   (let [db (d/empty-db {:profile {:db/valueType :db.type/ref}
@@ -39,8 +39,8 @@
 
 (deftest test-unique
   (let [db (d/db-with (d/empty-db {:name {:db/unique :db.unique/value}})
-                      [[:db/add 1 :name "Ivan"]
-                       [:db/add 2 :name "Petr"]])]
+             [[:db/add 1 :name "Ivan"]
+              [:db/add 2 :name "Petr"]])]
     (are [tx] (thrown-with-msg? Throwable #"unique constraint" (d/db-with db tx))
       [[:db/add 3 :name "Ivan"]]
       [{:db/add 3 :name "Petr"}])

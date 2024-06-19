@@ -5,11 +5,17 @@
     [datascript.util :as util]))
 
 (defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
+
 (defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
 
-(def default-db-id-attr (map->PullAttr {:name :db/id :as :db/id :xform identity}))
-(def default-pattern-ref (map->PullPattern {:attrs (list default-db-id-attr)}))
-(def default-pattern-component (assoc default-pattern-ref :wildcard? true))
+(def default-db-id-attr
+  (map->PullAttr {:name :db/id :as :db/id :xform identity}))
+
+(def default-pattern-ref
+  (map->PullPattern {:attrs (list default-db-id-attr)}))
+
+(def default-pattern-component
+  (assoc default-pattern-ref :wildcard? true))
 
 (declare parse-pattern parse-attr-spec)
 

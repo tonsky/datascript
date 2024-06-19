@@ -3,25 +3,25 @@
 (declare assoc-lru cleanup-lru)
 
 #?(:cljs
-    (deftype LRU [key-value gen-key key-gen gen limit]
-      IAssociative
-      (-assoc [this k v] (assoc-lru this k v))
-      (-contains-key? [_ k] (-contains-key? key-value k))
-      ILookup
-      (-lookup [_ k]    (-lookup key-value k nil))
-      (-lookup [_ k nf] (-lookup key-value k nf))
-      IPrintWithWriter
-      (-pr-writer [_ writer opts]
-                  (-pr-writer key-value writer opts)))
+   (deftype LRU [key-value gen-key key-gen gen limit]
+     IAssociative
+     (-assoc [this k v] (assoc-lru this k v))
+     (-contains-key? [_ k] (-contains-key? key-value k))
+     ILookup
+     (-lookup [_ k]    (-lookup key-value k nil))
+     (-lookup [_ k nf] (-lookup key-value k nf))
+     IPrintWithWriter
+     (-pr-writer [_ writer opts]
+       (-pr-writer key-value writer opts)))
    :clj
-    (deftype LRU [^clojure.lang.Associative key-value gen-key key-gen gen limit]
-      clojure.lang.ILookup
-      (valAt [_ k]           (.valAt key-value k))
-      (valAt [_ k not-found] (.valAt key-value k not-found))
-      clojure.lang.Associative
-      (containsKey [_ k] (.containsKey key-value k))
-      (entryAt [_ k]     (.entryAt key-value k))
-      (assoc [this k v]  (assoc-lru this k v))))
+   (deftype LRU [^clojure.lang.Associative key-value gen-key key-gen gen limit]
+     clojure.lang.ILookup
+     (valAt [_ k]           (.valAt key-value k))
+     (valAt [_ k not-found] (.valAt key-value k not-found))
+     clojure.lang.Associative
+     (containsKey [_ k] (.containsKey key-value k))
+     (entryAt [_ k]     (.entryAt key-value k))
+     (assoc [this k v]  (assoc-lru this k v))))
 
 (defn assoc-lru [^LRU lru k v]
   (let [key-value (.-key-value lru)
@@ -33,8 +33,8 @@
       (LRU.
         key-value
         (-> gen-key
-            (dissoc g)
-            (assoc gen k))
+          (dissoc g)
+          (assoc gen k))
         (assoc key-gen k gen)
         (inc gen)
         limit)
@@ -74,7 +74,7 @@
       (-get [_ key compute-fn]
         (if-some [cached (get @*impl key nil)]
           (do (vswap! *impl assoc key cached)
-              cached)
+            cached)
           (let [computed (compute-fn)]
             (vswap! *impl assoc key computed)
             computed))))))

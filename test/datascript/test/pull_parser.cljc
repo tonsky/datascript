@@ -1,25 +1,25 @@
 (ns datascript.test.pull-parser
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.pull-parser :as dpp]
     [datascript.test.core :as tdc]))
 
-(def db (d/empty-db
-          {:ref            {:db/valueType :db.type/ref}
-           :ref2           {:db/valueType :db.type/ref}
-           :ref3           {:db/valueType :db.type/ref}
-           :ns/ref         {:db/valueType :db.type/ref}
-           :multival       {:db/cardinality :db.cardinality/many}
-           :multiref       {:db/valueType :db.type/ref
-                            :db/cardinality :db.cardinality/many}
-           :component      {:db/valueType :db.type/ref
-                            :db/isComponent true}
-           :multicomponent {:db/valueType :db.type/ref
-                            :db/isComponent true
-                            :db/cardinality :db.cardinality/many}}))
+(def db
+  (d/empty-db
+    {:ref            {:db/valueType :db.type/ref}
+     :ref2           {:db/valueType :db.type/ref}
+     :ref3           {:db/valueType :db.type/ref}
+     :ns/ref         {:db/valueType :db.type/ref}
+     :multival       {:db/cardinality :db.cardinality/many}
+     :multiref       {:db/valueType :db.type/ref
+                      :db/cardinality :db.cardinality/many}
+     :component      {:db/valueType :db.type/ref
+                      :db/isComponent true}
+     :multicomponent {:db/valueType :db.type/ref
+                      :db/isComponent true
+                      :db/cardinality :db.cardinality/many}}))
 
 (defn pattern [& {:as args}]
   (let [attrs (filter #(not= :db/id (:name %)) (:attrs args))]
@@ -156,9 +156,3 @@
       [{:normal [:normal2]}] "Expected attribute having :db.type/ref, got: :normal"
       [{'(:ref :limit 100) [:normal]}] "Expected limit attribute having :db.cardinality/many, got: :ref"
       [{:ref :normal}] "Expected pattern to be sequential?, got: :normal")))
-
-
-(comment
-  (require 'datascript.test 'datascript.test.pull-parser :reload-all)
-  (dpp/parse-pattern db [:normal])
-  (clojure.test/test-ns 'datascript.test.pull-parser))

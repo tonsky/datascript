@@ -1,7 +1,6 @@
 (ns datascript.test.conn
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
@@ -60,6 +59,4 @@
               [1 :name "Ivan" false]
               [1 :age  20     true]
               [1 :sex  :male  true]]
-             (map (juxt :e :a :v :added) tx-data))))))
-  
-  
+            (map (juxt :e :a :v :added) tx-data))))))

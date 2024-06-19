@@ -1,10 +1,11 @@
 (ns datascript.test.tuples
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.test.core :as tdc])
-  (:import #?(:clj [clojure.lang ExceptionInfo])))
+  #?(:clj
+     (:import
+       [clojure.lang ExceptionInfo])))
 
 (deftest test-schema
   (let [db (d/empty-db
@@ -375,10 +376,10 @@
     (is (= #{[["A" "B"]] [["A" "b"]] [["a" "B"]] [["a" "b"]]}
           (d/q '[:find ?a+b
                  :where [?e :a ?a]
-                        [?e :b ?b]
-                        [(tuple ?a ?b) ?a+b]] db)))
+                 [?e :b ?b]
+                 [(tuple ?a ?b) ?a+b]] db)))
 
     (is (= #{["A" "B"] ["A" "b"] ["a" "B"] ["a" "b"]}
           (d/q '[:find ?a ?b
                  :where [?e :a+b ?a+b]
-                        [(untuple ?a+b) [?a ?b]]] db)))))
+                 [(untuple ?a+b) [?a ?b]]] db)))))

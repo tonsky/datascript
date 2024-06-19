@@ -1,8 +1,8 @@
 (ns test-datomic.pull-api
   "Mirrors datascript.test.pull-api with Datomic to check they behave the same"
   (:require
-   [clojure.test :refer :all]
-   [datomic.api :as datomic]))
+    [clojure.test :refer :all]
+    [datomic.api :as datomic]))
 
 (def ^:private test-schema
   {:person/name   {:db/unique :db.unique/identity}
@@ -93,7 +93,7 @@
 
 (deftest test-pull-map
   (is (= {:person/name "Petr"}
-         (datomic/pull test-datomic-db '[:person/name {:person/child [:not-an/attr]}] [:person/name "Petr"]))))
+        (datomic/pull test-datomic-db '[:person/name {:person/child [:not-an/attr]}] [:person/name "Petr"]))))
 
 (deftest test-pull-map-2
   (testing "Map specs can override component expansion"
@@ -101,32 +101,32 @@
                  :thing/part [{:thing/name "Part A.A"}
                               {:thing/name "Part A.B"}]}]
       (is (= parts
-             (datomic/pull test-datomic-db
-                           '[:thing/name {:thing/part [:thing/name]}]
-                           [:thing/name "Part A"])))
+            (datomic/pull test-datomic-db
+              '[:thing/name {:thing/part [:thing/name]}]
+              [:thing/name "Part A"])))
 
       (is (= parts
-             (datomic/pull test-datomic-db
-                           '[:thing/name {:thing/part 1}]
-                           [:thing/name "Part A"]))))))
+            (datomic/pull test-datomic-db
+              '[:thing/name {:thing/part 1}]
+              [:thing/name "Part A"]))))))
 
 (deftest test-lookup-ref-pull
   (is (= {:person/name "Petr" :person/aka ["Devil" "Tupen"]}
-         (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "Petr"])))
+        (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "Petr"])))
   (is (= nil
-         (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "NotInDatabase"])))
+        (datomic/pull test-datomic-db '[:person/name :person/aka] [:person/name "NotInDatabase"])))
   (is (= [nil
           {:person/aka ["Devil" "Tupen"]}
           nil
           nil
           nil]
-         (datomic/pull-many test-datomic-db
-                            '[:person/aka]
-                            [[:person/name "Elizabeth"]
-                             [:person/name "Petr"]
-                             [:person/name "Eunan"]
-                             [:person/name "Rebecca"]
-                             [:person/name "Unknown"]]))))
+        (datomic/pull-many test-datomic-db
+          '[:person/aka]
+          [[:person/name "Elizabeth"]
+           [:person/name "Petr"]
+           [:person/name "Eunan"]
+           [:person/name "Rebecca"]
+           [:person/name "Unknown"]]))))
 
 (deftest test-pull-recursion
   (is (= {:person/name "1", :person/friend [{:person/name "2", :person/enemy [{:person/name "3", :person/friend [{:person/name "4", :person/enemy [{:person/name "5"}]}]}]}]}

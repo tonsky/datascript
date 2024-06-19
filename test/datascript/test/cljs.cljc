@@ -3,8 +3,8 @@
     [clojure.string :as str]
     [cljs.test :as t])
   #?(:cljs
-      (:require-macros
-        [datascript.test.cljs])))
+     (:require-macros
+       [datascript.test.cljs])))
 
 ; The datascript.test.cljs namespace exists only for the side
 ; effect of extending the cljs.test/assert-expr multimethod.
@@ -16,14 +16,14 @@
 ; cljs compilation.
 
 #?(:clj
-(defmethod t/assert-expr 'thrown-msg? [menv msg form]
-  (let [[_ match & body] form]
-    `(try
-       ~@body
-       (t/do-report {:type :fail, :message ~msg, :expected '~form, :actual nil})
-       (catch :default e#
-         (let [m# (.-message e#)]
-           (if (= ~match m#)
-             (t/do-report {:type :pass, :message ~msg, :expected '~form, :actual e#})
-             (t/do-report {:type :fail, :message ~msg, :expected '~form, :actual e#}))
-           e#))))))
+   (defmethod t/assert-expr 'thrown-msg? [menv msg form]
+     (let [[_ match & body] form]
+       `(try
+          ~@body
+          (t/do-report {:type :fail, :message ~msg, :expected '~form, :actual nil})
+          (catch :default e#
+            (let [m# (.-message e#)]
+              (if (= ~match m#)
+                (t/do-report {:type :pass, :message ~msg, :expected '~form, :actual e#})
+                (t/do-report {:type :fail, :message ~msg, :expected '~form, :actual e#}))
+              e#))))))

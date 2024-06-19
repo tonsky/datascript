@@ -1,15 +1,13 @@
 (ns datascript.test.parser
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.parser :as dp]
     [datascript.test.core :as tdc])
-    #?(:clj
-      (:import [clojure.lang ExceptionInfo])))
-
-
+  #?(:clj
+     (:import
+       [clojure.lang ExceptionInfo])))
 
 (deftest bindings
   (are [form res] (= (dp/parse-binding form) res)
@@ -34,17 +32,17 @@
     '[[_ [?x ...]] ...]
     (dp/->BindColl
       (dp/->BindTuple [(dp/->BindIgnore)
-                      (dp/->BindColl
-                        (dp/->BindScalar (dp/->Variable '?x)))]))
+                       (dp/->BindColl
+                         (dp/->BindScalar (dp/->Variable '?x)))]))
        
     '[[?a ?b ?c]]
     (dp/->BindColl
       (dp/->BindTuple [(dp/->BindScalar (dp/->Variable '?a))
-                      (dp/->BindScalar (dp/->Variable '?b))
-                      (dp/->BindScalar (dp/->Variable '?c))])))
+                       (dp/->BindScalar (dp/->Variable '?b))
+                       (dp/->BindScalar (dp/->Variable '?c))])))
        
-    (is (thrown-with-msg? ExceptionInfo #"Cannot parse binding"
-          (dp/parse-binding :key))))
+  (is (thrown-with-msg? ExceptionInfo #"Cannot parse binding"
+        (dp/parse-binding :key))))
 
 (deftest in
   (are [form res] (= (dp/parse-in form) res)
@@ -62,15 +60,15 @@
     [(dp/->BindScalar (dp/->SrcVar '$))
      (dp/->BindColl
        (dp/->BindTuple [(dp/->BindIgnore)
-                       (dp/->BindColl
-                         (dp/->BindScalar (dp/->Variable '?x)))]))])
+                        (dp/->BindColl
+                          (dp/->BindScalar (dp/->Variable '?x)))]))])
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse binding"
         (dp/parse-in ['?x :key]))))
 
 (deftest with
   (is (= (dp/parse-with '[?x ?y])
-         [(dp/->Variable '?x) (dp/->Variable '?y)]))
+        [(dp/->Variable '?x) (dp/->Variable '?y)]))
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse :with clause"
         (dp/parse-with '[?x _]))))

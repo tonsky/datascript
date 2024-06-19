@@ -1,8 +1,7 @@
 (ns datascript.test.components
   (:require
-    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.edn :as edn]
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
@@ -29,32 +28,32 @@
     
     (testing "touch"
       (is (= (touched (d/entity db 1))
-             {:db/id 1
-              :name "Ivan"
-              :profile {:db/id 3
-                        :email "@3"}}))
+            {:db/id 1
+             :name "Ivan"
+             :profile {:db/id 3
+                       :email "@3"}}))
       (is (= (touched (d/entity (d/db-with db [[:db/add 3 :profile 4]]) 1))
-             {:db/id 1
-              :name "Ivan"
-              :profile {:db/id 3
-                        :email "@3"
-                        :profile {:db/id 4
-                                  :email "@4"}}})))
+            {:db/id 1
+             :name "Ivan"
+             :profile {:db/id 3
+                       :email "@3"
+                       :profile {:db/id 4
+                                 :email "@4"}}})))
     (testing "retractEntity"
       (let [db (d/db-with db [[:db.fn/retractEntity 1]])]
         (is (= (d/q '[:find ?a ?v :where [1 ?a ?v]] db)
-               #{}))
+              #{}))
         (is (= (d/q '[:find ?a ?v :where [3 ?a ?v]] db)
-               #{}))))
+              #{}))))
     
     (testing "retractAttribute"
       (let [db (d/db-with db [[:db.fn/retractAttribute 1 :profile]])]
         (is (= (d/q '[:find ?a ?v :where [3 ?a ?v]] db)
-               #{}))))
+              #{}))))
     
     (testing "reverse navigation"
       (is (= (visible (:_profile (d/entity db 3)))
-             {:db/id 1})))))
+            {:db/id 1})))))
 
 (deftest test-components-multival
   (let [db (d/db-with
@@ -69,21 +68,21 @@
     
     (testing "touch"
       (is (= (touched (d/entity db 1))
-             {:db/id 1
-              :name "Ivan"
-              :profile #{{:db/id 3 :email "@3"}
-                         {:db/id 4 :email "@4"}}})))
+            {:db/id 1
+             :name "Ivan"
+             :profile #{{:db/id 3 :email "@3"}
+                        {:db/id 4 :email "@4"}}})))
     
     (testing "retractEntity"
       (let [db (d/db-with db [[:db.fn/retractEntity 1]])]
         (is (= (d/q '[:find ?a ?v :in $ [?e ...] :where [?e ?a ?v]] db [1 3 4])
-               #{}))))
+              #{}))))
     
     (testing "retractAttribute"
       (let [db (d/db-with db [[:db.fn/retractAttribute 1 :profile]])]
         (is (= (d/q '[:find ?a ?v :in $ [?e ...] :where [?e ?a ?v]] db [3 4])
-               #{}))))
+              #{}))))
     
     (testing "reverse navigation"
       (is (= (visible (:_profile (d/entity db 3)))
-             {:db/id 1})))))
+            {:db/id 1})))))

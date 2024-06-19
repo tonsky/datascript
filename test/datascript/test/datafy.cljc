@@ -1,7 +1,6 @@
 (ns datascript.test.datafy
   (:require
-    #?(:cljs [cljs.test :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.datafy :as datafy]
     [datascript.core :as d]
     [clojure.core.protocols :as cp]
@@ -13,10 +12,10 @@
                 :many/ref {:db/valueType :db.type/ref
                            :db/cardinality :db.cardinality/many}}
         db (-> (d/empty-db schema)
-               (d/db-with [{:db/id 1 :name "Parent1"}
-                           {:db/id 2 :name "Child1" :ref 1 :namespace/ref 1}
-                           {:db/id 3 :name "GrandChild1" :ref 2 :namespace/ref 2}
-                           {:db/id 4 :name "Master" :many/ref [1 2 3]}]))]
+             (d/db-with [{:db/id 1 :name "Parent1"}
+                         {:db/id 2 :name "Child1" :ref 1 :namespace/ref 1}
+                         {:db/id 3 :name "GrandChild1" :ref 2 :namespace/ref 2}
+                         {:db/id 4 :name "Master" :many/ref [1 2 3]}]))]
     db))
 
 (defn- nav [coll k]
@@ -28,7 +27,7 @@
   (if (nil? k)
     coll
     (d+n (nav (cp/datafy coll) k)
-         ks)))
+      ks)))
 
 (deftest test-navigation
   (let [db (test-db)

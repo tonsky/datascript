@@ -17,8 +17,8 @@
 
 (defn- schema->clj [schema]
   (->> (js->clj schema)
-       (reduce-kv
-         (fn [m k v] (assoc m k (walk/postwalk keywordize v))) {})))
+    (reduce-kv
+      (fn [m k v] (assoc m k (walk/postwalk keywordize v))) {})))
 
 (declare entities->clj)
 
@@ -27,8 +27,8 @@
     (fn [form]
       (if (and (map? form) (contains? form ":db/id"))
         (-> form
-            (dissoc ":db/id")
-            (assoc  :db/id (get form ":db/id")))
+          (dissoc ":db/id")
+          (assoc  :db/id (get form ":db/id")))
         form))
     e))
 
@@ -47,7 +47,7 @@
 
 (defn- entities->clj [entities]
   (->> (js->clj entities)
-       (map entity->clj)))
+    (map entity->clj)))
 
 (defn- tempids->js [tempids]
   (let [obj (js-obj)]
@@ -70,8 +70,8 @@
 (defn- pull-result->js
   [result]
   (->> result
-       (walk/postwalk #(if (keyword? %) (str %) %))
-       clj->js))
+    (walk/postwalk #(if (keyword? %) (str %) %))
+    clj->js))
 
 ;; Public API
 
@@ -126,7 +126,7 @@
 (defn ^:export transact [conn entities & [tx-meta]]
   (let [entities (entities->clj entities)
         report   (-> (conn/-transact! conn entities tx-meta)
-                     tx-report->js)]
+                   tx-report->js)]
     (doseq [[_ callback] (:listeners @(:atom conn))]
       (callback report))
     report))
@@ -152,11 +152,11 @@
 
 (defn ^:export datoms [db index & components]
   (->> (apply d/datoms db (keywordize index) components)
-       into-array))
+    into-array))
 
 (defn ^:export seek_datoms [db index & components]
   (->> (apply d/seek-datoms db (keywordize index) components)
-       into-array))
+    into-array))
 
 (defn ^:export index_range [db attr start end]
   (into-array (d/index-range db attr start end)))

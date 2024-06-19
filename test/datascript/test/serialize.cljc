@@ -1,23 +1,23 @@
 (ns datascript.test.serialize
   (:require
-    [#?(:cljs cljs.reader :clj clojure.edn) :as edn]
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.edn :as edn]
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.test.core :as tdc]
     #?(:clj [cheshire.core :as cheshire])
     #?(:clj [jsonista.core :as jsonista]))
   #?(:clj
-     (:import [clojure.lang ExceptionInfo])))
+     (:import
+       [clojure.lang ExceptionInfo])))
 
 (t/use-fixtures :once tdc/no-namespace-maps)
 
 (def readers
   {#?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
-        :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
-               "clojure.core/read-string" #(binding [*data-readers* (merge *data-readers* d/data-readers)]
-                                             (read-string %))])})
+       :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
+              "clojure.core/read-string" #(binding [*data-readers* (merge *data-readers* d/data-readers)]
+                                            (read-string %))])})
 
 (deftest test-pr-read
   (doseq [[r read-fn] readers]
@@ -43,7 +43,6 @@
                 "[2 :name \"Ivan\" 536870914]"
                 "]}")))
         (is (= db (read-fn (pr-str db))))))))
-
 
 (def data
   [[1 :name    "Petr"]
@@ -75,7 +74,6 @@
    [d/tx0      :txInstant 0xdeadbeef]
    [30 :url    "https://"]])
 
-
 (def schema 
   {:name    {} ;; nothing special about name
    :aka     {:db/cardinality :db.cardinality/many}
@@ -86,7 +84,6 @@
    :url     {} ;; just a component prop
    :attach  {} ;; should skip index
    })
-
 
 (deftest test-init-db
   (let [db-init     (d/init-db
@@ -113,7 +110,6 @@
       (is (thrown-with-msg? ExceptionInfo #"init-db expects list of Datoms, got "
             (d/init-db [[:add -1 :name "Ivan"] {:add -1 :age 35}] schema))))))
 
-
 (deftest ^{:doc "issue-463"} test-max-eid-from-refs
   (let [db (-> (d/empty-db {:ref {:db/valueType :db.type/ref}})
              (d/db-with [[:db/add 1 :name "Ivan"]])
@@ -123,7 +119,6 @@
       (testing r
         (let [db' (read-fn (pr-str db))]
           (is (= 2 (:max-eid db'))))))))
-
 
 (deftest serialize
   (let [db (d/db-with
@@ -144,7 +139,6 @@
        (is (= db (-> db d/serializable cheshire/generate-string cheshire/parse-string d/from-serializable))))
     #?(:cljs
        (is (= db (-> db d/serializable js/JSON.stringify js/JSON.parse d/from-serializable))))))
-
 
 (deftest test-nan
   (let [db (d/db-with

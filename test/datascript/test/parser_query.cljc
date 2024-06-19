@@ -1,15 +1,13 @@
 (ns datascript.test.parser-query
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.parser :as dp]
     [datascript.test.core :as tdc])
-    #?(:clj
-      (:import [clojure.lang ExceptionInfo])))
-
-
+  #?(:clj
+     (:import
+       [clojure.lang ExceptionInfo])))
 
 (deftest validation
   (are [q msg] (thrown-msg? msg (dp/parse-query q))

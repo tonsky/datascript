@@ -1,16 +1,16 @@
 (ns ^:no-doc datascript.pull-api
   (:require
-   [clojure.string :as str]
-   [datascript.pull-parser :as dpp]
-   [datascript.db :as db #?@(:cljs [:refer [DB]])]
-   [datascript.lru :as lru]
-   [datascript.util :as util]
-   [me.tonsky.persistent-sorted-set :as set])
+    [clojure.string :as str]
+    [datascript.pull-parser :as dpp]
+    [datascript.db :as db #?@(:cljs [:refer [DB]])]
+    [datascript.lru :as lru]
+    [datascript.util :as util]
+    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
-      [clojure.lang ISeq]
-      [datascript.db Datom DB]
-      [datascript.pull_parser PullAttr PullPattern])))
+       [clojure.lang ISeq]
+       [datascript.db Datom DB]
+       [datascript.pull_parser PullAttr PullPattern])))
 
 (declare pull-impl attrs-frame ref-frame ->ReverseAttrsFrame)
 
@@ -270,7 +270,6 @@
     :else
     (attrs-frame context seen' recursion-limits' (if (.-recursive? attr) pattern (.-pattern attr)) id)))
 
-
 (defn attrs-frame [^Context context seen recursion-limits ^PullPattern pattern id]
   (let [db (.-db context)
         datoms (util/cond+
@@ -291,11 +290,11 @@
 
                  :else
                  (->> (db/-seek-datoms db :eavt id nil nil nil))
-                   (take-while
-                     (fn [^Datom d]
-                       (and
-                         (= (.-e d) id)
-                         (<= (compare (.-a d) to) 0)))))]
+                 (take-while
+                   (fn [^Datom d]
+                     (and
+                       (= (.-e d) id)
+                       (<= (compare (.-a d) to) 0)))))]
     (when (.-wildcard? pattern)
       (visit context :db.pull/wildcard id nil nil))
     (AttrsFrame.
@@ -355,25 +354,3 @@
    {:pre [(db/db? db)]}
    (let [parsed-opts (parse-opts db pattern opts)]
      (mapv #(pull-impl parsed-opts %) ids))))
-
-(comment
-  (do
-    (set! *warn-on-reflection* true)
-    (require 'datascript.test :reload-all)
-    (binding [clojure.test/*report-counters* (ref clojure.test/*initial-report-counters*)]
-      (clojure.test/test-vars
-        [#'datascript.test.pull-parser/test-parse-pattern
-         #'datascript.test.pull-api/test-pull-attr-spec
-         #'datascript.test.pull-api/test-pull-reverse-attr-spec
-         #'datascript.test.pull-api/test-pull-component-attr
-         #'datascript.test.pull-api/test-pull-wildcard
-         #'datascript.test.pull-api/test-pull-limit
-         #'datascript.test.pull-api/test-pull-default
-         #'datascript.test.pull-api/test-pull-as
-         #'datascript.test.pull-api/test-pull-attr-with-opts
-         #'datascript.test.pull-api/test-pull-map
-         #'datascript.test.pull-api/test-pull-recursion
-         #'datascript.test.pull-api/test-dual-recursion
-         #'datascript.test.pull-api/test-deep-recursion
-         #'datascript.test.pull-api/test-lookup-ref-pull])
-      @clojure.test/*report-counters*)))

@@ -1,7 +1,6 @@
 (ns datascript.test.pull-api
   (:require
-    #?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-       :clj  [clojure.test :as t :refer        [is are deftest testing]])
+    [clojure.test :as t :refer [is are deftest testing]]
     [datascript.core :as d]
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
@@ -10,19 +9,19 @@
   {:name   {:db/unique :db.unique/identity}
    :aka    {:db/cardinality :db.cardinality/many}
    :child  {:db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref}
+            :db/valueType :db.type/ref}
    :friend {:db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref}
+            :db/valueType :db.type/ref}
    :enemy  {:db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref}
+            :db/valueType :db.type/ref}
    :father {:db/valueType :db.type/ref}
 
    :part   {:db/valueType :db.type/ref
-             :db/isComponent true
-             :db/cardinality :db.cardinality/many}
+            :db/isComponent true
+            :db/cardinality :db.cardinality/many}
    :spec   {:db/valueType :db.type/ref
-             :db/isComponent true
-             :db/cardinality :db.cardinality/one}})
+            :db/isComponent true
+            :db/cardinality :db.cardinality/one}})
 
 (def test-datoms
   (->>
@@ -59,40 +58,41 @@
      [16 :part 17]
      [18 :name  "Part A.B.A.B"]
      [16 :part 18]]
-   (map #(apply d/datom %))))
+    (map #(apply d/datom %))))
 
-(def ^:private test-db (d/init-db test-datoms test-schema))
+(def ^:private test-db
+  (d/init-db test-datoms test-schema))
 
 (deftest test-pull-attr-spec
   (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
-         (d/pull test-db '[:name :aka] 1)))
+        (d/pull test-db '[:name :aka] 1)))
 
   (is (= {:name "Matthew" :father {:db/id 3} :db/id 6}
-         (d/pull test-db '[:name :father :db/id] 6)))
+        (d/pull test-db '[:name :father :db/id] 6)))
 
   (is (= [{:name "Petr"} {:name "Elizabeth"}
           {:name "Eunan"} {:name "Rebecca"}]
-         (d/pull-many test-db '[:name] [1 5 7 9]))))
+        (d/pull-many test-db '[:name] [1 5 7 9]))))
 
 (deftest test-pull-reverse-attr-spec
   (is (= {:name "David" :_child [{:db/id 1}]}
-         (d/pull test-db '[:name :_child] 2)))
+        (d/pull test-db '[:name :_child] 2)))
 
   (is (= {:name "David" :_child [{:name "Petr"}]}
-         (d/pull test-db '[:name {:_child [:name]}] 2)))
+        (d/pull test-db '[:name {:_child [:name]}] 2)))
 
   (testing "Reverse non-component references yield collections"
     (is (= {:name "Thomas" :_father [{:db/id 6}]}
-           (d/pull test-db '[:name :_father] 3)))
+          (d/pull test-db '[:name :_father] 3)))
 
     (is (= {:name "Petr" :_father [{:db/id 2} {:db/id 3}]}
-           (d/pull test-db '[:name :_father] 1)))
+          (d/pull test-db '[:name :_father] 1)))
 
     (is (= {:name "Thomas" :_father [{:name "Matthew"}]}
-           (d/pull test-db '[:name {:_father [:name]}] 3)))
+          (d/pull test-db '[:name {:_father [:name]}] 3)))
 
     (is (= {:name "Petr" :_father [{:name "David"} {:name "Thomas"}]}
-           (d/pull test-db '[:name {:_father [:name]}] 1))))
+          (d/pull test-db '[:name {:_father [:name]}] 1))))
 
   (testing "Multiple reverse refs #412"
     (is (= {:name "Petr" :_father [{:db/id 2} {:db/id 3}]}
@@ -136,10 +136,10 @@
 
     (testing "Reverse component references yield a single result"
       (is (= {:name "Part A.A" :_part {:db/id 10}}
-             (d/pull test-db [:name :_part] 11)))
+            (d/pull test-db [:name :_part] 11)))
 
       (is (= {:name "Part A.A" :_part {:name "Part A"}}
-             (d/pull test-db [:name {:_part [:name]}] 11))))
+            (d/pull test-db [:name {:_part [:name]}] 11))))
 
     (testing "Like explicit recursion, expansion will not allow loops"
       (is (= rpart (d/pull recdb '[:name :part] 10))))
@@ -155,10 +155,10 @@
           :name "Petr"
           :aka ["Devil" "Tupen"]
           :child [{:db/id 2} {:db/id 3}]}
-         (d/pull test-db '[*] 1)))
+        (d/pull test-db '[*] 1)))
 
   (is (= {:db/id 2 :name "David" :_child [{:db/id 1}] :father {:db/id 1}}
-         (d/pull test-db '[* :_child] 2)))
+        (d/pull test-db '[* :_child] 2)))
 
   (is (= {:aka ["Devil" "Tupen"], :child [{:db/id 2} {:db/id 3}], :name "Petr", :db/id 1}
         (d/pull test-db '[:name *] 1)))
@@ -193,7 +193,7 @@
                 (d/datom 4 :friend 8)]
                (for [idx (range 2000)]
                  (d/datom 8 :aka (str "aka-" idx))))
-              test-schema)]
+             test-schema)]
 
     (testing "Without an explicit limit, the default is 1000"
       (is (= 1000 (->> (d/pull db '[:aka] 8) :aka count))))
@@ -211,7 +211,7 @@
     (testing "Limits can be used as map specification keys"
       (is (= {:name "Lucy"
               :friend [{:name "Elizabeth"} {:name "Matthew"}]}
-             (d/pull db '[:name {(limit :friend 2) [:name]}] 4))))))
+            (d/pull db '[:name {(limit :friend 2) [:name]}] 4))))))
 
 (deftest test-pull-default
   (testing "Empty results return nil"
@@ -231,17 +231,17 @@
     (is (= {:name "Petr", :aka  ["Devil" "Tupen"]
             :child [{:name "David", :aka "[aka]", :child "[child]"}
                     {:name "Thomas", :aka "[aka]", :child "[child]"}]}
-         (d/pull test-db
-           '[[:name :default "[name]"]
-             [:aka :default "[aka]"]
-             {[:child :default "[child]"] ...}]
-           1)))
+          (d/pull test-db
+            '[[:name :default "[name]"]
+              [:aka :default "[aka]"]
+              {[:child :default "[child]"] ...}]
+            1)))
     (is (= {:name "David", :aka  "[aka]", :child "[child]"}
-         (d/pull test-db
-           '[[:name :default "[name]"]
-             [:aka :default "[aka]"]
-             {[:child :default "[child]"] ...}]
-           2))))
+          (d/pull test-db
+            '[[:name :default "[name]"]
+              [:aka :default "[aka]"]
+              {[:child :default "[child]"] ...}]
+            2))))
 
   (testing "Ref default"
     (is (= {:child 1 :db/id 2}
@@ -251,29 +251,29 @@
 
 (deftest test-pull-as
   (is (= {"Name" "Petr", :alias ["Devil" "Tupen"]}
-         (d/pull test-db '[[:name :as "Name"] [:aka :as :alias]] 1))))
+        (d/pull test-db '[[:name :as "Name"] [:aka :as :alias]] 1))))
 
 (deftest test-pull-attr-with-opts
   (is (= {"Name" "Nothing"}
-         (d/pull test-db '[[:x :as "Name" :default "Nothing"]] 1))))
+        (d/pull test-db '[[:x :as "Name" :default "Nothing"]] 1))))
 
 (deftest test-pull-map
   (testing "Single attrs yield a map"
     (is (= {:name "Matthew" :father {:name "Thomas"}}
-           (d/pull test-db '[:name {:father [:name]}] 6))))
+          (d/pull test-db '[:name {:father [:name]}] 6))))
 
   (testing "Multi attrs yield a collection of maps"
     (is (= {:name "Petr" :child [{:name "David"}
                                  {:name "Thomas"}]}
-           (d/pull test-db '[:name {:child [:name]}] 1))))
+          (d/pull test-db '[:name {:child [:name]}] 1))))
 
   (testing "Missing attrs are dropped"
     (is (= {:name "Petr"}
-           (d/pull test-db '[:name {:father [:name]}] 1))))
+          (d/pull test-db '[:name {:father [:name]}] 1))))
 
   (testing "Non matching results are removed from collections"
     (is (= {:name "Petr"}
-           (d/pull test-db '[:name {:child [:foo]}] 1))))
+          (d/pull test-db '[:name {:child [:foo]}] 1))))
 
   (testing "Map specs can override component expansion"
     (is (= {:name "Part A" :part [{:name "Part A.A"} {:name "Part A.B"}]}
@@ -284,14 +284,14 @@
 
 (deftest test-pull-recursion
   (let [db      (-> test-db
-                    (d/db-with [[:db/add 4 :friend 5]
-                                [:db/add 5 :friend 6]
-                                [:db/add 6 :friend 7]
-                                [:db/add 7 :friend 8]
-                                [:db/add 4 :enemy 6]
-                                [:db/add 5 :enemy 7]
-                                [:db/add 6 :enemy 8]
-                                [:db/add 7 :enemy 4]]))
+                  (d/db-with [[:db/add 4 :friend 5]
+                              [:db/add 5 :friend 6]
+                              [:db/add 6 :friend 7]
+                              [:db/add 7 :friend 8]
+                              [:db/add 4 :enemy 6]
+                              [:db/add 5 :enemy 7]
+                              [:db/add 6 :enemy 8]
+                              [:db/add 7 :enemy 4]]))
         friends {:db/id 4
                  :name "Lucy"
                  :friend
@@ -360,8 +360,8 @@
     (testing "Cycles are handled by returning only the :db/id of entities which have been seen before"
       (let [db (d/db-with db [[:db/add 8 :friend 4]])]
         (is (= (update-in friends (take 8 (cycle [:friend 0]))
-                          assoc :friend [{:db/id 4 :name "Lucy" :friend [{:db/id 5}]}])
-               (d/pull db '[:db/id :name {:friend ...}] 4)))))
+                 assoc :friend [{:db/id 4 :name "Lucy" :friend [{:db/id 5}]}])
+              (d/pull db '[:db/id :name {:friend ...}] 4)))))
 
     (testing "Seen ids are tracked independently for different branches"
       (let [db (-> (d/empty-db {:friend {:db/valueType :db.type/ref}
@@ -398,40 +398,40 @@
                                [:db/add 1 :spec 2]
                                [:db/add 2 :spec 1]])]
       (is (= (d/pull db '[:db/id {:part ...} {:spec ...}] 1)
-             {:db/id 1,
-              :spec {:db/id 2
-                     :spec {:db/id 1,
-                            :spec {:db/id 2}, :part {:db/id 2}}
-                     :part {:db/id 3,
-                            :part {:db/id 1,
-                                   :spec {:db/id 2},
-                                   :part {:db/id 2}}}}
-              :part {:db/id 2
-                     :spec {:db/id 1, :spec {:db/id 2}, :part {:db/id 2}}
-                     :part {:db/id 3,
-                            :part {:db/id 1,
-                                   :spec {:db/id 2},
-                                   :part {:db/id 2}}}}})))))
+            {:db/id 1,
+             :spec {:db/id 2
+                    :spec {:db/id 1,
+                           :spec {:db/id 2}, :part {:db/id 2}}
+                    :part {:db/id 3,
+                           :part {:db/id 1,
+                                  :spec {:db/id 2},
+                                  :part {:db/id 2}}}}
+             :part {:db/id 2
+                    :spec {:db/id 1, :spec {:db/id 2}, :part {:db/id 2}}
+                    :part {:db/id 3,
+                           :part {:db/id 1,
+                                  :spec {:db/id 2},
+                                  :part {:db/id 2}}}}})))))
 
 (deftest test-deep-recursion
   (let [start 100
         depth 3000
         txd   (mapcat
-               (fn [idx]
-                 [(d/datom idx :name (str "Person-" idx))
-                  (d/datom (dec idx) :friend idx)])
-               (range (inc start) depth))
+                (fn [idx]
+                  [(d/datom idx :name (str "Person-" idx))
+                   (d/datom (dec idx) :friend idx)])
+                (range (inc start) depth))
         db    (d/init-db (concat
                            test-datoms
                            [(d/datom start :name (str "Person-" start))]
                            txd)
-                         test-schema)
+                test-schema)
         pulled (d/pull db '[:name {:friend ...}] start)
         path   (->> [:friend 0]
-                    (repeat (dec (- depth start)))
-                    (into [] cat))]
+                 (repeat (dec (- depth start)))
+                 (into [] cat))]
     (is (= (str "Person-" (dec depth))
-           (:name (get-in pulled path))))))
+          (:name (get-in pulled path))))))
 
 ; https://github.com/tonsky/datascript/issues/430
 (deftest test-component-reverse
@@ -448,17 +448,17 @@
 
 (deftest test-lookup-ref-pull
   (is (= {:name "Petr" :aka ["Devil" "Tupen"]}
-         (d/pull test-db '[:name :aka] [:name "Petr"])))
+        (d/pull test-db '[:name :aka] [:name "Petr"])))
   (is (= nil
-         (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
+        (d/pull test-db '[:name :aka] [:name "NotInDatabase"])))
   (is (= [nil {:aka ["Devil" "Tupen"]} nil nil nil]
-         (d/pull-many test-db
-                      '[:aka]
-                      [[:name "Elizabeth"]
-                       [:name "Petr"]
-                       [:name "Eunan"]
-                       [:name "Rebecca"]
-                       [:name "Unknown"]])))
+        (d/pull-many test-db
+          '[:aka]
+          [[:name "Elizabeth"]
+           [:name "Petr"]
+           [:name "Eunan"]
+           [:name "Rebecca"]
+           [:name "Unknown"]])))
   (is (nil? (d/pull test-db '[*] [:name "No such name"]))))
 
 (deftest test-xform
