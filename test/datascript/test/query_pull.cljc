@@ -120,7 +120,7 @@
              [3 {:name "Oleg"} 1 1]}))))
 
 (deftest test-lookup-refs
-  (let [db (d/db-with (d/empty-db {:name { :db/unique :db.unique/identity }})
+  (let [db (d/db-with (d/empty-db {:name {:db/unique :db.unique/identity}})
              [{:db/id 1 :name "Petr" :age 44}
               {:db/id 2 :name "Ivan" :age 25}
               {:db/id 3 :name "Oleg" :age 11}])]

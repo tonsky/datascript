@@ -7,22 +7,22 @@
     [datascript.test.core :as tdc]))
 
 (def ^:private test-schema
-  {:name   { :db/unique :db.unique/identity }
-   :aka    { :db/cardinality :db.cardinality/many }
-   :child  { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
-   :friend { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
-   :enemy  { :db/cardinality :db.cardinality/many
-             :db/valueType :db.type/ref }
-   :father { :db/valueType :db.type/ref }
+  {:name   {:db/unique :db.unique/identity}
+   :aka    {:db/cardinality :db.cardinality/many}
+   :child  {:db/cardinality :db.cardinality/many
+             :db/valueType :db.type/ref}
+   :friend {:db/cardinality :db.cardinality/many
+             :db/valueType :db.type/ref}
+   :enemy  {:db/cardinality :db.cardinality/many
+             :db/valueType :db.type/ref}
+   :father {:db/valueType :db.type/ref}
 
-   :part   { :db/valueType :db.type/ref
+   :part   {:db/valueType :db.type/ref
              :db/isComponent true
-             :db/cardinality :db.cardinality/many }
-   :spec   { :db/valueType :db.type/ref
+             :db/cardinality :db.cardinality/many}
+   :spec   {:db/valueType :db.type/ref
              :db/isComponent true
-             :db/cardinality :db.cardinality/one }})
+             :db/cardinality :db.cardinality/one}})
 
 (def test-datoms
   (->>

@@ -44,5 +44,4 @@
     "Where uses unknown source vars: [$2]"
        
     '[:find ?e :where (rule ?e)]
-    "Missing rules var '%' in :in"
-    ))
+    "Missing rules var '%' in :in"))

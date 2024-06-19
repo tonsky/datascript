@@ -47,7 +47,6 @@
            [3]))
     (is (= (d/q '[:find (count ?name) .
                   :where [_ :name ?name]] test-db)
-           3)))
-)
+           3))))
 
 #_(t/test-ns 'datascript.test.query-find-specs)

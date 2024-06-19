@@ -192,12 +192,10 @@
       (let [tx (d/with db [{:db/id "A" :name "Igor"}
                            {:db/id "B" :name "Anna" :ref "A"}])]
         (is (= {:db/id 5 :name "Igor"} (pull tx 5)))
-        (is (= {:db/id 6 :name "Anna" :ref 5} (pull tx 6)))))
-    
-    ))
+        (is (= {:db/id 6 :name "Anna" :ref 5} (pull tx 6)))))))
 
 (deftest test-redefining-ids
-  (let [db (-> (d/empty-db {:name { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
              (d/db-with [{:db/id -1 :name "Ivan"}]))]
     (let [tx (d/with db [{:db/id -1 :age 35}
                          {:db/id -1 :name "Ivan" :age 36}])]
@@ -206,7 +204,7 @@
       (is (= {-1 1, :db/current-tx (+ d/tx0 2)}
             (:tempids tx)))))
   
-  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name  {:db/unique :db.unique/identity}})
              (d/db-with [{:db/id -1 :name "Ivan"}
                          {:db/id -2 :name "Oleg"}]))]
     (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"
@@ -284,7 +282,7 @@
        [:db/add -1 :name "Ivan"]]
       #{[1 :age 12] [1 :name "Ivan"]}))
   
-  (let [db (-> (d/empty-db {:name  { :db/unique :db.unique/identity }})
+  (let [db (-> (d/empty-db {:name  {:db/unique :db.unique/identity}})
              (d/db-with [[:db/add -1 :name "Ivan"]
                          [:db/add -2 :name "Oleg"]]))]
     (is (thrown-with-msg? Throwable #"Conflicting upsert: -1 resolves both to 1 and 2"

@@ -474,11 +474,11 @@
   
    Returns transaction report, a map:
 
-       { :db-before ...       ; db value before transaction
-         :db-after  ...       ; db value after transaction
-         :tx-data   [...]     ; plain datoms that were added/retracted from db-before
-         :tempids   {...}     ; map of tempid from tx-data => assigned entid in db-after
-         :tx-meta   tx-meta } ; the exact value you passed as `tx-meta`
+       {:db-before ...      ; db value before transaction
+        :db-after  ...      ; db value after transaction
+        :tx-data   [...]    ; plain datoms that were added/retracted from db-before
+        :tempids   {...}    ; map of tempid from tx-data => assigned entid in db-after
+        :tx-meta   tx-meta} ; the exact value you passed as `tx-meta`
 
   Note! `conn` will be updated in-place and is not returned from [[transact!]].
   

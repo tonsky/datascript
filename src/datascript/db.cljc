@@ -240,8 +240,7 @@
         clojure.lang.Associative
         (entryAt [d k] (some->> (val-at-datom d k nil) (clojure.lang.MapEntry k)))
         (containsKey [e k] (#{:e :a :v :tx :added} k))
-        (assoc [d k v] (assoc-datom d k v))]
-))
+        (assoc [d k v] (assoc-datom d k v))]))
 
 #?(:cljs (goog/exportSymbol "datascript.db.Datom" Datom))
 
@@ -1107,8 +1106,7 @@
        (.write w "]}"))
 
      (defmethod print-method DB [db w] (pr-db db w))
-     (defmethod print-method FilteredDB [db w] (pr-db db w))     
-))
+     (defmethod print-method FilteredDB [db w] (pr-db db w))))
 
 (defn db-from-reader [{:keys [schema datoms]}]
   (init-db (map (fn [[e a v tx]] (datom e a v tx)) datoms) schema {}))
@@ -1752,7 +1750,7 @@
             ;; trash => error
             :else
             (util/raise "Expected number, string or lookup ref for :db/id, got " old-eid
-              { :error :entity-id/syntax, :entity entity })))
+              {:error :entity-id/syntax, :entity entity})))
 
         (sequential? entity)
         (let [[op e a v] entity]
@@ -1776,7 +1774,7 @@
             (and (tempid? e)
               (not= op :db/add))
             (util/raise "Can't use tempid in '" entity "'. Tempids are allowed in :db/add only"
-              { :error :transact/syntax, :op entity })
+              {:error :transact/syntax, :op entity})
 
             (or (= op :db.fn/cas)
               (= op :db/cas))
@@ -1796,7 +1794,7 @@
                   (if (= v ov)
                     (recur (transact-add report [:db/add e a nv]) entities)
                     (util/raise ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov
-                           {:error :transact/cas, :old (first datoms), :expected ov, :new nv })))))
+                           {:error :transact/cas, :old (first datoms), :expected ov, :new nv})))))
 
             (tx-id? e)
             (recur (allocate-eid report e (current-tx report)) (cons [op (current-tx report) a v] entities))

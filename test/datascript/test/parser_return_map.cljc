@@ -46,5 +46,4 @@
           (dp/parse-query '[:find ?a ?b :strs x :where [?a ?b]])))
 
     (is (thrown-msg? "Count of :keys must match count of :find"
-          (dp/parse-query '[:find [?a ?b] :keys x :where [?a ?b]]))))
-)
+          (dp/parse-query '[:find [?a ?b] :keys x :where [?a ?b]])))))

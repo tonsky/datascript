@@ -11,10 +11,10 @@
 
 (deftest test-joins
   (let [db (-> (d/empty-db)
-               (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
-                            { :db/id 2, :name  "Petr", :age   37 }
-                            { :db/id 3, :name  "Ivan", :age   37 }
-                            { :db/id 4, :age 15 }]))]
+               (d/db-with [{:db/id 1, :name  "Ivan", :age   15}
+                            {:db/id 2, :name  "Petr", :age   37}
+                            {:db/id 3, :name  "Ivan", :age   37}
+                            {:db/id 4, :age 15}]))]
     (is (= (d/q '[:find ?e
                   :where [?e :name]] db)
            #{[1] [2] [3]}))
@@ -38,12 +38,12 @@
 
 (deftest test-q-many
   (let [db (-> (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
-               (d/db-with [ [:db/add 1 :name "Ivan"]
+               (d/db-with [[:db/add 1 :name "Ivan"]
                             [:db/add 1 :aka  "ivolga"]
                             [:db/add 1 :aka  "pi"]
                             [:db/add 2 :name "Petr"]
                             [:db/add 2 :aka  "porosenok"]
-                            [:db/add 2 :aka  "pi"] ]))]
+                            [:db/add 2 :aka  "pi"]]))]
     (is (= (d/q '[:find  ?n1 ?n2
                   :where [?e1 :aka ?x]
                          [?e2 :aka ?x]
@@ -56,32 +56,32 @@
 
 
 (deftest test-q-coll
-  (let [db [ [1 :name "Ivan"]
+  (let [db [[1 :name "Ivan"]
              [1 :age  19]
              [1 :aka  "dragon_killer_94"]
-             [1 :aka  "-=autobot=-"] ] ]
-    (is (= (d/q '[ :find  ?n ?a
+             [1 :aka  "-=autobot=-"]]]
+    (is (= (d/q '[:find  ?n ?a
                    :where [?e :aka "dragon_killer_94"]
                           [?e :name ?n]
                           [?e :age  ?a]] db)
            #{["Ivan" 19]})))
 
   (testing "Query over long tuples"
-    (let [db [ [1 :name "Ivan" 945 :db/add]
-               [1 :age  39     999 :db/retract]] ]
-      (is (= (d/q '[ :find  ?e ?v
+    (let [db [[1 :name "Ivan" 945 :db/add]
+               [1 :age  39     999 :db/retract]]]
+      (is (= (d/q '[:find  ?e ?v
                      :where [?e :name ?v]] db)
              #{[1 "Ivan"]}))
-      (is (= (d/q '[ :find  ?e ?a ?v ?t
+      (is (= (d/q '[:find  ?e ?a ?v ?t
                      :where [?e ?a ?v ?t :db/retract]] db)
              #{[1 :age 39 999]})))))
 
 
 (deftest test-q-in
   (let [db (-> (d/empty-db)
-               (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
-                            { :db/id 2, :name  "Petr", :age   37 }
-                            { :db/id 3, :name  "Ivan", :age   37 }]))
+               (d/db-with [{:db/id 1, :name  "Ivan", :age   15}
+                            {:db/id 2, :name  "Petr", :age   37}
+                            {:db/id 3, :name  "Ivan", :age   37}]))
         query '{:find  [?e]
                 :in    [$ ?attr ?value]
                 :where [[?e ?attr ?value]]}]
@@ -129,9 +129,9 @@
 
 (deftest test-bindings
   (let [db (-> (d/empty-db)
-             (d/db-with [ { :db/id 1, :name  "Ivan", :age   15 }
-                          { :db/id 2, :name  "Petr", :age   37 }
-                          { :db/id 3, :name  "Ivan", :age   37 }]))]
+             (d/db-with [{:db/id 1, :name  "Ivan", :age   15}
+                          {:db/id 2, :name  "Petr", :age   37}
+                          {:db/id 3, :name  "Ivan", :age   37}]))]
     (testing "Relation binding"
       (is (= (d/q '[:find  ?e ?email
                     :in    $ [[?n ?email]]
@@ -190,9 +190,7 @@
       (is (thrown-with-msg? ExceptionInfo #"Cannot bind value :a to collection \[\?a \.\.\.\]"
             (d/q '[:find ?a :in [?a ...]] :a)))
       (is (thrown-with-msg? ExceptionInfo #"Not enough elements in a collection \[:a\] to bind tuple \[\?a \?b\]"
-            (d/q '[:find ?a ?b :in [?a ?b]] [:a]))))
-
-))
+            (d/q '[:find ?a ?b :in [?a ?b]] [:a]))))))
         
 (deftest test-nested-bindings
   (is (= (d/q '[:find  ?k ?v

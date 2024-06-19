@@ -36,8 +36,8 @@
 ;; attrs:
 ;;    {?e 0, ?v 1} or {?e2 "a", ?age "v"}
 ;; tuples:
-;;    [ #js [1 "Ivan" 5 14] ... ]
-;; or [ (Datom. 2 "Oleg" 1 55) ... ]
+;;    [#js [1 "Ivan" 5 14] ...]
+;; or [(Datom. 2 "Oleg" 1 55) ...]
 (defrecord Relation [attrs tuples])
 
 
@@ -183,8 +183,7 @@
               (reduce (fn [acc t2]
                         (conj! acc (join-tuples t1 idxs1 t2 idxs2)))
                       acc (:tuples rel2)))
-            (transient []) (:tuples rel1)))
-        ))))
+            (transient []) (:tuples rel1)))))))
 
 ;;
 
@@ -373,7 +372,7 @@
                                                (conj! acc (join-tuples tuple1 keep-idxs1 tuple2 keep-idxs2)))
                                              acc tuples1)
                                      acc)))
-                               (transient []) )
+                               (transient []))
                        (persistent!))]
     (Relation. (zipmap (concat keep-attrs1 keep-attrs2) (range))
                new-tuples)))

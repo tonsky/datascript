@@ -32,8 +32,7 @@
     (dp/->Pattern (dp/->SrcVar '$x) [(dp/->Placeholder) (dp/->Constant '$src-sym) (dp/->Variable '?v)]))
 
     (is (thrown-with-msg? ExceptionInfo #"Pattern could not be empty"
-                          (dp/parse-clause '[])))
-)
+                          (dp/parse-clause '[]))))
 
 (deftest test-pred
   (are [clause res] (= (dp/parse-clause clause) res)
@@ -44,8 +43,7 @@
     (dp/->Predicate (dp/->PlainSymbol 'pred) [])
   
     '[(?custom-pred ?a)]
-    (dp/->Predicate (dp/->Variable '?custom-pred) [(dp/->Variable '?a)])
-))
+    (dp/->Predicate (dp/->Variable '?custom-pred) [(dp/->Variable '?a)])))
 
 (deftest test-fn
   (are [clause res] (= (dp/parse-clause clause) res)
@@ -84,9 +82,9 @@
     (dp/->Not
       (dp/->DefaultSrc)
       [(dp/->Variable '?e) (dp/->Variable '?x)]
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
-          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
+          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])])
 
     '(not
        [?e :follows ?x]
@@ -94,7 +92,7 @@
     (dp/->Not
       (dp/->DefaultSrc)
       [(dp/->Variable '?e) (dp/->Variable '?x) (dp/->Variable '?y)]
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
         (dp/->Pattern
@@ -105,7 +103,7 @@
     (dp/->Not
       (dp/->SrcVar '$1)
       [(dp/->Variable '?x)]
-      [ (dp/->Pattern (dp/->DefaultSrc) [(dp/->Variable '?x)]) ])
+      [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Variable '?x)])])
        
     '(not-join [?e ?y]
        [?e :follows ?x]
@@ -113,7 +111,7 @@
     (dp/->Not
       (dp/->DefaultSrc)
       [(dp/->Variable '?e) (dp/->Variable '?y)]
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
         (dp/->Pattern
@@ -124,10 +122,9 @@
     (dp/->Not
       (dp/->SrcVar '$1)
       [(dp/->Variable '?e)]
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
-          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
-  )
+          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])]))
     
   (is (thrown-with-msg? ExceptionInfo #"Join variables should not be empty"
         (dp/parse-clause '(not-join [] [?y]))))
@@ -139,8 +136,7 @@
         (dp/parse-clause '(not-join [?x]))))
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse 'not' clause"
-      (dp/parse-clause '(not))))
-)
+      (dp/parse-clause '(not)))))
 
 (deftest or-clause
   (are [clause res] (= (dp/parse-clause clause) res)
@@ -148,9 +144,9 @@
     (dp/->Or
       (dp/->DefaultSrc)
       (dp/->RuleVars nil [(dp/->Variable '?e) (dp/->Variable '?x)])
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
-          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
+          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])])
 
     '(or
        [?e :follows ?x]
@@ -158,7 +154,7 @@
     (dp/->Or
       (dp/->DefaultSrc)
       (dp/->RuleVars nil [(dp/->Variable '?e) (dp/->Variable '?x)])
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
         (dp/->Pattern
@@ -173,7 +169,7 @@
     (dp/->Or
       (dp/->DefaultSrc)
       (dp/->RuleVars nil [(dp/->Variable '?e) (dp/->Variable '?x)])
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
         (dp/->And
@@ -182,13 +178,13 @@
              [(dp/->Variable '?e) (dp/->Constant :friend) (dp/->Variable '?x)])
            (dp/->Pattern
              (dp/->DefaultSrc)
-             [(dp/->Variable '?x) (dp/->Constant :friend) (dp/->Variable '?e)])]) ])
+             [(dp/->Variable '?x) (dp/->Constant :friend) (dp/->Variable '?e)])])])
        
     '($1 or [?x])
     (dp/->Or
       (dp/->SrcVar '$1)
       (dp/->RuleVars nil [(dp/->Variable '?x)])
-      [ (dp/->Pattern (dp/->DefaultSrc) [(dp/->Variable '?x)]) ])
+      [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Variable '?x)])])
        
     '(or-join [?e]
        [?e :follows ?x]
@@ -196,7 +192,7 @@
     (dp/->Or
       (dp/->DefaultSrc)
       (dp/->RuleVars nil [(dp/->Variable '?e)])
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
           [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
         (dp/->Pattern
@@ -209,23 +205,22 @@
     (dp/->Or
       (dp/->DefaultSrc)
       (dp/->RuleVars [(dp/->Variable '?e)] nil)
-      [ (dp/->And
+      [(dp/->And
           [(dp/->Pattern
              (dp/->DefaultSrc)
              [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])
            (dp/->Pattern
              (dp/->DefaultSrc)
-             [(dp/->Variable '?e) (dp/->Constant :friend) (dp/->Variable '?y)])]) ])
+             [(dp/->Variable '?e) (dp/->Constant :friend) (dp/->Variable '?y)])])])
        
     '($1 or-join [[?e] ?x]
          [?e :follows ?x])
     (dp/->Or
       (dp/->SrcVar '$1)
       (dp/->RuleVars [(dp/->Variable '?e)] [(dp/->Variable '?x)])
-      [ (dp/->Pattern
+      [(dp/->Pattern
           (dp/->DefaultSrc)
-          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)]) ])
-  )
+          [(dp/->Variable '?e) (dp/->Constant :follows) (dp/->Variable '?x)])]))
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-vars"
         (dp/parse-clause '(or-join [] [?y]))))
@@ -237,7 +232,6 @@
         (dp/parse-clause '(or-join [?x]))))
   
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse 'or' clause"
-      (dp/parse-clause '(or))))
-)
+      (dp/parse-clause '(or)))))
 
   

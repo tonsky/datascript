@@ -78,8 +78,8 @@
        (greater-equal y (first more)))
      false)))
 
-(def query-fns {
-  '= =, '== ==, 'not= not=, '!= not=,
+(def query-fns
+  {'= =, '== ==, 'not= not=, '!= not=,
   '< less, '> greater, '<= less-equal, '>= greater-equal,
   '+ +, '- -, '* *, '/ /,
   'quot quot, 'rem rem, 'mod mod, 'inc inc, 'dec dec, 'max max, 'min min,
@@ -96,8 +96,7 @@
   '-differ? -differ?, 'get-else -get-else, 'get-some -get-some, 'missing? -missing?, 'ground identity,
   'clojure.string/blank? str/blank?, 'clojure.string/includes? str/includes?,
   'clojure.string/starts-with? str/starts-with?, 'clojure.string/ends-with? str/ends-with?
-  'tuple vector, 'untuple identity
-})
+  'tuple vector, 'untuple identity})
 
 ;; Aggregates
 

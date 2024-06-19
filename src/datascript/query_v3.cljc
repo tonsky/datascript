@@ -226,7 +226,7 @@
                :cljs (str (type rel))))
     (.write "{:symbols ")
     (.write (pr-str (-symbols rel)))
-    (.write ", :coll " )
+    (.write ", :coll ")
     (.write (pr-str (persistent! (-fold rel #(conj! %1 (seq %2)) (transient [])))))
     (.write "}")))
 
@@ -786,7 +786,7 @@
           (if (contains? sources sym)
             (da/aset target i (get sources sym))
             (throw (ex-info (str "Unbound source variable: " sym " in " form)
-                            { :error :query/where, :form form, :var sym })))
+                            { :error :query/where, :form form, :var sym})))
         (instance? Constant arg)
           (da/aset target i (:value arg))))))
 
@@ -937,11 +937,11 @@
 
 (defn q [q & inputs]
   (let [parsed-q (lru/-get query-cache q #(dp/parse-query q))
-        context  { :rels    []
-                    :consts  {}
-                    :sources {}
-                    :rules   {}
-                    :default-source-symbol '$ }
+        context  {:rels    []
+                  :consts  {}
+                  :sources {}
+                  :rules   {}
+                  :default-source-symbol '$}
         context  (resolve-ins context (:qin parsed-q) inputs)
         context  (resolve-clauses context (:qwhere parsed-q))
         syms     (concat (dp/find-vars (:qfind parsed-q))
@@ -952,7 +952,7 @@
 (comment
   (t/test-ns 'datascript.test.query-v3)
 
-  (let [query   '[ :find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
+  (let [query   '[:find  ?lid ?status ?starttime ?endtime (min ?paid) (distinct ?studentinfo) ?lgid
                   :in    $ ?tid ?week ?list
                   :where [?lid :lesson/teacherid ?tid]
                           [?lid :lesson/week ?week]

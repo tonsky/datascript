@@ -14,10 +14,10 @@
 (t/use-fixtures :once tdc/no-namespace-maps)
 
 (def readers
-  { #?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
+  {#?@(:cljs ["cljs.reader/read-string"  cljs.reader/read-string]
         :clj  ["clojure.edn/read-string"  #(clojure.edn/read-string {:readers d/data-readers} %)
                "clojure.core/read-string" #(binding [*data-readers* (merge *data-readers* d/data-readers)]
-                                             (read-string %))]) })
+                                             (read-string %))])})
 
 (deftest test-pr-read
   (doseq [[r read-fn] readers]
@@ -100,7 +100,7 @@
       (is (= db-init db-transact)))
 
     (testing "db-init produces the same max-eid as regular transactions"
-      (let [assertions [ [:db/add -1 :name "Lex"] ]]
+      (let [assertions [[:db/add -1 :name "Lex"]]]
         (is (= (d/db-with db-init assertions)
               (d/db-with db-transact assertions)))))
     

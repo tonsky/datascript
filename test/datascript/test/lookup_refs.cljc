@@ -11,8 +11,8 @@
 
 
 (deftest test-lookup-refs
-  (let [db (d/db-with (d/empty-db {:name  { :db/unique :db.unique/identity }
-                                   :email { :db/unique :db.unique/value }})
+  (let [db (d/db-with (d/empty-db {:name  {:db/unique :db.unique/identity}
+                                   :email {:db/unique :db.unique/value}})
                       [{:db/id 1 :name "Ivan" :email "@1" :age 35}
                        {:db/id 2 :name "Petr" :email "@2" :age 22}])]
     
@@ -28,8 +28,8 @@
       [:age 10]   "Lookup ref attribute should be marked as :db/unique: [:age 10]")))
 
 (deftest test-lookup-refs-transact
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
-                                   :friend  { :db/valueType :db.type/ref }})
+  (let [db (d/db-with (d/empty-db {:name    {:db/unique :db.unique/identity}
+                                   :friend  {:db/valueType :db.type/ref}})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}])]
     (are [tx res] (= res (tdc/entity-map (d/db-with db tx) 1))
@@ -90,13 +90,12 @@
       "Nothing found for entity id [:name \"Oleg\"]"
          
       [[:db/add [:name "Oleg"] :age 10]]
-      "Nothing found for entity id [:name \"Oleg\"]")
-    ))
+      "Nothing found for entity id [:name \"Oleg\"]")))
 
 (deftest test-lookup-refs-transact-multi
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
-                                   :friends { :db/valueType :db.type/ref
-                                              :db/cardinality :db.cardinality/many }})
+  (let [db (d/db-with (d/empty-db {:name    {:db/unique :db.unique/identity}
+                                   :friends {:db/valueType :db.type/ref
+                                              :db/cardinality :db.cardinality/many}})
                       [{:db/id 1 :name "Ivan"}
                        {:db/id 2 :name "Petr"}
                        {:db/id 3 :name "Oleg"}
@@ -133,12 +132,11 @@
       {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
 
       [{:db/id 2 :_friends [[:name "Ivan"] [:name "Oleg"]]}]
-      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}}
-    )))
+      {:db/id 1 :name "Ivan" :friends #{{:db/id 2}}})))
 
 (deftest lookup-refs-index-access
-  (let [db (d/db-with (d/empty-db {:name    { :db/unique :db.unique/identity }
-                                   :friends { :db/valueType :db.type/ref
+  (let [db (d/db-with (d/empty-db {:name    {:db/unique :db.unique/identity}
+                                   :friends {:db/valueType :db.type/ref
                                               :db/cardinality :db.cardinality/many}})
                       [{:db/id 1 :name "Ivan" :friends [2 3]}
                        {:db/id 2 :name "Petr" :friends 3}
@@ -175,8 +173,7 @@
        :aevt [:friends [:name "Ivan"] [:name "Oleg"]] [:friends 1 3]
        
        :avet [:friends [:name "Oleg"]] [:friends 3]
-       :avet [:friends [:name "Oleg"] [:name "Petr"]] [:friends 3 2]
-      )
+       :avet [:friends [:name "Oleg"] [:name "Petr"]] [:friends 3 2])
     
     (are [attr start end datoms] (= (map (juxt :e :a :v) (d/index-range db attr start end)) datoms)
        :friends [:name "Oleg"] [:name "Oleg"]
@@ -186,16 +183,15 @@
        [[1 :friends 2]]
        
        :friends [:name "Petr"] [:name "Oleg"]
-       [[1 :friends 2] [1 :friends 3] [2 :friends 3]])
-))
+       [[1 :friends 2] [1 :friends 3] [2 :friends 3]])))
 
 (deftest test-lookup-refs-query
-  (let [schema {:name   { :db/unique :db.unique/identity }
-                :friend { :db/valueType :db.type/ref }}
+  (let [schema {:name   {:db/unique :db.unique/identity}
+                :friend {:db/valueType :db.type/ref}}
         db (d/db-with (d/empty-db schema)
                     [{:db/id 1 :id 1 :name "Ivan" :age 11 :friend 2}
                      {:db/id 2 :id 2 :name "Petr" :age 22 :friend 3}
-                     {:db/id 3 :id 3 :name "Oleg" :age 33 }])]
+                     {:db/id 3 :id 3 :name "Oleg" :age 33}])]
     (is (= (set (d/q '[:find ?e ?v
                        :in $ ?e
                        :where [?e :age ?v]]
@@ -268,7 +264,4 @@
       (is (thrown-msg? "Nothing found for entity id [:name \"Valery\"]"
             (d/q '[:find ?e
                    :where [[:name "Valery"] :friend ?e]]
-                  db)))
-
-      )
-))
+                  db))))))

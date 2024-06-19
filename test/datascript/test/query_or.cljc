@@ -11,12 +11,12 @@
 (def test-db
   (delay
     (d/db-with (d/empty-db)
-      [ {:db/id 1 :name "Ivan" :age 10}
+      [{:db/id 1 :name "Ivan" :age 10}
         {:db/id 2 :name "Ivan" :age 20}
         {:db/id 3 :name "Oleg" :age 10}
         {:db/id 4 :name "Oleg" :age 20}
         {:db/id 5 :name "Ivan" :age 10}
-        {:db/id 6 :name "Ivan" :age 20} ])))
+        {:db/id 6 :name "Ivan" :age 20}])))
 
 (deftest test-or
   (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
@@ -153,11 +153,11 @@
 
 (deftest test-default-source
   (let [db1 (d/db-with (d/empty-db)
-             [ [:db/add 1 :name "Ivan" ]
-               [:db/add 2 :name "Oleg"] ])
+             [[:db/add 1 :name "Ivan"]
+               [:db/add 2 :name "Oleg"]])
         db2 (d/db-with (d/empty-db)
-             [ [:db/add 1 :age 10 ]
-               [:db/add 2 :age 20] ])]
+             [[:db/add 1 :age 10]
+               [:db/add 2 :age 20]])]
     (are [q res] (= (d/q (concat '[:find ?e :in $ $2 :where] (quote q)) db1 db2)
                     (into #{} (map vector) res))
       ;; OR inherits default source

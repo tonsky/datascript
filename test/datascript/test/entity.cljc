@@ -77,8 +77,7 @@
       (is (= (:_father   (e 1))  #{(e 10)}))
       (is (= (:_children (e 10)) #{(e 1)}))
       (is (= (:_father   (e 10)) #{(e 100) (e 101)}))
-      (is (= (-> (e 100) :_children first :_children) #{(e 1)}))
-    )))
+      (is (= (-> (e 100) :_children first :_children) #{(e 1)})))))
 
 (deftest test-missing-refs
   (let [schema {:ref       {:db/valueType   :db.type/ref}

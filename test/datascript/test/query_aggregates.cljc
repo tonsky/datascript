@@ -12,29 +12,29 @@
 
 
 (deftest test-aggregates
-  (let [monsters [ ["Cerberus" 3]
+  (let [monsters [["Cerberus" 3]
                    ["Medusa" 1]
                    ["Cyclops" 1]
-                   ["Chimera" 1] ]]
+                   ["Chimera" 1]]]
     (testing "with"
-      (is (= (d/q '[ :find ?heads
+      (is (= (d/q '[:find ?heads
                      :with ?monster
-                     :in   [[?monster ?heads]] ]
-                  [ ["Medusa" 1]
+                     :in   [[?monster ?heads]]]
+                  [["Medusa" 1]
                     ["Cyclops" 1]
-                    ["Chimera" 1] ])
+                    ["Chimera" 1]])
              [[1] [1] [1]])))
 
     (testing "Wrong grouping without :with"
-      (is (= (d/q '[ :find (sum ?heads)
-                     :in   [[?monster ?heads]] ]
+      (is (= (d/q '[:find (sum ?heads)
+                     :in   [[?monster ?heads]]]
                   monsters)
              [[4]])))
 
     (testing "Multiple aggregates, correct grouping with :with"
-      (is (= (d/q '[ :find (sum ?heads) (min ?heads) (max ?heads) (count ?heads) (count-distinct ?heads)
+      (is (= (d/q '[:find (sum ?heads) (min ?heads) (max ?heads) (count ?heads) (count-distinct ?heads)
                      :with ?monster
-                     :in   [[?monster ?heads]] ]
+                     :in   [[?monster ?heads]]]
                   monsters)
              [[6 1 3 4 2]])))
     
@@ -55,8 +55,8 @@
              [[[:a/b :a/c] [:a/c :a-/b]]])))
 
     (testing "Grouping and parameter passing"
-      (is (= (set (d/q '[ :find ?color (max ?amount ?x) (min ?amount ?x)
-                          :in   [[?color ?x]] ?amount ]
+      (is (= (set (d/q '[:find ?color (max ?amount ?x) (min ?amount ?x)
+                          :in   [[?color ?x]] ?amount]
                        [[:red 1]  [:red 2] [:red 3] [:red 4] [:red 5]
                         [:blue 7] [:blue 8]]
                        3))
@@ -92,15 +92,14 @@
                     [:blue 7] [:blue 8]]
             result #{[:red [5 4 3 2 1]] [:blue [8 7]]}]
         
-        (is (= (set (d/q '[ :find ?color (aggregate ?agg ?x)
-                            :in   [[?color ?x]] ?agg ]
+        (is (= (set (d/q '[:find ?color (aggregate ?agg ?x)
+                            :in   [[?color ?x]] ?agg]
                          data
                          sort-reverse))
                result))
         
         #?(:clj
-            (is (= (set (d/q '[ :find ?color (datascript.test.query-aggregates/sort-reverse ?x)
+            (is (= (set (d/q '[:find ?color (datascript.test.query-aggregates/sort-reverse ?x)
                                 :in   [[?color ?x]]]
                              data))
-                   result)))
-        ))))
+                   result)))))))

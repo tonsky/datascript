@@ -1,3 +1,1 @@
-{
-  :externs ["datascript/externs.js"]
-}
+{:externs ["datascript/externs.js"]}

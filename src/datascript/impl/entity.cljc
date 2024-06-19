@@ -142,8 +142,7 @@
 
        clojure.lang.IFn
        (invoke [e k]      (lookup-entity e k))
-       (invoke [e k not-found] (lookup-entity e k not-found))
-       ]))
+       (invoke [e k not-found] (lookup-entity e k not-found))]))
 
 (defn entity? [x] (instance? Entity x))
 

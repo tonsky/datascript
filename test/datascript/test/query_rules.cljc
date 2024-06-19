@@ -143,15 +143,14 @@
           '[[(rule ?p ?fn ?x)
              [?p :attr ?x]
              [(?fn ?x)]]]
-           (constantly true)))
-  )
+           (constantly true))))
 
 
   (testing "Specifying db to rule"
     (is (= (d/q '[:find ?n
                   :in   $sexes $ages %
                   :where ($sexes male ?n)
-                         ($ages adult ?n) ]
+                         ($ages adult ?n)]
                   [["Ivan" :male] ["Darya" :female] ["Oleg" :male] ["Igor" :male]]
                   [["Ivan" 15] ["Oleg" 66] ["Darya" 32]]
                   '[[(male ?x)

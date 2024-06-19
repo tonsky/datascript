@@ -128,8 +128,7 @@
     [{:ref '...}]  (pattern :attrs         [(attr :ref,            :ref? true,                 :pattern nil, :recursive? true, :recursion-limit nil)]) 
     [{:ref "..."}] (pattern :attrs         [(attr :ref,            :ref? true,                 :pattern nil, :recursive? true, :recursion-limit nil)])
     [{:_ref 100}]  (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern nil, :recursive? true, :recursion-limit 100)])
-    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern nil, :recursive? true, :recursion-limit nil)]) 
-  )
+    [{:_ref '...}] (pattern :reverse-attrs [(attr :ref, :as :_ref, :ref? true, :reverse? true, :pattern nil, :recursive? true, :recursion-limit nil)]))
 
   (testing "Error reporting"
     (are [pattern msg] (thrown-msg? msg (dpp/parse-pattern db pattern))
@@ -156,8 +155,7 @@
       ; map spec
       [{:normal [:normal2]}] "Expected attribute having :db.type/ref, got: :normal"
       [{'(:ref :limit 100) [:normal]}] "Expected limit attribute having :db.cardinality/many, got: :ref"
-      [{:ref :normal}] "Expected pattern to be sequential?, got: :normal"
-    )))
+      [{:ref :normal}] "Expected pattern to be sequential?, got: :normal")))
 
 
 (comment

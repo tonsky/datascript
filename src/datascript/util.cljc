@@ -136,7 +136,7 @@
             high     (.getMostSignificantBits uuid)
             low      (.getLeastSignificantBits uuid)
             new-high (bit-or (bit-and high 0x00000000FFFFFFFF)
-                       (bit-shift-left time 32)) ]
+                       (bit-shift-left time 32))]
         (UUID. new-high low))
       :cljs
       (uuid

@@ -17,11 +17,11 @@
        [?x :name _]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars nil [(dp/->Variable '?x)])
             [(dp/->Pattern
                (dp/->DefaultSrc)
-               [(dp/->Variable '?x) (dp/->Constant :name) (dp/->Placeholder)])]) ])}))
+               [(dp/->Variable '?x) (dp/->Constant :name) (dp/->Placeholder)])])])}))
 
 (deftest rule-vars
   (are [form res] (= (set (dp/parse-rules form)) res)       
@@ -29,27 +29,27 @@
        [_]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars [(dp/->Variable '?x)] [(dp/->Variable '?y)])
-            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])]) ])}
+            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])])])}
        
     '[[(rule [?x ?y] ?a ?b)
        [_]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
         
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
            (dp/->RuleVars [(dp/->Variable '?x) (dp/->Variable '?y)]
                          [(dp/->Variable '?a) (dp/->Variable '?b)])
-           [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])]) ])}
+           [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])])])}
        
     '[[(rule [?x])
        [_]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars [(dp/->Variable '?x)] nil)
-            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])]) ])})
+            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Placeholder)])])])})
 
   (is (thrown-with-msg? ExceptionInfo #"Cannot parse rule-vars"
         (dp/parse-rules '[[(rule) [_]]])))
@@ -61,8 +61,7 @@
         (dp/parse-rules '[[(rule ?x ?y ?x) [_]]])))
   
   (is (thrown-with-msg? ExceptionInfo #"Rule variables should be distinct"
-        (dp/parse-rules '[[(rule [?x ?y] ?z ?x) [_]]])))
-)
+        (dp/parse-rules '[[(rule [?x ?y] ?z ?x) [_]]]))))
 
 (deftest branches
   (are [form res] (= (set (dp/parse-rules form)) res)
@@ -73,13 +72,13 @@
        [:c]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars nil [(dp/->Variable '?x)])
             [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :a)])
              (dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :b)])])
           (dp/->RuleBranch
             (dp/->RuleVars nil [(dp/->Variable '?x)])
-            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :c)])]) ])}
+            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :c)])])])}
        
     '[[(rule ?x)
        [:a]
@@ -88,16 +87,15 @@
        [:c]]]
     #{(dp/->Rule
         (dp/->PlainSymbol 'rule)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars nil [(dp/->Variable '?x)])
             [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :a)])
-             (dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :b)])]) ])
+             (dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :b)])])])
       (dp/->Rule
         (dp/->PlainSymbol 'other)
-        [ (dp/->RuleBranch
+        [(dp/->RuleBranch
             (dp/->RuleVars nil [(dp/->Variable '?x)])
-            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :c)])]) ])}
-  )
+            [(dp/->Pattern (dp/->DefaultSrc) [(dp/->Constant :c)])])])})
   
   (is (thrown-with-msg? ExceptionInfo #"Rule branch should have clauses"
         (dp/parse-rules '[[(rule ?x)]])))
@@ -108,5 +106,4 @@
   
   (is (thrown-with-msg? ExceptionInfo #"Arity mismatch"
         (dp/parse-rules '[[(rule ?x) [_]]
-                           [(rule [?x]) [_]]])))
-)  
+                           [(rule [?x]) [_]]]))))  

@@ -375,6 +375,5 @@
          #'datascript.test.pull-api/test-pull-recursion
          #'datascript.test.pull-api/test-dual-recursion
          #'datascript.test.pull-api/test-deep-recursion
-         #'datascript.test.pull-api/test-lookup-ref-pull
-         ])
+         #'datascript.test.pull-api/test-lookup-ref-pull])
       @clojure.test/*report-counters*)))

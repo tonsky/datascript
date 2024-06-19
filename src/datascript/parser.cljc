@@ -484,8 +484,7 @@
             (util/raise "Cannot parse rule-expr arguments, expected [ (variable | constant | '_')+ ]"
                    {:error :parser/where, :form form})
           :else
-            (RuleExpr. source* name* args*)
-          )))))
+            (RuleExpr. source* name* args*))))))
 
 (defn- collect-vars-acc [acc form]
   (cond
@@ -619,7 +618,7 @@
       (parse-rule-expr form)
       (parse-pattern   form)
       (util/raise "Cannot parse clause, expected (data-pattern | pred-expr | fn-expr | rule-expr | not-clause | not-join-clause | or-clause | or-join-clause)"
-             {:error :parser/where, :form form} )))
+             {:error :parser/where, :form form})))
 
 (defn parse-clauses [clauses]
   (parse-seq parse-clause clauses))

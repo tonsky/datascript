@@ -12,12 +12,12 @@
 (def test-db
   (delay
     (d/db-with (d/empty-db)
-      [ {:db/id 1 :name "Ivan" :age 10}
+      [{:db/id 1 :name "Ivan" :age 10}
         {:db/id 2 :name "Ivan" :age 20}
         {:db/id 3 :name "Oleg" :age 10}
         {:db/id 4 :name "Oleg" :age 20}
         {:db/id 5 :name "Ivan" :age 10}
-        {:db/id 6 :name "Ivan" :age 20} ])))
+        {:db/id 6 :name "Ivan" :age 20}])))
 
 
 (deftest test-not
@@ -64,8 +64,7 @@
     [[?e :name ?a]
      (not [?e :age ?f]
           [?e :age 10])]
-    #{2 4 6}
-))
+    #{2 4 6}))
 
 
 (deftest test-not-join
@@ -89,11 +88,11 @@
   
 (deftest test-default-source
   (let [db1 (d/db-with (d/empty-db)
-             [ [:db/add 1 :name "Ivan" ]
-               [:db/add 2 :name "Oleg"] ])
+             [[:db/add 1 :name "Ivan"]
+               [:db/add 2 :name "Oleg"]])
         db2 (d/db-with (d/empty-db)
-             [ [:db/add 1 :age 10 ]
-               [:db/add 2 :age 20] ])]
+             [[:db/add 1 :age 10]
+               [:db/add 2 :age 20]])]
     (are [q res] (= (set (d/q (concat '[:find [?e ...]
                                         :in   $ $2
                                         :where]
@@ -176,8 +175,7 @@
              [?e2 :name "Oleg"]
              (not [?e :age 10]
                   [?e2 :age 20])]
-    #{[4 3] [3 3] [4 4]}
-))
+    #{[4 3] [3 3] [4 4]}))
 
 
 (deftest test-insufficient-bindings
@@ -195,5 +193,4 @@
     
     [[?e :name]
      (not [?a :name "Ivan"])]
-    "Insufficient bindings: none of #{?a} is bound in (not [?a :name \"Ivan\"])"
-))
+    "Insufficient bindings: none of #{?a} is bound in (not [?a :name \"Ivan\"])"))

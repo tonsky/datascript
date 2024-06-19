@@ -7,7 +7,7 @@
     [datascript.test.core :as tdc]))
 
 (deftest test-filter-db
-  (let [empty-db (d/empty-db {:aka { :db/cardinality :db.cardinality/many }})
+  (let [empty-db (d/empty-db {:aka {:db/cardinality :db.cardinality/many}})
         db (-> empty-db
                (d/db-with [{:db/id 1
                             :name  "Petr"
@@ -21,8 +21,7 @@
                            {:db/id 3
                             :name  "Nikolai"
                             :aka   ["II"]
-                            :password "<UNKWOWN>"}
-                           ]))
+                            :password "<UNKWOWN>"}]))
         remove-pass (fn [_ datom] (not= :password (:a datom)))
         remove-ivan (fn [_ datom] (not= 2 (:e datom)))
         long-akas   (fn [udb datom] (or (not= :aka (:a datom))
@@ -73,9 +72,9 @@
   
   (testing "double filtering"
     (let [db       (d/db-with (d/empty-db {})
-                     [{ :db/id 1, :name "Petr", :age 32}
-                      { :db/id 2, :name "Oleg"}
-                      { :db/id 3, :name "Ivan", :age 12}])
+                     [{:db/id 1, :name "Petr", :age 32}
+                      {:db/id 2, :name "Oleg"}
+                      {:db/id 3, :name "Ivan", :age 12}])
           has-age? (fn [db datom] (some? (:age (d/entity db (:e datom)))))
           adult?   (fn [db datom] (>= (:age (d/entity db (:e datom))) 18))
           names    (fn [db] (map :v (d/datoms db :aevt :name)))]

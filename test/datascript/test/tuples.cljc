@@ -381,5 +381,4 @@
     (is (= #{["A" "B"] ["A" "b"] ["a" "B"] ["a" "b"]}
           (d/q '[:find ?a ?b
                  :where [?e :a+b ?a+b]
-                        [(untuple ?a+b) [?a ?b]]] db)))
-    ))
+                        [(untuple ?a+b) [?a ?b]]] db)))))

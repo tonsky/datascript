@@ -56,11 +56,11 @@
     obj))
 
 (defn- tx-report->js [report]
-  #js { :db_before (:db-before report)
-        :db_after  (:db-after report)
-        :tx_data   (->> (:tx-data report) into-array)
-        :tempids   (tempids->js (:tempids report))
-        :tx_meta   (:tx-meta report) })
+  #js {:db_before (:db-before report)
+       :db_after  (:db-after report)
+       :tx_data   (->> (:tx-data report) into-array)
+       :tempids   (tempids->js (:tempids report))
+       :tx_meta   (:tx-meta report)})
 
 (defn js->Datom [d]
   (if (array? d)
@@ -132,13 +132,13 @@
     report))
 
 (defn ^:export reset_conn [conn db & [tx-meta]]
-  (let [report #js { :db_before @conn
-                     :db_after  db
-                     :tx_data   (into-array
-                                  (concat
-                                    (map #(assoc % :added false) (d/datoms @conn :eavt))
-                                    (d/datoms db :eavt)))
-                     :tx_meta   tx-meta }]
+  (let [report #js {:db_before @conn
+                    :db_after  db
+                    :tx_data   (into-array
+                                 (concat
+                                   (map #(assoc % :added false) (d/datoms @conn :eavt))
+                                   (d/datoms db :eavt)))
+                    :tx_meta   tx-meta}]
     (reset! conn db)
     (doseq [[_ callback] (:listeners @(:atom conn))]
       (callback report))

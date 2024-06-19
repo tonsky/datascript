@@ -16,9 +16,9 @@
            #{[:a] [:b] [:c]})))
 
   (let [db (-> (d/empty-db {:parent {:db/valueType :db.type/ref}})
-               (d/db-with [ { :db/id 1, :name  "Ivan",  :age   15 }
-                            { :db/id 2, :name  "Petr",  :age   22, :height 240, :parent 1}
-                            { :db/id 3, :name  "Slava", :age   37, :parent 2}]))]
+               (d/db-with [{:db/id 1, :name  "Ivan",  :age   15}
+                            {:db/id 2, :name  "Petr",  :age   22, :height 240, :parent 1}
+                            {:db/id 3, :name  "Slava", :age   37, :parent 2}]))]
 
     (testing "ground"
       (is (= (d/q '[:find ?vowel
@@ -228,8 +228,7 @@
                     :in [?in ...]
                     :where [(ground ?in) _]]
                   [])
-             #{})))
-))
+             #{})))))
 
 
 (deftest test-predicates
