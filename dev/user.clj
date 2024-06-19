@@ -11,7 +11,7 @@
   duti/-main)
 
 (defn test-all []
-  (duti/test #"datascript\.test\..*"))
+  (duti/test #"datascript\.test\.(?!cljs).*"))
 
 (defn -test-main [_]
-  (duti/test-exit #"datascript\.test\..*"))
+  (duti/test-exit #"datascript\.test\.(?!cljs).*"))
