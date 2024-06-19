@@ -14,6 +14,12 @@
           (println ~@body)))))
 
 #?(:clj
+   (defmacro raise [& fragments]
+     (let [msgs (butlast fragments)
+           data (last fragments)]
+       `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
+
+#?(:clj
    (def ^:private ^:dynamic *if+-syms))
   
 #?(:clj
@@ -91,6 +97,22 @@
               ~else)))
        (list 'if cond then else))))
 
+#?(:clj
+   (defmacro cond+ [& clauses]
+     (when-some [[test expr & rest] clauses]
+       (case test
+         :do   `(do ~expr (util/cond+ ~@rest))
+         :let  `(let ~expr (util/cond+ ~@rest))
+         :some `(or ~expr (util/cond+ ~@rest))
+         `(util/if+ ~test ~expr (util/cond+ ~@rest))))))
+
+#?(:clj
+   (defmacro some-of
+     ([] nil)
+     ([x] x)
+     ([x & more]
+      `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
+
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
 
@@ -166,3 +188,22 @@
           m
           (assoc! m k v)))
       (transient (empty m)) m)))
+
+(def conjv
+  (fnil conj []))
+
+(def conjs
+  (fnil conj #{}))
+
+(defn reduce-indexed
+  "Same as reduce, but `f` takes [acc el idx]"
+  [f init xs]
+  (first
+    (reduce
+      (fn [[acc idx] x]
+        (let [res (f acc x idx)]
+          (if (reduced? res)
+            (reduced [res idx])
+            [res (inc idx)])))
+      [init 0]
+      xs)))

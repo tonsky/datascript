@@ -2,9 +2,9 @@
   (:require
    [clojure.string :as str]
    [datascript.pull-parser :as dpp]
-   #?(:clj  [datascript.db :as db :refer [cond+]]
-      :cljs [datascript.db :as db :refer [DB] :refer-macros [cond+]])
+   [datascript.db :as db #?@(:cljs [:refer [DB]])]
    [datascript.lru :as lru]
+   [datascript.util :as util]
    [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
      (:import
@@ -59,7 +59,7 @@
   (-run [this context]
     (loop [acc acc
            datoms datoms]
-      (cond+
+      (util/cond+
         :let [^Datom datom (first-seq datoms)]
 
         (or (nil? datom) (not= (.-a datom) (.-name attr)))
@@ -91,7 +91,7 @@
       (next-seq datoms)))
   
   (-run [this context]
-    (cond+
+    (util/cond+
       :let [^Datom datom (first-seq datoms)]
 
       (or (nil? datom) (not= (.-a datom) (.-name attr)))
@@ -130,7 +130,7 @@
            attr   attr
            attrs  attrs
            datoms datoms]
-      (cond+
+      (util/cond+
         ;; exit
         (and (nil? datoms) (nil? attr))
         [(->ReverseAttrsFrame seen recursion-limits acc pattern (first-seq (.-reverse-attrs pattern)) (next-seq (.-reverse-attrs pattern)) id)]
@@ -212,7 +212,7 @@
     (loop [acc   acc
            attr  attr
            attrs attrs]
-      (cond+
+      (util/cond+
         (nil? attr)
         [(ResultFrame. (not-empty (persistent! acc)) nil)]
 
@@ -249,7 +249,7 @@
       (.-wildcard? ^PullPattern (.-pattern attr)))))
 
 (defn ref-frame [context seen recursion-limits pattern ^PullAttr attr id]
-  (cond+
+  (util/cond+
     (not (auto-expanding? attr))
     (attrs-frame context seen recursion-limits (.-pattern attr) id)
 
@@ -273,7 +273,7 @@
 
 (defn attrs-frame [^Context context seen recursion-limits ^PullPattern pattern id]
   (let [db (.-db context)
-        datoms (cond+
+        datoms (util/cond+
                  (and (.-wildcard? pattern) (instance? DB db))
                  (set/slice (.-eavt ^DB db) (db/datom id nil nil db/tx0) (db/datom id nil nil db/txmax))
                  
@@ -313,7 +313,7 @@
          ^PullPattern pattern :pattern} parsed-opts]
     (when-some [eid (db/entid (.-db context) id)]
       (loop [stack (list (attrs-frame context #{} {} pattern eid))]
-        (cond+
+        (util/cond+
           :let [last   (first-seq stack)
                 stack' (next-seq stack)]
 

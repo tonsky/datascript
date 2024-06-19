@@ -1,7 +1,8 @@
 (ns ^:no-doc datascript.pull-parser
   (:require
     [datascript.built-ins :as built-ins]
-    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [cond+ raise]]))
+    [datascript.db :as db]
+    [datascript.util :as util]))
 
 (defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
 (defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
@@ -63,7 +64,7 @@
     #?(:clj (when (namespace sym-or-fn)
               (when-some [v (requiring-resolve sym-or-fn)]
                 @v)))
-    (raise "Can't resolve symbol " sym-or-fn {:error :parser/pull, :fragment sym-or-fn})))
+    (util/raise "Can't resolve symbol " sym-or-fn {:error :parser/pull, :fragment sym-or-fn})))
 
 (defn parse-attr-expr [db attr-spec]
   (when-some [pull-attr (parse-attr-spec db (first attr-spec))]
@@ -143,7 +144,7 @@
   (check (sequential? pattern) "pattern to be sequential?" pattern)
   (loop [pattern pattern
          ^PullPattern result (map->PullPattern {:attrs [] :reverse-attrs [] :wildcard? nil})]
-    (cond+
+    (util/cond+
       (empty? pattern)
       (let [attrs       (.-attrs result)
             db-id?      (fn [^PullAttr attr] (#{:db/id ":db/id"} (.-name attr)))

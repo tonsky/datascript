@@ -1,8 +1,9 @@
 (ns datascript.built-ins
   (:require
    [clojure.string :as str]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise]]
-   [datascript.impl.entity :as de]))
+   [datascript.db :as db]
+   [datascript.impl.entity :as de]
+   [datascript.util :as util]))
 
 (defn- -differ? [& xs]
   (let [l (count xs)]
@@ -11,7 +12,7 @@
 (defn- -get-else
   [db e a else-val]
   (when (nil? else-val)
-    (raise "get-else: nil default value is not supported" {:error :query/where}))
+    (util/raise "get-else: nil default value is not supported" {:error :query/where}))
   (if-some [datom (first (db/-search db [(db/entid db e) a]))]
     (:v datom)
     else-val))

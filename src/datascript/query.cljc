@@ -5,7 +5,7 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [datascript.built-ins :as built-ins]
-   [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+]]
+   [datascript.db :as db]
    [me.tonsky.persistent-sorted-set.arrays :as da]
    [datascript.lru :as lru]
    [datascript.impl.entity :as de]
@@ -157,7 +157,7 @@
       (empty? tuples-b) a
 
       (not (same-keys? attrs-a attrs-b))
-      (raise "Can’t sum relations with different attrs: " attrs-a " and " attrs-b
+      (util/raise "Can’t sum relations with different attrs: " attrs-a " and " attrs-b
              {:error :query/where})
 
       (every? number? (vals attrs-a)) ;; can’t conj into BTSetIter
@@ -214,7 +214,7 @@
   (in->rel [binding coll]
     (cond
       (not (db/seqable? coll))
-        (raise "Cannot bind value " coll " to collection " (dp/source binding)
+        (util/raise "Cannot bind value " coll " to collection " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       (empty? coll)
         (empty-rel binding)
@@ -227,10 +227,10 @@
   (in->rel [binding coll]
     (cond
       (not (db/seqable? coll))
-        (raise "Cannot bind value " coll " to tuple " (dp/source binding)
+        (util/raise "Cannot bind value " coll " to tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       (< (count coll) (count (:bindings binding)))
-        (raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
+        (util/raise "Not enough elements in a collection " coll " to bind tuple " (dp/source binding)
                {:error :query/binding, :value coll, :binding (dp/source binding)})
       :else
         (reduce prod-rel
@@ -252,11 +252,11 @@
         cv (count values)]
     (cond
       (< cb cv)
-      (raise "Extra inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
+      (util/raise "Extra inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
         {:error :query/inputs :expected bindings :got values})
 
       (> cb cv)
-      (raise "Too few inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
+      (util/raise "Too few inputs passed, expected: " (mapv #(:source (meta %)) bindings) ", got: " cv
         {:error :query/inputs :expected bindings :got values})
 
       :else
@@ -524,7 +524,7 @@
                          (context-resolve-val context f)
                          (resolve-sym f)
                          (when (nil? (rel-with-attr context f))
-                           (raise "Unknown predicate '" f " in " clause
+                           (util/raise "Unknown predicate '" f " in " clause
                                   {:error :query/where, :form clause, :var f})))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         new-rel      (if pred
@@ -540,7 +540,7 @@
                      (context-resolve-val context f)
                      (resolve-sym f)
                      (when (nil? (rel-with-attr context f))
-                       (raise "Unknown function '" f " in " clause
+                       (util/raise "Unknown function '" f " in " clause
                               {:error :query/where, :form clause, :var f})))
         [context production] (rel-prod-by-attrs context (filter symbol? args))
         new-rel  (if fun
@@ -559,7 +559,7 @@
 ;;; RULES
 
 (defn rule? [context clause]
-  (cond+
+  (util/cond+
     (not (sequential? clause))
     false
 
@@ -577,7 +577,7 @@
     false
 
     (not (contains? (:rules context) head))
-    (raise "Unknown rule '" head " in " clause
+    (util/raise "Unknown rule '" head " in " clause
       {:error :query/where
        :form  clause})
 
@@ -594,7 +594,7 @@
                 replacements (zipmap rule-args call-args)]]
       (walk/postwalk
        #(if (free-var? %)
-          (db/some-of
+          (util/some-of
             (replacements %)
             (symbol (str (name %) "__auto__" seqid)))
           %)
@@ -708,7 +708,7 @@
 (defn check-bound [bound vars form]
   (when-not (set/subset? vars bound)
     (let [missing (set/difference (set vars) bound)]
-      (raise "Insufficient bindings: " missing " not bound in " form
+      (util/raise "Insufficient bindings: " missing " not bound in " form
              {:error :query/where
               :form  form
               :vars  missing}))))
@@ -716,7 +716,7 @@
 (defn check-free-same [bound branches form]
   (let [free (mapv #(set/difference (collect-vars %) bound) branches)]
     (when-not (apply = free)
-      (raise "All clauses in 'or' must use same set of free vars, had " free " in " form
+      (util/raise "All clauses in 'or' must use same set of free vars, had " free " in " form
              {:error :query/where
               :form  form
               :vars  free}))))
@@ -726,7 +726,7 @@
     (doseq [branch branches]
       (when-some [missing (not-empty (set/difference free (collect-vars branch)))]
         (prn branch bound vars free)
-        (raise "All clauses in 'or' must use same set of free vars, had " missing " not bound in " branch
+        (util/raise "All clauses in 'or' must use same set of free vars, had " missing " not bound in " branch
           {:error :query/where
            :form  branch
            :vars  missing})))))
@@ -784,7 +784,7 @@
            bound            (bound-vars context)
            negation-vars    (collect-vars clauses)
            _                (when (empty? (set/intersection bound negation-vars))
-                              (raise "Insufficient bindings: none of " negation-vars " is bound in " orig-clause
+                              (util/raise "Insufficient bindings: none of " negation-vars " is bound in " orig-clause
                                 {:error :query/where
                                  :form  orig-clause}))
            context'         (assoc context :rels [(reduce hash-join (:rels context))])
@@ -863,7 +863,7 @@
     (let [rels (:rels context)]
       (-collect [(da/make-array (count symbols))] rels symbols)))
   ([acc rels symbols]
-   (cond+
+   (util/cond+
      :let [rel (first rels)]
  
      (nil? rel) acc

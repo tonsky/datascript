@@ -3,9 +3,10 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [datascript.db :as db #?(:cljs :refer-macros :clj :refer) [raise cond+] #?@(:cljs [:refer [Datom]])]
+    [datascript.db :as db #?@(:cljs [:refer [Datom]])]
     [datascript.lru :as lru]
     [datascript.storage :as storage]
+    [datascript.util :as util]
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:cljs (:require-macros [datascript.serialize :refer [array dict]]))
@@ -223,9 +224,9 @@
                                                       marker-inf   ##Inf
                                                       marker-minus-inf ##-Inf
                                                       marker-nan   ##NaN
-                                                      (raise "Unexpected value marker " marker " in " (pr-str v)
+                                                      (util/raise "Unexpected value marker " marker " in " (pr-str v)
                                                         {:error :serialize :value v})))
-                                       true (raise "Unexpected value type " (type v) " (" (pr-str v) ")"
+                                       true (util/raise "Unexpected value type " (type v) " (" (pr-str v) ")"
                                               {:error :serialize :value v}))
                                   tx (+ tx0 (array-get arr 3))]
                               (db/datom e a v tx))))

@@ -1,4 +1,4 @@
-(ns ^:no-doc ^:lean-ns datascript.db
+(ns ^:no-doc datascript.db
   (:require
     #?(:cljs [goog.array :as garray])
     [clojure.walk]
@@ -9,7 +9,7 @@
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:clj (:import clojure.lang.IFn$OOL))
-  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp cond+ declare+ defn+ defcomp defrecord-updatable int-compare raise validate-attr validate-val]]))
+  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp declare+ defn+ defcomp defrecord-updatable int-compare validate-attr validate-val]]))
   (:refer-clojure :exclude [seqable? #?(:clj update)]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -30,12 +30,6 @@
 
 ;; ----------------------------------------------------------------------------
 
-#?(:clj
-  (defmacro raise [& fragments]
-    (let [msgs (butlast fragments)
-          data (last fragments)]
-      `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
-
 (defn #?@(:clj  [^Boolean seqable?]  
           :cljs [^boolean seqable?])
   [x]
@@ -48,38 +42,6 @@
                (instance? Iterable x)
                (arrays/array? x)
                (instance? java.util.Map x)))))
-
-#?(:clj
-  (defmacro cond+ [& clauses]
-    (when-some [[test expr & rest] clauses]
-      (case test
-        :do   `(do ~expr (cond+ ~@rest))
-        :let  `(let ~expr (cond+ ~@rest))
-        :some `(or ~expr (cond+ ~@rest))
-              `(util/if+ ~test ~expr (cond+ ~@rest))))))
-
-#?(:clj
-(defmacro some-of
-  ([] nil)
-  ([x] x)
-  ([x & more]
-    `(let [x# ~x] (if (nil? x#) (some-of ~@more) x#)))))
-
-(def conjv (fnil conj []))
-(def conjs (fnil conj #{}))
-
-(defn reduce-indexed
-  "Same as reduce, but `f` takes [acc el idx]"
-  [f init xs]
-  (first
-    (reduce
-      (fn [[acc idx] x]
-        (let [res (f acc x idx)]
-          (if (reduced? res)
-            (reduced [res idx])
-            [res (inc idx)])))
-      [init 0]
-      xs)))
 
 ;; ----------------------------------------------------------------------------
 ;; macros and funcs to support writing defrecords and updating
@@ -640,14 +602,14 @@
                     (keyword? attr#)
                     (string? attr#))
           (let [at# ~at]
-            (raise "Bad entity attribute " attr# " at " at# ", expected keyword or string"
+            (util/raise "Bad entity attribute " attr# " at " at# ", expected keyword or string"
               {:error :transact/syntax, :attribute attr#, :context at#}))))))
 
 #?(:clj
    (defmacro validate-val [v at]
      `(when (nil? ~v)
         (let [at# ~at]
-          (raise "Cannot store nil as a value at " at#
+          (util/raise "Cannot store nil as a value at " at#
             {:error :transact/syntax, :value nil, :context at#})))))
 
 ;;;;;;;;;; Searching
@@ -668,7 +630,7 @@
   (when (= index :avet)
     (when-some [attr c0]
       (when-not (indexing? db attr)
-        (raise "Attribute " attr " should be marked as :db/index true"
+        (util/raise "Attribute " attr " should be marked as :db/index true"
           {:error :index-access :index :avet :components [c0 c1 c2 c3]})))))
 
 (defprotocol IDB
@@ -915,7 +877,7 @@
   [schema rschema]
   (reduce
     (fn [m tuple-attr] ;; e.g. :reg/semester+course+student
-      (reduce-indexed
+      (util/reduce-indexed
         (fn [m src-attr idx] ;; e.g. :reg/semester
           (update m src-attr assoc tuple-attr idx))
         m
@@ -940,7 +902,7 @@
                       (fn [rschema key value]
                         (reduce
                           (fn [rschema prop]
-                            (update rschema prop conjs attr))
+                            (update rschema prop util/conjs attr))
                           rschema (attr->properties key value)))
                       rschema attr-schema))
                   {} schema)]
@@ -962,7 +924,7 @@
     (let [comp? (:db/isComponent kv false)]
       (validate-schema-key a :db/isComponent (:db/isComponent kv) #{true false})
       (when (and comp? (not= (:db/valueType kv) :db.type/ref))
-        (raise "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}"
+        (util/raise "Bad attribute specification for " a ": {:db/isComponent true} should also have {:db/valueType :db.type/ref}"
           {:error     :schema/validation
            :attribute a
            :key       :db/isComponent})))
@@ -974,7 +936,7 @@
     ;; tuple should have tupleAttrs
     (when (and (= :db.type/tuple (:db/valueType kv))
                (not (contains? kv :db/tupleAttrs)))
-      (raise "Bad attribute specification for " a ": {:db/valueType :db.type/tuple} should also have :db/tupleAttrs"
+      (util/raise "Bad attribute specification for " a ": {:db/valueType :db.type/tuple} should also have :db/tupleAttrs"
              {:error :schema/validation
               :attribute a
               :key :db/valueType}))
@@ -985,22 +947,22 @@
                      :attribute a
                      :key :db/tupleAttrs}]
         (when (= :db.cardinality/many (:db/cardinality kv))
-          (raise a " has :db/tupleAttrs, must be :db.cardinality/one" ex-data))
+          (util/raise a " has :db/tupleAttrs, must be :db.cardinality/one" ex-data))
 
         (let [attrs (:db/tupleAttrs kv)]
           (when-not (sequential? attrs)
-            (raise a " :db/tupleAttrs must be a sequential collection, got: " attrs ex-data))
+            (util/raise a " :db/tupleAttrs must be a sequential collection, got: " attrs ex-data))
 
           (when (empty? attrs)
-            (raise a " :db/tupleAttrs can’t be empty" ex-data))
+            (util/raise a " :db/tupleAttrs can’t be empty" ex-data))
 
           (doseq [attr attrs
                   :let [ex-data (assoc ex-data :value attr)]]
             (when (contains? (get schema attr) :db/tupleAttrs)
-              (raise a " :db/tupleAttrs can’t depend on another tuple attribute: " attr ex-data))
+              (util/raise a " :db/tupleAttrs can’t depend on another tuple attribute: " attr ex-data))
 
             (when (= :db.cardinality/many (:db/cardinality (get schema attr)))
-              (raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
+              (util/raise a " :db/tupleAttrs can’t depend on :db.cardinality/many attribute: " attr ex-data))))))))
   
 (defn ^DB empty-db [schema opts]
   {:pre [(or (nil? schema) (map? schema))]}
@@ -1040,7 +1002,7 @@
 
 (defn ^DB init-db [datoms schema opts]
   (when-some [not-datom (first (drop-while datom? datoms))]
-    (raise "init-db expects list of Datoms, got " (type not-datom)
+    (util/raise "init-db expects list of Datoms, got " (type not-datom)
       {:error :init-db}))
   (validate-schema schema)
   (let [rschema     (rschema (merge implicit-schema schema))
@@ -1218,7 +1180,7 @@
     (boolean (re-matches #"(?:([^/]+)/)?_([^/]+)" attr))
    
     :else
-    (raise "Bad attribute type: " attr ", expected keyword or string"
+    (util/raise "Bad attribute type: " attr ", expected keyword or string"
       {:error :transact/syntax, :attribute attr})))
 
 (defn reverse-ref [attr]
@@ -1235,7 +1197,7 @@
         (if ns (str ns "/_" name) (str "_" name))))
    
     :else
-    (raise "Bad attribute type: " attr ", expected keyword or string"
+    (util/raise "Bad attribute type: " attr ", expected keyword or string"
       {:error :transact/syntax, :attribute attr})))
 
 (defn resolve-tuple-refs [db a vs]
@@ -1251,18 +1213,18 @@
   (cond
     (and (number? eid) (pos? eid))
     (if (> eid emax)
-      (raise "Highest supported entity id is " emax ", got " eid {:error :entity-id :value eid})
+      (util/raise "Highest supported entity id is " emax ", got " eid {:error :entity-id :value eid})
       eid)
     
     (sequential? eid)
     (let [[attr value] eid]
       (cond
         (not= (count eid) 2)
-        (raise "Lookup ref should contain 2 elements: " eid
+        (util/raise "Lookup ref should contain 2 elements: " eid
           {:error :lookup-ref/syntax, :entity-id eid})
         
         (not (is-attr? db attr :db/unique))
-        (raise "Lookup ref attribute should be marked as :db/unique: " eid
+        (util/raise "Lookup ref attribute should be marked as :db/unique: " eid
           {:error :lookup-ref/unique, :entity-id eid})
         
         (tuple? db attr)
@@ -1281,7 +1243,7 @@
     (-> (-datoms db :avet :db/ident eid nil nil) first :e)
 
     :else
-    (raise "Expected number or lookup ref for entity id, got " eid
+    (util/raise "Expected number or lookup ref for entity id, got " eid
       {:error :entity-id/syntax, :entity-id eid})))
 
 (defn+ ^boolean numeric-eid-exists? [db eid]
@@ -1290,7 +1252,7 @@
 (defn+ ^number entid-strict [db eid]
   (or
     (entid db eid)
-    (raise "Nothing found for entity id " eid
+    (util/raise "Nothing found for entity id " eid
       {:error :entity-id/missing
        :entity-id eid})))
 
@@ -1327,7 +1289,7 @@
 
 (defn assoc-auto-tempids [db tx-data]
   (for [entity tx-data]
-    (cond+
+    (util/cond+
       (map? entity)
       (reduce-kv
         (fn [entity a v]
@@ -1370,7 +1332,7 @@
   (when (and (datom-added datom)
              (is-attr? db (.-a datom) :db/unique))
     (when-some [found (not-empty (-datoms db :avet (.-a datom) (.-v datom) nil nil))]
-      (raise "Cannot add " datom " because of unique constraint: " found
+      (util/raise "Cannot add " datom " because of unique constraint: " found
              {:error :transact/unique
               :attribute (.-a datom)
               :datom datom}))))
@@ -1426,12 +1388,12 @@
      (tx-id? e)
      (->
        (update :tempids assoc e eid)
-       (update ::reverse-tempids update eid conjs e))
+       (update ::reverse-tempids update eid util/conjs e))
      
      (tempid? e)
      (->
        (update :tempids assoc e eid)
-       (update ::reverse-tempids update eid conjs e))
+       (update ::reverse-tempids update eid util/conjs e))
 
      (and (not (tempid? e)) (new-eid? (:db-after report) eid))
      (update :tempids assoc eid eid)
@@ -1554,7 +1516,7 @@
     (if (<= 2 (count upsert-ids))
       (let [[e1 [a1 v1]] (first upsert-ids)
             [e2 [a2 v2]] (second upsert-ids)]
-        (raise "Conflicting upserts: " [a1 v1] " resolves to " e1 ", but " [a2 v2] " resolves to " e2
+        (util/raise "Conflicting upserts: " [a1 v1] " resolves to " e1 ", but " [a2 v2] " resolves to " e2
           {:error     :transact/upsert
            :assertion [e1 a1 v1]
            :conflict  [e2 a2 v2]}))
@@ -1565,7 +1527,7 @@
                 (some? eid)
                 (not (tempid? eid))
                 (not= upsert-id eid))
-          (raise "Conflicting upsert: " [a v] " resolves to " upsert-id ", but entity already has :db/id " eid
+          (util/raise "Conflicting upsert: " [a v] " resolves to " upsert-id ", but entity already has :db/id " eid
             {:error     :transact/upsert
              :assertion [upsert-id a v]
              :conflict  {:db/id eid}}))
@@ -1605,7 +1567,7 @@
                   reverse?   (reverse-ref? a)
                   straight-a (if reverse? (reverse-ref a) a)
                   _          (when (and reverse? (not (ref? db straight-a)))
-                               (raise "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"
+                               (util/raise "Bad attribute " a ": reverse attribute name requires {:db/valueType :db.type/ref} in schema"
                                       {:error :transact/syntax, :attribute a, :context {:db/id eid, a vs}}))]
           v      (maybe-wrap-multival db a vs)]
       (if (and (ref? db straight-a) (map? v)) ;; another entity specified as nested map
@@ -1631,7 +1593,7 @@
         (transact-report report new-datom)
 
         (= (.-v old-datom) v)
-        (update report ::tx-redundant conjv new-datom)
+        (update report ::tx-redundant util/conjv new-datom)
 
         :else
         (-> report
@@ -1651,7 +1613,7 @@
 
 (defn- retry-with-tempid [initial-report report es tempid upserted-eid]
   (if-some [eid (get (::upserted-tempids initial-report) tempid)]
-    (raise "Conflicting upsert: " tempid " resolves"
+    (util/raise "Conflicting upsert: " tempid " resolves"
       " both to " upserted-eid " and " eid
       {:error :transact/upsert})
     ;; try to re-run from the beginning
@@ -1702,7 +1664,7 @@
           unused      (reduce reduce-fn unused (::tx-redundant report))]
       (if (zero? (count unused))
         (dissoc report ::value-tempids ::tx-redundant)
-        (raise "Tempids used only as value in transaction: " (sort (vals (persistent! unused)))
+        (util/raise "Tempids used only as value in transaction: " (sort (vals (persistent! unused)))
                {:error :transact/syntax, :tempids unused})))
     (dissoc report ::value-tempids ::tx-redundant)))
 
@@ -1716,7 +1678,7 @@
     (loop [report initial-report'
            es     initial-es']
       (util/log "transact" es)
-      (cond+
+      (util/cond+
         (empty? es)
         (-> report
           (check-value-tempids)
@@ -1744,7 +1706,7 @@
 
         (map? entity)
         (let [old-eid (:db/id entity)]
-          (cond+
+          (util/cond+
             ;; trivial entity
             ; (if (contains? entity :db/id)
             ;   (= 1 (count entity))
@@ -1776,7 +1738,7 @@
               (recur
                 (-> report
                   (allocate-eid old-eid upserted-eid)
-                  (update ::tx-redundant conjv (datom upserted-eid nil nil tx0)))
+                  (update ::tx-redundant util/conjv (datom upserted-eid nil nil tx0)))
                 (concat (explode db (assoc entity' :db/id upserted-eid)) entities)))
            
             ;; resolved | allocated-tempid | tempid | nil => explode
@@ -1789,12 +1751,12 @@
            
             ;; trash => error
             :else
-            (raise "Expected number, string or lookup ref for :db/id, got " old-eid
+            (util/raise "Expected number, string or lookup ref for :db/id, got " old-eid
               { :error :entity-id/syntax, :entity entity })))
 
         (sequential? entity)
         (let [[op e a v] entity]
-          (cond+
+          (util/cond+
             (= op :db.fn/call)
             (let [[_ f & args] entity]
               (recur report (concat (apply f db args) entities)))
@@ -1806,14 +1768,14 @@
                     args (next entity)]
                 (if (fn? fun)
                   (recur report (concat (apply fun db args) entities))
-                  (raise "Entity " op " expected to have :db/fn attribute with fn? value"
+                  (util/raise "Entity " op " expected to have :db/fn attribute with fn? value"
                          {:error :transact/syntax, :operation :db.fn/call, :tx-data entity})))
-              (raise "Can’t find entity for transaction fn " op
+              (util/raise "Can’t find entity for transaction fn " op
                      {:error :transact/syntax, :operation :db.fn/call, :tx-data entity}))
             
             (and (tempid? e)
               (not= op :db/add))
-            (raise "Can't use tempid in '" entity "'. Tempids are allowed in :db/add only"
+            (util/raise "Can't use tempid in '" entity "'. Tempids are allowed in :db/add only"
               { :error :transact/syntax, :op entity })
 
             (or (= op :db.fn/cas)
@@ -1828,12 +1790,12 @@
               (if (multival? db a)
                 (if (some (fn [^Datom d] (= (.-v d) ov)) datoms)
                   (recur (transact-add report [:db/add e a nv]) entities)
-                  (raise ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov
+                  (util/raise ":db.fn/cas failed on datom [" e " " a " " (map :v datoms) "], expected " ov
                          {:error :transact/cas, :old datoms, :expected ov, :new nv}))
                 (let [v (:v (first datoms))]
                   (if (= v ov)
                     (recur (transact-add report [:db/add e a nv]) entities)
-                    (raise ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov
+                    (util/raise ":db.fn/cas failed on datom [" e " " a " " v "], expected " ov
                            {:error :transact/cas, :old (first datoms), :expected ov, :new nv })))))
 
             (tx-id? e)
@@ -1880,7 +1842,7 @@
                   tempid       (util/find #(not (contains? (::upserted-tempids report) %)) tempids)]
               (if tempid
                 (retry-with-tempid initial-report report initial-es tempid upserted-eid)
-                (raise "Conflicting upsert: " e " resolves to " upserted-eid " via " entity
+                (util/raise "Conflicting upsert: " e " resolves to " upserted-eid " via " entity
                   {:error :transact/upsert})))
             
             (and
@@ -1897,7 +1859,7 @@
                           (= tuple-value db-value)))
                       (map vector tuple-attrs v)))
                 (recur report entities)
-                (raise "Can’t modify tuple attrs directly: " entity
+                (util/raise "Can’t modify tuple attrs directly: " entity
                   {:error :transact/syntax, :tx-data entity})))
 
             (= op :db/add)
@@ -1932,7 +1894,7 @@
               (recur report entities))
 
            :else
-           (raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute, :db.fn/retractEntity or an ident corresponding to an installed transaction function (e.g. {:db/ident <keyword> :db/fn <Ifn>}, usage of :db/ident requires {:db/unique :db.unique/identity} in schema)" {:error :transact/syntax, :operation op, :tx-data entity})))
+           (util/raise "Unknown operation at " entity ", expected :db/add, :db/retract, :db.fn/call, :db.fn/retractAttribute, :db.fn/retractEntity or an ident corresponding to an installed transaction function (e.g. {:db/ident <keyword> :db/fn <Ifn>}, usage of :db/ident requires {:db/unique :db.unique/identity} in schema)" {:error :transact/syntax, :operation op, :tx-data entity})))
        
        (datom? entity)
        (let [[e a v tx added] entity]
@@ -1941,14 +1903,14 @@
            (recur report (cons [:db/retract e a v] entities))))
 
        :else
-       (raise "Bad entity type at " entity ", expected map or vector"
+       (util/raise "Bad entity type at " entity ", expected map or vector"
               {:error :transact/syntax, :tx-data entity})))))
 
 (defn transact-tx-data [report es]
   (when-not (or
               (nil? es)
               (sequential? es))
-    (raise "Bad transaction data " es ", expected sequential collection"
+    (util/raise "Bad transaction data " es ", expected sequential collection"
       {:error :transact/syntax, :tx-data es}))
   (let [es' (assoc-auto-tempids (:db-before report) es)]
     (transact-tx-data-impl report es')))
