@@ -9,7 +9,6 @@
      (:import
        [clojure.lang ExceptionInfo])))
 
-
 (deftest test-validation
   (are [q ins msg] (thrown-with-msg? ExceptionInfo msg (apply dq/q q ins))
     '[:find ?a :in $ ?a]          [0]   #"Wrong number of arguments for bindings \[\$ \?a\], 2 required, 1 provided"

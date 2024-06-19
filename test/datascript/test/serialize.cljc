@@ -81,9 +81,8 @@
    :follows {:db/valueType :db.type/ref}
    :email   {:db/unique :db.unique/identity}
    :avatar  {:db/valueType :db.type/ref, :db/isComponent true}
-   :url     {} ;; just a component prop
-   :attach  {} ;; should skip index
-   })
+   :url     {}   ;; just a component prop
+   :attach  {}}) ;; should skip index
 
 (deftest test-init-db
   (let [db-init     (d/init-db

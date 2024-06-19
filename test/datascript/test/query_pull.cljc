@@ -5,17 +5,18 @@
     [datascript.db :as db]
     [datascript.test.core :as tdc]))
 
-(def test-db
-  (d/db-with (d/empty-db)
-    [{:db/id 1 :name "Petr" :age 44}
-     {:db/id 2 :name "Ivan" :age 25}
-     {:db/id 3 :name "Oleg" :age 11}]))
+(def *test-db
+  (delay
+    (d/db-with (d/empty-db)
+      [{:db/id 1 :name "Petr" :age 44}
+       {:db/id 2 :name "Ivan" :age 25}
+       {:db/id 3 :name "Oleg" :age 11}])))
 
 (deftest test-basics
   (are [find res] (= (set (d/q {:find find
                                 :where '[[?e :age ?a]
                                          [(>= ?a 18)]]}
-                            test-db))
+                            @*test-db))
                     res)
     '[(pull ?e [:name])]
     #{[{:name "Ivan"}] [{:name "Petr"}]}
@@ -37,7 +38,7 @@
                                         :in   '[$ ?pattern]
                                         :where '[[?e :age ?a]
                                                  [(>= ?a 18)]]}
-                                    test-db pattern))
+                                    @*test-db pattern))
                             res)
     '[(pull ?e ?pattern)] [:name]
     #{[{:name "Ivan"}] [{:name "Petr"}]}
@@ -51,7 +52,7 @@
                        :in $ [?p ...]
                        :where [?e :age ?a]
                        [>= ?a 18]]
-                  test-db [[:name] [:age]]))
+                  @*test-db [[:name] [:age]]))
           #{[2 [:name] {:name "Ivan"}]
             [2 [:age]  {:age 25}]
             [1 [:name] {:name "Petr"}]
@@ -82,29 +83,29 @@
 (deftest test-find-spec
   (is (= (d/q '[:find (pull ?e [:name]) .
                 :where [?e :age 25]]
-           test-db)
+           @*test-db)
         {:name "Ivan"}))
        
   (is (= (set (d/q '[:find [(pull ?e [:name]) ...]
                      :where [?e :age ?a]]
-                test-db))
+                @*test-db))
         #{{:name "Ivan"} {:name "Petr"} {:name "Oleg"}}))
 
   (is (= (d/q '[:find [?e (pull ?e [:name])]
                 :where [?e :age 25]]
-           test-db)
+           @*test-db)
         [2 {:name "Ivan"}])))
 
 (deftest test-find-spec-input
   (is (= (d/q '[:find (pull ?e ?p) .
                 :in $ ?p
                 :where [(ground 2) ?e]]
-           test-db [:name])
+           @*test-db [:name])
         {:name "Ivan"}))
   (is (= (d/q '[:find (pull ?e p) .
                 :in $ p
                 :where [(ground 2) ?e]]
-           test-db [:name])
+           @*test-db [:name])
         {:name "Ivan"})))
 
 (deftest test-aggregates

@@ -8,7 +8,7 @@
      (:import
        [clojure.lang ExceptionInfo])))
 
-(def test-db
+(def *test-db
   (delay
     (d/db-with (d/empty-db)
       [{:db/id 1 :name "Ivan" :age 10}
@@ -19,7 +19,7 @@
        {:db/id 6 :name "Ivan" :age 20}])))
 
 (deftest test-or
-  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
+  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @*test-db)
                  (into #{} (map vector) res))
 
     ;; intersecting results
@@ -77,7 +77,7 @@
     #{2 6}))
 
 (deftest test-or-join
-  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @test-db)
+  (are [q res] (= (d/q (concat '[:find ?e :where] (quote q)) @*test-db)
                  (into #{} (map vector) res))
     [(or-join [?e]
        [?e :name ?n]
@@ -108,7 +108,7 @@
                :where (or
                         [?e :age ?a]
                         [?e :name "Oleg"])]
-          @test-db 10)))
+          @*test-db 10)))
 
   ;; issue-348
   (is (= #{[1] [3] [4] [5]}
@@ -117,7 +117,7 @@
                :where (or-join [?e ?a]
                         [?e :age ?a]
                         [?e :name "Oleg"])]
-          @test-db 10)))
+          @*test-db 10)))
 
   ;; issue-348
   (is (= #{[1] [3] [4] [5]}
@@ -126,7 +126,7 @@
                :where (or-join [[?a] ?e]
                         [?e :age ?a]
                         [?e :name "Oleg"])]
-          @test-db 10)))
+          @*test-db 10)))
 
   (is (= #{[:a1 :b1 :c1]
            [:a2 :b2 :c2]}
@@ -224,10 +224,10 @@
         (d/q '[:find ?e
                :where (or [?e :name _]
                         [?e :age ?a])]
-          @test-db)))
+          @*test-db)))
 
   (is (thrown-msg? "Insufficient bindings: #{?e} not bound in (or-join [[?e]] [?e :name \"Ivan\"])"
         (d/q '[:find ?e
                :where (or-join [[?e]]
                         [?e :name "Ivan"])]
-          @test-db))))
+          @*test-db))))

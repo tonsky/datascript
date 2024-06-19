@@ -8,7 +8,7 @@
      (:import
        [clojure.lang ExceptionInfo])))
 
-(def test-db
+(def *test-db
   (delay
     (d/db-with (d/empty-db)
       [{:db/id 1 :name "Ivan" :age 10}
@@ -19,7 +19,7 @@
        {:db/id 6 :name "Ivan" :age 20}])))
 
 (deftest test-not
-  (are [q res] (= (set (d/q (concat '[:find [?e ...] :where] (quote q)) @test-db))
+  (are [q res] (= (set (d/q (concat '[:find [?e ...] :where] (quote q)) @*test-db))
                  res)
     [[?e :name]
      (not [?e :name "Ivan"])]
@@ -65,7 +65,7 @@
     #{2 4 6}))
 
 (deftest test-not-join
-  (are [q res] (= (d/q (concat '[:find ?e ?a :where] (quote q)) @test-db)
+  (are [q res] (= (d/q (concat '[:find ?e ?a :where] (quote q)) @*test-db)
                  res)
     [[?e :name]
      [?e :age  ?a]
@@ -126,7 +126,7 @@
       #{1})))
 
 (deftest test-impl-edge-cases
-  (are [q res] (= (d/q (quote q) @test-db)
+  (are [q res] (= (d/q (quote q) @*test-db)
                  res)
     ;; const \ empty
     [:find ?e
@@ -174,7 +174,7 @@
 
 (deftest test-insufficient-bindings
   (are [q msg] (thrown-msg? msg
-                 (d/q (concat '[:find ?e :where] (quote q)) @test-db))
+                 (d/q (concat '[:find ?e :where] (quote q)) @*test-db))
     [(not [?e :name "Ivan"])
      [?e :name]]
     "Insufficient bindings: none of #{?e} is bound in (not [?e :name \"Ivan\"])"
