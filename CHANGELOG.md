@@ -1,4 +1,4 @@
-# WIP
+# 1.7.0 - Jun 19, 2024
 
 - Stable sorting of sequences of various types #470
 - Correctly restore `:max-tx` from storage
