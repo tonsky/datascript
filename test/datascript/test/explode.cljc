@@ -67,7 +67,7 @@
       [{:name "Ivan" :profile {:email "@2"}}]
       #{[1 :name "Ivan"] [1 :profile 2] [2 :email "@2"]}
          
-      ;; https://github.com/tonsky/datascript/issues/59
+      ;; issue-59
       [{:profile {:email "@2"}}]
       #{[2 :profile 1] [1 :email "@2"]}
          

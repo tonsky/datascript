@@ -109,7 +109,7 @@
                     :where [2 ?a ?v]] db)
             #{[:name "Petr"] [:age 37]})))))
 
-(deftest test-retract-without-value-339
+(deftest test-retract-without-value-issue-339
   (let [db (-> (d/empty-db {:aka    {:db/cardinality :db.cardinality/many}
                             :friend {:db/valueType :db.type/ref}})
              (d/db-with [{:db/id 1, :name  "Ivan", :age 15, :aka ["X" "Y" "Z"], :friend 2}
@@ -275,7 +275,7 @@
       (is (= #{[1 :name "Ivan"] [2 :ref 1]}
             (tdc/all-datoms db'))))
 
-    (testing "#363"
+    (testing "issue-363"
       (let [db' (-> db
                   (d/db-with [[:db/add -1 :name "Ivan"]])
                   (d/db-with [[:db/add -1 :name "Ivan"]
@@ -287,7 +287,7 @@
                               [:db/add -2 :ref -1]]))]
         (is (= #{[1 :aka "Batman"] [2 :ref 1]} (tdc/all-datoms db')))))))
 
-(deftest test-tempid-ref-295
+(deftest test-tempid-ref-issue-295
   (let [db (-> (d/empty-db {:ref {:db/unique :db.unique/identity
                                   :db/valueType :db.type/ref}})
              (d/db-with [[:db/add -1 :name "Ivan"]
@@ -327,7 +327,7 @@
     (let [db (d/empty-db {:friend {:db/valueType :db.type/ref}
                           :comp   {:db/valueType :db.type/ref, :db/isComponent true}
                           :multi  {:db/cardinality :db.cardinality/many}})]
-      (testing "Unused tempid" ;; #304
+      (testing "Unused tempid" ;; issue-304
         (is (thrown-msg? "Tempids used only as value in transaction: (-2)"
               (d/db-with db [[:db/add -1 :friend -2]])))
         (is (thrown-msg? "Tempids used only as value in transaction: (-2)"
@@ -335,7 +335,7 @@
         (is (thrown-msg? "Tempids used only as value in transaction: (-1)"
               (d/db-with db [{:db/id -1}
                              [:db/add -2 :friend -1]])))
-        ; Needs #357
+        ; Needs issue-357
         ; (is (thrown-msg? "Tempids used only as value in transaction: (-1)"
         ;       (d/db-with db [{:db/id -1 :comp {}}
         ;                      [:db/add -2 :friend -1]])))
@@ -374,8 +374,8 @@
           (is (= (into {} (d/entity @conn tx-id))
                 {:prop4 "prop4"})))))))
 
-(deftest test-transient-294
-  "db.fn/retractEntity retracts attributes of adjacent entities #294"
+(deftest test-transient-issue-294
+  "db.fn/retractEntity retracts attributes of adjacent entities issue-294"
   (let [db (reduce #(d/db-with %1 [{:db/id %2 :a1 1 :a2 2 :a3 3}])
              (d/empty-db)
              (range 1 10))
@@ -389,7 +389,7 @@
             (d/datom 2 :a3 3)] 
           (:tx-data report)))))
 
-(deftest test-large-ids-292
+(deftest test-large-ids-issue-292
   (let [db (d/empty-db {:ref {:db/valueType :db.type/ref}})]
     (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
           (d/with db [[:db/add 285873023227265 :name "Valerii"]])))
@@ -404,7 +404,7 @@
        (is (thrown-msg? "Highest supported entity id is 2147483647, got 285873023227265"
              (d/with db [(db/datom 1 :ref 285873023227265)]))))))
 
-(deftest test-uncomparable-356
+(deftest test-uncomparable-issue-356
   (let [db (d/empty-db {:multi {:db/cardinality :db.cardinality/many}
                         :index {:db/index true}})]
 
@@ -445,12 +445,12 @@
       (is (= [(db/datom 1 :index {:map 3})]
             (vec (d/datoms db' :avet :index {:map 3} 1)))))))
 
-(deftest test-compare-numbers-js-404
+(deftest test-compare-numbers-js-issue-404
   (let [db  (d/db-with (d/empty-db) [{:num 42.5}])
         db' (d/db-with db [[:db/retract 1 :num 42]])]
     (is (= #{[1 :num 42.5]} (tdc/all-datoms db')))))
 
-(deftest test-transitive-type-compare-386
+(deftest test-transitive-type-compare-issue-386
   (let [txs    [[{:block/uid "2LB4tlJGy"}]
                 [{:block/uid "2ON453J0Z"}]
                 [{:block/uid "2KqLLNbPg"}]

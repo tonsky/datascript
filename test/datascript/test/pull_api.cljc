@@ -94,7 +94,7 @@
     (is (= {:name "Petr" :_father [{:name "David"} {:name "Thomas"}]}
           (d/pull test-db '[:name {:_father [:name]}] 1))))
 
-  (testing "Multiple reverse refs #412"
+  (testing "Multiple reverse refs issue-412"
     (is (= {:name "Petr" :_father [{:db/id 2} {:db/id 3}]}
           (d/pull test-db '[:name :_father :_child] 1)))))
 
@@ -144,7 +144,7 @@
     (testing "Like explicit recursion, expansion will not allow loops"
       (is (= rpart (d/pull recdb '[:name :part] 10))))
 
-    (testing "Reverse recursive component #411"
+    (testing "Reverse recursive component issue-411"
       (is (= {:name "Part A.A.A.B" :_part {:name "Part A.A.A" :_part {:name "Part A.A" :_part {:name "Part A"}}}}
             (d/pull test-db '[:name {:_part ...}] 14)))
       (is (= {:name "Part A.A.A.B" :_part {:name "Part A.A.A" :_part {:name "Part A.A"}}}
@@ -433,7 +433,7 @@
     (is (= (str "Person-" (dec depth))
           (:name (get-in pulled path))))))
 
-; https://github.com/tonsky/datascript/issues/430
+; issue-430
 (deftest test-component-reverse
   (let [schema {:ref  {:db/valueType :db.type/ref
                        :db/isComponent true}}
@@ -474,7 +474,7 @@
            {[:child :xform vector] '...}]
           1)))
   
-  (testing ":xform on cardinality/one ref #455"
+  (testing ":xform on cardinality/one ref issue-455"
     (is (= {:name "David" :father "Petr"}
           (d/pull test-db [:name {[:father :xform #(:name %)] ['*]}] 2))))
   

@@ -215,7 +215,7 @@
              [2 :c "c"]}
           (tdc/all-datoms (d/db conn))))))
 
-;; https://github.com/tonsky/datascript/issues/473
+;; issue-473
 (deftest test-upsert-by-tuple-components
   (let [db   (d/empty-db {:a+b {:db/tupleAttrs [:a :b]
                                 :db/unique :db.unique/identity}})
@@ -294,7 +294,7 @@
             :c     "c"}
           (d/pull (d/db conn) '[*] [:a+b ["a" "b"]])))))
 
-;; https://github.com/tonsky/datascript/issues/452
+;; issue-452
 (deftest lookup-refs-in-tuple
   (let [schema {:ref      {:db/valueType :db.type/ref}
                 :name     {:db/unique :db.unique/identity}

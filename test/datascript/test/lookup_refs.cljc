@@ -228,7 +228,7 @@
           #{[[:name "Ivan"] [:name "Petr"]]
             [[:name "Petr"] [:name "Oleg"]]}))
 
-    ;; https://github.com/tonsky/datascript/issues/214
+    ;; issue-214
     (is (= (d/q '[:find ?e
                   :in $ [?e ...]
                   :where [?e :friend 3]]

@@ -482,7 +482,7 @@
             (da/aset tuples-args i (get attrs arg)))
           (da/aset static-args i arg))))
     ;; CLJS `apply` + `vector` will hold onto mutable array of arguments directly
-    ;; https://github.com/tonsky/datascript/issues/262
+    ;; issue-262
     (if #?(:clj  false
            :cljs (identical? f vector))
       (fn [tuple]

@@ -182,7 +182,7 @@
         (is (= {:db/id 4 :name "Olga" :email "@4" :ref 1 :age 38}
               (pull tx 4)))))
     
-    ;; https://github.com/tonsky/datascript/issues/464
+    ;; issue-464
     (testing "not upsert by ref"
       (let [tx (d/with db [{:db/id -1 :name "Igor"}
                            {:db/id -2 :name "Anna" :ref -1}])]
@@ -211,7 +211,7 @@
           (d/with db [{:db/id -1 :name "Ivan" :age 35}
                       {:db/id -1 :name "Oleg" :age 36}])))))
 
-;; https://github.com/tonsky/datascript/issues/285
+;; issue-285
 (deftest test-retries-order
   (let [db (-> (d/empty-db {:name {:db/unique :db.unique/identity}})
              (d/db-with [[:db/add -1 :age 42]
@@ -229,7 +229,7 @@
     (is (= {:db/id 2, :name "Bob", :likes "Pizza", :age 42}
           (tdc/entity-map db 2)))))
 
-;; https://github.com/tonsky/datascript/issues/403
+;; issue-403
 (deftest test-upsert-string-tempid-ref
   (let [db   (-> (d/empty-db {:name {:db/unique :db.unique/identity}
                               :ref {:db/valueType :db.type/ref}})
@@ -250,7 +250,7 @@
                       (d/db-with db [[:db/add -1, :name "Alice"]
                                      {:age 36, :ref -1}]))))))
 
-;; https://github.com/tonsky/datascript/issues/472
+;; issue-472
 (deftest test-two-tempids-two-retries
   (let [schema   {:name {:db/unique :db.unique/identity}
                   :ref {:db/valueType :db.type/ref}}

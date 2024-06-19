@@ -133,7 +133,7 @@
                   [(even? ?e)]
                   [(even? ?e2)]]])
             #{[4 6] [2 4]})))
-    (testing "Calling rule twice (#44)"
+    (testing "Calling rule twice (issue-44)"
       (d/q '[:find ?p
              :in $ % ?fn
              :where (rule ?p ?fn "a")
@@ -159,7 +159,7 @@
                 [(>= ?a 18)]]])
           #{["Oleg"]})))
 
-  (testing "Rule name validation #319"
+  (testing "Rule name validation issue-319"
     (is (thrown-msg? "Unknown rule 'wat in (wat ?x)"
           (d/q '[:find  ?x
                  :in    $ %
@@ -167,13 +167,13 @@
             [] []))))
 
   (testing "Rule vars validation"
-    (is (thrown-msg? "Cannot parse var, expected symbol starting with ?, got: $e1" ;; #300
+    (is (thrown-msg? "Cannot parse var, expected symbol starting with ?, got: $e1" ;; issue-300
           (d/q '[:find ?e :in $ % :where [?e]]
             (d/empty-db)
             '[[(rule $e1 ?e2)
                [?e1 :ref ?e2]]])))))
 
-;; https://github.com/tonsky/datascript/issues/218
+;; issue-218
 (deftest test-false-arguments
   (let [db    (d/db-with (d/empty-db) 
                 [[:db/add 1 :attr true]
@@ -190,7 +190,7 @@
             db rules)))))
 
 
-; https://github.com/tonsky/datascript/issues/456
+; issue-456
 ; this used to stall for nearly a minute and/or fail with an OOM exception
 ; due to propagation of a relation with duplicate tuples during rule solving
 (deftest test-rule-performance-on-larger-datasets
