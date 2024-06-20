@@ -1766,7 +1766,7 @@
           (util/cond+
             (= op :db.fn/call)
             (let [[_ f & args] entity]
-              (recur report (concat (apply f db args) entities)))
+              (recur report (concat (assoc-auto-tempids db (apply f db args)) entities)))
             
             (and (keyword? op)
               (not (builtin-fn? op)))

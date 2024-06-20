@@ -474,3 +474,10 @@
     (is (empty? (->> (d/datoms db :eavt)
                   (map (fn [[_ a v]] [a v]))
                   (remove #(d/entity db %)))))))
+
+(deftest test-db-fn-returning-entity-without-db-id-issue-474
+  (let [conn   (d/create-conn {})
+        _      (d/transact! conn [[:db.fn/call (fn [db]
+                                                 [{:foo "bar"}])]])
+        db     @conn]
+    (is (= #{[1 :foo "bar"]} (tdc/all-datoms db)))))
