@@ -1,3 +1,7 @@
+# 1.7.1 - Jun 20, 2024
+
+- Regression: :db.fn/call returning entity without :db/id #474 #475 via @DerGuteMoritz
+
 # 1.7.0 - Jun 19, 2024
 
 - Stable sorting of sequences of various types #470
