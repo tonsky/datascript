@@ -1,4 +1,4 @@
-# WIP
+# 1.7.2 - Jul 4, 2024
 
 - Regression: transacting many ref value as a set of inline maps #476 
 
