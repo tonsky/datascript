@@ -1163,6 +1163,13 @@
 (defn+ ^boolean multival? [db attr]
   (is-attr? db attr :db.cardinality/many))
 
+(defn+ ^boolean multi-value? [db attr value]
+  (and
+    (is-attr? db attr :db.cardinality/many)
+    (or
+      (arrays/array? value)
+      (and (coll? value) (not (map? value))))))
+
 (defn+ ^boolean ref? [db attr]
   (is-attr? db attr :db.type/ref))
 
@@ -1304,7 +1311,7 @@
             (not (or (keyword? a) (string? a)))
             (assoc entity a v)
              
-            (and (ref? db a) (multival? db a) (sequential? v))
+            (and (ref? db a) (multi-value? db a v))
             (assoc entity a (assoc-auto-tempids db v))
                 
             (ref? db a)
@@ -1328,7 +1335,7 @@
         :let [[op e a v] entity]
         (= :db/add op)
         (ref? db a))
-      (if (and (multival? db a) (sequential? v))
+      (if (multi-value? db a v)
         [op e a (assoc-auto-tempids db v)]
         [op e a (first (assoc-auto-tempids db [v]))])
         
@@ -1490,11 +1497,7 @@
             (not (contains? idents a))
             [(assoc entity' a v) upserts]
 
-            (and
-              (multival? db a)
-              (or
-                (arrays/array? v)
-                (and (coll? v) (not (map? v)))))
+            (multi-value? db a v)
             (let [[insert upsert] (split a v)]
               [(cond-> entity'
                  (not (empty? insert)) (assoc a insert))

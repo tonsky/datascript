@@ -37,8 +37,11 @@
 
 (defn update-version []
   (println "\n\n[ Updating version number ]\n")
-  (let [old-v (current-version)]
-    (update-file "CHANGELOG.md" #(str/replace % "# WIP" (str "# " new-v)))
+  (let [old-v (current-version)
+        today (.format
+                (java.time.format.DateTimeFormatter/ofPattern "MMM d, yyyy")
+                (java.time.LocalDate/now))]
+    (update-file "CHANGELOG.md" #(str/replace % "# WIP" (str "# " new-v " - " today)))
     (update-file "project.clj"  #(str/replace % old-v new-v))
     (update-file "README.md"    #(str/replace % old-v new-v))
     (update-file "release-js/package.json" #(str/replace % 
@@ -55,11 +58,11 @@
 (defn make-commit []
   (println "\n\n[ Making a commit ]\n")
   (sh "git" "add"
-      "CHANGELOG.md"
-      "project.clj"
-      "README.md"
-      "release-js/package.json"
-      "release-js/wrapper.prefix")
+    "CHANGELOG.md"
+    "project.clj"
+    "README.md"
+    "release-js/package.json"
+    "release-js/wrapper.prefix")
 
   (sh "git" "commit" "-m" commit-message)
   (sh "git" "tag" new-v)
@@ -71,9 +74,9 @@
 
 (defn- str->json [s]
   (-> s
-      (str/replace "\\" "\\\\")
-      (str/replace "\"" "\\\"")
-      (str/replace "\n" "\\n")))
+    (str/replace "\\" "\\\\")
+    (str/replace "\"" "\\\"")
+    (str/replace "\n" "\\n")))
 
 (defn- map->json [m]
   (str "{ "
@@ -86,27 +89,31 @@
 
 (defn github-release []
   (sh "cp" "release-js/datascript.js" (str "release-js/datascript-" new-v ".min.js"))
-  (let [changelog (->> (slurp "CHANGELOG.md")
-                       str/split-lines
-                       (drop-while #(not= (str "# " new-v) %))
-                       next
-                       (take-while #(not (re-matches #"# .+" %)))
-                       (remove str/blank?)
-                       (str/join "\n"))
-        request  { "tag_name" new-v
-                   "name"     new-v
+  (let [re        (as-> new-v %
+                    (str/replace % "." "\\.")
+                    (str "# " % " .*")
+                    (re-pattern %))
+        changelog (->> (slurp "CHANGELOG.md")
+                    str/split-lines
+                    (drop-while #(not (re-matches re %)))
+                    next
+                    (take-while #(not (re-matches #"# .+" %)))
+                    (remove str/blank?)
+                    (str/join "\n"))
+        request   {"tag_name"         new-v
+                   "name"             new-v
                    "target_commitish" "master"
-                   "body" changelog}
-        response (sh "curl" "-u" GITHUB_BASIC
-                     "-X" "POST"
-                     "--data" (map->json request)
-                     "https://api.github.com/repos/tonsky/datascript/releases")
-        [_ id]    (re-find #"\"id\": (\d+)" response)]
+                   "body"             changelog}
+        response  (sh "curl" "-u" GITHUB_BASIC
+                    "-X" "POST"
+                    "--data" (map->json request)
+                    "https://api.github.com/repos/tonsky/datascript/releases")
+        [_ id]     (re-find #"\"id\": (\d+)" response)]
     (sh "curl" "-u" GITHUB_BASIC
-               "-X" "POST"
-               "-H" "Content-Type: application/javascript"
-               "--data-binary" (str "@release-js/datascript-" new-v ".min.js")
-               (str "https://uploads.github.com/repos/tonsky/datascript/releases/" id "/assets?name=datascript-" new-v ".min.js"))))
+      "-X" "POST"
+      "-H" "Content-Type: application/javascript"
+      "--data-binary" (str "@release-js/datascript-" new-v ".min.js")
+      (str "https://uploads.github.com/repos/tonsky/datascript/releases/" id "/assets?name=datascript-" new-v ".min.js"))))
 
 (defn -main []
   (sh "lein" "clean")

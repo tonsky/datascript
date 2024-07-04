@@ -1,3 +1,7 @@
+# WIP
+
+- Regression: transacting many ref value as a set of inline maps #476 
+
 # 1.7.1 - Jun 20, 2024
 
 - Regression: :db.fn/call returning entity without :db/id #474 #475 via @DerGuteMoritz

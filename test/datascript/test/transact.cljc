@@ -18,7 +18,7 @@
     (is (= (d/q '[:find ?v
                   :where [1 :aka ?v]] db)
           #{["Devil"] ["Tupen"]}))
-
+    
     (testing "Retract"
       (let [db  (-> db
                   (d/db-with [[:db/retract 1 :name "Petr"]])
@@ -219,7 +219,21 @@
     (let [{:keys [db-after]} (d/transact! conn [[:db.fn/call inc-age "Petr"]])
           e (d/entity db-after 1)]
       (is (= (:age e) 32))
-      (is (:had-birthday e)))))
+      (is (:had-birthday e)))
+    
+    (let [{:keys [db-after]} (d/transact! conn
+                               [[:db.fn/call (fn [db]
+                                               [{:name "Oleg"}])]])
+          e (d/entity db-after 2)]
+      (is (= "Oleg" (:name e))))
+    
+    (let [{:keys [db-after
+                  tempids]} (d/transact! conn
+                              [[:db.fn/call (fn [db]
+                                              [{:db/id -1
+                                                :name "Vera"}])]])
+          e (d/entity db-after (tempids -1))]
+      (is (= "Vera" (:name e))))))
 
 (deftest test-db-ident-fn
   (let [conn    (d/create-conn {:name {:db/unique :db.unique/identity}})
