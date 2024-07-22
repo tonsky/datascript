@@ -102,7 +102,11 @@
     (is (= [2 :name "Ivan"] (dvec (d/find-datom db :eavt 2 :name))))
     
     (is (= nil (dvec (d/find-datom db :eavt 1 :name "Ivan"))))
-    (is (= nil (dvec (d/find-datom db :eavt 4))))))
+    (is (= nil (dvec (d/find-datom db :eavt 4))))
+    
+    ;; issue-477
+    (is (= nil (d/find-datom (d/empty-db) :eavt)))
+    (is (= nil (d/find-datom (d/empty-db {:age {:db/index true}}) :eavt)))))
 
 (deftest test-seek-datoms
   (let [dvec #(vector (:e %) (:a %) (:v %))

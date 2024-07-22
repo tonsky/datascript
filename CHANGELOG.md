@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed `find-datom` on empty DB #477 thx @RCmerci
+
 # 1.7.2 - Jul 4, 2024
 
 - Regression: transacting many ref value as a set of inline maps #476 

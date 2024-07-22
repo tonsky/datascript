@@ -1149,7 +1149,7 @@
         cmp     #?(:clj (.comparator ^clojure.lang.Sorted set) :cljs (.-comparator set))
         from    (components->pattern db index c0 c1 c2 c3 e0 tx0)
         to      (components->pattern db index c0 c1 c2 c3 emax txmax)
-        datom   (when-let [set* (seq set)] (first (set/seek set* from)))]
+        datom   (some-> set seq (set/seek from) first)]
     (when (and (some? datom) (<= 0 (cmp to datom)))
       datom)))
 
