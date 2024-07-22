@@ -1,4 +1,4 @@
-# WIP
+# 1.7.3 - Jul 22, 2024
 
 - Fixed `find-datom` on empty DB #477 thx @RCmerci
 
