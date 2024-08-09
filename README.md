@@ -85,6 +85,7 @@ Projects using DataScript:
 - [PartsBox](https://partsbox.io/), electronic parts management
 - [I am Fy](https://www.iamfy.co/), accessories e-shop
 - [Under Whose Command?](https://myanmar.securityforcemonitor.org/), an interactive report by Security Force Monitor
+- [gluino.io](https://gluino.io/), an AI with swagger
 - [Pinfigurator](https://kevinlynagh.com/pinfigurator/), a microcontroller search tool
 - [Precursor](http://precursorapp.com/), collaborative prototyping tool
 - [Acha-acha](http://tonsky.me/blog/acha-acha/), GitHub achievements
