@@ -34,7 +34,7 @@ Return maps are only compatible with normal find and tuple-returning find:
 
 The amount of keys must match the amount of find elements.
 
-Datomic docs: https://docs.datomic.com/on-prem/query.html#return-maps
+Datomic docs: https://docs.datomic.com/query/query-data-reference.html#return-maps
 
 # Query functions
 
