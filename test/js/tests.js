@@ -318,6 +318,8 @@ function test_entity_iterators() {
   assert_eq_set(["Ivan", ["X", "Y"]], values);
   var entries = [...e.entries()];
   assert_eq_set([["name", "Ivan"], ["aka", ["X", "Y"]]], entries);
+  var entries2 = [...e];
+  assert_eq_set(entries, entries2);
 }
 
 function test_pull() {
