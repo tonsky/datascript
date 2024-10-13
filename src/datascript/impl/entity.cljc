@@ -156,6 +156,11 @@
 
 (defn entity? [x] (instance? Entity x))
 
+#?(:cljs
+  (unchecked-set (.-prototype Entity) cljs.core/ITER_SYMBOL
+     (fn []
+       (this-as this# (.entries this#)))))
+
 #?(:clj
    (defmethod print-method Entity [e, ^java.io.Writer w]
      (.write w (str e))))
