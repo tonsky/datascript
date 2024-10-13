@@ -45,6 +45,16 @@
          [a (multival->js v)]
          [a v]))))
 
+#?(:cljs
+  (unchecked-set (.-prototype ES6Iterator) cljs.core/ITER_SYMBOL
+     (fn []
+       (this-as this# this#))))
+
+#?(:cljs
+  (unchecked-set (.-prototype ES6EntriesIterator) cljs.core/ITER_SYMBOL
+     (fn []
+       (this-as this# this#))))
+
 (deftype Entity [db eid touched cache]
   #?@(:cljs
       [Object

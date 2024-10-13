@@ -304,6 +304,22 @@ function test_entity_refs() {
   assert_eq_refs([1],        e(100).get("_children")[0].get("_children"));
 }
 
+function test_entity_iterators() {
+  var schema = {"aka": {":db/cardinality": ":db.cardinality/many"}};
+  var db = d.db_with(d.empty_db(schema),
+                         [{":db/id": 1,
+                           "name": "Ivan",
+                           "aka": ["X", "Y"]},
+                          {":db/id": 2}]);
+  var e = d.entity(db, 1);
+  var keys = [...e.keys()];
+  assert_eq_set(["name", "aka"], keys);
+  var values = [...e.values()];
+  assert_eq_set(["Ivan", ["X", "Y"]], values);
+  var entries = [...e.entries()];
+  assert_eq_set([["name", "Ivan"], ["aka", ["X", "Y"]]], entries);
+}
+
 function test_pull() {
   var schema = {"father":   {":db/valueType":   ":db.type/ref"},
                 "children": {":db/valueType":   ":db.type/ref",
@@ -547,6 +563,7 @@ function test_datascript_js() {
                     test_conn,
                     test_entity,
                     test_entity_refs,
+                    test_entity_iterators,
                     test_pull,
                     test_lookup_refs,
                     test_resolve_current_tx,
