@@ -1,3 +1,7 @@
+# WIP
+
+- Patch es6 iterators not having Symbol.iterator function #479 #249 via @kasbah
+
 # 1.7.3 - Jul 22, 2024
 
 - Fixed `find-datom` on empty DB #477 thx @RCmerci
