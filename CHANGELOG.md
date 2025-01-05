@@ -1,4 +1,4 @@
-# WIP
+# 1.7.4 - Jan 5, 2025
 
 - Patch es6 iterators not having Symbol.iterator function #479 #249 via @kasbah
 - Fixed not-join not working properly with empty relations #481
