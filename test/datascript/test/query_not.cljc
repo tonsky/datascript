@@ -48,7 +48,8 @@
     
     ;; exclude empty set
     [[?e :name]
-     (not [?e :name "Ivan"]
+     (not
+       [?e :name "Ivan"]
        [?e :name "Oleg"])]
     #{1 2 3 4 5 6}
     
@@ -65,8 +66,7 @@
     #{2 4 6}))
 
 (deftest test-not-join
-  (are [q res] (= (d/q (concat '[:find ?e ?a :where] (quote q)) @*test-db)
-                 res)
+  (are [q res] (= res (d/q (concat '[:find ?e ?a :where] (quote q)) @*test-db))
     [[?e :name]
      [?e :age  ?a]
      (not-join [?e]
@@ -80,7 +80,14 @@
        [?e :name "Oleg"]
        [?e :age  ?a]
        [?e :age  10])]
-    #{[1 10] [5 10]}))
+    #{[1 10] [5 10]}
+    
+    ;; issue-481
+    [[?e :age ?a]
+     (not-join [?a]
+       [?e :name "Petr"]
+       [?e :age ?a])]
+    #{[1 10] [2 20] [3 10] [4 20] [5 10] [6 20]}))
   
 (deftest test-default-source
   (let [db1 (d/db-with (d/empty-db)

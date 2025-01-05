@@ -20,11 +20,15 @@
   {:override-deps
    {org.clojure/clojure {:mvn/version "1.11.1"}}}
 
+  :1.12
+  {:override-deps
+   {org.clojure/clojure {:mvn/version "1.12.0"}}}
+
   :dev
   {:extra-paths ["dev" "test"]
    :jvm-opts    ["-ea" "-Ddatascript.debug" "-Dclojure.main.report=stderr"]
    :extra-deps
-   {io.github.tonsky/duti      {:git/sha "fc833a87a8687b67e66281e216eeee1ad6048168"}
+   {io.github.tonsky/duti      {:git/sha "e36d65296a4f9758664309ec35b00887e88c405a"}
     metosin/jsonista           {:mvn/version "0.3.3"}
     cheshire/cheshire          {:mvn/version "5.10.0"}
     com.cognitect/transit-clj  {:mvn/version "1.0.324"}
@@ -37,9 +41,8 @@
               "-Djdk.attach.allowAttachSelf"
               "-XX:+DebugNonSafepoints"]
    :extra-deps
-   {metosin/jsonista    {:mvn/version "0.3.3"}
-    criterium/criterium {:mvn/version "0.4.6"}
-    com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}}}
+   {metosin/jsonista {:mvn/version "0.3.3"}
+    io.github.tonsky/duti {:git/sha "e36d65296a4f9758664309ec35b00887e88c405a"}}}
 
   :datomic
   {:extra-paths ["bench_datomic" "test_datomic"]

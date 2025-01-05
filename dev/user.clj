@@ -1,6 +1,6 @@
 (ns user
   (:require
-    [duti.core :as duti]))
+   [duti.core :as duti]))
 
 (duti/set-dirs "src" "bench" "test" #_"bench_datomic" #_"test_datomic")
 

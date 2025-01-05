@@ -41,6 +41,14 @@
 ;; or [(Datom. 2 "Oleg" 1 55) ...]
 (defrecord Relation [attrs tuples])
 
+#?(:clj
+   (defmethod print-method Relation [r, ^java.io.Writer w]
+     (.write w "#Relation{:attrs ")
+     (.write w (pr-str (:attrs r)))
+     (.write w ", :tuples [")
+     (.write w (str/join " " (map seq (:tuples r))))
+     (.write w "]}")))
+
 
 ;; Utilities
 
@@ -804,15 +812,25 @@
                                   *lookup-attrs*)]
          (update context :rels collapse-rels relation))))))
 
+(defn short-circuit-empty-rel [context]
+  (if (some #(empty? (:tuples %)) (:rels context))
+    (assoc context
+      :rels
+      [(Relation.
+         (zipmap (mapcat #(keys (:attrs %)) (:rels context)) (range))
+         [])])
+    context))
+
 (defn resolve-clause [context clause]
   (if (->> (:rels context) (some (comp empty? :tuples)))
     context ; The result is empty; short-circuit processing
-    (if (rule? context clause)
-      (if (source? (first clause))
-        (binding [*implicit-source* (get (:sources context) (first clause))]
-          (resolve-clause context (next clause)))
-        (update context :rels collapse-rels (solve-rule context clause)))
-      (-resolve-clause context clause))))
+    (short-circuit-empty-rel
+      (if (rule? context clause)
+        (if (source? (first clause))
+          (binding [*implicit-source* (get (:sources context) (first clause))]
+            (resolve-clause context (next clause)))
+          (update context :rels collapse-rels (solve-rule context clause)))
+        (-resolve-clause context clause)))))
 
 (defn -q [context clauses]
   (binding [*implicit-source* (get (:sources context) '$)]
