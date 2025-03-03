@@ -4,6 +4,7 @@
     [datascript.pull-parser :as dpp]
     [datascript.db :as db #?@(:cljs [:refer [DB]])]
     [datascript.lru :as lru]
+    [datascript.timeout :as timeout]
     [datascript.util :as util]
     [me.tonsky.persistent-sorted-set :as set])
   #?(:clj
@@ -312,6 +313,7 @@
          ^PullPattern pattern :pattern} parsed-opts]
     (when-some [eid (db/entid (.-db context) id)]
       (loop [stack (list (attrs-frame context #{} {} pattern eid))]
+        (timeout/assert-time-left)
         (util/cond+
           :let [last   (first-seq stack)
                 stack' (next-seq stack)]
@@ -343,14 +345,16 @@
    (:db.pull/wildcard e   nil nil) - when pulling every attribute on an entity
    (:db.pull/reverse  nil a   v  ) - when pulling reverse attribute"
   ([db pattern id] (pull db pattern id {}))
-  ([db pattern id opts]
+  ([db pattern id {:keys [timeout] :as opts}]
    {:pre [(db/db? db)]}
-   (let [parsed-opts (parse-opts db pattern opts)]
-     (pull-impl parsed-opts id))))
+   (binding [timeout/*deadline* (timeout/to-deadline timeout)]
+     (let [parsed-opts (parse-opts db pattern opts)]
+       (pull-impl parsed-opts id)))))
 
 (defn pull-many
   ([db pattern ids] (pull-many db pattern ids {}))
-  ([db pattern ids opts]
+  ([db pattern ids {:keys [timeout] :as opts}]
    {:pre [(db/db? db)]}
-   (let [parsed-opts (parse-opts db pattern opts)]
-     (mapv #(pull-impl parsed-opts %) ids))))
+   (binding [timeout/*deadline* (timeout/to-deadline timeout)]
+     (let [parsed-opts (parse-opts db pattern opts)]
+       (mapv #(pull-impl parsed-opts %) ids)))))

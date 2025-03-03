@@ -288,6 +288,10 @@ Some of the features are omitted intentionally. Different apps have different ne
 
 ### Testing
 
+We have scripts in the `script` folder like `./script/test_clj.sh`
+
+(Pretty sure steps below are incomplete)
+
 Setup
 
     npm install ws
