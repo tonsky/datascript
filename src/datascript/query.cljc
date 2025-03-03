@@ -893,7 +893,10 @@
      (recur (-collect-tuples acc rel len copy-map) (next rels) symbols))))
 
 (defn collect [context symbols]
-  (into #{} (map vec) (-collect context symbols)))
+  (into #{} 
+        (map #(do (timeout/assert-time-left)
+                  (vec %)))
+        (-collect context symbols)))
 
 (defprotocol IContextResolve
   (-context-resolve [var context]))
