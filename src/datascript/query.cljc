@@ -983,14 +983,16 @@
                      (let [db (-context-resolve (:source find) context)
                            pattern (-context-resolve (:pattern find) context)]
                        (dpa/parse-opts db pattern))))]
-    (for [tuple resultset]
-      (mapv
-        (fn [parsed-opts el]
-          (if parsed-opts
-            (dpa/pull-impl parsed-opts el)
-            el))
-        resolved
-        tuple))))
+    (->> (for [tuple resultset]
+           (mapv
+            (fn [parsed-opts el]
+              (if parsed-opts
+                (dpa/pull-impl parsed-opts el)
+                el))
+            resolved
+            tuple))
+         ;; realize lazy seq because this is the last step anyways, and because if we don't realize right now then binding for timeout/*deadline* does not work
+         doall)))
 
 (defn q [q & inputs]
   (let [parsed-q      (lru/-get *query-cache* q #(dp/parse-query q))]
