@@ -1,8 +1,5 @@
 (ns datascript.test.query-deadline
   (:require
-   ;; FIXME: do I need this for cljs?
-   #_#?(:cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
-      :clj  [clojure.test :as t :refer        [is are deftest testing]])
    [clojure.test :as t :refer [is are deftest testing]]
    [datascript.core :as d])
   #?(:clj
