@@ -163,17 +163,17 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number hash-datom [d])
+#?(:cljs (declare+ ^number hash-datom [d]) :clj (declare hash-datom))
 
-(declare+ ^boolean equiv-datom [d o])
+#?(:cljs (declare+ ^boolean equiv-datom [d o]) :clj (declare equiv-datom))
 
-(declare+ seq-datom [d])
+#?(:cljs (declare+ seq-datom [d]) :clj (declare seq-datom))
 
-(declare+ nth-datom [d i] [d i not-found])
+#?(:cljs (declare+ nth-datom [d i] [d i not-found]) :clj (declare nth-datom))
 
-(declare+ assoc-datom [d k v])
+#?(:cljs (declare+ assoc-datom [d k v]) :clj (declare assoc-datom))
 
-(declare+ val-at-datom [d k not-found])
+#?(:cljs (declare+ val-at-datom [d k not-found]) :clj (declare val-at-datom))
 
 (defprotocol IDatom
   (datom-tx [this])
@@ -584,22 +584,22 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number hash-db [db])
+#?(:cljs (declare+ ^number hash-db [db]) :clj (declare hash-db))
 
-(declare+ ^number hash-fdb [db])
+#?(:cljs (declare+ ^number hash-fdb [db]) :clj (declare hash-fdb))
 
-(declare+ ^boolean equiv-db [db other])
+#?(:cljs (declare+ ^boolean equiv-db [db other]) :clj (declare equiv-db))
 
-(declare+ restore-db [keys])
+#?(:cljs (declare+ restore-db [keys]) :clj (declare restore-db))
 
-(declare+ ^boolean indexing? [db attr])
+#?(:cljs (declare+ ^boolean indexing? [db attr]) :clj (declare indexing?))
 
 #?(:cljs
    (declare+ pr-db [db w opts]))
 
-(declare+ resolve-datom [db e a v t default-e default-tx])
+#?(:cljs (declare+ resolve-datom [db e a v t default-e default-tx]) :clj (declare resolve-datom))
 
-(declare+ components->pattern [db index c0 c1 c2 c3 default-e default-tx])
+#?(:cljs (declare+ components->pattern [db index c0 c1 c2 c3 default-e default-tx]) :clj (declare components->pattern))
 
 ;;;;;;;;;; Fast validation
 
@@ -1122,9 +1122,9 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number entid-strict [db eid])
+#?(:cljs (declare+ ^number entid-strict [db eid]) :clj (declare entid-strict))
 
-(declare+ ^boolean ref? [db attr])
+#?(:cljs (declare+ ^boolean ref? [db attr]) :clj (declare ref?))
 
 (defn+ resolve-datom [db e a v t default-e default-tx]
   (when (some? a)
