@@ -409,7 +409,7 @@
   #?(:clj  (. clojure.lang.Util (hasheq x))
      :cljs (hash x)))
 
-(declare+ ^number value-compare [x y])
+#?(:cljs (declare+ ^number value-compare [x y]) :clj (declare value-compare))
 
 (defn- seq-compare [xs ys]
   (let [cx (count xs)
@@ -1619,7 +1619,7 @@
               (filter (fn [^Datom d] (component? db (.-a d))))
               (map (fn [^Datom d] [:db.fn/retractEntity (.-v d)]))) datoms))
 
-(declare+ transact-tx-data-impl [initial-report initial-es])
+#?(:cljs (declare+ transact-tx-data-impl [initial-report initial-es]) :clj (declare transact-tx-data-impl))
 
 (defn- retry-with-tempid [initial-report report es tempid upserted-eid]
   (if-some [eid (get (::upserted-tempids initial-report) tempid)]
