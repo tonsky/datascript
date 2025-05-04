@@ -1,3 +1,7 @@
+# 1.7.5 - May 4, 2025
+
+- Enable direct-linking on JVM #487 via @raspasov
+
 # 1.7.4 - Jan 5, 2025
 
 - Patch es6 iterators not having Symbol.iterator function #479 #249 via @kasbah
