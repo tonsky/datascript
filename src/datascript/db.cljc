@@ -9,7 +9,7 @@
     [me.tonsky.persistent-sorted-set :as set]
     [me.tonsky.persistent-sorted-set.arrays :as arrays])
   #?(:clj (:import clojure.lang.IFn$OOL))
-  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp declare+ defn+ defcomp defrecord-updatable int-compare validate-attr validate-val]]))
+  #?(:cljs (:require-macros [datascript.db :refer [case-tree combine-cmp defn+ defcomp defrecord-updatable int-compare validate-attr validate-val]]))
   (:refer-clojure :exclude [seqable? #?(:clj update)]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -81,23 +81,13 @@
          meta))))
 
 #?(:clj
-   (defmacro declare+ 
-     "Same idea as `declare`, but allows to declare type hints and arglists.
-      This allows CLJS to generate more efficient code when calling this fn
-      before it’s declared"
-     [name & arglists]
-     (let [name'  (vary-meta name patch-tag (cljs-env? &env))
-           bodies (map #(list % `(throw (ex-info (str "Not implemented: (" ~name (clojure.string/join " " ~%)) {}))) arglists)]
-       `(defn ~name' ~@bodies))))
-
-#?(:clj
    (defmacro defn+
-     "Version of `defn` that works with `declare+`. CLJS really don’t like
-      :declared metadata on vars (generates less efficient code), but it
-      needs it to skip warnings. So we redefine first with ^:declared
-      and empty implementation, and then immediately redefine again without ^:declared.
-      This way both `declare+`-d and `defn+`-d versions have no ^:declared meta,
-      thus allowing CLJS to generate direct invocations and see type hints."
+     "CLJS really don’t like :declared metadata on vars (generates less
+      efficient code), but it needs it to skip warnings. So we redefine
+      first with ^:declared and empty implementation, and then immediately
+      redefine again without ^:declared. This way both `declare` and `defn+`
+      versions have no ^:declared meta, thus allowing CLJS to generate direct
+      invocations and see type hints."
      [name & rest]
      (let [name'    (vary-meta name patch-tag (cljs-env? &env))
            arglists (if (vector? (first rest))
@@ -163,17 +153,23 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number hash-datom [d])
+#?(:clj  (declare hash-datom)
+   :cljs (defn ^number hash-datom [d]))
 
-(declare+ ^boolean equiv-datom [d o])
+#?(:clj  (declare equiv-datom)
+   :cljs (defn ^boolean equiv-datom [d o]))
 
-(declare+ seq-datom [d])
+#?(:clj  (declare seq-datom)
+   :cljs (defn seq-datom [d]))
 
-(declare+ nth-datom [d i] [d i not-found])
+#?(:clj  (declare nth-datom)
+   :cljs (defn nth-datom ([d i]) ([d i not-found])))
 
-(declare+ assoc-datom [d k v])
+#?(:clj  (declare assoc-datom)
+   :cljs (defn assoc-datom [d k v]))
 
-(declare+ val-at-datom [d k not-found])
+#?(:clj  (declare val-at-datom)
+   :cljs (defn val-at-datom [d k not-found]))
 
 (defprotocol IDatom
   (datom-tx [this])
@@ -409,7 +405,8 @@
   #?(:clj  (. clojure.lang.Util (hasheq x))
      :cljs (hash x)))
 
-(declare+ ^number value-compare [x y])
+#?(:clj  (declare value-compare)
+   :cljs (defn ^number value-compare [x y]))
 
 (defn- seq-compare [xs ys]
   (let [cx (count xs)
@@ -584,22 +581,28 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number hash-db [db])
+#?(:clj  (declare hash-db)
+   :cljs (defn ^number hash-db [db]))
 
-(declare+ ^number hash-fdb [db])
+#?(:clj  (declare hash-fdb)
+   :cljs (defn ^number hash-fdb [db]))
 
-(declare+ ^boolean equiv-db [db other])
+#?(:clj  (declare equiv-db)
+   :cljs (defn ^boolean equiv-db [db other]))
 
-(declare+ restore-db [keys])
+#?(:clj  (declare restore-db)
+   :cljs (defn restore-db [keys]))
 
-(declare+ ^boolean indexing? [db attr])
+#?(:clj  (declare indexing?)
+   :cljs (defn ^boolean indexing? [db attr]))
 
-#?(:cljs
-   (declare+ pr-db [db w opts]))
+#?(:cljs (defn pr-db [db w opts]))
 
-(declare+ resolve-datom [db e a v t default-e default-tx])
+#?(:clj  (declare resolve-datom)
+   :cljs (defn resolve-datom [db e a v t default-e default-tx]))
 
-(declare+ components->pattern [db index c0 c1 c2 c3 default-e default-tx])
+#?(:clj  (declare components->pattern)
+   :cljs (defn components->pattern [db index c0 c1 c2 c3 default-e default-tx]))
 
 ;;;;;;;;;; Fast validation
 
@@ -1122,9 +1125,11 @@
 
 ;; ----------------------------------------------------------------------------
 
-(declare+ ^number entid-strict [db eid])
+#?(:clj  (declare entid-strict)
+   :cljs (defn ^number entid-strict [db eid]))
 
-(declare+ ^boolean ref? [db attr])
+#?(:clj  (declare ref?)
+   :cljs (defn ^boolean ref? [db attr]))
 
 (defn+ resolve-datom [db e a v t default-e default-tx]
   (when (some? a)
@@ -1619,7 +1624,8 @@
               (filter (fn [^Datom d] (component? db (.-a d))))
               (map (fn [^Datom d] [:db.fn/retractEntity (.-v d)]))) datoms))
 
-(declare+ transact-tx-data-impl [initial-report initial-es])
+#?(:clj  (declare transact-tx-data-impl)
+   :cljs (defn transact-tx-data-impl [initial-report initial-es]))
 
 (defn- retry-with-tempid [initial-report report es tempid upserted-eid]
   (if-some [eid (get (::upserted-tempids initial-report) tempid)]
