@@ -25,6 +25,7 @@
     datascript.test.pull-parser
     datascript.test.query
     datascript.test.query-aggregates
+    datascript.test.query-deadline
     datascript.test.query-find-specs
     datascript.test.query-fns
     datascript.test.query-not
