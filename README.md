@@ -276,6 +276,7 @@ Interface differences:
 * Attributes do not have to be declared in advance. Put them to schema only when you need special behaviour from them
 * Any type can be used for values
 * No `:db/ident` for attributes, keywords are _literally_ attribute values, no integer id behind them
+* All Clojure functions must be fully namespaced in queries
 * No schema migrations
 * No full-text search, no partitions
 * No external dependencies
