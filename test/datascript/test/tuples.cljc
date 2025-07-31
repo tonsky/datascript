@@ -213,7 +213,28 @@
              [2 :b "b"]
              [2 :a+b ["a" "b"]]
              [2 :c "c"]}
-          (tdc/all-datoms (d/db conn))))))
+          (tdc/all-datoms (d/db conn)))))
+
+  (testing "#378"
+    (let [conn (d/create-conn {:player {:db/unique :db.unique/identity}
+                               :home {:db/valueType :db.type/ref}
+                               :away {:db/valueType :db.type/ref}
+                               :players {:db/unique :db.unique/identity
+                                         :db/tupleAttrs [:home :away]}})]
+      (d/transact! conn [[:db/add -1 :player "Nadal"]
+                         [:db/add -2 :player "Federer"]
+                         {:home -1
+                          :away -2}])
+      (d/transact! conn [{:db/id "match"
+                          :players ["p1" "p2"]
+                          :game 3}
+                         {:db/id "p1"
+                          :player "Nadal"}
+                         {:db/id "p2"
+                          :player "Federer"}])
+
+      (is (= 3 (:game (d/entity @conn 3)))
+          "Upsert successful"))))
 
 ;; issue-473
 (deftest test-upsert-by-tuple-components
