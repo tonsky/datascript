@@ -89,17 +89,25 @@
         results (apply d/q query sources)]
     (clj->js results)))
 
-(defn ^:export pull [db pattern eid]
-  (let [pattern (cljs.reader/read-string pattern)
-        eid (js->clj eid)
-        results (d/pull db pattern eid)]
-    (pull-result->js results)))
+(defn ^:export pull
+  ([db pattern eid]
+   (pull db pattern eid #js {}))
+  ([db pattern eid opts]
+   (let [pattern (cljs.reader/read-string pattern)
+         eid     (js->clj eid)
+         opts    (js->clj opts :keywordize-keys true)
+         results (d/pull db pattern eid opts)]
+     (pull-result->js results))))
 
-(defn ^:export pull_many [db pattern eids]
-  (let [pattern (cljs.reader/read-string pattern)
-        eids (js->clj eids)
-        results (d/pull-many db pattern eids)]
-    (pull-result->js results)))
+(defn ^:export pull_many
+  ([db pattern eids]
+   (pull_many db pattern eids #js {}))
+  ([db pattern eids opts]
+   (let [pattern (cljs.reader/read-string pattern)
+         eids    (js->clj eids)
+         opts    (js->clj opts :keywordize-keys true)
+         results (d/pull-many db pattern eids opts)]
+     (pull-result->js results))))
 
 (defn ^:export db_with [db entities]
   (d/db-with db (entities->clj entities)))
