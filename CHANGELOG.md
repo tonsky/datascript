@@ -1,4 +1,4 @@
-# WIP
+# 1.7.6 - Oct 3, 2025
 
 - Fixed query fn results unification #490
 
