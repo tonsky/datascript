@@ -28,11 +28,12 @@
   {:extra-paths ["dev" "test"]
    :jvm-opts    ["-ea" "-Ddatascript.debug" "-Dclojure.main.report=stderr"]
    :extra-deps
-   {io.github.tonsky/duti      {:git/sha "e36d65296a4f9758664309ec35b00887e88c405a"}
-    metosin/jsonista           {:mvn/version "0.3.3"}
-    cheshire/cheshire          {:mvn/version "5.10.0"}
-    com.cognitect/transit-clj  {:mvn/version "1.0.324"}
-    com.cognitect/transit-cljs {:mvn/version "0.8.269"}}}
+   {io.github.tonsky/clj-reload   {:mvn/version "0.9.8"}
+    io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
+    metosin/jsonista              {:mvn/version "0.3.3"}
+    cheshire/cheshire             {:mvn/version "5.10.0"}
+    com.cognitect/transit-clj     {:mvn/version "1.0.324"}
+    com.cognitect/transit-cljs    {:mvn/version "0.8.269"}}}
 
   :bench
   {:extra-paths ["bench"]

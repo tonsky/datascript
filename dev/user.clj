@@ -1,17 +1,32 @@
 (ns user
   (:require
-   [duti.core :as duti]))
+   [clj-reload.core :as reload]
+   [clojure+.error]
+   [clojure+.hashp]
+   [clojure+.print]
+   [clojure+.test]))
 
-(duti/set-dirs "src" "bench" "test" #_"bench_datomic" #_"test_datomic")
+(clojure+.error/install!
+  {:trace-transform
+   (fn [trace]
+     (take-while #(not (#{"Compiler" "clj-reload" "clojure-sublimed"} (:ns %))) trace))})
+
+(clojure+.hashp/install!)
+(clojure+.print/install!)
+(clojure+.test/install!)
+
+(reload/init
+  {:dirs ["src" "bench" "test"]
+   :no-reload '[user]})
 
 (def reload
-  duti/reload)
-
-(def -main
-  duti/-main)
+  reload/reload)
 
 (defn test-all []
-  (duti/test #"datascript\.test\.(?!cljs).*"))
+  (reload/reload {:only #"datascript\.test\.(?!cljs).*"})
+  (clojure+.test/run))
 
 (defn -test-main [_]
-  (duti/test-exit #"datascript\.test\.(?!cljs).*"))
+  (reload/reload {:only #"datascript\.test\.(?!cljs).*"})
+  (let [{:keys [fail error]} (clojure+.test/run)]
+    (System/exit (+ fail error))))
