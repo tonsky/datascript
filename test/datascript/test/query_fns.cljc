@@ -79,7 +79,8 @@
       (is (= (d/q '[:find  ?a1
                     :where [_ :age ?a1]
                     [(>= ?a1 22)]] db)
-            #{[22] [37]}))      
+            #{[22] [37]}))
+
       (testing "compare values of different types"
         (is (= (d/q '[:find  ?e
                       :where [?e]
@@ -137,20 +138,23 @@
 
     (testing "Two conflicting function values for one binding."
       (is (= (d/q '[:find  ?n
-                    :where [(identity 1) ?n]
+                    :where
+                    [(identity 1) ?n]
                     [(identity 2) ?n]])
             #{})))
 
     (testing "Destructured conflicting function values for two bindings."
       (is (= (d/q '[:find  ?n ?x
-                    :where [(identity [3 4]) [?n ?x]]
+                    :where
+                    [(identity [3 4]) [?n ?x]]
                     [(identity [1 2]) [?n ?x]]])
             #{})))
 
     (testing "Rule bindings interacting with function binding. (fn, rule)"
       (is (= (d/q '[:find  ?n
                     :in $ %
-                    :where [(identity 2) ?n]
+                    :where
+                    [(identity 2) ?n]
                     (my-vals ?n)]
                db
                '[[(my-vals ?x)
@@ -228,6 +232,20 @@
                     :where [(ground ?in) _]]
                [])
             #{})))))
+
+;; issue-490
+(deftest test-fn-call-results-unification
+  (is (= #{[[:a :a] :a]}
+        (d/q '[:find ?pair ?x
+               :in $ ?first ?second
+               :where
+               [_ _ ?pair]
+               [(?first  ?pair) ?x]
+               [(?second ?pair) ?x]]
+          [[1 :pair [:a :a]]
+           [2 :pair [:b :c]]]
+          first
+          second))))
 
 (deftest test-predicates
   (let [entities [{:db/id 1 :name "Ivan" :age 10}

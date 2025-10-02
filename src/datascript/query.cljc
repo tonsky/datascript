@@ -167,7 +167,8 @@
           (sum-rel b))))))
 
 (defn prod-rel
-  ([] (Relation. {} [(da/make-array 0)]))
+  ([]
+   (Relation. {} [(da/make-array 0)]))
   ([rel1 rel2]
    (let [attrs1 (keys (:attrs rel1))
          attrs2 (keys (:attrs rel2))
@@ -544,12 +545,18 @@
                          rels     (for [tuple (:tuples production)
                                         :let  [val (tuple-fn tuple)]
                                         :when (not (nil? val))]
-                                    (prod-rel (Relation. (:attrs production) [tuple])
-                                      (in->rel binding val)))]
+                                    (reduce prod-rel
+                                      (collapse-rels
+                                         [(Relation. (:attrs production) [tuple])]
+                                         (in->rel binding val))))]
                      (if (empty? rels)
-                       (prod-rel production (empty-rel binding))
+                       (prod-rel
+                         production
+                         (empty-rel binding))
                        (reduce sum-rel rels)))
-                   (prod-rel (assoc production :tuples []) (empty-rel binding)))]
+                   (prod-rel
+                     (assoc production :tuples [])
+                     (empty-rel binding)))]
     (update context :rels collapse-rels new-rel)))
 
 ;;; RULES

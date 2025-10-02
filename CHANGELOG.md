@@ -1,3 +1,7 @@
+# WIP
+
+- Fixed query fn results unification #490
+
 # 1.7.5 - May 4, 2025
 
 - Enable direct-linking on JVM #487 via @raspasov
