@@ -89,21 +89,22 @@
           (vreset! *report r)
           (:db-after r))))
     #?(:clj
-       (when-some [storage (storage/storage @conn)]
-         (let [{db     :db-after
-                datoms :tx-data} @*report
-               settings (set/settings (:eavt db))
-               *atom    (:atom conn)
-               tx-tail' (:tx-tail (swap! *atom update :tx-tail conj datoms))]
-           (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
-             ;; overflow tail
-             (do
-               (storage/store-impl! db (storage/storage-adapter db) false)
-               (swap! *atom assoc
-                 :tx-tail []
-                 :db-last-stored db))
-             ;; just update tail
-             (storage/store-tail db tx-tail')))))
+       (when-some [_ (storage/storage @conn)]
+         (let [{db :db-after
+                datoms :tx-data} @*report]
+           (when (seq datoms)
+             (let [settings (set/settings (:eavt db))
+                   *atom (:atom conn)
+                   tx-tail' (:tx-tail (swap! *atom update :tx-tail conj datoms))]
+               (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
+                 ;; overflow tail
+                 (do
+                   (storage/store-impl! db (storage/storage-adapter db) false)
+                   (swap! *atom assoc
+                          :tx-tail []
+                          :db-last-stored db))
+                 ;; just update tail
+                 (storage/store-tail db tx-tail')))))))
     @*report))
 
 (defn transact!
