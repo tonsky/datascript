@@ -304,6 +304,38 @@
         (let [conn''' (d/restore-conn storage)]
           (is (= @conn'' @conn''')))))))
 
+(deftest test-noop-transactions
+  (testing "No-op transactions should not trigger storage writes"
+    (let [storage (make-storage {:stats true})
+          conn (d/create-conn {:name {:db/unique :db.unique/identity}}
+                              {:storage storage})]
+
+      (testing "empty tx-data"
+        (reset-stats storage)
+        (let [report (d/transact! conn [])]
+          (is (empty? (:tx-data report)))
+          (is (empty? @(:*writes storage)))))
+
+      (let [report (d/transact! conn [[:db/add 1 :name "Alice"]])]
+        (is (seq (:tx-data report)))
+        (is (= 1 (count @(:*writes storage)))))
+
+      (testing "adding existing fact"
+        (reset-stats storage)
+        (let [report (d/transact! conn [[:db/add 1 :name "Alice"]])]
+          (is (empty? (:tx-data report)))
+          (is (empty? @(:*writes storage)))))
+
+      (let [report (d/transact! conn [[:db/retract 1 :name "Alice"]])]
+        (is (seq (:tx-data report)))
+        (is (= 1 (count @(:*writes storage)))))
+
+      (testing "retracting non-existing fact"
+        (reset-stats storage)
+        (let [report (d/transact! conn [[:db/retract 1 :name "Alice"]])]
+          (is (empty? (:tx-data report)))
+          (is (empty? @(:*writes storage))))))))
+
 (defn stress-test [{:keys [time branching-factor ref-type]
                     :or {time             10000
                          branching-factor 32
