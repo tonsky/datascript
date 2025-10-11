@@ -278,47 +278,13 @@ Interface differences:
 * No `:db/ident` for attributes, keywords are _literally_ attribute values, no integer id behind them
 * No schema migrations
 * No full-text search, no partitions
-* No external dependencies
 
 Aimed at interactive, long-living browser applications, DataScript DBs operate in constant space. If you do not add new entities, just update existing ones, or clean up database from time to time, memory consumption will be limited. This is unlike Datomic which keeps history of all changes, thus grows monotonically. DataScript does not track history by default, but you can do it via your own code if needed.
 
 Some of the features are omitted intentionally. Different apps have different needs in storing/transfering/keeping track of DB state. DataScript is a foundation to build exactly the right storage solution for your needs without selling too much “vision”.
 
-## Contributing
-
-### Testing
-
-Setup
-
-    npm install ws
-
-Running the tests
-
-    clj -M:test -m kaocha.runner
-
-Watching tests:
-
-    ./script/watch.sh
-
-### Benchmarking and Datomic compatibility
-
-`datomic-free` is a dependency not available on Clojars or Maven Central.
-
-1. Download `datomic-free` from https://my.datomic.com/downloads/free
-2. Unzip it
-3. Inside the unzipped folder run `./bin/maven-install`
-
-Run compatibility checks:
-
-    clj -M:datomic
-
-Benchmark:
-
-    cd bench
-    ./bench.clj
-
 ## License
 
-Copyright © 2014–2024 Nikita Prokopov
+Copyright © 2014–2025 Nikita Prokopov
 
 Licensed under Eclipse Public License (see [LICENSE](LICENSE)).
