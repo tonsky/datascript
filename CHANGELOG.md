@@ -1,3 +1,7 @@
+# 1.7.7 - Oct 11, 2025
+
+- Skip storage writes for no-op transactions #492 via @jxonas
+
 # 1.7.6 - Oct 3, 2025
 
 - Fixed query fn results unification #490
