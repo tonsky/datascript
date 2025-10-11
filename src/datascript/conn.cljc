@@ -89,20 +89,20 @@
           (vreset! *report r)
           (:db-after r))))
     #?(:clj
-       (when-some [_ (storage/storage @conn)]
+       (when (storage/storage @conn)
          (let [{db :db-after
                 datoms :tx-data} @*report]
-           (when (seq datoms)
+           (when-not (empty? datoms)
              (let [settings (set/settings (:eavt db))
-                   *atom (:atom conn)
+                   *atom    (:atom conn)
                    tx-tail' (:tx-tail (swap! *atom update :tx-tail conj datoms))]
                (if (> (transduce (map count) + 0 tx-tail') (:branching-factor settings))
                  ;; overflow tail
                  (do
                    (storage/store-impl! db (storage/storage-adapter db) false)
                    (swap! *atom assoc
-                          :tx-tail []
-                          :db-last-stored db))
+                     :tx-tail        []
+                     :db-last-stored db))
                  ;; just update tail
                  (storage/store-tail db tx-tail')))))))
     @*report))
@@ -133,12 +133,12 @@
                                      (map #(assoc % :added false) (db/-datoms db-before :eavt nil nil nil nil)))
                                    (db/-datoms db :eavt nil nil nil nil))
                       :tx-meta   tx-meta})]
-     (if-some [storage (storage/storage db-before)]
+     (if (storage/storage db-before)
        (do
          (storage/store db)
          (swap! (:atom conn) assoc
-           :db db
-           :tx-tail []
+           :db             db
+           :tx-tail        []
            :db-last-stored db))
        (reset! conn db))
      (doseq [[_ callback] (:listeners @(:atom conn))]
