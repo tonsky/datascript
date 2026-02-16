@@ -9,7 +9,7 @@
   :dependencies [
     [org.clojure/clojure         "1.10.2"   :scope "provided"]
     [org.clojure/clojurescript   "1.10.844" :scope "provided"]
-    [persistent-sorted-set       "0.3.0"]
+    [org.replikativ/persistent-sorted-set "0.3.118"]
     [io.github.tonsky/extend-clj "0.1.0"]
   ]
   

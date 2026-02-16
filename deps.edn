@@ -1,17 +1,17 @@
 {:deps
- {persistent-sorted-set/persistent-sorted-set {:mvn/version "0.3.0"}
+ {org.replikativ/persistent-sorted-set {:mvn/version "0.3.118"}
   io.github.tonsky/extend-clj {:mvn/version "0.1.0"}}
-  
+
  :aliases
  {:cljs
   {:extra-paths ["test"]
    :extra-deps
    {org.clojure/clojurescript {:mvn/version "1.11.132"}}}
-  
+
   :1.9
   {:override-deps
    {org.clojure/clojure {:mvn/version "1.9.0"}}}
-  
+
   :1.10
   {:override-deps
    {org.clojure/clojure {:mvn/version "1.10.2"}}}
