@@ -1,0 +1,96 @@
+(ns datascript.storage.libdbm
+  "libdbm-backed persistent storage for DataScript on ClojureDart.
+
+   Add to your pubspec.yaml:
+     dependencies:
+       libdbm: ^0.4.0
+
+   Usage:
+     (require '[datascript.storage :as storage]
+              '[datascript.storage.libdbm :as libdbm])
+
+     ;; Open (or restore) a persistent DB connection
+     (def conn
+       (dart/await
+         (storage/open-conn!
+           #(libdbm/open-storage \"/data/user/0/myapp.db\")
+           {:person/name {:db/index true}})))
+
+     ;; Transact — async (flushes to disk automatically)
+     (dart/await (storage/transact! conn [{:person/name \"Alice\" :person/age 30}]))
+
+     ;; Query — fully synchronous, @conn is a plain DB value
+     (d/q '[:find ?n :where [_ :person/name ?n]] @conn)
+     ;; => #{[\"Alice\"]}
+
+     ;; Force flush before app shutdown (optional — auto-flushed after each tx)
+     (dart/await (storage/store! conn))
+
+     ;; Close the underlying file when done
+     (libdbm/close! (libdbm/storage conn))"
+  (:require
+    ["dart:convert" :as dart:convert]
+    ["dart:io" :as dart:io]
+    ["package:libdbm/libdbm.dart" :as libdbm]
+    [cljd.reader :as reader]
+    [datascript.storage :as storage]))
+
+;; ---- Serialization helpers ----
+
+(defn- int->bytes [^int addr]
+  (.encode dart:convert/utf8 (str addr)))
+
+(defn- clj->bytes [data]
+  (.encode dart:convert/utf8 (pr-str data)))
+
+(defn- bytes->clj [bytes]
+  (reader/read-string (.decode dart:convert/utf8 bytes)))
+
+;; ---- Storage type ----
+
+(deftype LibDBMStorage [^libdbm/HashDBM db]
+  storage/IStorage
+
+  (-store [_ addr+data-seq]
+    (doseq [[addr data] addr+data-seq]
+      (.put db (int->bytes addr) (clj->bytes data)))
+    (.flush db))
+
+  (-restore [_ addr]
+    (some-> (.get db (int->bytes addr)) bytes->clj))
+
+  (-list-addresses [_]
+    (let [iter (.entries db)]
+      (loop [acc (transient [])]
+        (if (.moveNext iter)
+          (recur (conj! acc
+                   (int/parse (.decode dart:convert/utf8 (.-key (.-current iter))))))
+          (persistent! acc)))))
+
+  (-delete [_ addrs-seq]
+    (doseq [addr addrs-seq]
+      (.remove db (int->bytes addr)))
+    (.flush db)))
+
+;; ---- Public API ----
+
+(defn open-storage
+  "Open (or create) a libdbm-backed IStorage at `path`.
+   Pass `#(open-storage path)` as the `make-storage` arg to `storage/open-conn!`."
+  [^String path]
+  (let [file (dart:io/File. path)
+        mode (if (.existsSync file)
+               (.-append dart:io/FileMode)
+               (.-write dart:io/FileMode))]
+    (->LibDBMStorage (libdbm/HashDBM. (.openSync file .mode mode)))))
+
+(defn storage
+  "Return the LibDBMStorage from an AsyncConn, for passing to close!."
+  [^storage/AsyncConn conn]
+  (:storage @(.-state-atom conn)))
+
+(defn close!
+  "Close the underlying HashDBM file handle.
+   Call this before app shutdown when using open-conn! directly."
+  [^LibDBMStorage s]
+  (.close (.-db s)))

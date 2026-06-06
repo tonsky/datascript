@@ -250,15 +250,15 @@
     (d/transact! conn [[:db/add 2 :name "Oleg"]])
     (is (= 7 (count @(:*writes storage))))
     (is (= @#'storage/tail-addr (last @(:*writes storage))))
-    (is (= 2 (count (:tx-tail @(:atom conn)))))
-    (is (= 2 (count (apply concat (:tx-tail @(:atom conn))))))
-    
+    (is (= 2 (count (:tx-tail @(:storage-state (meta conn))))))
+    (is (= 2 (count (apply concat (:tx-tail @(:storage-state (meta conn)))))))
+
     ;; bigger tx, still writing tail
     (d/transact! conn (mapv #(vector :db/add % :name (str %)) (range 3 33)))
     (is (= 8 (count @(:*writes storage))))
     (is (= @#'storage/tail-addr (last @(:*writes storage))))
-    (is (= 3 (count (:tx-tail @(:atom conn)))))
-    (is (= 32 (count (apply concat (:tx-tail @(:atom conn))))))
+    (is (= 3 (count (:tx-tail @(:storage-state (meta conn))))))
+    (is (= 32 (count (apply concat (:tx-tail @(:storage-state (meta conn)))))))
     
     ;; tail overflows, flush db
     (d/transact! conn [[:db/add 33 :name "Petr"]])
@@ -295,11 +295,11 @@
         
         ;; gc on conn
         (is (> (count (storage/-list-addresses storage))
-              (count (d/addresses (:db-last-stored @(:atom conn''))))))
-        
+              (count (d/addresses (:db-last-stored @(:storage-state (meta conn'')))))))
+
         (d/collect-garbage storage)
         (is (= (count (storage/-list-addresses storage))
-              (count (d/addresses (:db-last-stored @(:atom conn''))))))
+              (count (d/addresses (:db-last-stored @(:storage-state (meta conn'')))))))
         
         (let [conn''' (d/restore-conn storage)]
           (is (= @conn'' @conn''')))))))

@@ -2,20 +2,44 @@
   (:require
     [datascript.db :as db #?@(:cljs [:refer [DB FilteredDB]])]
     [datascript.storage :as storage]
-    [extend-clj.core :as extend]
-    [me.tonsky.persistent-sorted-set :as set])
+    #?@(:cljd ()
+        :default [[extend-clj.core :as extend]
+                  [me.tonsky.persistent-sorted-set :as set]]))
   #?(:clj
      (:import
        [datascript.db DB FilteredDB])))
 
-(extend/deftype-atom Conn [atom]
-  (deref-impl [this]
-    (:db @atom))
-  (compare-and-set-impl [this oldv newv]
-    (compare-and-set!
-      atom
-      (assoc @atom :db oldv)
-      (assoc @atom :db newv))))
+#?(:cljd
+   (deftype Conn [atom]
+     cljd.core/IDeref
+     (-deref [this]
+       (:db @atom))
+     cljd.core/IReset
+     (-reset! [this newv]
+       (:db (swap! atom assoc :db newv)))
+     cljd.core/ISwap
+     (-swap! [this f]
+       (:db (swap! atom update :db f)))
+     (-swap! [this f a]
+       (:db (swap! atom update :db f a)))
+     (-swap! [this f a b]
+       (:db (swap! atom update :db f a b)))
+     (-swap! [this f a b xs]
+       (:db (apply swap! atom update :db f a b xs)))
+     cljd.core/ILookup
+     (-lookup [this key]
+       (case key :atom atom nil))
+     (-lookup [this key not-found]
+       (case key :atom atom not-found)))
+   :default
+   (extend/deftype-atom Conn [atom]
+     (deref-impl [this]
+       (:db @atom))
+     (compare-and-set-impl [this oldv newv]
+       (compare-and-set!
+         atom
+         (assoc @atom :db oldv)
+         (assoc @atom :db newv)))))
 
 (defn- make-conn [opts]
   (->Conn (atom opts)))
@@ -36,7 +60,8 @@
 
 (defn conn? [conn]
   (and
-    #?(:clj  (instance? clojure.lang.IDeref conn)
+    #?(:cljd (instance? Conn conn)
+       :clj  (instance? clojure.lang.IDeref conn)
        :cljs (satisfies? cljs.core/IDeref conn))
     (if-some [db @conn]
       (db/db? db)
@@ -112,7 +137,7 @@
    (transact! conn tx-data nil))
   ([conn tx-data tx-meta]
    {:pre [(conn? conn)]}
-   (locking conn
+   (#?(:cljd do :default locking) #?(:cljd nil :default conn)
      (let [report (-transact! conn tx-data tx-meta)]
        (doseq [[_ callback] (:listeners @(:atom conn))]
          (callback report))

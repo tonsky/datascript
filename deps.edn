@@ -1,17 +1,20 @@
 {:deps
- {persistent-sorted-set/persistent-sorted-set {:mvn/version "0.3.0"}
+ {persistent-sorted-set/persistent-sorted-set
+  {:git/url "https://github.com/ianffcs/persistent-sorted-set.git"
+   :git/branch "cljd-support"
+   :git/sha "43e57ffac13851de46533957a4a96a234ff8a223"}
   io.github.tonsky/extend-clj {:mvn/version "0.1.0"}}
-  
+
  :aliases
  {:cljs
   {:extra-paths ["test"]
    :extra-deps
    {org.clojure/clojurescript {:mvn/version "1.11.132"}}}
-  
+
   :1.9
   {:override-deps
    {org.clojure/clojure {:mvn/version "1.9.0"}}}
-  
+
   :1.10
   {:override-deps
    {org.clojure/clojure {:mvn/version "1.10.2"}}}

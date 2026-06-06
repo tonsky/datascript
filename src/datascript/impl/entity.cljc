@@ -1,14 +1,15 @@
 (ns ^:no-doc datascript.impl.entity
   (:refer-clojure :exclude [keys get])
-  (:require [#?(:cljs cljs.core :clj clojure.core) :as c]
-    [datascript.db :as db]))
+  (:require [#?(:cljd cljd.core :cljs cljs.core :clj clojure.core) :as c]
+            [datascript.db :as db #?@(:cljd [:refer [Datom]])]
+            #?(:cljd ["dart:collection" :as dart-coll])))
 
 (declare entity ->Entity equiv-entity lookup-entity touch hash-entity)
 
 (defn- entid [db eid]
   (when (or (number? eid)
-          (sequential? eid)
-          (keyword? eid))
+            (sequential? eid)
+            (keyword? eid))
     (db/entid db eid)))
 
 (defn entity [db eid]
@@ -20,17 +21,17 @@
 (defn- entity-attr [db a datoms]
   (if (db/multival? db a)
     (if (db/ref? db a)
-      (reduce #(conj %1 (entity db (:v %2))) #{} datoms)
-      (reduce #(conj %1 (:v %2)) #{} datoms))
+      (reduce #(conj %1 (entity db #?(:cljd (.-v ^Datom %2) :default (:v %2)))) #{} datoms)
+      (reduce #(conj %1 #?(:cljd (.-v ^Datom %2) :default (:v %2))) #{} datoms))
     (if (db/ref? db a)
-      (entity db (:v (first datoms)))
-      (:v (first datoms)))))
+      (entity db #?(:cljd (.-v ^Datom (first datoms)) :default (:v (first datoms))))
+      #?(:cljd (.-v ^Datom (first datoms)) :default (:v (first datoms))))))
 
 (defn- -lookup-backwards [db eid attr not-found]
   (if-let [datoms (not-empty (db/-search db [nil attr eid]))]
     (if (db/component? db attr)
-      (entity db (:e (first datoms)))
-      (reduce #(conj %1 (entity db (:e %2))) #{} datoms))
+      (entity db #?(:cljd (.-e ^Datom (first datoms)) :default (:e (first datoms))))
+      (reduce #(conj %1 (entity db #?(:cljd (.-e ^Datom %2) :default (:e %2)))) #{} datoms))
     not-found))
 
 #?(:cljs
@@ -45,47 +46,103 @@
          [a (multival->js v)]
          [a v]))))
 
-#?(:cljs
-  (unchecked-set (.-prototype ES6Iterator) cljs.core/ITER_SYMBOL
-     (fn []
-       (this-as this# this#))))
+(deftype #?(:cljd #/(Entity K V) :default Entity) [db eid touched cache]
+  #?@(
+      :cljd
+      [^:mixin c/ToStringMixin
+       ^:mixin c/EqualsEquivMixin
 
-#?(:cljs
-  (unchecked-set (.-prototype ES6EntriesIterator) cljs.core/ITER_SYMBOL
-     (fn []
-       (this-as this# this#))))
+       ;; dart map
+       ;; ^:mixin #/(dart-coll/MapMixin K V)
+       ^:mixin ^{:type-params [K V]} dart-coll/MapMixin
+       (entries [coll]
+                ;; ^#/(Map K V)
+                (let [^^{:type-params [K V]} Map m @cache]
+                  (.-entries m)))
+       ("[]" [coll k]
+        (-lookup coll k nil))
+       ("[]=" [coll key val]
+        (throw (UnsupportedError. "[]= not supported on Entity")))
+       (remove [coll val]
+               (throw (UnsupportedError. "remove not supported on Entity")))
+       (clear [coll]
+              (throw (UnsupportedError. "clear not supported on Entity")))
+       (keys [coll]
+             (let [^^{:type-params [K V]} Map m @cache]
+               (.-keys m)))
+       (values [coll]
+               (let [^^{:type-params [K V]} Map m @cache]
+                 (.-values m)))
+       ;; (^#/(Entity RK RV) #/(cast RK RV) [coll]
+       ;;  (new #/(Entity RK RV) db eid touched cache))
+       (^^{:type-params [RK RV]} Entity ^{:type-params [RK RV]} cast [coll]
+        (new #/(Entity RK RV) db eid touched cache))
 
-(deftype Entity [db eid touched cache]
-  #?@(:cljs
+       cljd.core/IEquiv
+       (-equiv [this o] (equiv-entity this o))
+
+       cljd.core/IHash
+       (-hash [this]
+              (hash-entity this))
+
+       cljd.core/ISeqable
+       (-seq [this]
+             (touch this)
+             (seq @cache))
+
+       cljd.core/ICounted
+       (-count [this]
+               (touch this)
+               (count @cache))
+
+       cljd.core/ILookup
+       (-lookup [this attr]           (lookup-entity this attr nil))
+       (-lookup [this attr not-found] (lookup-entity this attr not-found))
+
+       cljd.core/ILookup
+       (-contains-key? [this k]
+                       (not= ::nf (lookup-entity this k ::nf)))
+
+       cljd.core/IFn
+       (-invoke [this k]
+                (lookup-entity this k))
+       (-invoke [this k not-found]
+                (lookup-entity this k not-found))
+
+       cljd.core/IPrint
+       (-print [_ sink]
+               (-print (assoc @cache :db/id eid) sink))]
+
+      :cljs
       [Object
        (toString [this]
-         (pr-str* this))
+                 (pr-str* this))
        (equiv [this other]
-         (equiv-entity this other))
+              (equiv-entity this other))
 
        ;; js/map interface
        (keys [this]
-         (es6-iterator (c/keys this)))
+             (es6-iterator (c/keys this)))
        (entries [this]
-         (es6-entries-iterator (js-seq this)))
+                (es6-entries-iterator (js-seq this)))
        (values [this]
-         (es6-iterator (map second (js-seq this))))
+               (es6-iterator (map second (js-seq this))))
        (has [this attr]
-         (not (nil? (.get this attr))))
+            (not (nil? (.get this attr))))
        (get [this attr]
-         (if (= attr ":db/id")
-           eid
-           (if (db/reverse-ref? attr)
-             (-> (-lookup-backwards db eid (db/reverse-ref attr) nil)
-               multival->js)
-             (cond-> (lookup-entity this attr)
-               (db/multival? db attr) multival->js))))
+            (if (= attr ":db/id")
+              eid
+              (if (db/reverse-ref? attr)
+                (-> (-lookup-backwards db eid (db/reverse-ref attr) nil)
+                    multival->js)
+                (cond-> (lookup-entity this attr)
+                  (db/multival? db attr) multival->js))))
        (forEach [this f]
-         (doseq [[a v] (js-seq this)]
-           (f v a this)))
+                (doseq [[a v] (js-seq this)]
+                  (f v a this)))
        (forEach [this f use-as-this]
-         (doseq [[a v] (js-seq this)]
-           (.call f use-as-this v a this)))
+                (doseq [[a v] (js-seq this)]
+                  (.call f use-as-this v a this)))
 
        ;; js fallbacks
        (key_set   [this] (to-array (c/keys this)))
@@ -97,17 +154,17 @@
 
        IHash
        (-hash [this]
-         (hash-entity this))
+              (hash-entity this))
 
        ISeqable
        (-seq [this]
-         (touch this)
-         (seq @cache))
+             (touch this)
+             (seq @cache))
 
        ICounted
        (-count [this]
-         (touch this)
-         (count @cache))
+               (touch this)
+               (count @cache))
 
        ILookup
        (-lookup [this attr]           (lookup-entity this attr nil))
@@ -115,17 +172,17 @@
 
        IAssociative
        (-contains-key? [this k]
-         (not= ::nf (lookup-entity this k ::nf)))
+                       (not= ::nf (lookup-entity this k ::nf)))
 
        IFn
        (-invoke [this k]
-         (lookup-entity this k))
+                (lookup-entity this k))
        (-invoke [this k not-found]
-         (lookup-entity this k not-found))
+                (lookup-entity this k not-found))
 
        IPrintWithWriter
        (-pr-writer [_ writer opts]
-         (-pr-writer (assoc @cache :db/id eid) writer opts))]
+                   (-pr-writer (assoc @cache :db/id eid) writer opts))]
 
       :clj
       [Object
@@ -152,30 +209,28 @@
 
        clojure.lang.IFn
        (invoke [e k]      (lookup-entity e k))
-       (invoke [e k not-found] (lookup-entity e k not-found))]))
+       (invoke [e k not-found] (lookup-entity e k not-found))
+       ]))
 
 (defn entity? [x] (instance? Entity x))
 
-#?(:cljs
-  (unchecked-set (.-prototype Entity) cljs.core/ITER_SYMBOL
-     (fn []
-       (this-as this# (.entries this#)))))
-
-#?(:clj
+#?(:cljd nil
+   :clj
    (defmethod print-method Entity [e, ^java.io.Writer w]
      (.write w (str e))))
 
 (defn- equiv-entity [^Entity this that]
   (and
-    (instance? Entity that)
-    (identical? (.-db this) (.-db ^Entity that)) ; `=` and `hash` on db is expensive
-    (= (.-eid this) (.-eid ^Entity that))))
+   (instance? Entity that)
+   (identical? (.-db this) (.-db ^Entity that)) ; `=` and `hash` on db is expensive
+   (= (.-eid this) (.-eid ^Entity that))))
 
 (defn- hash-entity [^Entity e]
   (db/combine-hashes
     (hash (.-eid e))
     ;; A hash compatible with `identical?`. Consistent with `=`.
-    (#?(:clj System/identityHashCode :cljs goog/getUid) (.-db e))))
+    (#?(:cljd dart:core/identityHashCode
+        :clj System/identityHashCode :cljs goog/getUid) (.-db e))))
 
 (defn- lookup-entity
   ([this attr] (lookup-entity this attr nil))
@@ -207,18 +262,18 @@
 
 (defn- datoms->cache [db datoms]
   (reduce (fn [acc part]
-            (let [a (:a (first part))]
-              (assoc acc a (entity-attr db a part))))
-    {} (partition-by :a datoms)))
+    (let [a #?(:cljd (.-a ^Datom (first part)) :default (:a (first part)))]
+      (assoc acc a (entity-attr db a part))))
+    {} (partition-by #?(:cljd #(.-a ^Datom %) :default :a) datoms)))
 
-(defn touch [^Entity e]
+(defn touch [^#?(:cljd Entity? :default Entity) e]
   {:pre [(or (nil? e) (entity? e))]}
   (when (some? e)
     (when-not @(.-touched e)
       (when-let [datoms (not-empty (db/-search (.-db e) [(.-eid e)]))]
         (vreset! (.-cache e) (->> datoms
-                               (datoms->cache (.-db e))
-                               (touch-components (.-db e))))
+                                  (datoms->cache (.-db e))
+                                  (touch-components (.-db e))))
         (vreset! (.-touched e) true)))
     e))
 

@@ -1,4 +1,5 @@
 (ns ^:no-doc datascript.query-v3
+  (:refer-clojure :exclude [make-array])
   (:require
     [clojure.set :as set]
     [datascript.built-ins :as built-ins]
@@ -6,13 +7,17 @@
     [datascript.db :as db]
     [datascript.query :as dq]
     [datascript.lru :as lru]
-    [me.tonsky.persistent-sorted-set.arrays :as da]
+    #?(:cljd nil :default [me.tonsky.persistent-sorted-set.arrays :as da])
     [datascript.parser :as dp #?@(:cljs [:refer [BindColl BindIgnore BindScalar BindTuple
+                                                 Constant DefaultSrc Pattern RulesVar SrcVar Variable
+                                                 Not Or And Predicate PlainSymbol]]
+                                  :cljd [:refer [BindColl BindIgnore BindScalar BindTuple
                                                  Constant DefaultSrc Pattern RulesVar SrcVar Variable
                                                  Not Or And Predicate PlainSymbol]])]
     [datascript.util :as util])
-  #?(:clj
-     (:import 
+  #?(:cljd nil
+     :clj
+     (:import
        [datascript.parser
         BindColl BindIgnore BindScalar BindTuple
         Constant DefaultSrc Pattern RulesVar SrcVar Variable
@@ -22,7 +27,7 @@
 
 (declare resolve-clauses collect-rel-xf collect-to)
 
-(def ^:const lru-cache-size 100)
+(def #?(:cljd lru-cache-size :default ^:const lru-cache-size) 100)
 
 (defn mapa [f coll]
   (to-array (map f coll)))
@@ -30,8 +35,15 @@
 (defn arange [start end]
   (to-array (range start end)))
 
+(def #?(:cljd ^List make-array :default make-array)
+  #?(:cljd (fn [n] (.filled #/(List dynamic) n nil))
+     :default da/make-array))
 (defn subarr [arr start end]
-  (da/acopy arr start end (da/make-array (- end start)) 0))
+  #?(:cljd (let [len  (- end start)
+                 dest (.filled #/(List dynamic) len nil)]
+             (dotimes [i len] (aset dest i (get arr (+ start i))))
+             dest)
+     :default (da/acopy arr start end (make-array (- end start)) 0)))
 
 (defn concatv [& xs]
   (into [] cat xs))
@@ -219,11 +231,12 @@
 
 ;;; ArrayRelation
 
-(defn pr-rel [rel ^java.io.Writer w]
+(defn pr-rel [rel #?(:cljd ^StringBuffer w :default w)]
   (doto w
     (.write "#")
     (.write #?(:clj  (.getSimpleName ^Class (class rel))
-               :cljs (str (type rel))))
+               :cljs (str (type rel))
+               :cljd ""))
     (.write "{:symbols ")
     (.write (pr-str (-symbols rel)))
     (.write ", :coll ")
@@ -243,12 +256,12 @@
   (-getter [_ symbol]
     (let [idx (offset-map symbol)]
       (fn [tuple]
-        (da/aget tuple idx))))
+        (#?(:cljd get :default da/aget) tuple idx))))
   (-indexes [_ syms]
     (mapa offset-map syms))
-  (-copy-tuple [_ tuple idxs target target-idxs]
-    (dotimes [i (da/alength idxs)]
-      (da/aset target (da/aget target-idxs i) (da/aget tuple (da/aget idxs i)))))
+  (-copy-tuple [_ tuple idxs #?(:cljd ^List target :default target) target-idxs]
+    (dotimes [i (#?(:cljd count :default da/alength) idxs)]
+      (#?(:cljd aset :default da/aset) target (#?(:cljd get :default da/aget) target-idxs i) (#?(:cljd get :default da/aget) tuple (#?(:cljd get :default da/aget) idxs i)))))
   (-union [_ rel]
     (assert (instance? ArrayRelation rel))
     (assert (= offset-map (:offset-map rel)))
@@ -280,9 +293,9 @@
         (nth tuple idx))))
   (-indexes [_ syms]
     (mapa offset-map syms))
-  (-copy-tuple [_ tuple idxs target target-idxs]
-    (dotimes [i (da/alength idxs)]
-      (da/aset target (da/aget target-idxs i) (nth tuple (da/aget idxs i)))))
+  (-copy-tuple [_ tuple idxs #?(:cljd ^List target :default target) target-idxs]
+    (dotimes [i (#?(:cljd count :default da/alength) idxs)]
+      (#?(:cljd aset :default da/aset) target (#?(:cljd get :default da/aget) target-idxs i) (nth tuple (#?(:cljd get :default da/aget) idxs i)))))
   (-union [_ rel]
     (assert (instance? CollRelation rel))
     (assert (= offset-map (:offset-map rel)))
@@ -369,7 +382,7 @@
                     rel2 t2 idxs2
                     arity
                     target-idxs1 target-idxs2]
-  (let [arr (da/make-array arity)]
+  (let [arr (make-array arity)]
     (-copy-tuple rel1 t1 idxs1 arr target-idxs1)
     (-copy-tuple rel2 t2 idxs2 arr target-idxs2)
     arr))
@@ -410,7 +423,7 @@
       (let [idxs        (-indexes rel syms)
             target-idxs (arange 0 arity)]
         (fn [t]
-          (let [arr (da/make-array arity)]
+          (let [arr (make-array arity)]
             (-copy-tuple rel t idxs arr target-idxs)
             (vec arr)))))))
 
@@ -468,7 +481,9 @@
     BindScalar
     (let [symbol (get-in binding [:variable :symbol])
           idx    (get indexes symbol)]
-      (run! #(da/aset % idx source) tuples)
+      (run! (fn [#?(:cljd ^List tuple :default tuple)]
+              (#?(:cljd aset :default da/aset) tuple idx source))
+            tuples)
       tuples)
 
     BindColl
@@ -482,7 +497,7 @@
           (into [] ;; TODO fast-arr
             (comp (map #(bind! tuples inner-binding % indexes))
               cat
-              (map da/aclone))
+              (map #?(:cljd vec :default da/aclone)))
             source))))
 
     BindTuple
@@ -505,7 +520,7 @@
 (defn bind [binding source]
   (let [syms    (map :symbol (dp/collect-vars-distinct binding))
         indexes (zipmap syms (range))
-        tuples  (bind! [(da/make-array (count syms))] binding source indexes)]
+        tuples  (bind! [(make-array (count syms))] binding source indexes)]
     (array-rel syms tuples)))
 
 (defn- rel->consts [rel]
@@ -599,7 +614,7 @@
           (if (instance? Variable form)
             (let [sym (:symbol form)]
               (if-let [subs (get (:consts context) (:symbol form))]
-                (Constant. subs)
+                #?(:cljd (dp/->Constant subs) :default (Constant. subs))
                 form))
             form)))
       clause)))
@@ -620,7 +635,7 @@
         [related (assoc context :rels unrelated)]))))
 
 (defn join-unrelated [context rel]
-  (case (long (-size rel))
+  (case #?(:cljd (-size rel) :default (long (-size rel)))
     0 empty-context
     1 (update context :consts merge (rel->consts rel))
     (update context :rels conj rel)))
@@ -748,7 +763,7 @@
                 rel    (array-rel non-consts (into (first arrays) cat (next arrays)))]
             (hash-join-rel context rel)))))))
 
-(defn collect-args! [context args target form]
+(defn collect-args! [context args #?(:cljd ^List target :default target) form]
   (let [consts  (:consts context)
         sources (:sources context)]
     (doseq [[arg i] (zip args (range))
@@ -756,14 +771,14 @@
       (cond
         (instance? Variable arg)
         (when (contains? consts sym)
-          (da/aset target i (get consts sym)))
+          (#?(:cljd aset :default da/aset) target i (get consts sym)))
         (instance? SrcVar arg)
         (if (contains? sources sym)
-          (da/aset target i (get sources sym))
+          (#?(:cljd aset :default da/aset) target i (get sources sym))
           (throw (ex-info (str "Unbound source variable: " sym " in " form)
                    { :error :query/where, :form form, :var sym})))
         (instance? Constant arg)
-        (da/aset target i (:value arg))))))
+        (#?(:cljd aset :default da/aset) target i (:value arg))))))
 
 (defn get-f [context fun form]
   (let [sym (:symbol fun)]
@@ -779,7 +794,7 @@
   (let [{fun :fn, args :args} clause
         form      (dp/source clause)
         f         (get-f context fun form)
-        args-arr  (da/make-array (count args))
+        args-arr  (make-array (count args))
         _         (collect-args! context args args-arr form)
         consts    (:consts context)
         sym+idx   (for [[arg i] (zip args (range))
@@ -815,7 +830,7 @@
 
                 array        (into (fast-arr)
                                (apply comp (concat xfs [(filter pred)]))
-                               [(da/make-array (count prod-syms))])
+                               [(make-array (count prod-syms))])
                 prod-rel*    (array-rel prod-syms array)]
             (join-unrelated context* prod-rel*)))))))
 
@@ -857,11 +872,11 @@
                   context*))))
     context clauses))
 
-(defn collect-consts [syms-indexed specimen consts]
+(defn collect-consts [syms-indexed #?(:cljd ^List specimen :default specimen) consts]
   (doseq [[sym i] syms-indexed]
     (when (contains? consts sym)
       (let [val (get consts sym)]
-        (da/aset specimen i val)))))
+        (#?(:cljd aset :default da/aset) specimen i val)))))
 
         
 (defn collect-rel-xf [syms-indexed rel]
@@ -877,16 +892,16 @@
         ([result specimen]
          (-fold rel
            (fn [acc tuple]
-             (let [t (da/aclone specimen)]
+             (let [t (#?(:cljd vec :default da/aclone) specimen)]
                (-copy-tuple rel tuple idxs t target-idxs)
                (rf acc t)))
            result))))))
 
 (defn collect-to
   ([context syms acc]
-   (collect-to context syms acc [] (da/make-array (count syms))))
+   (collect-to context syms acc [] (make-array (count syms))))
   ([context syms acc xfs]
-   (collect-to context syms acc xfs (da/make-array (count syms))))
+   (collect-to context syms acc xfs (make-array (count syms))))
   ([context syms acc xfs specimen]
    ;; TODO don't collect if array-rel and matches symbols
    (if (:empty? context)

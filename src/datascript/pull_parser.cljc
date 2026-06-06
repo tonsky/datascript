@@ -4,7 +4,7 @@
     [datascript.db :as db]
     [datascript.util :as util]))
 
-(defrecord PullAttr [as default limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
+(defrecord PullAttr [as default-val limit name pattern recursion-limit recursive? reverse? xform multival? ref? component?])
 
 (defrecord PullPattern [attrs first-attr last-attr reverse-attrs wildcard?])
 
@@ -67,7 +67,8 @@
     (when (fn? sym-or-fn)
       sym-or-fn)
     (get built-ins/query-fns sym-or-fn)
-    #?(:clj (when (namespace sym-or-fn)
+    #?(:cljd nil
+       :clj (when (namespace sym-or-fn)
               (when-some [v (requiring-resolve sym-or-fn)]
                 @v)))
     (util/raise "Can't resolve symbol " sym-or-fn {:error :parser/pull, :fragment sym-or-fn})))
@@ -82,7 +83,7 @@
           :limit   (do
                      (check-limit db pull-attr value)
                      (assoc pull-attr :limit value))
-          :default (assoc pull-attr :default value)
+          :default (assoc pull-attr :default-val value)
           :xform   (assoc pull-attr :xform (resolve-xform value))
           #_else   (check false "one of :as, :limit, :default, :xform" attr-spec)))
       pull-attr
@@ -103,7 +104,7 @@
       (check (= (count attr-spec) 3) expected attr-spec)
       (let [[_ attr default] attr-spec
             pull-attr (parse-attr-spec db attr)]
-        (assoc pull-attr :default default)))))
+        (assoc pull-attr :default-val default)))))
 
 (defn parse-attr-spec [db attr-spec]
   (cond
@@ -188,11 +189,11 @@
                       result
                       attr-spec)]
         (recur (next pattern) result'))
-        
+
       :let [pull-attr (parse-attr-spec db attr-spec)]
 
       (nil? pull-attr)
       (check false "attr-name | attr-expr | map-spec | *" attr-spec)
-      
+
       :else
       (recur (next pattern) (conj-attr result pull-attr)))))

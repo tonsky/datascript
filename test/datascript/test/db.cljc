@@ -1,9 +1,13 @@
 (ns datascript.test.db
   (:require
     [clojure.data]
-    [clojure.test :as t :refer [is are deftest testing]]
+    #?(:cljd [clojure.test :as t :refer        [is are deftest testing]]
+       :cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+       :clj  [clojure.test :as t :refer        [is are deftest testing]])
     [datascript.core :as d]
-    [datascript.db :as db :refer [defrecord-updatable]]))
+    [datascript.db :as db #?@(:cljd [:refer [defrecord-updatable]]
+                              :cljs [:refer-macros [defrecord-updatable]]
+                              :clj  [:refer [defrecord-updatable]])]))
 
 ;;
 ;; verify that defrecord-updatable works with compiler/core macro configuration
@@ -12,10 +16,12 @@
 ;;
 (defrecord-updatable HashBeef [x]
   #?@(:cljs [IHash                (-hash  [hb] 0xBEEF)]
+      :cljd [cljd.core/IHash      (-hash  [hb] 0xBEEF)]
       :clj  [clojure.lang.IHashEq (hasheq [hb] 0xBEEF)]))
 
 (deftest test-defrecord-updatable
   (is (= 0xBEEF (-> (map->HashBeef {:x :ignored}) hash))))
+
 
 
 ;; whitebox test to confirm that hash cache caches
@@ -26,7 +32,8 @@
       (is (= h @(.-hash db))))))
 
 (defn- now []
-  #?(:clj  (System/currentTimeMillis)
+  #?(:cljd (.-millisecondsSinceEpoch (DateTime/now))
+     :clj  (System/currentTimeMillis)
      :cljs (.getTime (js/Date.))))
 
 (deftest test-uuid
@@ -39,12 +46,12 @@
     (is (= (* 1000 now) (d/squuid-time-millis (d/squuid))))
     (is (not= (d/squuid) (d/squuid)))
     (is (= (subs (str (d/squuid)) 0 8)
-          (subs (str (d/squuid)) 0 8)))))
+           (subs (str (d/squuid)) 0 8)))))
 
 (deftest test-diff
   (is (= [[(d/datom 1 :b 2) (d/datom 1 :c 4) (d/datom 2 :a 1)]
           [(d/datom 1 :b 3) (d/datom 1 :d 5)]
           [(d/datom 1 :a 1)]]
-        (clojure.data/diff
-          (-> (d/empty-db) (d/db-with [{:a 1 :b 2 :c 4} {:a 1}]))
-          (-> (d/empty-db) (d/db-with [{:b 3 :d 5}]) (d/db-with [{:db/id 1 :a 1}]))))))
+         (clojure.data/diff
+           (-> (d/empty-db) (d/db-with [{:a 1 :b 2 :c 4} {:a 1}]))
+           (-> (d/empty-db) (d/db-with [{:b 3 :d 5}]) (d/db-with [{:db/id 1 :a 1}]))))))

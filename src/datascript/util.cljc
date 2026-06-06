@@ -1,6 +1,7 @@
 (ns datascript.util
   (:refer-clojure :exclude [find])
-  #?(:clj
+  #?(:cljd nil
+     :clj
      (:import
        [java.util UUID])))
 
@@ -19,10 +20,10 @@
            data (last fragments)]
        `(throw (ex-info (str ~@(map (fn [m#] (if (string? m#) m# (list 'pr-str m#))) msgs)) ~data)))))
 
-#?(:clj
+#?(:cljd nil :clj
    (def ^:private ^:dynamic *if+-syms))
   
-#?(:clj
+#?(:cljd nil :clj
    (defn- if+-rewrite-cond-impl [cond]
      (clojure.core/cond
        (empty? cond)
@@ -49,12 +50,12 @@
          (first cond)
          (if+-rewrite-cond-impl (next cond))))))
 
-#?(:clj
+#?(:cljd nil :clj
    (defn- if+-rewrite-cond [cond]
      (binding [*if+-syms (volatile! [])]
        [(if+-rewrite-cond-impl cond) @*if+-syms])))
 
-#?(:clj
+#?(:cljd nil :clj
    (defn- flatten-1 [xs]
      (vec
        (mapcat identity xs))))
@@ -80,22 +81,41 @@
           ;; else: no x or y
           6)"
      [cond then else]
-     (if (and
-           (seq? cond)
-           (or
-             (= 'and (first cond))
-             (= 'clojure.core/and (first cond))))
-       (let [[cond' syms] (if+-rewrite-cond (next cond))]
-         `(let ~(flatten-1
-                  (for [[_ sym] syms]
-                    [sym '(volatile! nil)]))
-            (if ~cond'
-              (let ~(flatten-1
-                      (for [[binding sym] syms]
-                        [binding (list 'deref sym)]))
-                ~then)
-              ~else)))
-       (list 'if cond then else))))
+     #?(:cljd
+        (if (and
+              (seq? cond)
+              (or
+                (= 'and (first cond))
+                (= 'clojure.core/and (first cond))))
+          ((fn rewrite [clauses]
+             (clojure.core/cond
+               (empty? clauses)
+               then
+
+               (= :let (first clauses))
+               (list 'let (second clauses) (rewrite (nnext clauses)))
+
+               :else
+               (list 'if (first clauses) (rewrite (next clauses)) else)))
+           (next cond))
+          (list 'if cond then else))
+        :default
+        (if (and
+              (seq? cond)
+              (or
+                (= 'and (first cond))
+                (= 'clojure.core/and (first cond))))
+          (let [[cond' syms] (if+-rewrite-cond (next cond))]
+            `(let ~(flatten-1
+                     (for [[_ sym] syms]
+                       [sym '(volatile! nil)]))
+               (if ~cond'
+                 (let ~(flatten-1
+                         (for [[binding sym] syms]
+                           [binding (list 'deref sym)]))
+                   ~then)
+                 ~else)))
+          (list 'if cond then else)))))
 
 #?(:clj
    (defmacro cond+ [& clauses]
@@ -116,7 +136,12 @@
 (defn- rand-bits [pow]
   (rand-int (bit-shift-left 1 pow)))
 
-#?(:cljs
+#?(:cljd
+   (defn- to-hex-string [^int n l]
+     (-> n (.toRadixString 16)
+       (.padLeft l "0")
+       (subs 0 l)))
+   :cljs
    (defn- to-hex-string [n l]
      (let [s (.toString n 16)
            c (count s)]
@@ -127,10 +152,22 @@
 
 (defn squuid
   ([]
-   (squuid #?(:clj  (System/currentTimeMillis)
+   (squuid #?(:cljd (.-millisecondsSinceEpoch (DateTime/now))
+              :clj  (System/currentTimeMillis)
               :cljs (.getTime (js/Date.)))))
   ([msec]
-   #?(:clj
+   #?(:cljd
+      (uuid
+        (str
+          (-> (int (/ msec 1000))
+            (to-hex-string 8))
+          "-" (-> (rand-bits 16) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (bit-and 0x0FFF) (bit-or 0x4000) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (bit-and 0x3FFF) (bit-or 0x8000) (to-hex-string 4))
+          "-" (-> (rand-bits 16) (to-hex-string 4))
+          (-> (rand-bits 16) (to-hex-string 4))
+          (-> (rand-bits 16) (to-hex-string 4))))
+      :clj
       (let [uuid     (UUID/randomUUID)
             time     (int (/ msec 1000))
             high     (.getMostSignificantBits uuid)
@@ -153,7 +190,10 @@
 (defn squuid-time-millis
   "Returns time that was used in [[squuid]] call, in milliseconds, rounded to the closest second."
   [uuid]
-  #?(:clj (-> (.getMostSignificantBits ^UUID uuid)
+  #?(:cljd (-> (subs (str uuid) 0 8)
+             (int/parse .radix 16)
+             (* 1000))
+     :clj (-> (.getMostSignificantBits ^UUID uuid)
             (bit-shift-right 32)
             (* 1000))
      :cljs (-> (subs (str uuid) 0 8)

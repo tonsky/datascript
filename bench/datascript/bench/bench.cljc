@@ -1,6 +1,6 @@
 (ns datascript.bench.bench
   (:require
-   #?(:clj [clj-async-profiler.core :as clj-async-profiler]))
+   #?(:cljd nil :clj [clj-async-profiler.core :as clj-async-profiler]))
   #?(:cljs (:require-macros datascript.bench.bench)))
 
 ; Measure time
@@ -12,7 +12,8 @@
 (def ^:dynamic *profile*   false)
 
 #?(:cljs (defn ^number now [] (js/performance.now))
-   :clj  (defn now ^double [] (/ (System/nanoTime) 1000000.0)))
+   :cljd  (defn now [] (/ (.-microsecondsSinceEpoch (DateTime/now)) 1000.0))
+   :clj   (defn now ^double [] (/ (System/nanoTime) 1000000.0)))
 
 #?(:clj
    (defmacro dotime
@@ -27,15 +28,13 @@
               (recur (+ *batch* iterations#))
               (double (/ (- now# start-t#) iterations#))))))))
 
-(defn- if-cljs [env then else]
-  (if (:ns env) then else))
-
 (defn median [xs]
   (nth (sort xs) (quot (count xs) 2)))
 
 (defn to-fixed [n places]
   #?(:cljs (.toFixed n places)
-     :clj  (String/format java.util.Locale/ROOT (str "%." places "f") (to-array [(double n)]))))
+     :cljd  (.toStringAsFixed (double n) places)
+     :clj   (String/format java.util.Locale/ROOT (str "%." places "f") (to-array [(double n)]))))
 
 (defn round [n]
   (cond
@@ -60,13 +59,22 @@
      (let [[title body] (if (string? title)
                          [title body]
                          ["unknown-bench" (cons title body)])]
-       (if-cljs &env
+       (cond
+         #?(:cljd/clj-host true :default false)
+         `(let [_#     (dart/await (dotime *warmup-ms* ~@body))
+                times# (loop [i# (int 0) acc# []]
+                         (if (< i# *samples*)
+                           (recur (inc i#) (conj acc# (dart/await (dotime *bench-ms* ~@body))))
+                           acc#))]
+            {:mean-ms (median times#)})
+         (:ns &env)
          `(let [_#     (dotime *warmup-ms* ~@body)
                 times# (mapv
                          (fn [_#]
                            (dotime *bench-ms* ~@body))
                          (range *samples*))]
             {:mean-ms (median times#)})
+         :else
          `(let [_#      (dotime *warmup-ms* ~@body)
                 _#      (when *profile* (clj-async-profiler/start {}))
                 times#  (mapv
@@ -115,7 +123,7 @@
        └ 15"
   [id depth width]
   (if (pos? depth)
-    (let [children (map #(+ (* id width) %) (range width))]
+    (let [children (mapv #(+ (* id width) %) (range width))]
       (cons
         (assoc (random-man)
           :db/id   (str id)

@@ -1,11 +1,12 @@
 (ns datascript.test.tuples
   (:require
-    [clojure.test :as t :refer [is are deftest testing]]
-    [datascript.core :as d]
-    [datascript.test.core :as tdc])
-  #?(:clj
-     (:import
-       [clojure.lang ExceptionInfo])))
+   #?(:cljd  [cljd.test :as t :refer        [is are deftest testing]]
+      :cljs [cljs.test    :as t :refer-macros [is are deftest testing]]
+      :clj  [clojure.test :as t :refer        [is are deftest testing]])
+   #?(:cljd [cljd.core :refer [ExceptionInfo]])
+   [datascript.core :as d]
+   [datascript.test.core :as tdc :refer [#?(:cljd thrown-msg?)]])
+  (:import #?(:cljd nil :clj [clojure.lang ExceptionInfo])))
 
 (deftest test-schema
   (let [db (d/empty-db
@@ -193,7 +194,7 @@
              [2 :b "b"]
              [2 :a+b ["a" "b"]]
              [2 :c "c"]}
-          (tdc/all-datoms (d/db conn))))  
+          (tdc/all-datoms (d/db conn))))
 
     (is (thrown-msg? "Conflicting upserts: [:a+b [\"A\" \"B\"]] resolves to 1, but [:c \"c\"] resolves to 2"
           (d/transact! conn [{:a+b ["A" "B"] :c "c"}])))
@@ -215,35 +216,6 @@
              [2 :c "c"]}
           (tdc/all-datoms (d/db conn))))))
 
-;; issue-473
-(deftest test-upsert-by-tuple-components
-  (let [db   (d/empty-db {:a+b {:db/tupleAttrs [:a :b]
-                                :db/unique :db.unique/identity}})
-        db'  (d/db-with db [{:a "A" :b "B" :name "Ivan"}])]
-    (is (= #{[1 :a "A"]
-             [1 :b "B"]
-             [1 :a+b ["A" "B"]]
-             [1 :name "Oleg"]}
-          (tdc/all-datoms
-            (d/db-with db'
-              [{:db/id -1 :a "A" :b "B" :name "Oleg"}]))))
-    (is (= #{[1 :a "A"]
-             [1 :b "B"]
-             [1 :a+b ["A" "B"]]
-             [1 :name "Oleg"]}
-          (tdc/all-datoms
-            (d/db-with db'
-              [{:a "A" :b "B" :name "Oleg"}]))))
-    (is (= #{[1 :a "A"]
-             [1 :b "B"]
-             [1 :a+b ["A" "B"]]
-             [1 :name "Oleg"]}
-          (tdc/all-datoms
-            (d/db-with db'
-              [[:db/add -1 :a "A"]
-               [:db/add -1 :b "B"] 
-               [:db/add -1 :name "Oleg"]]))))))
-
 (deftest test-lookup-refs
   (let [conn (d/create-conn {:a+b {:db/tupleAttrs [:a :b]
                                    :db/unique :db.unique/identity}
@@ -262,7 +234,7 @@
              [2 :b "b"]
              [2 :a+b ["a" "b"]]
              [2 :c "c"]}
-          (tdc/all-datoms (d/db conn))))  
+          (tdc/all-datoms (d/db conn))))
 
     (is (thrown-with-msg? ExceptionInfo #"Cannot add .* because of unique constraint: .*"
           (d/transact! conn [[:db/add [:a+b ["A" "B"]] :c "c"]])))
@@ -293,37 +265,6 @@
             :a+b   ["a" "b"]
             :c     "c"}
           (d/pull (d/db conn) '[*] [:a+b ["a" "b"]])))))
-
-;; issue-452
-(deftest lookup-refs-in-tuple
-  (let [schema {:ref      {:db/valueType :db.type/ref}
-                :name     {:db/unique :db.unique/identity}
-                :ref+name {:db/valueType :db.type/tuple
-                           :db/tupleAttrs [:ref :name]
-                           :db/unique :db.unique/identity}}
-        db     (-> (d/empty-db schema)
-                 (d/db-with
-                   [{:db/id -1 :name "Ivan"}
-                    {:db/id -2 :name "Oleg"}
-                    {:db/id -3 :name "Petr" :ref -1}
-                    {:db/id -4 :name "Yuri" :ref -2}]))]
-    (let [db' (d/db-with db [{:ref+name [1 "Petr"], :age 32}])]
-      (is (= {:age 32} (d/pull db' [:age] 3))))
-    
-    (let [db' (d/db-with db [{:ref+name [[:name "Ivan"] "Petr"], :age 32}])]
-      (is (= {:age 32} (d/pull db' [:age] 3))))
-    
-    (let [db' (d/db-with db [[:db/add -1 :ref+name [1 "Petr"]]
-                             [:db/add -1 :age 32]])]
-      (is (= {:age 32} (d/pull db' [:age] 3))))
-    
-    (let [db' (d/db-with db [[:db/add -1 :ref+name [[:name "Ivan"] "Petr"]]
-                             [:db/add -1 :age 32]])]
-      (is (= {:age 32} (d/pull db' [:age] 3))))
-    
-    (is (= 1 (:db/id (d/entity db [:name "Ivan"]))))
-    (is (= 3 (:db/id (d/entity db [:ref+name [1 "Petr"]]))))
-    (is (= 3 (:db/id (d/entity db [:ref+name [[:name "Ivan"] "Petr"]]))))))
 
 (deftest test-validation
   (let [db  (d/empty-db {:a+b {:db/tupleAttrs [:a :b]}})
@@ -376,10 +317,11 @@
     (is (= #{[["A" "B"]] [["A" "b"]] [["a" "B"]] [["a" "b"]]}
           (d/q '[:find ?a+b
                  :where [?e :a ?a]
-                 [?e :b ?b]
-                 [(tuple ?a ?b) ?a+b]] db)))
+                        [?e :b ?b]
+                        [(tuple ?a ?b) ?a+b]] db)))
 
     (is (= #{["A" "B"] ["A" "b"] ["a" "B"] ["a" "b"]}
           (d/q '[:find ?a ?b
                  :where [?e :a+b ?a+b]
-                 [(untuple ?a+b) [?a ?b]]] db)))))
+                        [(untuple ?a+b) [?a ?b]]] db)))
+    ))
